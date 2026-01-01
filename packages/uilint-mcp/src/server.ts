@@ -7,9 +7,8 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { findStyleGuidePath, readStyleGuide } from "uilint-core/node";
-import { validateCode } from "./tools/validate-code.js";
 import { queryStyleGuide } from "./tools/query-styleguide.js";
-import { lintSnippet } from "./tools/lint-snippet.js";
+import { scanSnippet } from "./tools/scan-snippet.js";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -42,26 +41,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
-        name: "validate_code",
-        description:
-          "Validate JSX/TSX UI code against the project style guide before applying changes. Returns issues if the code violates style guide rules.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            code: {
-              type: "string",
-              description: "The JSX/TSX code to validate",
-            },
-            projectPath: {
-              type: "string",
-              description:
-                "Path to the project root (to find .uilint/styleguide.md)",
-            },
-          },
-          required: ["code"],
-        },
-      },
-      {
         name: "query_styleguide",
         description:
           "Query the UI style guide for specific rules. Use this to check allowed colors, fonts, spacing values, or component patterns before generating UI code.",
@@ -83,23 +62,27 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
-        name: "lint_snippet",
+        name: "scan_snippet",
         description:
-          "Lint a UI code snippet and return any style consistency issues. Use this during code generation to check for problems.",
+          "Scan a markup snippet (best-effort HTML/JSX-ish) and return UI consistency issues using the scan/analyze pipeline.",
         inputSchema: {
           type: "object",
           properties: {
-            code: {
+            markup: {
               type: "string",
-              description: "The code snippet to lint",
+              description: "The markup snippet to scan",
             },
             projectPath: {
               type: "string",
               description:
                 "Path to the project root (to find .uilint/styleguide.md)",
             },
+            model: {
+              type: "string",
+              description: "Ollama model to use (optional)",
+            },
           },
-          required: ["code"],
+          required: ["markup"],
         },
       },
     ],
@@ -119,22 +102,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       : null;
 
     switch (name) {
-      case "validate_code": {
-        const code = args?.code as string;
-        if (!code) {
-          return {
-            content: [
-              { type: "text", text: "Error: code parameter is required" },
-            ],
-            isError: true,
-          };
-        }
-        const result = await validateCode(code, styleGuide);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
       case "query_styleguide": {
         const query = args?.query as string;
         if (!query) {
@@ -151,17 +118,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case "lint_snippet": {
-        const code = args?.code as string;
-        if (!code) {
+      case "scan_snippet": {
+        const markup = args?.markup as string;
+        if (!markup) {
           return {
             content: [
-              { type: "text", text: "Error: code parameter is required" },
+              { type: "text", text: "Error: markup parameter is required" },
             ],
             isError: true,
           };
         }
-        const result = await lintSnippet(code, styleGuide);
+        const model = args?.model as string | undefined;
+        const result = await scanSnippet(markup, styleGuide, {
+          projectPath,
+          model,
+        });
         return {
           content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
         };

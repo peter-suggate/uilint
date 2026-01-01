@@ -87,34 +87,6 @@ export interface AnalysisResult {
   analysisTime: number;
 }
 
-// Validation result (for code snippets)
-export interface ValidationResult {
-  valid: boolean;
-  issues: ValidationIssue[];
-}
-
-export interface ValidationIssue {
-  type: "error" | "warning";
-  message: string;
-  line?: number;
-  suggestion?: string;
-}
-
-// Lint result
-export interface LintResult {
-  issues: LintIssue[];
-  summary: string;
-}
-
-export interface LintIssue {
-  severity: "error" | "warning" | "info";
-  type: "color" | "spacing" | "typography" | "component" | "accessibility";
-  message: string;
-  line?: number;
-  code?: string;
-  suggestion?: string;
-}
-
 // Ollama client options
 export interface OllamaClientOptions {
   baseUrl?: string;

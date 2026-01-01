@@ -221,13 +221,12 @@ The CLI provides powerful commands for analyzing HTML, managing style guides, an
 
 ### Commands Overview
 
-| Command           | Description                                 |
-| ----------------- | ------------------------------------------- |
-| `uilint init`     | Create a style guide from detected styles   |
-| `uilint scan`     | Scan HTML for UI consistency issues         |
-| `uilint validate` | Validate code against the style guide       |
-| `uilint query`    | Query the style guide for specific rules    |
-| `uilint update`   | Update existing style guide with new styles |
+| Command         | Description                                 |
+| --------------- | ------------------------------------------- |
+| `uilint init`   | Create a style guide from detected styles   |
+| `uilint scan`   | Scan HTML for UI consistency issues         |
+| `uilint query`  | Query the style guide for specific rules    |
+| `uilint update` | Update existing style guide with new styles |
 
 ---
 
@@ -314,57 +313,6 @@ uilint scan --input-json '{"html":"<button class=\"bg-blue-500\">","styles":{"co
 
 Analysis completed in 1234ms
 ```
-
----
-
-### `uilint validate` - Validate Code
-
-Check if code follows the style guide:
-
-```bash
-# Validate inline code
-uilint validate --code '<Button className="bg-red-500 p-3">Click</Button>'
-
-# Validate a file
-uilint validate --file src/components/Button.tsx
-
-# With LLM for deeper analysis
-uilint validate --file src/components/Button.tsx --llm
-
-# JSON output
-uilint validate --code '<div style="color: #FF0000">' --output json
-
-# From stdin
-cat src/components/Button.tsx | uilint validate
-
-# With specific style guide
-uilint validate --file src/Button.tsx --styleguide ./my-styleguide.md
-```
-
-**Options:**
-
-| Option                    | Description                                |
-| ------------------------- | ------------------------------------------ |
-| `-c, --code <code>`       | Code snippet to validate                   |
-| `-f, --file <path>`       | Path to file to validate                   |
-| `-s, --styleguide <path>` | Path to style guide file                   |
-| `-o, --output <format>`   | Output format: `text` or `json`            |
-| `-m, --model <name>`      | Ollama model (default: `qwen2.5-coder:7b`) |
-| `--llm`                   | Use LLM for more thorough validation       |
-
-**Example output:**
-
-```
-⚠️  Warning: Color #FF0000 is not in the style guide
-   Suggestion: Use the error color #EF4444 instead
-
-⚠️  Warning: Spacing value 18px doesn't follow the 4px grid
-   Suggestion: Use 16px instead
-
-✗ Code has 2 issues
-```
-
----
 
 ### `uilint query` - Query Style Guide
 
@@ -491,11 +439,10 @@ Add to your Cursor settings:
 
 ### Available Tools
 
-| Tool               | Description                               |
-| ------------------ | ----------------------------------------- |
-| `validate_code`    | Validate JSX/TSX code against style guide |
-| `query_styleguide` | Query specific style rules                |
-| `lint_snippet`     | Lint a code snippet for issues            |
+| Tool               | Description                         |
+| ------------------ | ----------------------------------- |
+| `query_styleguide` | Query specific style rules          |
+| `scan_snippet`     | Scan a markup snippet for UI issues |
 
 ---
 

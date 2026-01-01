@@ -26,9 +26,6 @@ export {
   hasStdin,
 } from "./scanner/html-parser.js";
 
-// Node.js-specific: validation orchestration
-export { validateCodeWithOptions } from "./validation/node-validate.js";
-
 // Node.js-specific: Filesystem operations
 export {
   STYLEGUIDE_PATHS,

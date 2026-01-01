@@ -17,10 +17,6 @@ export type {
   SerializedStyles,
   DOMSnapshot,
   AnalysisResult,
-  ValidationResult,
-  ValidationIssue,
-  LintResult,
-  LintIssue,
   OllamaClientOptions,
   ExtractedStyleValues,
   TailwindThemeTokens,
@@ -32,7 +28,6 @@ export {
   buildAnalysisPrompt,
   buildStyleGuidePrompt,
   buildQueryPrompt,
-  buildValidationPrompt,
 } from "./ollama/prompts.js";
 
 // Scanner (browser-safe parts only)
@@ -66,5 +61,4 @@ export {
   createComponentRule,
 } from "./styleguide/schema.js";
 
-// Validation
-export { validateCode, lintSnippet } from "./validation/validate.js";
+// NOTE: rule-based code validation/linting was removed in favor of scan/analyze flows.

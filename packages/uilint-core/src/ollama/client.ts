@@ -5,18 +5,12 @@
 import type {
   UILintIssue,
   AnalysisResult,
-  ValidationResult,
   OllamaClientOptions,
 } from "../types.js";
-import {
-  extractStyleValues,
-  extractTailwindAllowlist,
-} from "../styleguide/parser.js";
 import {
   buildAnalysisPrompt,
   buildStyleGuidePrompt,
   buildQueryPrompt,
-  buildValidationPrompt,
 } from "./prompts.js";
 
 const DEFAULT_BASE_URL = "http://localhost:11434";
@@ -95,70 +89,6 @@ export class OllamaClient {
   }
 
   /**
-   * Validates code against the style guide
-   */
-  async validateCode(
-    code: string,
-    styleGuide: string | null
-  ): Promise<ValidationResult> {
-    const prompt = buildValidationPrompt(code, styleGuide);
-
-    try {
-      const response = await this.generate(prompt);
-      const parsed = this.parseValidationResponse(response);
-
-      // Guardrail: LLM may hallucinate "not in the style guide" issues even when the
-      // value exists. Filter out contradictions when we have a style guide.
-      if (styleGuide) {
-        const styleValues = extractStyleValues(styleGuide);
-        const allowedHex = new Set(
-          styleValues.colors
-            .filter((c) => c.startsWith("#"))
-            .map((c) => c.toUpperCase())
-        );
-
-        const twAllow = /\n##\s+Tailwind\b/i.test(styleGuide)
-          ? extractTailwindAllowlist(styleGuide)
-          : null;
-
-        const issues = (parsed.issues || [])
-          .map((i: any): ValidationResult["issues"][number] => ({
-            type: i?.type === "error" ? "error" : "warning",
-            message: String(i?.message || ""),
-            suggestion: i?.suggestion ? String(i.suggestion) : undefined,
-          }))
-          .filter((issue) => {
-            const m = issue.message.match(/Color\s+(#[A-Fa-f0-9]{6})\b/);
-            if (m) {
-              const hex = m[1].toUpperCase();
-              // If it's in the style guide, drop the issue as a contradiction.
-              if (allowedHex.has(hex)) return false;
-            }
-
-            const u = issue.message.match(
-              /Tailwind utility\s+"([^"]+)"\s+is not allowed/i
-            );
-            if (u && twAllow) {
-              const util = u[1];
-              if (twAllow.allowedUtilities.has(util)) return false;
-            }
-            return true;
-          });
-
-        return {
-          valid: issues.filter((i) => i.type === "error").length === 0,
-          issues,
-        };
-      }
-
-      return parsed;
-    } catch (error) {
-      console.error("[UILint] Validation failed:", error);
-      return { valid: true, issues: [] };
-    }
-  }
-
-  /**
    * Core generate method that calls Ollama API
    */
   private async generate(
@@ -202,22 +132,6 @@ export class OllamaClient {
     } catch {
       console.warn("[UILint] Failed to parse LLM response as JSON");
       return [];
-    }
-  }
-
-  /**
-   * Parses validation result from LLM response
-   */
-  private parseValidationResponse(response: string): ValidationResult {
-    try {
-      const parsed = JSON.parse(response);
-      return {
-        valid: parsed.valid ?? true,
-        issues: parsed.issues || [],
-      };
-    } catch {
-      console.warn("[UILint] Failed to parse validation response");
-      return { valid: true, issues: [] };
     }
   }
 

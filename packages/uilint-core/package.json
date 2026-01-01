@@ -1,6 +1,6 @@
 {
   "name": "uilint-core",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Core library for UILint - AI-powered UI consistency checking",
   "type": "module",
   "main": "./dist/index.js",

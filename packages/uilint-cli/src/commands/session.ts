@@ -6,14 +6,17 @@
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "fs";
 import { basename, dirname, resolve } from "path";
-import { OllamaClient, createStyleSummary, type UILintIssue } from "uilint-core";
+import {
+  OllamaClient,
+  createStyleSummary,
+  type UILintIssue,
+} from "uilint-core";
 import {
   ensureOllamaReady,
   parseCLIInput,
   readStyleGuideFromProject,
   readTailwindThemeTokens,
 } from "uilint-core/node";
-import { getCodeInput } from "../utils/input.js";
 
 const SESSION_FILE = "/tmp/uilint-session.json";
 
@@ -23,24 +26,6 @@ const UI_FILE_EXTENSIONS = [".tsx", ".jsx", ".css", ".scss", ".module.css"];
 interface SessionState {
   files: string[];
   startedAt: string;
-}
-
-interface FileValidationResult {
-  file: string;
-  valid: boolean;
-  issues: Array<{
-    type: "error" | "warning";
-    message: string;
-    line?: number;
-    suggestion?: string;
-  }>;
-}
-
-interface SessionValidateResult {
-  totalFiles: number;
-  filesWithIssues: number;
-  results: FileValidationResult[];
-  followupMessage: string | null;
 }
 
 interface FileScanResult {
@@ -76,7 +61,9 @@ function isUIFile(filePath: string): boolean {
 }
 
 function isScannableMarkupFile(filePath: string): boolean {
-  return [".tsx", ".jsx", ".html", ".htm"].some((ext) => filePath.endsWith(ext));
+  return [".tsx", ".jsx", ".html", ".htm"].some((ext) =>
+    filePath.endsWith(ext)
+  );
 }
 
 /**
@@ -133,135 +120,6 @@ export async function sessionTrack(filePath: string): Promise<void> {
           } files total)`,
     })
   );
-}
-
-export interface SessionValidateOptions {
-  /** Output format for stop hook (outputs only followup_message JSON) */
-  hookFormat?: boolean;
-}
-
-/**
- * Validate all tracked files - called on agent stop
- * Returns JSON with issues and a followup_message for auto-fix
- */
-export async function sessionValidate(
-  options: SessionValidateOptions = {}
-): Promise<void> {
-  const session = readSession();
-
-  if (session.files.length === 0) {
-    if (options.hookFormat) {
-      console.log("{}");
-    } else {
-      const result: SessionValidateResult = {
-        totalFiles: 0,
-        filesWithIssues: 0,
-        results: [],
-        followupMessage: null,
-      };
-      console.log(JSON.stringify(result));
-    }
-    return;
-  }
-
-  // Load styleguide once
-  const projectPath = process.cwd();
-  let styleGuide: string | null;
-  try {
-    styleGuide = await readStyleGuideFromProject(projectPath);
-  } catch {
-    // No styleguide found - can't validate
-    if (options.hookFormat) {
-      console.log("{}");
-    } else {
-      const result: SessionValidateResult = {
-        totalFiles: session.files.length,
-        filesWithIssues: 0,
-        results: [],
-        followupMessage: null,
-      };
-      console.log(JSON.stringify(result));
-    }
-    return;
-  }
-
-  const results: FileValidationResult[] = [];
-
-  // Validate each tracked file
-  for (const filePath of session.files) {
-    if (!existsSync(filePath)) {
-      continue;
-    }
-
-    try {
-      const code = await getCodeInput({ file: filePath });
-      // Keep validation behavior local to this command for backwards compat.
-      // NOTE: validateCode is re-exported from uilint-core but we avoid importing it
-      // at module top to keep session.ts focused on hook behaviors.
-      const { validateCode } = await import("uilint-core");
-      const validationResult = validateCode(code, styleGuide);
-
-      results.push({
-        file: filePath,
-        valid: validationResult.valid,
-        issues: validationResult.issues,
-      });
-    } catch {
-      // Skip files that can't be read/validated
-      continue;
-    }
-  }
-
-  // Build followup message if there are issues
-  // Note: valid=true may still have warnings, so we check issues array length
-  const filesWithIssues = results.filter((r) => r.issues.length > 0);
-  let followupMessage: string | null = null;
-
-  if (filesWithIssues.length > 0) {
-    const issueLines: string[] = [];
-
-    for (const fileResult of filesWithIssues) {
-      const fileName = basename(fileResult.file);
-
-      for (const issue of fileResult.issues) {
-        const location = issue.line ? `:${issue.line}` : "";
-        const prefix = issue.type === "error" ? "ERROR" : "WARN";
-        issueLines.push(
-          `- ${fileName}${location}: [${prefix}] ${issue.message}`
-        );
-      }
-    }
-
-    followupMessage = [
-      `UILint found issues in ${filesWithIssues.length} file(s):`,
-      "",
-      ...issueLines,
-      "",
-      "See .uilint/styleguide.md for style rules. Please fix these issues.",
-    ].join("\n");
-  }
-
-  // For hook format, output only the followup_message JSON expected by Cursor
-  if (options.hookFormat) {
-    if (followupMessage) {
-      console.log(JSON.stringify({ followup_message: followupMessage }));
-    } else {
-      console.log("{}");
-    }
-  } else {
-    const result: SessionValidateResult = {
-      totalFiles: session.files.length,
-      filesWithIssues: filesWithIssues.length,
-      results,
-      followupMessage,
-    };
-    console.log(JSON.stringify(result));
-  }
-
-  // Clear session after validation
-  if (existsSync(SESSION_FILE)) {
-    unlinkSync(SESSION_FILE);
-  }
 }
 
 export interface SessionScanOptions {
@@ -359,9 +217,10 @@ export async function sessionScan(
       const fileName = basename(fileResult.file);
       for (const issue of fileResult.issues) {
         const type = issue.type?.toUpperCase?.() ?? "ISSUE";
-        const detail = issue.currentValue && issue.expectedValue
-          ? ` (${issue.currentValue} → ${issue.expectedValue})`
-          : issue.currentValue
+        const detail =
+          issue.currentValue && issue.expectedValue
+            ? ` (${issue.currentValue} → ${issue.expectedValue})`
+            : issue.currentValue
             ? ` (${issue.currentValue})`
             : "";
         issueLines.push(`- ${fileName}: [${type}] ${issue.message}${detail}`);

@@ -249,3 +249,132 @@ export function extractStyleValues(content: string): ExtractedStyleValues {
 
   return result;
 }
+
+export interface TailwindAllowlist {
+  allowAnyColor: boolean;
+  allowStandardSpacing: boolean;
+  allowedTailwindColors: Set<string>;
+  allowedUtilities: Set<string>;
+  allowedSpacingKeys: Set<string>;
+  allowedBorderRadiusKeys: Set<string>;
+  allowedFontSizeKeys: Set<string>;
+  allowedFontFamilyKeys: Set<string>;
+}
+
+/**
+ * Extract Tailwind / utility-class allowlist configuration from a style guide.
+ *
+ * Expected formats:
+ * - A JSON code block inside a "## Tailwind" section (preferred; produced by UILint)
+ * - Fallback: inline backticked utilities within the Tailwind section
+ */
+export function extractTailwindAllowlist(content: string): TailwindAllowlist {
+  const empty: TailwindAllowlist = {
+    allowAnyColor: false,
+    allowStandardSpacing: false,
+    allowedTailwindColors: new Set(),
+    allowedUtilities: new Set(),
+    allowedSpacingKeys: new Set(),
+    allowedBorderRadiusKeys: new Set(),
+    allowedFontSizeKeys: new Set(),
+    allowedFontFamilyKeys: new Set(),
+  };
+
+  // Only look for allowlist details in the Tailwind section.
+  const sections = parseStyleGuideSections(content);
+  const tailwindSection =
+    sections["tailwind"] ??
+    // defensive: some styleguides use different casing/spacing
+    sections["tailwind utilities"] ??
+    "";
+
+  if (!tailwindSection) return empty;
+
+  const parsed = tryParseFirstJsonCodeBlock(tailwindSection);
+  if (parsed && typeof parsed === "object") {
+    const allowAnyColor = Boolean((parsed as any).allowAnyColor);
+    const allowStandardSpacing = Boolean((parsed as any).allowStandardSpacing);
+
+    const allowedUtilitiesArr = Array.isArray((parsed as any).allowedUtilities)
+      ? ((parsed as any).allowedUtilities as unknown[]).filter(
+          (u): u is string => typeof u === "string"
+        )
+      : [];
+
+    const themeTokens = (parsed as any).themeTokens ?? {};
+    const themeColors = Array.isArray(themeTokens.colors)
+      ? (themeTokens.colors as unknown[]).filter((c): c is string => typeof c === "string")
+      : [];
+    const spacingKeys = Array.isArray(themeTokens.spacingKeys)
+      ? (themeTokens.spacingKeys as unknown[]).filter((k): k is string => typeof k === "string")
+      : [];
+    const borderRadiusKeys = Array.isArray(themeTokens.borderRadiusKeys)
+      ? (themeTokens.borderRadiusKeys as unknown[]).filter((k): k is string => typeof k === "string")
+      : [];
+    const fontFamilyKeys = Array.isArray(themeTokens.fontFamilyKeys)
+      ? (themeTokens.fontFamilyKeys as unknown[]).filter((k): k is string => typeof k === "string")
+      : [];
+    const fontSizeKeys = Array.isArray(themeTokens.fontSizeKeys)
+      ? (themeTokens.fontSizeKeys as unknown[]).filter((k): k is string => typeof k === "string")
+      : [];
+
+    const allowedTailwindColors = new Set<string>();
+    for (const c of themeColors) {
+      const raw = c.trim();
+      if (!raw) continue;
+      if (raw.toLowerCase().startsWith("tailwind:")) {
+        allowedTailwindColors.add(raw.toLowerCase());
+        continue;
+      }
+      const m = raw.match(/^([a-zA-Z]+)-(\d{2,3})$/);
+      if (m) {
+        allowedTailwindColors.add(`tailwind:${m[1].toLowerCase()}-${m[2]}`);
+      }
+    }
+
+    return {
+      allowAnyColor,
+      allowStandardSpacing,
+      allowedTailwindColors,
+      allowedUtilities: new Set(allowedUtilitiesArr.map((s) => s.trim()).filter(Boolean)),
+      allowedSpacingKeys: new Set(spacingKeys.map((s) => s.trim()).filter(Boolean)),
+      allowedBorderRadiusKeys: new Set(borderRadiusKeys.map((s) => s.trim()).filter(Boolean)),
+      allowedFontSizeKeys: new Set(fontSizeKeys.map((s) => s.trim()).filter(Boolean)),
+      allowedFontFamilyKeys: new Set(fontFamilyKeys.map((s) => s.trim()).filter(Boolean)),
+    };
+  }
+
+  // Fallback: harvest backticked utilities from markdown.
+  const backticked: string[] = [];
+  for (const m of tailwindSection.matchAll(/`([^`]+)`/g)) {
+    backticked.push(m[1]);
+  }
+
+  return {
+    ...empty,
+    allowedUtilities: new Set(
+      backticked
+        .flatMap((s) => s.split(/[,\s]+/g))
+        .map((s) => s.trim())
+        .filter(Boolean)
+    ),
+  };
+}
+
+function tryParseFirstJsonCodeBlock(section: string): unknown | null {
+  // Prefer ```json fenced blocks, but fall back to any fenced block.
+  const jsonBlocks = [...section.matchAll(/```json\s*([\s\S]*?)```/gi)];
+  const anyBlocks = [...section.matchAll(/```\s*([\s\S]*?)```/g)];
+
+  const candidates = (jsonBlocks.length ? jsonBlocks : anyBlocks).map((m) => m[1]);
+  for (const raw of candidates) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}

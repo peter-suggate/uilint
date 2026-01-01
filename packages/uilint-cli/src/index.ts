@@ -6,13 +6,11 @@ import { Command } from "commander";
 import { scan } from "./commands/scan.js";
 import { init } from "./commands/init.js";
 import { update } from "./commands/update.js";
-import { validate } from "./commands/validate.js";
 import { query } from "./commands/query.js";
 import { install } from "./commands/install.js";
 import {
   sessionClear,
   sessionTrack,
-  sessionValidate,
   sessionScan,
   sessionList,
 } from "./commands/session.js";
@@ -99,27 +97,6 @@ program
     });
   });
 
-// Validate command
-program
-  .command("validate")
-  .description("Validate code against style guide")
-  .option("-c, --code <code>", "Code snippet to validate")
-  .option("-f, --file <path>", "Path to file to validate")
-  .option("-s, --styleguide <path>", "Path to style guide file")
-  .option("-o, --output <format>", "Output format: text or json", "text")
-  .option("-m, --model <name>", "Ollama model to use", "qwen2.5-coder:7b")
-  .option("--llm", "Use LLM for more thorough validation")
-  .action(async (options) => {
-    await validate({
-      code: options.code,
-      file: options.file,
-      styleguide: options.styleguide,
-      output: options.output,
-      model: options.model,
-      llm: options.llm,
-    });
-  });
-
 // Query command
 program
   .command("query <question>")
@@ -165,14 +142,6 @@ sessionCmd
   .description("Track a file edit (called on each file edit)")
   .action(async (file: string) => {
     await sessionTrack(file);
-  });
-
-sessionCmd
-  .command("validate")
-  .description("Validate all tracked files (called on agent stop)")
-  .option("--hook", "Output in Cursor hook format (followup_message JSON only)")
-  .action(async (options: { hook?: boolean }) => {
-    await sessionValidate({ hookFormat: options.hook });
   });
 
 sessionCmd
