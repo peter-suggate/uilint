@@ -51,6 +51,7 @@ npm install uilint-react uilint-core
 You can also run the CLI without installing globally:
 
 ```bash
+# If published to npm:
 npx uilint-cli --help
 ```
 
@@ -565,7 +566,7 @@ This repo is a pnpm workspace. Publish the packages in dependency order:
 
 ```bash
 # Build everything first
-pnpm build
+pnpm build:packages
 
 # Sanity check what would be published
 pnpm publish:dry

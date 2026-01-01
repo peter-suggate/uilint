@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter test-app dev",
     "build": "pnpm -r build",
+    "build:packages": "pnpm --filter uilint-core build && pnpm --filter uilint-react build && pnpm --filter uilint-cli build && pnpm --filter uilint-mcp build",
     "test": "pnpm --filter test-app test",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
