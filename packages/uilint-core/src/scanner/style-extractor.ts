@@ -2,7 +2,15 @@
  * Style extraction from DOM elements
  */
 
-import type { ExtractedStyles, SerializedStyles } from "../types.js";
+import type {
+  ExtractedStyles,
+  SerializedStyles,
+  TailwindThemeTokens,
+} from "../types.js";
+import {
+  extractClassTokensFromHtml,
+  topEntries,
+} from "../tailwind/class-tokens.js";
 
 /**
  * Extracts all computed styles from elements in the document
@@ -54,7 +62,9 @@ export function extractStyles(
 /**
  * Extracts styles from browser DOM (uses window.getComputedStyle)
  */
-export function extractStylesFromDOM(root?: Element | Document): ExtractedStyles {
+export function extractStylesFromDOM(
+  root?: Element | Document
+): ExtractedStyles {
   const targetRoot = root || document.body;
   return extractStyles(targetRoot, (el) => window.getComputedStyle(el));
 }
@@ -119,7 +129,9 @@ export function serializeStyles(styles: ExtractedStyles): SerializedStyles {
 /**
  * Converts SerializedStyles back to ExtractedStyles
  */
-export function deserializeStyles(serialized: SerializedStyles): ExtractedStyles {
+export function deserializeStyles(
+  serialized: SerializedStyles
+): ExtractedStyles {
   return {
     colors: new Map(Object.entries(serialized.colors)),
     fontSizes: new Map(Object.entries(serialized.fontSizes)),
@@ -133,7 +145,33 @@ export function deserializeStyles(serialized: SerializedStyles): ExtractedStyles
 /**
  * Creates a summary of extracted styles for LLM analysis
  */
-export function createStyleSummary(styles: ExtractedStyles): string {
+export function createStyleSummary(
+  styles: ExtractedStyles,
+  options: CreateStyleSummaryOptions = {}
+): string {
+  return createStyleSummaryWithOptions(styles, options);
+}
+
+export interface CreateStyleSummaryOptions {
+  /**
+   * Optional HTML/TSX-ish string used to extract utility classes (Tailwind etc).
+   */
+  html?: string;
+  /**
+   * Optional Tailwind theme tokens (typically from tailwind.config.*).
+   */
+  tailwindTheme?: TailwindThemeTokens | null;
+}
+
+/**
+ * Creates a summary of extracted styles for LLM analysis.
+ * Accepts optional Tailwind context to make Tailwind-heavy projects analyzable
+ * even when computed styles are sparse (e.g., JSDOM without loaded CSS).
+ */
+export function createStyleSummaryWithOptions(
+  styles: ExtractedStyles,
+  options: CreateStyleSummaryOptions = {}
+): string {
   const lines: string[] = [];
 
   lines.push("## Detected Styles Summary\n");
@@ -178,7 +216,9 @@ export function createStyleSummary(styles: ExtractedStyles): string {
 
   // Spacing
   lines.push("### Spacing Values");
-  const sortedSpacing = [...styles.spacing.entries()].sort((a, b) => b[1] - a[1]);
+  const sortedSpacing = [...styles.spacing.entries()].sort(
+    (a, b) => b[1] - a[1]
+  );
   sortedSpacing.slice(0, 15).forEach(([value, count]) => {
     lines.push(`- ${value}: ${count} occurrences`);
   });
@@ -193,6 +233,44 @@ export function createStyleSummary(styles: ExtractedStyles): string {
     lines.push(`- ${value}: ${count} occurrences`);
   });
 
+  // Tailwind / utility classes (optional)
+  if (options.html) {
+    const tokens = extractClassTokensFromHtml(options.html);
+    const topUtilities = topEntries(tokens.utilities, 40);
+    const topVariants = topEntries(tokens.variants, 15);
+
+    lines.push("");
+    lines.push("### Utility Classes (from markup)");
+    if (topUtilities.length === 0) {
+      lines.push("- (none detected)");
+    } else {
+      topUtilities.forEach(({ token, count }) => {
+        lines.push(`- ${token}: ${count} occurrences`);
+      });
+    }
+
+    if (topVariants.length > 0) {
+      lines.push("");
+      lines.push("### Common Variants");
+      topVariants.forEach(({ token, count }) => {
+        lines.push(`- ${token}: ${count} occurrences`);
+      });
+    }
+  }
+
+  // Tailwind theme tokens (optional)
+  if (options.tailwindTheme) {
+    const tt = options.tailwindTheme;
+    lines.push("");
+    lines.push("### Tailwind Theme Tokens (from config)");
+    lines.push(`- configPath: ${tt.configPath}`);
+    lines.push(`- colors: ${tt.colors.length}`);
+    lines.push(`- spacingKeys: ${tt.spacingKeys.length}`);
+    lines.push(`- borderRadiusKeys: ${tt.borderRadiusKeys.length}`);
+    lines.push(`- fontFamilyKeys: ${tt.fontFamilyKeys.length}`);
+    lines.push(`- fontSizeKeys: ${tt.fontSizeKeys.length}`);
+  }
+
   return lines.join("\n");
 }
 
@@ -203,4 +281,3 @@ export function truncateHTML(html: string, maxLength: number = 50000): string {
   if (html.length <= maxLength) return html;
   return html.slice(0, maxLength) + "<!-- truncated -->";
 }
-

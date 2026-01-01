@@ -4,7 +4,12 @@
 
 import ora from "ora";
 import { OllamaClient, parseStyleGuide, extractStyleValues } from "uilint-core";
-import { ensureOllamaReady, readStyleGuideFromProject } from "uilint-core/node";
+import {
+  ensureOllamaReady,
+  readStyleGuide,
+  readStyleGuideFromProject,
+} from "uilint-core/node";
+import { existsSync } from "fs";
 import { printError, printJSON } from "../utils/output.js";
 
 export interface QueryOptions {
@@ -22,9 +27,16 @@ export async function query(
   try {
     // Get style guide
     const projectPath = process.cwd();
-    const styleGuide = options.styleguide
-      ? await readStyleGuideFromProject(options.styleguide)
-      : await readStyleGuideFromProject(projectPath);
+    let styleGuide: string | null = null;
+    if (options.styleguide) {
+      if (existsSync(options.styleguide)) {
+        styleGuide = await readStyleGuide(options.styleguide);
+      } else {
+        styleGuide = await readStyleGuideFromProject(options.styleguide);
+      }
+    } else {
+      styleGuide = await readStyleGuideFromProject(projectPath);
+    }
 
     if (!styleGuide) {
       spinner.fail("No style guide found");
@@ -107,7 +119,11 @@ function getSimpleAnswer(queryText: string, styleGuide: string): string | null {
   }
 
   // Spacing query
-  if (lowerQuery.includes("spacing") || lowerQuery.includes("padding") || lowerQuery.includes("margin")) {
+  if (
+    lowerQuery.includes("spacing") ||
+    lowerQuery.includes("padding") ||
+    lowerQuery.includes("margin")
+  ) {
     if (parsed.spacing.length > 0) {
       const spacing = parsed.spacing
         .map((s) => `  ${s.name}: ${s.value}`)
@@ -118,7 +134,11 @@ function getSimpleAnswer(queryText: string, styleGuide: string): string | null {
   }
 
   // Component query
-  if (lowerQuery.includes("component") || lowerQuery.includes("button") || lowerQuery.includes("card")) {
+  if (
+    lowerQuery.includes("component") ||
+    lowerQuery.includes("button") ||
+    lowerQuery.includes("card")
+  ) {
     if (parsed.components.length > 0) {
       const components = parsed.components
         .map((c) => `  ${c.name}: ${c.styles.join(", ")}`)

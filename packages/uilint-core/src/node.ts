@@ -39,3 +39,9 @@ export {
   getDefaultStyleGuidePath,
   styleGuideExists,
 } from "./styleguide/reader.js";
+
+// Node.js-specific: Tailwind config reader
+export {
+  findTailwindConfigPath,
+  readTailwindThemeTokens,
+} from "./tailwind/config-reader.js";

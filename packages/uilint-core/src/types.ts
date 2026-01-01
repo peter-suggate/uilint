@@ -130,3 +130,13 @@ export interface ExtractedStyleValues {
   spacing: string[];
   borderRadius: string[];
 }
+
+// Tailwind (optional) token sets for styleguide + validation
+export interface TailwindThemeTokens {
+  configPath: string;
+  colors: string[]; // tailwind:<name> or tailwind:<name>-<shade>
+  spacingKeys: string[];
+  borderRadiusKeys: string[];
+  fontFamilyKeys: string[];
+  fontSizeKeys: string[];
+}

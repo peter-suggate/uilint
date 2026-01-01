@@ -2,6 +2,7 @@
  * Scan command - scans HTML for UI consistency issues
  */
 
+import { dirname, resolve } from "path";
 import ora from "ora";
 import { OllamaClient, createStyleSummary } from "uilint-core";
 import {
@@ -9,6 +10,7 @@ import {
   readStyleGuideFromProject,
   findStyleGuidePath,
   STYLEGUIDE_PATHS,
+  readTailwindThemeTokens,
 } from "uilint-core/node";
 import { getInput, type InputOptions } from "../utils/input.js";
 import {
@@ -50,7 +52,14 @@ export async function scan(options: ScanOptions): Promise<void> {
     }
 
     // Create style summary
-    const styleSummary = createStyleSummary(snapshot.styles);
+    const tailwindSearchDir = options.inputFile
+      ? dirname(resolve(process.cwd(), options.inputFile))
+      : projectPath;
+    const tailwindTheme = readTailwindThemeTokens(tailwindSearchDir);
+    const styleSummary = createStyleSummary(snapshot.styles, {
+      html: snapshot.html,
+      tailwindTheme,
+    });
 
     // Call Ollama for analysis
     spinner.text = "Analyzing with LLM...";

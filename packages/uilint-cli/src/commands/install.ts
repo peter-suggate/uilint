@@ -1,10 +1,10 @@
 /**
- * Install command - installs Cursor hooks for UILint validation
+ * Install command - installs Cursor hooks for UILint session scanning
  *
  * Sets up three hooks:
  * - beforeSubmitPrompt: Clear tracked files at start of agent turn
  * - afterFileEdit: Track file edits (UI files only)
- * - stop: Validate all tracked files and return followup_message for auto-fix
+ * - stop: Scan tracked markup files and return followup_message for auto-fix
  */
 
 import {
@@ -137,10 +137,10 @@ printf '%s\\n' "$out"
 exit 0
 `;
 
-// Hook 3: stop - validate all tracked files
+// Hook 3: stop - scan all tracked files
 const SESSION_END_SCRIPT = `#!/bin/bash
 # UILint session end hook
-# Validates all tracked files and returns followup_message for auto-fix
+# Scans tracked markup files and returns followup_message for auto-fix
 #
 # IMPORTANT: Cursor hooks communicate over stdio using JSON.
 # - stdout must be JSON (Cursor will parse it)
@@ -171,7 +171,7 @@ echo "[UILint] Loop count: $loop_count" >&2
 
 # Don't trigger followup if we've already looped 3+ times
 if [ "$loop_count" -ge 3 ]; then
-  echo "[UILint] Max loops reached, skipping validation" >&2
+  echo "[UILint] Max loops reached, skipping scan" >&2
   echo '{}' 
   exit 0
 fi
@@ -181,12 +181,12 @@ echo "[UILint] Checking tracked files..." >&2
 tracked=$(uilint session list)
 echo "[UILint] Tracked files: $tracked" >&2
 
-# Run validation with --hook flag for direct JSON output
-echo "[UILint] Running validation..." >&2
-result=$(uilint session validate --hook)
+# Run scan with --hook flag for direct JSON output
+echo "[UILint] Running scan..." >&2
+result=$(uilint session scan --hook)
 status=$?
 
-echo "[UILint] Validation exit: $status" >&2
+echo "[UILint] Scan exit: $status" >&2
 
 if [ $status -eq 0 ] && [ -n "$result" ]; then
   echo "$result"
@@ -302,9 +302,7 @@ export async function install(options: InstallOptions): Promise<void> {
     console.log(
       "  1. Files are tracked as you edit them during an agent session"
     );
-    console.log(
-      "  2. When the agent stops, all tracked UI files are validated"
-    );
+    console.log("  2. When the agent stops, tracked markup files are scanned");
     console.log(
       "  3. If issues are found, a followup message triggers auto-fix"
     );

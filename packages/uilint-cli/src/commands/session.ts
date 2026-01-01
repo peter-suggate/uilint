@@ -5,9 +5,14 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "fs";
-import { basename } from "path";
-import { validateCode } from "uilint-core";
-import { readStyleGuideFromProject } from "uilint-core/node";
+import { basename, dirname, resolve } from "path";
+import { OllamaClient, createStyleSummary, type UILintIssue } from "uilint-core";
+import {
+  ensureOllamaReady,
+  parseCLIInput,
+  readStyleGuideFromProject,
+  readTailwindThemeTokens,
+} from "uilint-core/node";
 import { getCodeInput } from "../utils/input.js";
 
 const SESSION_FILE = "/tmp/uilint-session.json";
@@ -38,6 +43,18 @@ interface SessionValidateResult {
   followupMessage: string | null;
 }
 
+interface FileScanResult {
+  file: string;
+  issues: UILintIssue[];
+}
+
+interface SessionScanResult {
+  totalFiles: number;
+  filesWithIssues: number;
+  results: FileScanResult[];
+  followupMessage: string | null;
+}
+
 function readSession(): SessionState {
   if (!existsSync(SESSION_FILE)) {
     return { files: [], startedAt: new Date().toISOString() };
@@ -56,6 +73,10 @@ function writeSession(state: SessionState): void {
 
 function isUIFile(filePath: string): boolean {
   return UI_FILE_EXTENSIONS.some((ext) => filePath.endsWith(ext));
+}
+
+function isScannableMarkupFile(filePath: string): boolean {
+  return [".tsx", ".jsx", ".html", ".htm"].some((ext) => filePath.endsWith(ext));
 }
 
 /**
@@ -174,6 +195,10 @@ export async function sessionValidate(
 
     try {
       const code = await getCodeInput({ file: filePath });
+      // Keep validation behavior local to this command for backwards compat.
+      // NOTE: validateCode is re-exported from uilint-core but we avoid importing it
+      // at module top to keep session.ts focused on hook behaviors.
+      const { validateCode } = await import("uilint-core");
       const validationResult = validateCode(code, styleGuide);
 
       results.push({
@@ -234,6 +259,144 @@ export async function sessionValidate(
   }
 
   // Clear session after validation
+  if (existsSync(SESSION_FILE)) {
+    unlinkSync(SESSION_FILE);
+  }
+}
+
+export interface SessionScanOptions {
+  /** Output format for stop hook (outputs only followup_message JSON) */
+  hookFormat?: boolean;
+  /** Ollama model to use */
+  model?: string;
+}
+
+/**
+ * Scan all tracked markup files - called on agent stop
+ * Uses the same pipeline as `uilint scan`, but emits clean JSON for Cursor hooks.
+ */
+export async function sessionScan(
+  options: SessionScanOptions = {}
+): Promise<void> {
+  const session = readSession();
+
+  if (session.files.length === 0) {
+    if (options.hookFormat) {
+      console.log("{}");
+    } else {
+      const result: SessionScanResult = {
+        totalFiles: 0,
+        filesWithIssues: 0,
+        results: [],
+        followupMessage: null,
+      };
+      console.log(JSON.stringify(result));
+    }
+    return;
+  }
+
+  // Load styleguide once
+  const projectPath = process.cwd();
+  let styleGuide: string | null;
+  try {
+    styleGuide = await readStyleGuideFromProject(projectPath);
+  } catch {
+    if (options.hookFormat) {
+      console.log("{}");
+    } else {
+      const result: SessionScanResult = {
+        totalFiles: session.files.length,
+        filesWithIssues: 0,
+        results: [],
+        followupMessage: null,
+      };
+      console.log(JSON.stringify(result));
+    }
+    return;
+  }
+
+  // Prep Ollama + client once
+  await ensureOllamaReady({ model: options.model });
+  const client = new OllamaClient({ model: options.model });
+
+  const results: FileScanResult[] = [];
+
+  for (const filePath of session.files) {
+    if (!existsSync(filePath)) continue;
+    if (!isScannableMarkupFile(filePath)) continue;
+
+    try {
+      const absolutePath = resolve(process.cwd(), filePath);
+      const htmlLike = readFileSync(filePath, "utf-8");
+      const snapshot = parseCLIInput(htmlLike);
+
+      const tailwindSearchDir = dirname(absolutePath);
+      const tailwindTheme = readTailwindThemeTokens(tailwindSearchDir);
+
+      const styleSummary = createStyleSummary(snapshot.styles, {
+        html: snapshot.html,
+        tailwindTheme,
+      });
+
+      const analysis = await client.analyzeStyles(styleSummary, styleGuide);
+
+      results.push({
+        file: filePath,
+        issues: analysis.issues,
+      });
+    } catch {
+      continue;
+    }
+  }
+
+  const filesWithIssues = results.filter((r) => r.issues.length > 0);
+  let followupMessage: string | null = null;
+
+  if (filesWithIssues.length > 0) {
+    const issueLines: string[] = [];
+
+    for (const fileResult of filesWithIssues) {
+      const fileName = basename(fileResult.file);
+      for (const issue of fileResult.issues) {
+        const type = issue.type?.toUpperCase?.() ?? "ISSUE";
+        const detail = issue.currentValue && issue.expectedValue
+          ? ` (${issue.currentValue} → ${issue.expectedValue})`
+          : issue.currentValue
+            ? ` (${issue.currentValue})`
+            : "";
+        issueLines.push(`- ${fileName}: [${type}] ${issue.message}${detail}`);
+        if (issue.suggestion) {
+          issueLines.push(`  Suggestion: ${issue.suggestion}`);
+        }
+      }
+    }
+
+    followupMessage = [
+      `UILint scan found UI consistency issues in ${filesWithIssues.length} file(s):`,
+      "",
+      ...issueLines,
+      "",
+      "See .uilint/styleguide.md for style rules. Please fix these issues.",
+    ].join("\n");
+  }
+
+  if (options.hookFormat) {
+    if (followupMessage) {
+      console.log(JSON.stringify({ followup_message: followupMessage }));
+    } else {
+      console.log("{}");
+    }
+  } else {
+    const result: SessionScanResult = {
+      totalFiles: results.length,
+      filesWithIssues: filesWithIssues.length,
+      results,
+      followupMessage,
+    };
+    console.log(JSON.stringify(result));
+  }
+
+  // Clear session after scan
   if (existsSync(SESSION_FILE)) {
     unlinkSync(SESSION_FILE);
   }

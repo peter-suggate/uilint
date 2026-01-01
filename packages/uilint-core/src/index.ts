@@ -23,6 +23,7 @@ export type {
   LintIssue,
   OllamaClientOptions,
   ExtractedStyleValues,
+  TailwindThemeTokens,
 } from "./types.js";
 
 // Ollama client
@@ -49,6 +50,7 @@ export {
   parseStyleGuide,
   parseStyleGuideSections,
   extractStyleValues,
+  extractTailwindAllowlist,
 } from "./styleguide/parser.js";
 export {
   generateStyleGuideFromStyles,

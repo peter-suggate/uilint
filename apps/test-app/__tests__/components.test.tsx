@@ -55,7 +55,9 @@ describe("UILint Component Tests", () => {
       </UILint>
     );
 
-    expect(screen.getByRole("button")).toHaveTextContent("Click me");
+    expect(
+      screen.getByRole("button", { name: /click me/i })
+    ).toBeInTheDocument();
   });
 
   it("wraps card components for analysis", () => {

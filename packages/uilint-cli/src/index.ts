@@ -13,6 +13,7 @@ import {
   sessionClear,
   sessionTrack,
   sessionValidate,
+  sessionScan,
   sessionList,
 } from "./commands/session.js";
 import { readFileSync } from "fs";
@@ -172,6 +173,15 @@ sessionCmd
   .option("--hook", "Output in Cursor hook format (followup_message JSON only)")
   .action(async (options: { hook?: boolean }) => {
     await sessionValidate({ hookFormat: options.hook });
+  });
+
+sessionCmd
+  .command("scan")
+  .description("Scan all tracked markup files (called on agent stop)")
+  .option("--hook", "Output in Cursor hook format (followup_message JSON only)")
+  .option("-m, --model <name>", "Ollama model to use", "qwen2.5-coder:7b")
+  .action(async (options: { hook?: boolean; model?: string }) => {
+    await sessionScan({ hookFormat: options.hook, model: options.model });
   });
 
 sessionCmd

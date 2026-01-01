@@ -2,14 +2,19 @@
  * Init command - creates a style guide from detected styles
  */
 
-import { join } from "path";
+import { dirname, join, resolve } from "path";
 import ora from "ora";
 import {
   OllamaClient,
   createStyleSummary,
   generateStyleGuideFromStyles,
 } from "uilint-core";
-import { ensureOllamaReady, writeStyleGuide, styleGuideExists } from "uilint-core/node";
+import {
+  ensureOllamaReady,
+  writeStyleGuide,
+  styleGuideExists,
+  readTailwindThemeTokens,
+} from "uilint-core/node";
 import { getInput, type InputOptions } from "../utils/input.js";
 import { printSuccess, printError, printWarning } from "../utils/output.js";
 
@@ -41,6 +46,11 @@ export async function init(options: InitOptions): Promise<void> {
     const snapshot = await getInput(options);
     spinner.text = `Detected ${snapshot.elementCount} elements...`;
 
+    const tailwindSearchDir = options.inputFile
+      ? dirname(resolve(projectPath, options.inputFile))
+      : projectPath;
+    const tailwindTheme = readTailwindThemeTokens(tailwindSearchDir);
+
     let styleGuideContent: string;
 
     if (options.llm) {
@@ -52,19 +62,28 @@ export async function init(options: InitOptions): Promise<void> {
       spinner.text = "Generating style guide with LLM...";
       const client = new OllamaClient({ model: options.model });
 
-      const styleSummary = createStyleSummary(snapshot.styles);
+      const styleSummary = createStyleSummary(snapshot.styles, {
+        html: snapshot.html,
+        tailwindTheme,
+      });
       const llmGuide = await client.generateStyleGuide(styleSummary);
 
       if (!llmGuide) {
         spinner.warn("LLM generation failed, falling back to basic generation");
-        styleGuideContent = generateStyleGuideFromStyles(snapshot.styles);
+        styleGuideContent = generateStyleGuideFromStyles(snapshot.styles, {
+          html: snapshot.html,
+          tailwindTheme,
+        });
       } else {
         styleGuideContent = llmGuide;
       }
     } else {
       // Generate basic style guide from extracted styles
       spinner.text = "Generating style guide from detected styles...";
-      styleGuideContent = generateStyleGuideFromStyles(snapshot.styles);
+      styleGuideContent = generateStyleGuideFromStyles(snapshot.styles, {
+        html: snapshot.html,
+        tailwindTheme,
+      });
     }
 
     // Write the style guide

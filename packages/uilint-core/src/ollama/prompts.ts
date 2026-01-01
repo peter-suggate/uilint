@@ -32,6 +32,7 @@ Focus on:
 2. Inconsistent font sizes or weights
 3. Spacing values that don't follow a consistent scale (e.g., 4px base unit)
 4. Mixed border-radius values
+5. If utility/Tailwind classes are present in the summary, treat them as the styling surface area and flag inconsistent utility usage (e.g., mixing px-4 and px-5 for the same component type)
 
 Be concise and actionable. Only report significant inconsistencies.
 
@@ -63,6 +64,7 @@ Generate a style guide with these sections:
 2. Typography - Font families, sizes, and weights
 3. Spacing - Base unit and common spacing values
 4. Components - Common component patterns
+5. Tailwind (if utility classes are present) - list commonly used utilities and any relevant theme tokens
 
 Use this format:
 # UI Style Guide
@@ -122,7 +124,7 @@ export function buildValidationPrompt(
 ): string {
   const guideSection = styleGuide
     ? `## Style Guide\n${styleGuide}\n\n`
-    : "## No Style Guide\nValidate for general best practices.\n\n";
+    : "## No Style Guide\nValidate for general UI best practices only. Do NOT claim that a value is (or is not) in the style guide.\n\n";
 
   return `You are a UI code validator. Check the following code against the style guide and best practices.
 
@@ -141,10 +143,17 @@ Respond with a JSON object containing:
   - suggestion: how to fix it
 
 Focus on:
-1. Colors not in the style guide
+${
+  styleGuide
+    ? `1. Colors not in the style guide
 2. Spacing values not following the design system
 3. Typography inconsistencies
 4. Accessibility issues (missing alt text, etc.)
+5. If Tailwind/utility classes are used, flag utilities that aren't allowed by the style guide (or suggest adding them)`
+    : `1. Accessibility issues (missing alt text, etc.)
+2. Clear UI best-practice warnings (e.g., excessive inline styles, unclear button text)
+3. Basic consistency issues you can infer from the code itself (but do NOT reference a style guide).`
+}
 
 Example response:
 {

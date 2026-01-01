@@ -4,9 +4,11 @@
 
 import ora from "ora";
 import {
+  readStyleGuide,
   readStyleGuideFromProject,
   validateCodeWithOptions,
 } from "uilint-core/node";
+import { existsSync } from "fs";
 import { getCodeInput } from "../utils/input.js";
 import {
   formatValidationIssues,
@@ -36,9 +38,20 @@ export async function validate(options: ValidateOptions): Promise<void> {
 
     // Get style guide
     const projectPath = process.cwd();
-    const styleGuide = options.styleguide
-      ? await readStyleGuideFromProject(options.styleguide)
-      : await readStyleGuideFromProject(projectPath);
+    let styleGuide: string | null = null;
+    if (options.styleguide) {
+      // `--styleguide` is documented as a path to a style guide file.
+      // Historically we treated it as a project dir; that can silently return null
+      // and cause the LLM validator to hallucinate "not in the style guide" issues.
+      if (existsSync(options.styleguide)) {
+        styleGuide = await readStyleGuide(options.styleguide);
+      } else {
+        // Fallback: treat as a project directory.
+        styleGuide = await readStyleGuideFromProject(options.styleguide);
+      }
+    } else {
+      styleGuide = await readStyleGuideFromProject(projectPath);
+    }
 
     if (options.llm) {
       spinner.text = "Validating with LLM...";

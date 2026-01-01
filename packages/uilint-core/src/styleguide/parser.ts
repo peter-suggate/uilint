@@ -228,18 +228,6 @@ export function extractStyleValues(content: string): ExtractedStyleValues {
     }
   }
 
-  // Extract Tailwind color notation (e.g., tailwind:gray-50, gray-50)
-  // Match common Tailwind color names followed by a dash and number
-  const tailwindColorNames = ['gray', 'blue', 'red', 'green', 'yellow', 'purple', 'pink', 'indigo', 'violet', 'orange', 'teal', 'cyan', 'sky', 'slate', 'zinc', 'neutral', 'stone', 'amber', 'lime', 'emerald', 'fuchsia', 'rose'];
-  const tailwindPattern = new RegExp(`(?:tailwind:)?(${tailwindColorNames.join('|')})-(\\d+)`, 'gi');
-  const tailwindMatches = content.matchAll(tailwindPattern);
-  for (const match of tailwindMatches) {
-    const tailwindColor = `tailwind:${match[1].toLowerCase()}-${match[2]}`;
-    if (!result.colors.includes(tailwindColor)) {
-      result.colors.push(tailwindColor);
-    }
-  }
-
   // Extract font sizes (e.g., 16px, 1.5rem)
   const fontSizeMatches = content.matchAll(/\b(\d+(?:\.\d+)?(?:px|rem|em))\b/g);
   for (const match of fontSizeMatches) {
@@ -261,4 +249,3 @@ export function extractStyleValues(content: string): ExtractedStyleValues {
 
   return result;
 }
-

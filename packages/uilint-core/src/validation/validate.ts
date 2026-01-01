@@ -8,7 +8,10 @@ import type {
   LintResult,
   LintIssue,
 } from "../types.js";
-import { extractStyleValues } from "../styleguide/parser.js";
+import {
+  extractStyleValues,
+  extractTailwindAllowlist,
+} from "../styleguide/parser.js";
 
 /**
  * Validates code against the style guide
@@ -33,19 +36,70 @@ export function validateCode(
   }
 
   const styleValues = extractStyleValues(styleGuide);
+  const tailwindAllowlist = /\n##\s+Tailwind\b/i.test(styleGuide)
+    ? extractTailwindAllowlist(styleGuide)
+    : null;
 
   // Check for color violations
   const codeColors = extractColorsFromCode(code);
+  const allowedColorSet = new Set(
+    styleValues.colors.map((c) =>
+      c.toLowerCase().startsWith("tailwind:")
+        ? c.toLowerCase()
+        : c.toUpperCase()
+    )
+  );
   for (const color of codeColors) {
-    if (!styleValues.colors.includes(color.toUpperCase())) {
+    const normalized = color.toLowerCase().startsWith("tailwind:")
+      ? color.toLowerCase()
+      : color.toUpperCase();
+
+    if (
+      tailwindAllowlist?.allowAnyColor &&
+      normalized.startsWith("tailwind:")
+    ) {
+      continue;
+    }
+
+    if (!allowedColorSet.has(normalized)) {
       // Check if it's similar to an allowed color
-      const similar = findSimilarColor(color, styleValues.colors);
+      const similar = normalized.startsWith("tailwind:")
+        ? null
+        : findSimilarColor(color, styleValues.colors);
       issues.push({
         type: "warning",
         message: `Color ${color} is not in the style guide`,
         suggestion: similar
           ? `Consider using ${similar} instead`
+          : normalized.startsWith("tailwind:")
+          ? `Add ${color} to the style guide Tailwind section (or allow any Tailwind colors)`
           : `Add ${color} to the style guide if intentional`,
+      });
+    }
+  }
+
+  // Tailwind / utility-class allowlist validation (warn on unknown)
+  if (tailwindAllowlist) {
+    const tokens = extractClassTokensFromCode(code);
+    const warned = new Set<string>();
+
+    for (const rawToken of tokens) {
+      const base = normalizeUtilityBase(stripVariants(rawToken));
+      if (!base) continue;
+      if (!looksTailwindUtility(base)) continue;
+
+      if (tailwindAllowlist.allowedUtilities.has(base)) continue;
+      if (isAllowedByThemeTokens(base, tailwindAllowlist)) continue;
+
+      // Avoid repeating the same warning many times.
+      if (warned.has(base)) continue;
+      warned.add(base);
+
+      issues.push({
+        type: "warning",
+        message: `Tailwind utility "${base}" is not allowed by the style guide`,
+        suggestion:
+          "Use an allowed utility, or add it to the style guide's Tailwind section (then re-run init/update).",
       });
     }
   }
@@ -238,6 +292,245 @@ function extractColorsFromCode(code: string): string[] {
   }
 
   return [...new Set(colors)];
+}
+
+function extractClassTokensFromCode(code: string): string[] {
+  const classStrings: string[] = [];
+
+  // className="..."
+  for (const m of code.matchAll(/\bclassName\s*=\s*["']([^"']+)["']/g)) {
+    classStrings.push(m[1]);
+  }
+  // className={"..."} / className={'...'}
+  for (const m of code.matchAll(
+    /\bclassName\s*=\s*\{\s*["']([^"']+)["']\s*\}/g
+  )) {
+    classStrings.push(m[1]);
+  }
+  // class="..." (HTML snippets)
+  for (const m of code.matchAll(/\bclass\s*=\s*["']([^"']+)["']/g)) {
+    classStrings.push(m[1]);
+  }
+
+  // cn(...), clsx(...), classnames(...)
+  for (const call of code.matchAll(
+    /\b(?:cn|clsx|classnames)\s*\(([\s\S]*?)\)/g
+  )) {
+    const inner = call[1] || "";
+    for (const s of inner.matchAll(/["']([^"']+)["']/g)) {
+      classStrings.push(s[1]);
+    }
+  }
+
+  const tokens: string[] = [];
+  for (const s of classStrings) {
+    s.split(/\s+/g)
+      .filter(Boolean)
+      .forEach((t) => tokens.push(t));
+  }
+  return tokens;
+}
+
+function normalizeUtilityBase(token: string): string | null {
+  const t = token.trim();
+  if (!t) return null;
+  return t.startsWith("!") ? t.slice(1) : t;
+}
+
+// Bracket-aware variant stripping (sm:hover:bg-[color:var(--x)] -> bg-[color:var(--x)])
+function stripVariants(token: string): string {
+  let bracketDepth = 0;
+  let lastSplit = -1;
+
+  for (let i = 0; i < token.length; i++) {
+    const ch = token[i];
+    if (ch === "[") bracketDepth++;
+    if (ch === "]" && bracketDepth > 0) bracketDepth--;
+    if (ch === ":" && bracketDepth === 0) lastSplit = i;
+  }
+
+  return lastSplit >= 0 ? token.slice(lastSplit + 1) : token;
+}
+
+const KNOWN_BARE_TW = new Set([
+  "flex",
+  "grid",
+  "block",
+  "inline",
+  "inline-block",
+  "hidden",
+  "relative",
+  "absolute",
+  "fixed",
+  "sticky",
+  "container",
+  "group",
+  "peer",
+  "truncate",
+  "sr-only",
+  "not-sr-only",
+]);
+
+function looksTailwindUtility(token: string): boolean {
+  if (!token) return false;
+  if (token.includes("[")) return true; // arbitrary values strongly suggest Tailwind
+  if (KNOWN_BARE_TW.has(token)) return true;
+
+  // Common Tailwind prefixes
+  return (
+    /^(bg|text|border|ring|outline|shadow|fill|stroke|from|to|via)-/.test(
+      token
+    ) ||
+    /^(p[trblxy]?|m[trblxy]?|gap|space-[xy])-(.+)$/.test(token) ||
+    /^rounded(?:-[trbl]{1,2})?-/.test(token) ||
+    /^(w|h|min-w|min-h|max-w|max-h)-/.test(token) ||
+    /^(items|justify|content|self|place|overflow|cursor|select|pointer-events)-/.test(
+      token
+    ) ||
+    /^(font|leading|tracking)-/.test(token) ||
+    /^(transition|duration|ease|animate)-/.test(token)
+  );
+}
+
+const STANDARD_SPACING_KEYS = new Set([
+  "0",
+  "0.5",
+  "1",
+  "1.5",
+  "2",
+  "2.5",
+  "3",
+  "3.5",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+  "11",
+  "12",
+  "14",
+  "16",
+  "20",
+  "24",
+  "28",
+  "32",
+  "36",
+  "40",
+  "44",
+  "48",
+  "52",
+  "56",
+  "60",
+  "64",
+  "72",
+  "80",
+  "96",
+]);
+
+const STANDARD_RADIUS_KEYS = new Set([
+  "none",
+  "sm",
+  "md",
+  "lg",
+  "xl",
+  "2xl",
+  "3xl",
+  "full",
+]);
+
+const STANDARD_TEXT_SIZE_KEYS = new Set([
+  "xs",
+  "sm",
+  "base",
+  "lg",
+  "xl",
+  "2xl",
+  "3xl",
+  "4xl",
+  "5xl",
+  "6xl",
+  "7xl",
+  "8xl",
+  "9xl",
+]);
+
+const FONT_WEIGHT_KEYS = new Set([
+  "thin",
+  "extralight",
+  "light",
+  "normal",
+  "medium",
+  "semibold",
+  "bold",
+  "extrabold",
+  "black",
+]);
+
+function isAllowedByThemeTokens(
+  token: string,
+  allow: ReturnType<typeof extractTailwindAllowlist>
+): boolean {
+  // Color utilities (bg/text/border) – allow if colors are allowed.
+  const colorMatch = token.match(/^(bg|text|border)-([a-zA-Z]+)-(\d{2,3})$/);
+  if (colorMatch) {
+    if (allow.allowAnyColor) return true;
+    const tw = `tailwind:${colorMatch[2].toLowerCase()}-${colorMatch[3]}`;
+    return allow.allowedTailwindColors.has(tw);
+  }
+
+  // Spacing utilities: p-4, px-2.5, gap-6, space-x-4
+  const spacingMatch = token.match(
+    /^(p[trblxy]?|m[trblxy]?|gap|space-[xy])-(.+)$/
+  );
+  if (spacingMatch) {
+    const key = spacingMatch[2];
+    if (key.includes("[")) return false; // arbitrary spacing
+    if (allow.allowedSpacingKeys.has(key)) return true;
+    if (allow.allowStandardSpacing && STANDARD_SPACING_KEYS.has(key))
+      return true;
+    return false;
+  }
+
+  // Border radius: rounded-md, rounded-t-lg
+  const roundedMatch = token.match(/^rounded(?:-[trbl]{1,2})?-(.+)$/);
+  if (roundedMatch) {
+    const key = roundedMatch[1];
+    if (key.includes("[")) return false;
+    if (allow.allowedBorderRadiusKeys.has(key)) return true;
+    if (
+      allow.allowedBorderRadiusKeys.size === 0 &&
+      STANDARD_RADIUS_KEYS.has(key)
+    )
+      return true;
+    return false;
+  }
+
+  // Font sizes: text-sm (but avoid text-color which has 3-part form handled above)
+  const textSizeMatch = token.match(/^text-([a-zA-Z0-9]+)$/);
+  if (textSizeMatch) {
+    const key = textSizeMatch[1];
+    if (allow.allowedFontSizeKeys.has(key)) return true;
+    if (
+      allow.allowedFontSizeKeys.size === 0 &&
+      STANDARD_TEXT_SIZE_KEYS.has(key)
+    )
+      return true;
+    return false;
+  }
+
+  // Font family: font-sans / font-mono (avoid font weights)
+  const fontMatch = token.match(/^font-([a-zA-Z0-9-]+)$/);
+  if (fontMatch) {
+    const key = fontMatch[1];
+    if (FONT_WEIGHT_KEYS.has(key)) return false;
+    if (allow.allowedFontFamilyKeys.has(key)) return true;
+    // If no font families specified, don't try to validate here.
+    return allow.allowedFontFamilyKeys.size === 0;
+  }
+
+  return false;
 }
 
 function findSimilarColor(

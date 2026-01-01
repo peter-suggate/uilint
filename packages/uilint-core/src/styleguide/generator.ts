@@ -2,12 +2,34 @@
  * Generate Markdown style guides from extracted styles
  */
 
-import type { ExtractedStyles, StyleGuide } from "../types.js";
+import type {
+  ExtractedStyles,
+  StyleGuide,
+  TailwindThemeTokens,
+} from "../types.js";
+import {
+  extractClassTokensFromHtml,
+  topEntries,
+} from "../tailwind/class-tokens.js";
 
 /**
  * Generates a Markdown style guide from extracted styles
  */
-export function generateStyleGuideFromStyles(styles: ExtractedStyles): string {
+export interface GenerateStyleGuideOptions {
+  /**
+   * Optional HTML/TSX-ish string used to extract utility classes (Tailwind etc).
+   */
+  html?: string;
+  /**
+   * Optional Tailwind theme tokens (typically from tailwind.config.*).
+   */
+  tailwindTheme?: TailwindThemeTokens | null;
+}
+
+export function generateStyleGuideFromStyles(
+  styles: ExtractedStyles,
+  options: GenerateStyleGuideOptions = {}
+): string {
   const lines: string[] = [];
 
   lines.push("# UI Style Guide");
@@ -17,12 +39,23 @@ export function generateStyleGuideFromStyles(styles: ExtractedStyles): string {
   );
   lines.push("");
 
+  // Merge in any literal hex colors found in the input markup/code.
+  // This is important when the input is TSX/JSX or Tailwind-heavy, where
+  // computed styles (JSDOM) may be sparse or unavailable.
+  const html = options.html || "";
+  const mergedColors = new Map(styles.colors);
+  if (html) {
+    for (const m of html.matchAll(/#[A-Fa-f0-9]{6}\b/g)) {
+      const hex = (m[0] || "").toUpperCase();
+      if (!hex) continue;
+      mergedColors.set(hex, (mergedColors.get(hex) || 0) + 1);
+    }
+  }
+
   // Colors section
   lines.push("## Colors");
   lines.push("");
-  const sortedColors = [...styles.colors.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10);
+  const sortedColors = [...mergedColors.entries()].sort((a, b) => b[1] - a[1]);
 
   if (sortedColors.length > 0) {
     const colorNames = [
@@ -131,6 +164,106 @@ export function generateStyleGuideFromStyles(styles: ExtractedStyles): string {
   lines.push("- **Cards**: Define card styles here");
   lines.push("- **Inputs**: Define input styles here");
   lines.push("");
+
+  // Tailwind / utility classes (optional)
+  const classTokens = html ? extractClassTokensFromHtml(html) : null;
+  const topUtilities = classTokens ? topEntries(classTokens.utilities, 50) : [];
+  const topVariants = classTokens ? topEntries(classTokens.variants, 20) : [];
+  const allUtilities = classTokens
+    ? [...classTokens.utilities.entries()]
+        .sort((a, b) => (b[1] - a[1] ? b[1] - a[1] : a[0].localeCompare(b[0])))
+        .map(([token]) => token)
+    : [];
+
+  const theme = options.tailwindTheme;
+  const themeColors = theme?.colors || [];
+  const themeSpacingKeys = theme?.spacingKeys || [];
+  const themeBorderRadiusKeys = theme?.borderRadiusKeys || [];
+  const themeFontFamilyKeys = theme?.fontFamilyKeys || [];
+  const themeFontSizeKeys = theme?.fontSizeKeys || [];
+
+  const hasTailwindSection =
+    topUtilities.length > 0 ||
+    themeColors.length > 0 ||
+    themeSpacingKeys.length > 0 ||
+    themeBorderRadiusKeys.length > 0 ||
+    themeFontFamilyKeys.length > 0 ||
+    themeFontSizeKeys.length > 0;
+
+  if (hasTailwindSection) {
+    lines.push("## Tailwind");
+    lines.push("");
+    lines.push(
+      "> Optional. Captures Tailwind/utility class conventions for validation and consistency."
+    );
+    lines.push("");
+
+    if (topUtilities.length > 0) {
+      const utilityList = topUtilities
+        .slice(0, 25)
+        .map((u) => `\`${u.token}\``)
+        .join(", ");
+      lines.push(`- **Observed utilities (top)**: ${utilityList}`);
+    } else {
+      lines.push("- **Observed utilities (top)**: (none detected)");
+    }
+
+    if (topVariants.length > 0) {
+      const variantList = topVariants
+        .slice(0, 12)
+        .map((v) => `\`${v.token}\``)
+        .join(", ");
+      lines.push(`- **Common variants**: ${variantList}`);
+    }
+
+    if (theme) {
+      lines.push(`- **Config path**: \`${theme.configPath}\``);
+      if (themeColors.length > 0) {
+        lines.push(
+          `- **Theme colors (tokens)**: ${themeColors
+            .slice(0, 25)
+            .map((t) => `\`${t}\``)
+            .join(", ")}${themeColors.length > 25 ? ", ..." : ""}`
+        );
+      } else {
+        lines.push("- **Theme colors (tokens)**: (none specified in config)");
+      }
+
+      if (themeSpacingKeys.length > 0) {
+        lines.push(
+          `- **Theme spacing keys**: ${themeSpacingKeys
+            .slice(0, 25)
+            .map((k) => `\`${k}\``)
+            .join(", ")}${themeSpacingKeys.length > 25 ? ", ..." : ""}`
+        );
+      }
+    }
+
+    // Machine-readable payload to make parsing/validation robust.
+    const payload = {
+      // IMPORTANT: include all observed utilities (not just "top N"), otherwise
+      // init+validate on the same file can be inconsistent.
+      allowedUtilities: allUtilities,
+      allowAnyColor: !!theme && themeColors.length === 0, // avoid noisy warnings when config doesn't define colors
+      allowStandardSpacing: !!theme && themeSpacingKeys.length === 0,
+      themeTokens: theme
+        ? {
+            configPath: theme.configPath,
+            colors: themeColors,
+            spacingKeys: themeSpacingKeys,
+            borderRadiusKeys: themeBorderRadiusKeys,
+            fontFamilyKeys: themeFontFamilyKeys,
+            fontSizeKeys: themeFontSizeKeys,
+          }
+        : null,
+    };
+
+    lines.push("");
+    lines.push("```json");
+    lines.push(JSON.stringify(payload, null, 2));
+    lines.push("```");
+    lines.push("");
+  }
 
   return lines.join("\n");
 }
