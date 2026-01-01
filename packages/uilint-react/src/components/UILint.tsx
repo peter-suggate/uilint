@@ -1,19 +1,25 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import type { UILintIssue, ExtractedStyles } from '../types';
-import { scanDOM } from '../scanner/dom-scanner';
-import { isBrowser, isJSDOM, getEnvironment } from '../scanner/environment';
-import { LLMClient } from '../analyzer/llm-client';
-import { generateStyleGuide } from '../styleguide/generator';
-import { Overlay } from './Overlay';
-import { Highlighter } from './Highlighter';
-import { runUILintInTest } from '../scanner/jsdom-adapter';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
+import type { UILintIssue, ExtractedStyles } from "../types";
+import { scanDOM } from "../scanner/dom-scanner";
+import { isBrowser, getEnvironment } from "../scanner/environment";
+import { LLMClient } from "../analyzer/llm-client";
+import { generateStyleGuide } from "../styleguide/generator";
+import { Overlay } from "./Overlay";
+import { Highlighter } from "./Highlighter";
 
 export interface UILintProps {
   children: React.ReactNode;
   enabled?: boolean;
-  position?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
+  position?: "bottom-left" | "bottom-right" | "top-left" | "top-right";
   autoScan?: boolean;
   apiEndpoint?: string;
 }
@@ -33,7 +39,7 @@ const UILintContext = createContext<UILintContextValue | null>(null);
 export function useUILint() {
   const context = useContext(UILintContext);
   if (!context) {
-    throw new Error('useUILint must be used within a UILint component');
+    throw new Error("useUILint must be used within a UILint component");
   }
   return context;
 }
@@ -41,16 +47,20 @@ export function useUILint() {
 export function UILint({
   children,
   enabled = true,
-  position = 'bottom-left',
+  position = "bottom-left",
   autoScan = false,
   apiEndpoint,
 }: UILintProps) {
   const [issues, setIssues] = useState<UILintIssue[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [styleGuideExists, setStyleGuideExists] = useState(false);
-  const [styleGuideContent, setStyleGuideContent] = useState<string | null>(null);
-  const [highlightedIssue, setHighlightedIssue] = useState<UILintIssue | null>(null);
-  
+  const [styleGuideContent, setStyleGuideContent] = useState<string | null>(
+    null
+  );
+  const [highlightedIssue, setHighlightedIssue] = useState<UILintIssue | null>(
+    null
+  );
+
   const llmClient = useRef(new LLMClient({ apiEndpoint }));
   const hasInitialized = useRef(false);
 
@@ -59,7 +69,7 @@ export function UILint({
     if (!isBrowser()) return;
 
     try {
-      const response = await fetch('/api/uilint/styleguide');
+      const response = await fetch("/api/uilint/styleguide");
       const data = await response.json();
       setStyleGuideExists(data.exists);
       setStyleGuideContent(data.content);
@@ -73,30 +83,21 @@ export function UILint({
     if (!isBrowser()) return;
 
     try {
-      await fetch('/api/uilint/styleguide', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      await fetch("/api/uilint/styleguide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
       });
       setStyleGuideExists(true);
       setStyleGuideContent(content);
     } catch (error) {
-      console.error('[UILint] Failed to save style guide:', error);
+      console.error("[UILint] Failed to save style guide:", error);
     }
   }, []);
 
   // Main scan function
   const scan = useCallback(async () => {
-    const env = getEnvironment();
-    
-    // Handle JSDOM/test environment
-    if (env === 'jsdom') {
-      const testIssues = await runUILintInTest(document.body);
-      setIssues(testIssues);
-      return;
-    }
-
-    // Browser environment
+    // Only run in browser environment
     if (!isBrowser()) return;
 
     setIsScanning(true);
@@ -119,7 +120,7 @@ export function UILint({
 
       setIssues(result.issues);
     } catch (error) {
-      console.error('[UILint] Scan failed:', error);
+      console.error("[UILint] Scan failed:", error);
     } finally {
       setIsScanning(false);
     }
@@ -135,20 +136,15 @@ export function UILint({
     if (!enabled || hasInitialized.current) return;
     hasInitialized.current = true;
 
-    const env = getEnvironment();
+    if (!isBrowser()) return;
 
-    if (env === 'jsdom') {
-      // In test environment, run analysis immediately
-      scan();
-    } else if (env === 'browser') {
-      // In browser, check for style guide
-      checkStyleGuide();
+    // In browser, check for style guide
+    checkStyleGuide();
 
-      if (autoScan) {
-        // Delay scan to allow page to render
-        const timer = setTimeout(scan, 1000);
-        return () => clearTimeout(timer);
-      }
+    if (autoScan) {
+      // Delay scan to allow page to render
+      const timer = setTimeout(scan, 1000);
+      return () => clearTimeout(timer);
     }
   }, [enabled, autoScan, scan, checkStyleGuide]);
 
@@ -177,4 +173,3 @@ export function UILint({
     </UILintContext.Provider>
   );
 }
-

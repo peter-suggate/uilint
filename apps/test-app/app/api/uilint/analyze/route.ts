@@ -1,30 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
-const OLLAMA_URL = 'http://localhost:11434/api/generate';
-const DEFAULT_MODEL = 'llama3.2';
+const OLLAMA_URL = "http://localhost:11434/api/generate";
+const DEFAULT_MODEL = "qwen2.5-coder:7b";
 
 export async function POST(request: NextRequest) {
   try {
-    const { styleSummary, styleGuide, generateGuide, model } = await request.json();
+    const { styleSummary, styleGuide, generateGuide, model } =
+      await request.json();
 
     const prompt = generateGuide
       ? buildStyleGuidePrompt(styleSummary)
       : buildAnalysisPrompt(styleSummary, styleGuide);
 
     const response = await fetch(OLLAMA_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: model || DEFAULT_MODEL,
         prompt,
         stream: false,
-        format: 'json',
+        format: "json",
       }),
     });
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: 'Failed to connect to Ollama' },
+        { error: "Failed to connect to Ollama" },
         { status: 502 }
       );
     }
@@ -34,18 +35,21 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(parsedResponse);
   } catch (error) {
-    console.error('[UILint API] Error:', error);
+    console.error("[UILint API] Error:", error);
     return NextResponse.json(
-      { error: 'Analysis failed', issues: [] },
+      { error: "Analysis failed", issues: [] },
       { status: 500 }
     );
   }
 }
 
-function buildAnalysisPrompt(styleSummary: string, styleGuide: string | null): string {
+function buildAnalysisPrompt(
+  styleSummary: string,
+  styleGuide: string | null
+): string {
   const guideSection = styleGuide
     ? `## Current Style Guide\n${styleGuide}\n\n`
-    : '## No Style Guide Found\nAnalyze the styles and identify inconsistencies.\n\n';
+    : "## No Style Guide Found\nAnalyze the styles and identify inconsistencies.\n\n";
 
   return `You are a UI consistency analyzer. Analyze the following extracted styles and identify inconsistencies.
 
@@ -104,15 +108,14 @@ Example response:
 function parseResponse(response: string, isStyleGuide: boolean): object {
   try {
     const parsed = JSON.parse(response);
-    
+
     if (isStyleGuide) {
       return { styleGuide: parsed.styleGuide || null };
     }
-    
+
     return { issues: parsed.issues || [] };
   } catch {
-    console.error('[UILint API] Failed to parse LLM response:', response);
+    console.error("[UILint API] Failed to parse LLM response:", response);
     return isStyleGuide ? { styleGuide: null } : { issues: [] };
   }
 }
-

@@ -1,14 +1,14 @@
-import type { ExtractedStyles, UILintIssue, AnalysisResult } from '../types';
-import { createStyleSummary } from '../scanner/dom-scanner';
-import { isBrowser } from '../scanner/environment';
+import type { ExtractedStyles, UILintIssue, AnalysisResult } from "../types";
+import { createStyleSummary } from "../scanner/dom-scanner";
+import { isBrowser } from "../scanner/environment";
 
 export interface LLMClientOptions {
   apiEndpoint?: string;
   model?: string;
 }
 
-const DEFAULT_API_ENDPOINT = '/api/uilint/analyze';
-const DEFAULT_MODEL = 'llama3.2';
+const DEFAULT_API_ENDPOINT = "/api/uilint/analyze";
+const DEFAULT_MODEL = "qwen2.5-coder:7b";
 
 /**
  * Client for communicating with the LLM for style analysis
@@ -34,8 +34,8 @@ export class LLMClient {
 
     try {
       const response = await fetch(this.apiEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           styleSummary,
           styleGuide,
@@ -48,14 +48,14 @@ export class LLMClient {
       }
 
       const data = await response.json();
-      
+
       return {
         issues: data.issues || [],
         suggestedStyleGuide: data.suggestedStyleGuide,
         analysisTime: Date.now() - startTime,
       };
     } catch (error) {
-      console.error('[UILint] Analysis failed:', error);
+      console.error("[UILint] Analysis failed:", error);
       return {
         issues: [],
         analysisTime: Date.now() - startTime,
@@ -71,8 +71,8 @@ export class LLMClient {
 
     try {
       const response = await fetch(this.apiEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           styleSummary,
           generateGuide: true,
@@ -87,7 +87,7 @@ export class LLMClient {
       const data = await response.json();
       return data.styleGuide || null;
     } catch (error) {
-      console.error('[UILint] Style guide generation failed:', error);
+      console.error("[UILint] Style guide generation failed:", error);
       return null;
     }
   }
@@ -102,7 +102,7 @@ export function buildAnalysisPrompt(
 ): string {
   const guideSection = styleGuide
     ? `## Current Style Guide\n${styleGuide}\n\n`
-    : '## No Style Guide Found\nAnalyze the styles and identify inconsistencies.\n\n';
+    : "## No Style Guide Found\nAnalyze the styles and identify inconsistencies.\n\n";
 
   return `You are a UI consistency analyzer. Analyze the following extracted styles and identify inconsistencies.
 
@@ -179,4 +179,3 @@ Use this format:
 
 Be concise and focus on the most used values.`;
 }
-
