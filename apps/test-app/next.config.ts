@@ -1,8 +1,7 @@
-import type { NextConfig } from 'next';
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['uilint-react'],
+  transpilePackages: ["uilint-react"],
 };
 
 export default nextConfig;
-

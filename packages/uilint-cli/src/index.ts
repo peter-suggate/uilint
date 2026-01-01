@@ -8,6 +8,7 @@ import { init } from "./commands/init.js";
 import { update } from "./commands/update.js";
 import { validate } from "./commands/validate.js";
 import { query } from "./commands/query.js";
+import { install } from "./commands/install.js";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -18,7 +19,9 @@ function getCLIVersion(): string {
   try {
     const __dirname = dirname(fileURLToPath(import.meta.url));
     const pkgPath = join(__dirname, "..", "package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version?: string };
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
+      version?: string;
+    };
     return pkg.version || "0.0.0";
   } catch {
     return "0.0.0";
@@ -125,5 +128,15 @@ program
     });
   });
 
-program.parse();
+// Install command
+program
+  .command("install")
+  .description("Install Cursor rules for automatic UI validation")
+  .option("--force", "Overwrite existing rules file")
+  .action(async (options) => {
+    await install({
+      force: options.force,
+    });
+  });
 
+program.parse();

@@ -5,7 +5,13 @@
 // Issue types
 export interface UILintIssue {
   id: string;
-  type: 'color' | 'typography' | 'spacing' | 'component' | 'responsive' | 'accessibility';
+  type:
+    | "color"
+    | "typography"
+    | "spacing"
+    | "component"
+    | "responsive"
+    | "accessibility";
   message: string;
   element?: string;
   selector?: string;
@@ -88,7 +94,7 @@ export interface ValidationResult {
 }
 
 export interface ValidationIssue {
-  type: 'error' | 'warning';
+  type: "error" | "warning";
   message: string;
   line?: number;
   suggestion?: string;
@@ -101,8 +107,8 @@ export interface LintResult {
 }
 
 export interface LintIssue {
-  severity: 'error' | 'warning' | 'info';
-  type: 'color' | 'spacing' | 'typography' | 'component' | 'accessibility';
+  severity: "error" | "warning" | "info";
+  type: "color" | "spacing" | "typography" | "component" | "accessibility";
   message: string;
   line?: number;
   code?: string;
@@ -124,4 +130,3 @@ export interface ExtractedStyleValues {
   spacing: string[];
   borderRadius: string[];
 }
-

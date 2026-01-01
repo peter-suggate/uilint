@@ -2,7 +2,12 @@
  * Code validation against style guide
  */
 
-import type { ValidationResult, ValidationIssue, LintResult, LintIssue } from "../types.js";
+import type {
+  ValidationResult,
+  ValidationIssue,
+  LintResult,
+  LintIssue,
+} from "../types.js";
 import { extractStyleValues } from "../styleguide/parser.js";
 
 /**
@@ -46,7 +51,9 @@ export function validateCode(
   }
 
   // Check for hardcoded pixel values (potential spacing violations)
-  const hardcodedPixels = code.matchAll(/(?:margin|padding|gap)[-:].*?(\d+)px/gi);
+  const hardcodedPixels = code.matchAll(
+    /(?:margin|padding|gap)[-:].*?(\d+)px/gi
+  );
   for (const match of hardcodedPixels) {
     const value = parseInt(match[1]);
     // Check if it follows a 4px grid
@@ -79,7 +86,10 @@ export function validateCode(
 /**
  * Lints a code snippet against the style guide
  */
-export function lintSnippet(code: string, styleGuide: string | null): LintResult {
+export function lintSnippet(
+  code: string,
+  styleGuide: string | null
+): LintResult {
   const issues: LintIssue[] = [];
 
   // Basic linting even without style guide
@@ -184,7 +194,9 @@ function lintAgainstStyleGuide(code: string, styleGuide: string): LintIssue[] {
         type: "color",
         message: `Color ${color} not in style guide`,
         code: match[0],
-        suggestion: `Allowed colors: ${values.colors.slice(0, 5).join(", ")}${values.colors.length > 5 ? "..." : ""}`,
+        suggestion: `Allowed colors: ${values.colors.slice(0, 5).join(", ")}${
+          values.colors.length > 5 ? "..." : ""
+        }`,
       });
     }
   }
@@ -268,4 +280,3 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
     b: parseInt(match[3], 16),
   };
 }
-

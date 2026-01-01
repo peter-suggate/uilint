@@ -92,7 +92,10 @@ Be concise and focus on the most used values.`;
 /**
  * Builds a prompt for querying the style guide
  */
-export function buildQueryPrompt(query: string, styleGuide: string | null): string {
+export function buildQueryPrompt(
+  query: string,
+  styleGuide: string | null
+): string {
   if (!styleGuide) {
     return `The user is asking: "${query}"
 
@@ -113,7 +116,10 @@ Provide a clear, concise answer based on the style guide above. If the style gui
 /**
  * Builds a prompt for code validation
  */
-export function buildValidationPrompt(code: string, styleGuide: string | null): string {
+export function buildValidationPrompt(
+  code: string,
+  styleGuide: string | null
+): string {
   const guideSection = styleGuide
     ? `## Style Guide\n${styleGuide}\n\n`
     : "## No Style Guide\nValidate for general best practices.\n\n";
@@ -152,4 +158,3 @@ Example response:
   ]
 }`;
 }
-

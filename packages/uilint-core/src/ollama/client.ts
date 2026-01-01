@@ -75,7 +75,10 @@ export class OllamaClient {
   /**
    * Queries the style guide for specific information
    */
-  async queryStyleGuide(query: string, styleGuide: string | null): Promise<string> {
+  async queryStyleGuide(
+    query: string,
+    styleGuide: string | null
+  ): Promise<string> {
     const prompt = buildQueryPrompt(query, styleGuide);
 
     try {
@@ -108,7 +111,10 @@ export class OllamaClient {
   /**
    * Core generate method that calls Ollama API
    */
-  private async generate(prompt: string, jsonFormat: boolean = true): Promise<string> {
+  private async generate(
+    prompt: string,
+    jsonFormat: boolean = true
+  ): Promise<string> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
@@ -204,4 +210,3 @@ export function getOllamaClient(options?: OllamaClientOptions): OllamaClient {
   }
   return defaultClient;
 }
-

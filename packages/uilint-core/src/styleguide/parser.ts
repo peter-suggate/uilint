@@ -24,7 +24,10 @@ export function parseStyleGuide(markdown: string): StyleGuide {
 
     if (lowerTitle.includes("color")) {
       guide.colors = parseColorSection(content);
-    } else if (lowerTitle.includes("typography") || lowerTitle.includes("font")) {
+    } else if (
+      lowerTitle.includes("typography") ||
+      lowerTitle.includes("font")
+    ) {
       guide.typography = parseTypographySection(content);
     } else if (lowerTitle.includes("spacing")) {
       guide.spacing = parseSpacingSection(content);
@@ -172,7 +175,9 @@ function parseComponentSection(content: string): ComponentRule[] {
 /**
  * Parses sections from a Markdown style guide (simpler format)
  */
-export function parseStyleGuideSections(content: string): Record<string, string> {
+export function parseStyleGuideSections(
+  content: string
+): Record<string, string> {
   const sections: Record<string, string> = {};
   const lines = content.split("\n");
 
@@ -184,7 +189,9 @@ export function parseStyleGuideSections(content: string): Record<string, string>
 
     if (headerMatch) {
       if (currentContent.length > 0) {
-        sections[currentSection.toLowerCase()] = currentContent.join("\n").trim();
+        sections[currentSection.toLowerCase()] = currentContent
+          .join("\n")
+          .trim();
       }
 
       currentSection = headerMatch[1];
@@ -230,7 +237,9 @@ export function extractStyleValues(content: string): ExtractedStyleValues {
   }
 
   // Extract font families (quoted strings in font context)
-  const fontFamilyMatches = content.matchAll(/font-family:\s*["']?([^"',\n]+)/gi);
+  const fontFamilyMatches = content.matchAll(
+    /font-family:\s*["']?([^"',\n]+)/gi
+  );
   for (const match of fontFamilyMatches) {
     const family = match[1].trim();
     if (!result.fontFamilies.includes(family)) {
@@ -240,4 +249,3 @@ export function extractStyleValues(content: string): ExtractedStyleValues {
 
   return result;
 }
-
