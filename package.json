@@ -1,7 +1,7 @@
 {
   "name": "uilint",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "description": "AI-powered UI consistency checker for Next.js applications",
   "scripts": {
     "dev": "pnpm --filter test-app dev",
