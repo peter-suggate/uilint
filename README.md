@@ -48,6 +48,12 @@ npm install -g uilint-cli
 npm install uilint-react uilint-core
 ```
 
+You can also run the CLI without installing globally:
+
+```bash
+npx uilint-cli --help
+```
+
 ---
 
 ## Using UILint in a Running App
@@ -58,14 +64,14 @@ Wrap your app with the `<UILint>` component to get a visual overlay that scans f
 
 ```tsx
 // app/layout.tsx (Next.js)
-import { UILint } from 'uilint-react';
+import { UILint } from "uilint-react";
 
 export default function RootLayout({ children }) {
   return (
     <html>
       <body>
-        <UILint 
-          enabled={process.env.NODE_ENV !== 'production'}
+        <UILint
+          enabled={process.env.NODE_ENV !== "production"}
           position="bottom-left"
           autoScan={false}
         >
@@ -79,12 +85,12 @@ export default function RootLayout({ children }) {
 
 ### Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `enabled` | `boolean` | `true` | Enable/disable UILint |
-| `position` | `'bottom-left' \| 'bottom-right' \| 'top-left' \| 'top-right'` | `'bottom-left'` | Overlay position |
-| `autoScan` | `boolean` | `false` | Automatically scan on page load |
-| `apiEndpoint` | `string` | `'/api/uilint/analyze'` | Custom API endpoint |
+| Prop          | Type                                                           | Default                 | Description                     |
+| ------------- | -------------------------------------------------------------- | ----------------------- | ------------------------------- |
+| `enabled`     | `boolean`                                                      | `true`                  | Enable/disable UILint           |
+| `position`    | `'bottom-left' \| 'bottom-right' \| 'top-left' \| 'top-right'` | `'bottom-left'`         | Overlay position                |
+| `autoScan`    | `boolean`                                                      | `false`                 | Automatically scan on page load |
+| `apiEndpoint` | `string`                                                       | `'/api/uilint/analyze'` | Custom API endpoint             |
 
 ### API Routes
 
@@ -96,7 +102,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { OllamaClient } from "uilint-core";
 
 export async function POST(request: NextRequest) {
-  const { styleSummary, styleGuide, generateGuide, model } = await request.json();
+  const { styleSummary, styleGuide, generateGuide, model } =
+    await request.json();
   const client = new OllamaClient({ model: model || "qwen2.5-coder:7b" });
 
   if (generateGuide) {
@@ -112,7 +119,12 @@ export async function POST(request: NextRequest) {
 ```ts
 // app/api/uilint/styleguide/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { readStyleGuideFromProject, writeStyleGuide, styleGuideExists, getDefaultStyleGuidePath } from "uilint-core/node";
+import {
+  readStyleGuideFromProject,
+  writeStyleGuide,
+  styleGuideExists,
+  getDefaultStyleGuidePath,
+} from "uilint-core/node";
 
 export async function GET() {
   const projectPath = process.cwd();
@@ -142,17 +154,17 @@ UILint can run in Vitest/Jest tests with JSDOM to catch UI inconsistencies durin
 
 ```ts
 // vitest.setup.ts
-import '@testing-library/jest-dom';
+import "@testing-library/jest-dom";
 ```
 
 ### Basic Test
 
 ```tsx
-import { render, screen } from '@testing-library/react';
-import { UILint } from 'uilint-react';
-import { MyComponent } from './MyComponent';
+import { render, screen } from "@testing-library/react";
+import { UILint } from "uilint-react";
+import { MyComponent } from "./MyComponent";
 
-test('MyComponent has consistent styles', async () => {
+test("MyComponent has consistent styles", async () => {
   render(
     <UILint enabled={true}>
       <MyComponent />
@@ -160,8 +172,8 @@ test('MyComponent has consistent styles', async () => {
   );
 
   // Your normal assertions
-  expect(screen.getByRole('button')).toBeInTheDocument();
-  
+  expect(screen.getByRole("button")).toBeInTheDocument();
+
   // UILint automatically outputs warnings to console:
   // ⚠️ [UILint] Button uses #3B82F6 but style guide specifies #2563EB
 });
@@ -172,29 +184,29 @@ test('MyComponent has consistent styles', async () => {
 For more control, use the `JSDOMAdapter` directly:
 
 ```tsx
-import { JSDOMAdapter, runUILintInTest } from 'uilint-react';
-import { render } from '@testing-library/react';
+import { JSDOMAdapter, runUILintInTest } from "uilint-react";
+import { render } from "@testing-library/react";
 
-test('detect style inconsistencies', async () => {
+test("detect style inconsistencies", async () => {
   render(<MyComponent />);
-  
+
   // Run UILint and get issues
   const issues = await runUILintInTest(document.body);
-  
+
   // Assert on specific issues
   expect(issues).toHaveLength(0); // Fail if any issues found
 });
 
-test('custom adapter usage', async () => {
+test("custom adapter usage", async () => {
   render(<MyComponent />);
-  
-  const adapter = new JSDOMAdapter('.uilint/styleguide.md');
+
+  const adapter = new JSDOMAdapter(".uilint/styleguide.md");
   await adapter.loadStyleGuide();
-  
+
   const result = await adapter.analyze(document.body);
   adapter.outputWarnings(result.issues);
-  
-  expect(result.issues.filter(i => i.type === 'color')).toHaveLength(0);
+
+  expect(result.issues.filter((i) => i.type === "color")).toHaveLength(0);
 });
 ```
 
@@ -206,13 +218,13 @@ The CLI provides powerful commands for analyzing HTML, managing style guides, an
 
 ### Commands Overview
 
-| Command | Description |
-|---------|-------------|
-| `uilint init` | Create a style guide from detected styles |
-| `uilint scan` | Scan HTML for UI consistency issues |
-| `uilint validate` | Validate code against the style guide |
-| `uilint query` | Query the style guide for specific rules |
-| `uilint update` | Update existing style guide with new styles |
+| Command           | Description                                 |
+| ----------------- | ------------------------------------------- |
+| `uilint init`     | Create a style guide from detected styles   |
+| `uilint scan`     | Scan HTML for UI consistency issues         |
+| `uilint validate` | Validate code against the style guide       |
+| `uilint query`    | Query the style guide for specific rules    |
+| `uilint update`   | Update existing style guide with new styles |
 
 ---
 
@@ -239,14 +251,14 @@ curl http://localhost:3000 | uilint init
 
 **Options:**
 
-| Option | Description |
-|--------|-------------|
-| `-f, --input-file <path>` | Path to HTML file to analyze |
-| `-j, --input-json <json>` | JSON input with html and styles |
-| `-o, --output <path>` | Output path (default: `.uilint/styleguide.md`) |
-| `-m, --model <name>` | Ollama model (default: `qwen2.5-coder:7b`) |
-| `--llm` | Use LLM for more polished output |
-| `--force` | Overwrite existing style guide |
+| Option                    | Description                                    |
+| ------------------------- | ---------------------------------------------- |
+| `-f, --input-file <path>` | Path to HTML file to analyze                   |
+| `-j, --input-json <json>` | JSON input with html and styles                |
+| `-o, --output <path>`     | Output path (default: `.uilint/styleguide.md`) |
+| `-m, --model <name>`      | Ollama model (default: `qwen2.5-coder:7b`)     |
+| `--llm`                   | Use LLM for more polished output               |
+| `--force`                 | Overwrite existing style guide                 |
 
 ---
 
@@ -276,13 +288,13 @@ uilint scan --input-json '{"html":"<button class=\"bg-blue-500\">","styles":{"co
 
 **Options:**
 
-| Option | Description |
-|--------|-------------|
-| `-f, --input-file <path>` | Path to HTML file to scan |
-| `-j, --input-json <json>` | JSON input with html and styles |
-| `-s, --styleguide <path>` | Path to style guide file |
-| `-o, --output <format>` | Output format: `text` or `json` |
-| `-m, --model <name>` | Ollama model (default: `qwen2.5-coder:7b`) |
+| Option                    | Description                                |
+| ------------------------- | ------------------------------------------ |
+| `-f, --input-file <path>` | Path to HTML file to scan                  |
+| `-j, --input-json <json>` | JSON input with html and styles            |
+| `-s, --styleguide <path>` | Path to style guide file                   |
+| `-o, --output <format>`   | Output format: `text` or `json`            |
+| `-m, --model <name>`      | Ollama model (default: `qwen2.5-coder:7b`) |
 
 **Example output:**
 
@@ -328,14 +340,14 @@ uilint validate --file src/Button.tsx --styleguide ./my-styleguide.md
 
 **Options:**
 
-| Option | Description |
-|--------|-------------|
-| `-c, --code <code>` | Code snippet to validate |
-| `-f, --file <path>` | Path to file to validate |
-| `-s, --styleguide <path>` | Path to style guide file |
-| `-o, --output <format>` | Output format: `text` or `json` |
-| `-m, --model <name>` | Ollama model (default: `qwen2.5-coder:7b`) |
-| `--llm` | Use LLM for more thorough validation |
+| Option                    | Description                                |
+| ------------------------- | ------------------------------------------ |
+| `-c, --code <code>`       | Code snippet to validate                   |
+| `-f, --file <path>`       | Path to file to validate                   |
+| `-s, --styleguide <path>` | Path to style guide file                   |
+| `-o, --output <format>`   | Output format: `text` or `json`            |
+| `-m, --model <name>`      | Ollama model (default: `qwen2.5-coder:7b`) |
+| `--llm`                   | Use LLM for more thorough validation       |
 
 **Example output:**
 
@@ -374,11 +386,11 @@ uilint query "what fonts?" --styleguide ./design/styleguide.md
 
 **Options:**
 
-| Option | Description |
-|--------|-------------|
-| `-s, --styleguide <path>` | Path to style guide file |
-| `-o, --output <format>` | Output format: `text` or `json` |
-| `-m, --model <name>` | Ollama model (default: `qwen2.5-coder:7b`) |
+| Option                    | Description                                |
+| ------------------------- | ------------------------------------------ |
+| `-s, --styleguide <path>` | Path to style guide file                   |
+| `-o, --output <format>`   | Output format: `text` or `json`            |
+| `-m, --model <name>`      | Ollama model (default: `qwen2.5-coder:7b`) |
 
 **Example output:**
 
@@ -425,29 +437,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      
+          node-version: "20"
+
       - name: Install Ollama
         run: |
           curl -fsSL https://ollama.ai/install.sh | sh
           ollama pull qwen2.5-coder:7b
-      
+
       - name: Start Ollama
         run: ollama serve &
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build app
         run: npm run build
-      
+
       - name: Start app
         run: npm start &
-      
+
       - name: Run UILint
         run: |
           curl http://localhost:3000 | npx uilint-cli scan --output json
@@ -476,11 +488,11 @@ Add to your Cursor settings:
 
 ### Available Tools
 
-| Tool | Description |
-|------|-------------|
-| `validate_code` | Validate JSX/TSX code against style guide |
-| `query_styleguide` | Query specific style rules |
-| `lint_snippet` | Lint a code snippet for issues |
+| Tool               | Description                               |
+| ------------------ | ----------------------------------------- |
+| `validate_code`    | Validate JSX/TSX code against style guide |
+| `query_styleguide` | Query specific style rules                |
+| `lint_snippet`     | Lint a code snippet for issues            |
 
 ---
 
@@ -518,12 +530,12 @@ UILint uses a simple Markdown format for style guides:
 
 ## Packages
 
-| Package | Description |
-|---------|-------------|
-| `uilint-core` | Core library with types, Ollama client, style extraction |
-| `uilint-react` | React component for runtime UI analysis |
-| `uilint-cli` | Command-line interface |
-| `uilint-mcp` | MCP server for editor integration |
+| Package        | Description                                              |
+| -------------- | -------------------------------------------------------- |
+| `uilint-core`  | Core library with types, Ollama client, style extraction |
+| `uilint-react` | React component for runtime UI analysis                  |
+| `uilint-cli`   | Command-line interface                                   |
+| `uilint-mcp`   | MCP server for editor integration                        |
 
 ---
 
@@ -547,7 +559,28 @@ pnpm test
 
 ---
 
+## Publishing to npm (Maintainers)
+
+This repo is a pnpm workspace. Publish the packages in dependency order:
+
+```bash
+# Build everything first
+pnpm build
+
+# Sanity check what would be published
+pnpm publish:dry
+
+# Publish (public)
+pnpm publish:packages
+```
+
+Notes:
+
+- You must be logged in to npm (`npm whoami`) and have rights to publish the package names.
+- If you change versions, keep `packages/*/package.json` versions in sync and ensure internal deps (e.g. `uilint-core`) point at the matching semver range.
+
+---
+
 ## License
 
 MIT
-

@@ -8,13 +8,27 @@ import { init } from "./commands/init.js";
 import { update } from "./commands/update.js";
 import { validate } from "./commands/validate.js";
 import { query } from "./commands/query.js";
+import { readFileSync } from "fs";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 
 const program = new Command();
+
+function getCLIVersion(): string {
+  try {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const pkgPath = join(__dirname, "..", "package.json");
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version?: string };
+    return pkg.version || "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
 
 program
   .name("uilint")
   .description("AI-powered UI consistency checker")
-  .version("0.1.0");
+  .version(getCLIVersion());
 
 // Scan command
 program

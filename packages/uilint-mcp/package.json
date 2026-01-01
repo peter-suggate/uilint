@@ -15,11 +15,15 @@
     "dev": "tsup src/server.ts --format esm --watch",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.1",
-    "uilint-core": "workspace:*"
+    "uilint-core": "^0.1.0"
   },
   "devDependencies": {
     "tsup": "^8.5.1",
@@ -32,6 +36,8 @@
     "lint",
     "ai"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
 }
-

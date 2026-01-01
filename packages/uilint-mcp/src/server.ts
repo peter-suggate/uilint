@@ -10,11 +10,25 @@ import { findStyleGuidePath, readStyleGuide } from "uilint-core/node";
 import { validateCode } from "./tools/validate-code.js";
 import { queryStyleGuide } from "./tools/query-styleguide.js";
 import { lintSnippet } from "./tools/lint-snippet.js";
+import { readFileSync } from "fs";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
+
+function getServerVersion(): string {
+  try {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const pkgPath = join(__dirname, "..", "package.json");
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version?: string };
+    return pkg.version || "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
 
 const server = new Server(
   {
     name: "uilint-mcp",
-    version: "0.1.0",
+    version: getServerVersion(),
   },
   {
     capabilities: {

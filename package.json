@@ -9,7 +9,9 @@
     "test": "pnpm --filter test-app test",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "uilint": "node packages/uilint-cli/dist/index.js"
+    "uilint": "node packages/uilint-cli/dist/index.js",
+    "publish:dry": "pnpm --filter uilint-core publish --dry-run --no-git-checks && pnpm --filter uilint-react publish --dry-run --no-git-checks && pnpm --filter uilint-cli publish --dry-run --no-git-checks && pnpm --filter uilint-mcp publish --dry-run --no-git-checks",
+    "publish:packages": "pnpm --filter uilint-core publish --access public --no-git-checks && pnpm --filter uilint-react publish --access public --no-git-checks && pnpm --filter uilint-cli publish --access public --no-git-checks && pnpm --filter uilint-mcp publish --access public --no-git-checks"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
