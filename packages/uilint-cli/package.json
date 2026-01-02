@@ -1,6 +1,6 @@
 {
   "name": "uilint-cli",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "CLI for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -44,7 +44,7 @@
     "commander": "^14.0.2",
     "chalk": "^5.6.2",
     "picocolors": "^1.1.1",
-    "uilint-core": "^0.1.8"
+    "uilint-core": "^0.1.9"
   },
   "devDependencies": {
     "tsup": "^8.5.1",
