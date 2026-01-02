@@ -26,11 +26,6 @@ export interface FileAnalysisResult extends AnalysisResult {
 
 export interface ScanFileOptions {
   model?: string;
-  /**
-   * Directory to search for Tailwind config (optional).
-   * If omitted, uses the file's directory.
-   */
-  projectPath?: string;
 }
 
 /**
@@ -53,7 +48,7 @@ export async function scanFile(
   styleGuide: string | null,
   options: ScanFileOptions = {}
 ): Promise<FileAnalysisResult> {
-  const projectPath = options.projectPath || process.cwd();
+  const projectPath = process.cwd();
 
   // Resolve the file path
   const absolutePath = isAbsolute(filePath)

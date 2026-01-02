@@ -21,17 +21,75 @@ import {
   writeStyleGuide,
   findWorkspaceRoot,
 } from "uilint-core/node";
+import { existsSync } from "fs";
+import { isAbsolute, resolve } from "path";
 
-export async function GET() {
+function resolveExplicitStyleGuidePath(
+  raw: string | null,
+  workspaceRoot: string
+): { path?: string; error?: string } {
+  if (!raw || !raw.trim()) return {};
+  const trimmed = raw.trim();
+  const candidate = isAbsolute(trimmed) ? trimmed : resolve(workspaceRoot, trimmed);
+  const abs = resolve(candidate);
+  const rootAbs = resolve(workspaceRoot);
+
+  // Safety: avoid letting remote callers read arbitrary files outside the workspace
+  if (abs !== rootAbs && !abs.startsWith(rootAbs + "/")) {
+    return {
+      error: "styleguidePath must be within the workspace root: " + rootAbs,
+    };
+  }
+  if (!existsSync(abs)) {
+    return { error: "styleguidePath not found: " + abs };
+  }
+  return { path: abs };
+}
+
+function resolveStyleGuidePath(explicit: string | null): {
+  path: string | null;
+  error?: string;
+} {
+  const workspaceRoot = findWorkspaceRoot(process.cwd());
+
+  // 1) Explicit per-request param
+  const explicitRes = resolveExplicitStyleGuidePath(explicit, workspaceRoot);
+  if (explicitRes.error) return { path: null, error: explicitRes.error };
+  if (explicitRes.path) return { path: explicitRes.path };
+
+  // 2) Env var pin (optional)
+  const envRes = resolveExplicitStyleGuidePath(
+    process.env.UILINT_STYLEGUIDE_PATH ?? null,
+    workspaceRoot
+  );
+  if (envRes.path) return { path: envRes.path };
+
+  // 3) Prefer local (app) cwd first
+  const local = findStyleGuidePath(process.cwd());
+  if (local) return { path: local };
+
+  // 4) Fallback to workspace root (monorepo)
+  return { path: findStyleGuidePath(workspaceRoot) };
+}
+
+export async function GET(request: NextRequest) {
   try {
-    const workspaceRoot = findWorkspaceRoot(process.cwd());
-    const stylePath = findStyleGuidePath(workspaceRoot);
+    const url = new URL(request.url);
+    const styleguidePath = url.searchParams.get("styleguidePath");
+    const { path: stylePath, error } = resolveStyleGuidePath(styleguidePath);
+
+    if (error) {
+      return NextResponse.json(
+        { error, exists: false, content: null },
+        { status: 400 }
+      );
+    }
 
     if (!stylePath) {
       return NextResponse.json(
         {
           error:
-            'No style guide found. Create ".uilint/styleguide.md" at your workspace root.',
+            'No style guide found. Create ".uilint/styleguide.md", pass ?styleguidePath=..., or set UILINT_STYLEGUIDE_PATH.',
           exists: false,
           content: null,
         },
@@ -52,7 +110,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { content } = await request.json();
+    const body = await request.json();
+    const content = body?.content;
+    const styleguidePath = (body?.styleguidePath as string | undefined) ?? null;
 
     if (!content || typeof content !== "string") {
       return NextResponse.json(
@@ -61,14 +121,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const workspaceRoot = findWorkspaceRoot(process.cwd());
-    const stylePath = findStyleGuidePath(workspaceRoot);
+    const { path: stylePath, error } = resolveStyleGuidePath(styleguidePath);
+
+    if (error) {
+      return NextResponse.json({ error }, { status: 400 });
+    }
 
     if (!stylePath) {
       return NextResponse.json(
         {
           error:
-            'No style guide found. Create ".uilint/styleguide.md" at your workspace root before saving.',
+            'No style guide found. Create ".uilint/styleguide.md", pass styleguidePath, or set UILINT_STYLEGUIDE_PATH before saving.',
         },
         { status: 404 }
       );
@@ -91,12 +154,82 @@ const ANALYZE_ROUTE_TS = `export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { OllamaClient } from "uilint-core";
+import { existsSync } from "fs";
+import { isAbsolute, resolve } from "path";
+import {
+  findStyleGuidePath,
+  readStyleGuide,
+  findWorkspaceRoot,
+} from "uilint-core/node";
 
 const DEFAULT_MODEL = "qwen2.5-coder:7b";
 
+function resolveExplicitStyleGuidePath(
+  raw: string | null,
+  workspaceRoot: string
+): { path?: string; error?: string } {
+  if (!raw || !raw.trim()) return {};
+  const trimmed = raw.trim();
+  const candidate = isAbsolute(trimmed) ? trimmed : resolve(workspaceRoot, trimmed);
+  const abs = resolve(candidate);
+  const rootAbs = resolve(workspaceRoot);
+  if (abs !== rootAbs && !abs.startsWith(rootAbs + "/")) {
+    return {
+      error: "styleguidePath must be within the workspace root: " + rootAbs,
+    };
+  }
+  if (!existsSync(abs)) {
+    return { error: "styleguidePath not found: " + abs };
+  }
+  return { path: abs };
+}
+
+async function resolveStyleGuideContent(input: {
+  styleGuide?: string;
+  styleguidePath?: string | null;
+}): Promise<{ styleGuide?: string; error?: string; status?: number }> {
+  if (input.styleGuide && typeof input.styleGuide === "string") {
+    return { styleGuide: input.styleGuide };
+  }
+
+  const workspaceRoot = findWorkspaceRoot(process.cwd());
+
+  // 1) Explicit per-request path
+  const explicitRes = resolveExplicitStyleGuidePath(
+    input.styleguidePath ?? null,
+    workspaceRoot
+  );
+  if (explicitRes.error) return { error: explicitRes.error, status: 400 };
+  if (explicitRes.path) {
+    return { styleGuide: await readStyleGuide(explicitRes.path) };
+  }
+
+  // 2) Env var pin (optional)
+  const envRes = resolveExplicitStyleGuidePath(
+    process.env.UILINT_STYLEGUIDE_PATH ?? null,
+    workspaceRoot
+  );
+  if (envRes.path) {
+    return { styleGuide: await readStyleGuide(envRes.path) };
+  }
+
+  // 3) Local then workspace fallback
+  const localPath = findStyleGuidePath(process.cwd());
+  if (localPath) return { styleGuide: await readStyleGuide(localPath) };
+
+  const wsPath = findStyleGuidePath(workspaceRoot);
+  if (wsPath) return { styleGuide: await readStyleGuide(wsPath) };
+
+  return {
+    error:
+      'No style guide found. Create ".uilint/styleguide.md", pass styleguidePath, or set UILINT_STYLEGUIDE_PATH.',
+    status: 404,
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { styleSummary, styleGuide, generateGuide, model } =
+    const { styleSummary, styleGuide, styleguidePath, generateGuide, model } =
       await request.json();
 
     const client = new OllamaClient({ model: model || DEFAULT_MODEL });
@@ -115,8 +248,22 @@ export async function POST(request: NextRequest) {
       const styleGuideContent = await client.generateStyleGuide(styleSummary);
       return NextResponse.json({ styleGuide: styleGuideContent });
     } else {
+      const resolved = await resolveStyleGuideContent({
+        styleGuide,
+        styleguidePath,
+      });
+      if (resolved.error) {
+        return NextResponse.json(
+          { error: resolved.error, issues: [] },
+          { status: resolved.status ?? 500 }
+        );
+      }
+
       // Analyze styles for issues
-      const result = await client.analyzeStyles(styleSummary, styleGuide);
+      const result = await client.analyzeStyles(
+        styleSummary,
+        resolved.styleGuide ?? null
+      );
       return NextResponse.json({ issues: result.issues });
     }
   } catch (error) {

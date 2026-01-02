@@ -136,7 +136,7 @@ Understand the design language:
 
 ## Output Format
 
-Generate at \`<workspaceroot>/.uilint/styleguide.md\`:
+Generate at \`<nextjs app root>/.uilint/styleguide.md\`:
 \`\`\`yaml
 # Stack
 framework: 
@@ -659,7 +659,9 @@ export async function install(options: InstallOptions): Promise<void> {
   }
 
   if (installNextOverlay) {
-    steps.push("Run your Next.js dev server and check /api/uilint/styleguide");
+    steps.push(
+      "Run your Next.js dev server and check /api/uilint/styleguide (optionally pass ?styleguidePath=... if your style guide lives outside the app directory)"
+    );
   }
 
   note(steps.join("\n"), "Next Steps");

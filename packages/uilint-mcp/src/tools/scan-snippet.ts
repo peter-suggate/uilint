@@ -21,7 +21,7 @@ export interface ScanSnippetOptions {
    * Directory to search for Tailwind config (optional).
    * If omitted, Tailwind theme tokens are not included.
    */
-  projectPath?: string;
+  tailwindSearchPath?: string;
 }
 
 export async function scanSnippet(
@@ -32,8 +32,8 @@ export async function scanSnippet(
   const snapshot = parseCLIInput(markup);
 
   const tailwindTheme =
-    options.projectPath && options.projectPath.trim()
-      ? readTailwindThemeTokens(options.projectPath)
+    options.tailwindSearchPath && options.tailwindSearchPath.trim()
+      ? readTailwindThemeTokens(options.tailwindSearchPath)
       : null;
 
   const summary = createStyleSummary(snapshot.styles, {

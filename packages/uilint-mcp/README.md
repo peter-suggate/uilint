@@ -48,25 +48,30 @@ Once configured, your AI assistant has access to these tools:
 Query specific style rules from your project's style guide.
 
 **Example prompts:**
+
 - "What colors are allowed in my style guide?"
 - "What fonts should I use for buttons?"
 - "Query the style guide for spacing values"
 
 **Parameters:**
+
 - `query` (string) - The question to ask about the style guide
-- `projectPath` (string, optional) - Path to project root (defaults to cwd)
+- `styleguidePath` (string, optional) - Full path to the style guide file
+- If `styleguidePath` is omitted, the server falls back to searching for `.uilint/styleguide*.md` from its current working directory.
 
 ### `scan_snippet`
 
 Scan a markup snippet for UI consistency issues.
 
 **Example prompts:**
+
 - "Check this JSX for UI issues: `<button className='bg-blue-600'>Click</button>`"
 - "Scan this HTML snippet for consistency"
 
 **Parameters:**
+
 - `markup` (string) - The HTML/JSX markup to scan
-- `projectPath` (string, optional) - Path to project root (defaults to cwd)
+- `styleguidePath` (string, optional) - Full path to the style guide file
 - `model` (string, optional) - Ollama model to use
 
 ### `scan_file`
@@ -74,12 +79,14 @@ Scan a markup snippet for UI consistency issues.
 Scan an entire file for UI consistency issues.
 
 **Example prompts:**
+
 - "Scan src/components/Button.tsx for UI issues"
 - "Check app/page.tsx against the style guide"
 
 **Parameters:**
+
 - `filePath` (string) - Path to file to scan
-- `projectPath` (string, optional) - Path to project root (defaults to cwd)
+- `styleguidePath` (string, optional) - Full path to the style guide file
 - `model` (string, optional) - Ollama model to use
 
 ## Usage Examples

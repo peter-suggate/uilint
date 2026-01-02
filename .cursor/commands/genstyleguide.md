@@ -32,7 +32,7 @@ Understand the design language:
 
 ## Output Format
 
-Generate at `<workspaceroot>/.uilint/styleguide.md`:
+Generate at `<nextjs app root>/.uilint/styleguide.md`:
 ```yaml
 # Stack
 framework: 

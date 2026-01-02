@@ -10,7 +10,7 @@ import { findStyleGuidePath, readStyleGuide } from "uilint-core/node";
 import { queryStyleGuide } from "./tools/query-styleguide.js";
 import { scanSnippet } from "./tools/scan-snippet.js";
 import { scanFile, type FileAnalysisResult } from "./tools/scan-file.js";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
@@ -18,7 +18,9 @@ function getServerVersion(): string {
   try {
     const __dirname = dirname(fileURLToPath(import.meta.url));
     const pkgPath = join(__dirname, "..", "package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { version?: string };
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
+      version?: string;
+    };
     return pkg.version || "0.0.0";
   } catch {
     return "0.0.0";
@@ -53,10 +55,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               description:
                 'What to query, e.g., "what colors are allowed?", "what is the primary font?", "what spacing values should I use?"',
             },
-            projectPath: {
+            styleguidePath: {
               type: "string",
               description:
-                "Path to the project root (to find .uilint/styleguide.md)",
+                "Full path to the style guide markdown file (e.g. /abs/path/.uilint/styleguide.md).",
             },
           },
           required: ["query"],
@@ -73,10 +75,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "string",
               description: "The markup snippet to scan",
             },
-            projectPath: {
+            styleguidePath: {
               type: "string",
               description:
-                "Path to the project root (to find .uilint/styleguide.md)",
+                "Full path to the style guide markdown file (e.g. /abs/path/.uilint/styleguide.md).",
             },
             model: {
               type: "string",
@@ -96,12 +98,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             filePath: {
               type: "string",
               description:
-                "Path to the file to scan. Can be absolute or relative to projectPath.",
+                "Path to the file to scan. Can be absolute or relative to the MCP server's current working directory.",
             },
-            projectPath: {
+            styleguidePath: {
               type: "string",
               description:
-                "Path to the project root (to find .uilint/styleguide.md and resolve relative file paths)",
+                "Full path to the style guide markdown file (e.g. /abs/path/.uilint/styleguide.md).",
             },
             model: {
               type: "string",
@@ -120,12 +122,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
-    // Find and read the style guide
-    const projectPath = (args?.projectPath as string) || process.cwd();
-    const styleGuidePath = findStyleGuidePath(projectPath);
-    const styleGuide = styleGuidePath
-      ? await readStyleGuide(styleGuidePath)
-      : null;
+    // Find and read the style guide.
+    // Prefer explicit styleguidePath (robust for monorepos / subdir apps),
+    // but keep cwd-based lookup as a fallback.
+    const serverCwd = process.cwd();
+    const explicitStyleguidePath = (args?.styleguidePath as string) || "";
+
+    let styleGuide: string | null = null;
+    if (explicitStyleguidePath && explicitStyleguidePath.trim()) {
+      const p = explicitStyleguidePath.trim();
+      styleGuide = existsSync(p) ? await readStyleGuide(p) : null;
+    } else {
+      const styleGuidePath = findStyleGuidePath(serverCwd);
+      styleGuide = styleGuidePath ? await readStyleGuide(styleGuidePath) : null;
+    }
 
     switch (name) {
       case "query_styleguide": {
@@ -155,8 +165,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
         const model = args?.model as string | undefined;
+
+        const tailwindSearchPath =
+          explicitStyleguidePath && explicitStyleguidePath.trim()
+            ? dirname(explicitStyleguidePath.trim())
+            : serverCwd;
+
         const result = await scanSnippet(markup, styleGuide, {
-          projectPath,
+          tailwindSearchPath,
           model,
         });
         return {
@@ -176,7 +192,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
         const model = args?.model as string | undefined;
         const result = await scanFile(filePath, styleGuide, {
-          projectPath,
           model,
         });
 
@@ -215,7 +230,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: "text",
-              text: `Found ${result.issues.length} issue(s) in ${filePath}:\n\n${issueLines.join("\n\n")}\n\nAnalysis time: ${result.analysisTime}ms`,
+              text: `Found ${
+                result.issues.length
+              } issue(s) in ${filePath}:\n\n${issueLines.join(
+                "\n\n"
+              )}\n\nAnalysis time: ${result.analysisTime}ms`,
             },
           ],
         };
@@ -232,7 +251,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       content: [
         {
           type: "text",
-          text: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          text: `Error: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
         },
       ],
       isError: true,
