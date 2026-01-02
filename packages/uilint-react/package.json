@@ -1,6 +1,6 @@
 {
   "name": "uilint-react",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "React component for AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -41,7 +41,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "uilint-core": "^0.1.12"
+    "uilint-core": "^0.1.13"
   },
   "peerDependencies": {
     "react": "^19.0.0",
