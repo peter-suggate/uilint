@@ -53,8 +53,10 @@ function resolveCLIPath(): string {
   if (existsSync(monorepoPath)) {
     return monorepoPath;
   }
-  // Fallback to npx uilint (for installed packages)
-  return "uilint";
+
+  // Fallback: run via `npx` so we don't depend on PATH having `uilint`.
+  // NOTE: `runCLI` will inject `--yes uilint-cli ...` to keep it non-interactive.
+  return "npx";
 }
 
 /**
@@ -65,8 +67,13 @@ async function runCLI(args: string[], cwd?: string): Promise<CLIScanResult> {
 
   return new Promise((resolve, reject) => {
     const isDirectPath = cliPath.endsWith(".js");
+    const isNPX = cliPath === "npx";
     const command = isDirectPath ? process.execPath : cliPath;
-    const spawnArgs = isDirectPath ? [cliPath, ...args] : args;
+    const spawnArgs = isDirectPath
+      ? [cliPath, ...args]
+      : isNPX
+      ? ["--yes", "uilint-cli", ...args]
+      : args;
 
     const child = spawn(command, spawnArgs, {
       cwd: cwd || process.cwd(),
