@@ -1,6 +1,6 @@
 {
   "name": "uilint-react",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "React component for AI-powered UI consistency checking",
   "type": "module",
   "main": "./dist/index.js",
@@ -30,7 +30,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "uilint-core": "^0.1.5"
+    "uilint-core": "^0.1.6"
   },
   "peerDependencies": {
     "react": "^19.0.0",
