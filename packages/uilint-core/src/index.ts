@@ -20,6 +20,7 @@ export type {
   OllamaClientOptions,
   ExtractedStyleValues,
   TailwindThemeTokens,
+  StreamProgressCallback,
 } from "./types.js";
 
 // Ollama client

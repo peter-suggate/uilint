@@ -3,7 +3,12 @@
  */
 
 import { dirname, resolve } from "path";
-import { OllamaClient, createStyleSummary, type UILintIssue } from "uilint-core";
+import {
+  OllamaClient,
+  createStyleSummary,
+  type UILintIssue,
+  type StreamProgressCallback,
+} from "uilint-core";
 import {
   ensureOllamaReady,
   readStyleGuideFromProject,
@@ -16,6 +21,7 @@ import {
   intro,
   outro,
   withSpinner,
+  createSpinner,
   note,
   logInfo,
   logWarning,
@@ -44,11 +50,15 @@ function formatIssuesClack(issues: UILintIssue[]): string {
   issues.forEach((issue, index) => {
     const icon = getTypeIcon(issue.type);
     const typeLabel = pc.dim(`[${issue.type}]`);
-    lines.push(`${pc.yellow(String(index + 1))}. ${icon} ${typeLabel} ${issue.message}`);
+    lines.push(
+      `${pc.yellow(String(index + 1))}. ${icon} ${typeLabel} ${issue.message}`
+    );
 
     if (issue.currentValue && issue.expectedValue) {
       lines.push(
-        `   ${pc.red(issue.currentValue)} ${pc.dim("→")} ${pc.green(issue.expectedValue)}`
+        `   ${pc.red(issue.currentValue)} ${pc.dim("→")} ${pc.green(
+          issue.expectedValue
+        )}`
       );
     } else if (issue.currentValue) {
       lines.push(`   ${pc.dim("Value:")} ${issue.currentValue}`);
@@ -159,9 +169,31 @@ export async function scan(options: ScanOptions): Promise<void> {
     if (isJsonOutput) {
       result = await client.analyzeStyles(styleSummary, styleGuide);
     } else {
-      result = await withSpinner("Analyzing with LLM", async () => {
-        return await client.analyzeStyles(styleSummary, styleGuide);
-      });
+      // Use streaming to show progress
+      const s = createSpinner();
+      s.start("Analyzing with LLM");
+
+      const onProgress: StreamProgressCallback = (latestLine) => {
+        // Truncate line if too long for terminal
+        const maxLen = 60;
+        const displayLine =
+          latestLine.length > maxLen
+            ? latestLine.slice(0, maxLen) + "…"
+            : latestLine;
+        s.message(`Analyzing: ${pc.dim(displayLine || "...")}`);
+      };
+
+      try {
+        result = await client.analyzeStyles(
+          styleSummary,
+          styleGuide,
+          onProgress
+        );
+        s.stop(pc.green("✓ ") + "Analyzing with LLM");
+      } catch (error) {
+        s.stop(pc.red("✗ ") + "Analyzing with LLM");
+        throw error;
+      }
     }
 
     // Output results
@@ -176,7 +208,10 @@ export async function scan(options: ScanOptions): Promise<void> {
         logSuccess("No issues found!");
         outro(`Scan completed in ${result.analysisTime}ms`);
       } else {
-        note(formatIssuesClack(result.issues), `Found ${result.issues.length} issue(s)`);
+        note(
+          formatIssuesClack(result.issues),
+          `Found ${result.issues.length} issue(s)`
+        );
         outro(`Scan completed in ${result.analysisTime}ms`);
       }
     }
@@ -187,7 +222,10 @@ export async function scan(options: ScanOptions): Promise<void> {
     }
   } catch (error) {
     if (options.output === "json") {
-      printJSON({ error: error instanceof Error ? error.message : "Unknown error", issues: [] });
+      printJSON({
+        error: error instanceof Error ? error.message : "Unknown error",
+        issues: [],
+      });
     } else {
       logError(error instanceof Error ? error.message : "Scan failed");
     }

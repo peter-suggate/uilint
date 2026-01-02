@@ -94,6 +94,12 @@ export interface OllamaClientOptions {
   timeout?: number;
 }
 
+// Callback for streaming progress updates
+export type StreamProgressCallback = (
+  latestLine: string,
+  fullResponse: string
+) => void;
+
 // Style values extracted from styleguide
 export interface ExtractedStyleValues {
   colors: string[];
