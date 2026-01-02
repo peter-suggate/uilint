@@ -3,52 +3,22 @@
  */
 
 import chalk from "chalk";
-import type { UILintIssue } from "uilint-core";
+import {
+  formatViolationsText,
+  sanitizeIssues,
+  type UILintIssue,
+} from "uilint-core";
 
 /**
  * Formats UILint issues for console output
  */
 export function formatIssues(issues: UILintIssue[]): string {
-  if (issues.length === 0) {
-    return chalk.green("✓ No UI consistency issues found");
-  }
-
-  const lines: string[] = [];
-  lines.push(chalk.yellow(`Found ${issues.length} issue(s):\n`));
-
-  issues.forEach((issue, index) => {
-    const icon = getTypeIcon(issue.type);
-    lines.push(chalk.white(`${index + 1}. ${icon} ${issue.message}`));
-
-    if (issue.currentValue && issue.expectedValue) {
-      lines.push(
-        chalk.gray(
-          `   Current: ${issue.currentValue} → Expected: ${issue.expectedValue}`
-        )
-      );
-    } else if (issue.currentValue) {
-      lines.push(chalk.gray(`   Value: ${issue.currentValue}`));
-    }
-
-    if (issue.suggestion) {
-      lines.push(chalk.cyan(`   💡 ${issue.suggestion}`));
-    }
-    lines.push("");
+  const sanitized = sanitizeIssues(issues);
+  const text = formatViolationsText(sanitized, {
+    includeFooter: sanitized.length > 0,
   });
-
-  return lines.join("\n");
-}
-
-function getTypeIcon(type: string): string {
-  const icons: Record<string, string> = {
-    color: "🎨",
-    typography: "📝",
-    spacing: "📏",
-    component: "🧩",
-    responsive: "📱",
-    accessibility: "♿",
-  };
-  return icons[type] || "•";
+  // Preserve existing callers expecting a string; apply minimal coloring only.
+  return sanitized.length === 0 ? chalk.green(text) : text;
 }
 
 /**

@@ -9,7 +9,8 @@ import {
   createStyleSummary,
   buildAnalysisPrompt,
   buildSourceAnalysisPrompt,
-  type UILintIssue,
+  formatViolationsText,
+  sanitizeIssues,
   type StreamProgressCallback,
 } from "uilint-core";
 import {
@@ -100,53 +101,6 @@ function debugLog(enabled: boolean, message: string, obj?: unknown): void {
       console.error(pc.dim("[uilint:debug]"), message);
     }
   }
-}
-
-/**
- * Format issues for clack-styled output
- */
-function formatIssuesClack(issues: UILintIssue[]): string {
-  if (issues.length === 0) {
-    return pc.green("✓ No UI consistency issues found");
-  }
-
-  const lines: string[] = [];
-
-  issues.forEach((issue, index) => {
-    const icon = getTypeIcon(issue.type);
-    const typeLabel = pc.dim(`[${issue.type}]`);
-    lines.push(
-      `${pc.yellow(String(index + 1))}. ${icon} ${typeLabel} ${issue.message}`
-    );
-
-    if (issue.currentValue && issue.expectedValue) {
-      lines.push(
-        `   ${pc.red(issue.currentValue)} ${pc.dim("→")} ${pc.green(
-          issue.expectedValue
-        )}`
-      );
-    } else if (issue.currentValue) {
-      lines.push(`   ${pc.dim("Value:")} ${issue.currentValue}`);
-    }
-
-    if (issue.suggestion) {
-      lines.push(`   ${pc.cyan("💡")} ${pc.dim(issue.suggestion)}`);
-    }
-  });
-
-  return lines.join("\n");
-}
-
-function getTypeIcon(type: string): string {
-  const icons: Record<string, string> = {
-    color: "🎨",
-    typography: "📝",
-    spacing: "📏",
-    component: "🧩",
-    responsive: "📱",
-    accessibility: "♿",
-  };
-  return icons[type] || "•";
 }
 
 export async function scan(options: ScanOptions): Promise<void> {
@@ -519,29 +473,27 @@ export async function scan(options: ScanOptions): Promise<void> {
       }
     }
 
+    // Sanitize (enforce violations-only output)
+    const issues = sanitizeIssues(result.issues);
+
     // Output results
     if (isJsonOutput) {
       printJSON({
-        issues: result.issues,
+        issues,
         analysisTime: result.analysisTime,
         elementCount:
           snapshot.kind === "dom" ? snapshot.snapshot.elementCount : 0,
       });
     } else {
-      if (result.issues.length === 0) {
-        logSuccess("No issues found!");
-        outro(`Scan completed in ${result.analysisTime}ms`);
-      } else {
-        note(
-          formatIssuesClack(result.issues),
-          `Found ${result.issues.length} issue(s)`
-        );
-        outro(`Scan completed in ${result.analysisTime}ms`);
-      }
+      // Minimal output: list violations only, plus footer to consult the style guide.
+      process.stdout.write(
+        formatViolationsText(issues, { includeFooter: issues.length > 0 }) +
+          "\n"
+      );
     }
 
     // Exit with error code if issues found
-    if (result.issues.length > 0) {
+    if (issues.length > 0) {
       process.exit(1);
     }
   } catch (error) {

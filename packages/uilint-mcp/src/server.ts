@@ -17,19 +17,17 @@ import { spawn } from "child_process";
 import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 import { readFileSync, existsSync } from "fs";
+import {
+  formatViolationsText,
+  sanitizeIssues,
+  type UILintIssue,
+} from "uilint-core";
 
 /**
  * Result from running the CLI scan command
  */
 interface CLIScanResult {
-  issues: Array<{
-    id: string;
-    type: string;
-    message: string;
-    currentValue?: string;
-    expectedValue?: string;
-    suggestion?: string;
-  }>;
+  issues: UILintIssue[];
   analysisTime?: number;
   elementCount?: number;
   error?: string;
@@ -130,7 +128,7 @@ function getServerVersion(): string {
  */
 function formatScanResult(
   result: CLIScanResult,
-  context: string
+  _context: string
 ): { content: Array<{ type: string; text: string }>; isError?: boolean } {
   if (result.error) {
     return {
@@ -139,39 +137,16 @@ function formatScanResult(
     };
   }
 
-  if (result.issues.length === 0) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: `✓ No UI consistency issues found${
-            context ? ` in ${context}` : ""
-          }\n\nAnalysis time: ${result.analysisTime ?? 0}ms`,
-        },
-      ],
-    };
-  }
-
-  const issueLines = result.issues.map((issue, i) => {
-    let line = `${i + 1}. [${issue.type}] ${issue.message}`;
-    if (issue.currentValue && issue.expectedValue) {
-      line += `\n   ${issue.currentValue} → ${issue.expectedValue}`;
-    }
-    if (issue.suggestion) {
-      line += `\n   💡 ${issue.suggestion}`;
-    }
-    return line;
+  const issues = sanitizeIssues(result.issues || []);
+  const text = formatViolationsText(issues, {
+    includeFooter: issues.length > 0,
   });
 
   return {
     content: [
       {
         type: "text",
-        text: `Found ${result.issues.length} issue(s)${
-          context ? ` in ${context}` : ""
-        }:\n\n${issueLines.join("\n\n")}\n\nAnalysis time: ${
-          result.analysisTime ?? 0
-        }ms`,
+        text,
       },
     ],
   };

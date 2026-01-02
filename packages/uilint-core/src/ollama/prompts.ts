@@ -13,19 +13,23 @@ export function buildAnalysisPrompt(
     ? `## Current Style Guide\n${styleGuide}\n\n`
     : "## No Style Guide Found\nAnalyze the styles and identify inconsistencies.\n\n";
 
-  return `You are a UI consistency analyzer. Analyze the following extracted styles and identify inconsistencies.
+  return `You are a UI consistency analyzer. Analyze the following extracted styles and identify UI consistency violations.
 
 ${guideSection}
 
 ${styleSummary}
 
-Respond with a JSON object containing an "issues" array. Each issue should have:
+Respond with JSON ONLY. Return a single JSON object containing an "issues" array. Each issue should have:
 - id: unique string identifier
 - type: one of "color", "typography", "spacing", "component", "responsive", "accessibility"
 - message: human-readable description of the issue
 - currentValue: the problematic value found
 - expectedValue: what it should be (if known from style guide)
-- suggestion: how to fix it
+
+IMPORTANT:
+- Output ONLY violations. Do NOT include fix instructions, remediation steps, or "suggestions".
+- Do NOT include extra top-level keys. Only return {"issues":[...]}.
+- Keep messages short and neutral.
 
 Focus on:
 1. Similar but not identical colors (e.g., #3B82F6 vs #3575E2)
@@ -34,7 +38,7 @@ Focus on:
 4. Mixed border-radius values
 5. If utility/Tailwind classes are present in the summary, treat them as the styling surface area and flag inconsistent utility usage (e.g., mixing px-4 and px-5 for the same component type)
 
-Be concise and actionable. Only report significant inconsistencies.
+Be minimal. Only report significant inconsistencies.
 
 Example response:
 {
@@ -44,8 +48,7 @@ Example response:
       "type": "color",
       "message": "Found similar blue colors that should be consolidated",
       "currentValue": "#3575E2",
-      "expectedValue": "#3B82F6",
-      "suggestion": "Use the primary blue #3B82F6 consistently"
+      "expectedValue": "#3B82F6"
     }
   ]
 }`;
@@ -94,18 +97,22 @@ export function buildSourceAnalysisPrompt(
       ? `## Additional Context\n${options.extraContext.trim()}\n\n`
       : "";
 
-  return `You are a UI consistency analyzer. Analyze the following UI source code and identify inconsistencies with the style guide.
+  return `You are a UI consistency analyzer. Analyze the following UI source code and identify UI consistency violations.
 
 ${guideSection}${metaSection}${extra}## Source Code (raw)
 ${source}
 
-Respond with a JSON object containing an "issues" array. Each issue should have:
+Respond with JSON ONLY. Return a single JSON object containing an "issues" array. Each issue should have:
 - id: unique string identifier
 - type: one of "color", "typography", "spacing", "component", "responsive", "accessibility"
 - message: human-readable description of the issue
 - currentValue: the problematic value found
 - expectedValue: what it should be (if known from style guide)
-- suggestion: how to fix it
+
+IMPORTANT:
+- Output ONLY violations. Do NOT include fix instructions, remediation steps, or "suggestions".
+- Do NOT include extra top-level keys. Only return {"issues":[...]}.
+- Keep messages short and neutral.
 
 Focus on:
 1. Inconsistent Tailwind/utility classes (e.g., mixing px-4 and px-5 for the same component type)
@@ -113,7 +120,7 @@ Focus on:
 3. Hardcoded colors/spacing/typography that should use tokens/scale
 4. Accessibility issues visible from code (e.g., missing labels, low-contrast combos if obvious)
 
-Be concise and actionable. Only report significant inconsistencies.`;
+Be minimal. Only report significant inconsistencies.`;
 }
 
 /**

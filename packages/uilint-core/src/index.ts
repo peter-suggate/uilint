@@ -32,6 +32,9 @@ export {
   buildStyleGuidePrompt,
 } from "./ollama/prompts.js";
 
+// Output formatting (plain text; no ANSI)
+export { formatViolationsText, sanitizeIssues } from "./format/issues.js";
+
 // Scanner (browser-safe parts only)
 export {
   extractStyles,

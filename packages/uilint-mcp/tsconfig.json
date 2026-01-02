@@ -2,8 +2,12 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
     "declaration": true,
+    "baseUrl": ".",
+    "paths": {
+      "uilint-core": ["../uilint-core/src/index.ts"],
+      "uilint-core/node": ["../uilint-core/src/node.ts"]
+    },
     "lib": ["ES2022"]
   },
   "include": ["src/**/*"],
