@@ -46,6 +46,83 @@ const HOOKS_CONFIG: HooksConfig = {
   },
 };
 
+// Cursor command: /genstyleguide - generates a concise React styleguide prompt
+// Commands live in .cursor/commands/*.md
+const GENSTYLEGUIDE_COMMAND_MD = `# React Style Guide Generator
+
+Analyze the React UI codebase to produce a concise style guide. Focus on \`.tsx\` and \`.jsx\` files, prioritizing:
+- Layout components (App, Layout, Shell, Container)
+- Navigation (Nav, Header, Sidebar, Menu)
+- Core UI (Button, Card, Modal, Input, Form)
+
+## Analysis Steps
+
+1. **Identify Styling System** - Check for:
+   - Tailwind (\`className="..."\` with utility classes)
+   - CSS Modules (\`styles.xxx\`, \`*.module.css\` imports)
+   - Styled-components/Emotion (\`styled.\`, \`css=\`)
+   - Inline styles (\`style={{}}\`)
+   - Plain CSS (\`.css\` imports)
+
+2. **Detect Component Libraries** - Look for imports from:
+   - \`@/components/ui/*\` (shadcn)
+   - \`@mui/*\`, \`@chakra-ui/*\`, \`@radix-ui/*\`, \`antd\`, \`@mantine/*\`
+
+3. **Extract Patterns** - Note recurring values for:
+   - Spacing (padding/margin: common values)
+   - Border radius (rounded-*, border-radius values)
+   - Colors (primary, accent, background, text)
+   - Typography (font sizes, weights used)
+
+4. **Assess Consistency**:
+   - Mixed approaches? (e.g., Tailwind + inline styles)
+   - One-off overrides vs systematic patterns
+
+## Output Format
+
+Generate a style guide in this exact format:
+\`\`\`yaml
+system: 
+library: 
+consistency: 
+notes: <one-line on any mixing/inconsistencies>
+
+tokens:
+  spacing: []
+  radius: []
+  colors:
+    primary: 
+    secondary: 
+    background: 
+    text: 
+    border: 
+    accent: 
+  font:
+    sizes: []
+    weights: []
+
+patterns:
+  buttons: 
+  cards: 
+  inputs: 
+  containers: 
+  
+conventions:
+  - 
+  - 
+  - 
+\`\`\`
+
+## Rules
+
+- Be terse. No explanations.
+- Use actual values found, not descriptions.
+- If a token varies wildly, note "inconsistent".
+- Max 5 conventions, most important only.
+- Skip sections if not applicable.
+- Prefer CSS variable names if used consistently.
+`;
+
 // Hook 1: beforeSubmitPrompt - clear tracked files
 const SESSION_START_SCRIPT = `#!/bin/bash
 # UILint session start hook
@@ -202,26 +279,29 @@ export async function install(options: InstallOptions): Promise<void> {
     const projectPath = process.cwd();
     const cursorDir = join(projectPath, ".cursor");
     const hooksDir = join(cursorDir, "hooks");
+    const commandsDir = join(cursorDir, "commands");
     const hooksJsonPath = join(cursorDir, "hooks.json");
 
     // Hook script paths
     const sessionStartPath = join(hooksDir, "uilint-session-start.sh");
     const trackPath = join(hooksDir, "uilint-track.sh");
     const sessionEndPath = join(hooksDir, "uilint-session-end.sh");
+    const genstyleguideCommandPath = join(commandsDir, "genstyleguide.md");
 
     // Legacy paths to clean up
     const oldValidatePath = join(hooksDir, "uilint-validate.sh");
     const oldJsHookPath = join(hooksDir, "uilint-validate.js");
     const oldRulesPath = join(cursorDir, "rules", "uilint.mdc");
 
-    // Check if hooks already exist
-    if (
-      !options.force &&
-      (existsSync(sessionStartPath) ||
-        existsSync(trackPath) ||
-        existsSync(sessionEndPath))
-    ) {
-      printWarning("UILint hooks already exist in .cursor/hooks/");
+    const hooksInstalled =
+      existsSync(sessionStartPath) &&
+      existsSync(trackPath) &&
+      existsSync(sessionEndPath);
+    const commandInstalled = existsSync(genstyleguideCommandPath);
+
+    // If everything is already present, avoid overwriting unless forced.
+    if (!options.force && hooksInstalled && commandInstalled) {
+      printWarning("UILint hooks and commands already exist under .cursor/");
       console.log("Use --force to overwrite the existing installation.");
       process.exit(1);
     }
@@ -229,6 +309,11 @@ export async function install(options: InstallOptions): Promise<void> {
     // Create .cursor/hooks/ directory if it doesn't exist
     if (!existsSync(hooksDir)) {
       mkdirSync(hooksDir, { recursive: true });
+    }
+
+    // Create .cursor/commands/ directory if it doesn't exist
+    if (!existsSync(commandsDir)) {
+      mkdirSync(commandsDir, { recursive: true });
     }
 
     // Handle existing hooks.json - merge or create
@@ -259,22 +344,35 @@ export async function install(options: InstallOptions): Promise<void> {
       finalHooksConfig = HOOKS_CONFIG;
     }
 
-    // Write hooks.json
+    // Write hooks.json (always ensure our hook entries exist)
     writeFileSync(
       hooksJsonPath,
       JSON.stringify(finalHooksConfig, null, 2),
       "utf-8"
     );
 
-    // Write hook scripts
-    writeFileSync(sessionStartPath, SESSION_START_SCRIPT, "utf-8");
-    writeFileSync(trackPath, TRACK_SCRIPT, "utf-8");
-    writeFileSync(sessionEndPath, SESSION_END_SCRIPT, "utf-8");
+    // Write hook scripts (overwrite only if forced or missing)
+    const shouldWriteHooks = options.force || !hooksInstalled;
+    if (shouldWriteHooks) {
+      writeFileSync(sessionStartPath, SESSION_START_SCRIPT, "utf-8");
+      writeFileSync(trackPath, TRACK_SCRIPT, "utf-8");
+      writeFileSync(sessionEndPath, SESSION_END_SCRIPT, "utf-8");
 
-    // Make scripts executable
-    chmodSync(sessionStartPath, 0o755);
-    chmodSync(trackPath, 0o755);
-    chmodSync(sessionEndPath, 0o755);
+      // Make scripts executable
+      chmodSync(sessionStartPath, 0o755);
+      chmodSync(trackPath, 0o755);
+      chmodSync(sessionEndPath, 0o755);
+    }
+
+    // Write Cursor command (overwrite only if forced or missing)
+    const shouldWriteCommand = options.force || !commandInstalled;
+    if (shouldWriteCommand) {
+      writeFileSync(
+        genstyleguideCommandPath,
+        GENSTYLEGUIDE_COMMAND_MD,
+        "utf-8"
+      );
+    }
 
     // Clean up old files
     if (existsSync(oldValidatePath)) {
@@ -290,7 +388,15 @@ export async function install(options: InstallOptions): Promise<void> {
       printInfo("Removed old Cursor rules file: .cursor/rules/uilint.mdc");
     }
 
-    printSuccess("Cursor hooks installed successfully!");
+    if (shouldWriteHooks && shouldWriteCommand) {
+      printSuccess("Cursor hooks and commands installed successfully!");
+    } else if (shouldWriteHooks) {
+      printSuccess("Cursor hooks installed successfully!");
+    } else if (shouldWriteCommand) {
+      printSuccess("Cursor command installed successfully!");
+    } else {
+      printSuccess("Cursor configuration updated successfully!");
+    }
     console.log("\n  Hook config: .cursor/hooks.json");
     console.log("  Hook scripts:");
     console.log(
@@ -298,6 +404,8 @@ export async function install(options: InstallOptions): Promise<void> {
     );
     console.log("    - .cursor/hooks/uilint-track.sh (afterFileEdit)");
     console.log("    - .cursor/hooks/uilint-session-end.sh (stop)");
+    console.log("  Commands:");
+    console.log("    - .cursor/commands/genstyleguide.md (/genstyleguide)");
     console.log("\nHow it works:");
     console.log(
       "  1. Files are tracked as you edit them during an agent session"
@@ -312,7 +420,9 @@ export async function install(options: InstallOptions): Promise<void> {
     console.log("  2. Restart Cursor to load the new hooks");
   } catch (error) {
     printError(
-      error instanceof Error ? error.message : "Failed to install Cursor hooks"
+      error instanceof Error
+        ? error.message
+        : "Failed to install Cursor hooks/commands"
     );
     process.exit(1);
   }

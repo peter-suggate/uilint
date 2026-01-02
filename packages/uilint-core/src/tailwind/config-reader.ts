@@ -39,7 +39,9 @@ export function findTailwindConfigPath(startDir: string): string | null {
   }
 }
 
-export function readTailwindThemeTokens(projectDir: string): TailwindThemeTokens | null {
+export function readTailwindThemeTokens(
+  projectDir: string
+): TailwindThemeTokens | null {
   const configPath = findTailwindConfigPath(projectDir);
   if (!configPath) return null;
 
@@ -54,13 +56,16 @@ export function readTailwindThemeTokens(projectDir: string): TailwindThemeTokens
   try {
     const require = createRequire(import.meta.url);
     const maybe = require("tailwindcss/resolveConfig");
-    const resolveConfig = (maybe?.default ?? maybe) as ((cfg: any) => any) | undefined;
+    const resolveConfig = (maybe?.default ?? maybe) as
+      | ((cfg: any) => any)
+      | undefined;
     if (typeof resolveConfig === "function") resolveConfig(config);
   } catch {
     // If resolve fails, still attempt to extract from raw object.
   }
 
-  const theme = (config.theme && typeof config.theme === "object") ? config.theme : {};
+  const theme =
+    config.theme && typeof config.theme === "object" ? config.theme : {};
   const extend =
     theme.extend && typeof theme.extend === "object" ? theme.extend : {};
 
@@ -109,7 +114,9 @@ function addKeys(out: Set<string>, obj: unknown): void {
 function addColorTokens(out: Set<string>, colors: unknown): void {
   if (!colors || typeof colors !== "object") return;
 
-  for (const [name, value] of Object.entries(colors as Record<string, unknown>)) {
+  for (const [name, value] of Object.entries(
+    colors as Record<string, unknown>
+  )) {
     if (!name) continue;
 
     if (typeof value === "string") {
