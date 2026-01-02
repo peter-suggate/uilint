@@ -4,7 +4,6 @@
 
 import { Command } from "commander";
 import { scan } from "./commands/scan.js";
-import { init } from "./commands/init.js";
 import { update } from "./commands/update.js";
 import { query } from "./commands/query.js";
 import { install } from "./commands/install.js";
@@ -54,27 +53,6 @@ program
       styleguide: options.styleguide,
       output: options.output,
       model: options.model,
-    });
-  });
-
-// Init command
-program
-  .command("init")
-  .description("Create a style guide from detected styles")
-  .option("-f, --input-file <path>", "Path to HTML file to analyze")
-  .option("-j, --input-json <json>", "JSON input with html and styles")
-  .option("-o, --output <path>", "Output path for style guide")
-  .option("-m, --model <name>", "Ollama model to use", "qwen2.5-coder:7b")
-  .option("--force", "Overwrite existing style guide")
-  .option("--llm", "Use LLM to generate a more polished style guide")
-  .action(async (options) => {
-    await init({
-      inputFile: options.inputFile,
-      inputJson: options.inputJson,
-      output: options.output,
-      model: options.model,
-      force: options.force,
-      llm: options.llm,
     });
   });
 

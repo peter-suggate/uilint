@@ -2,13 +2,24 @@
   "name": "uilint-mcp",
   "version": "0.1.6",
   "description": "MCP server for UILint - enables AI agents to validate UI code",
+  "author": "Peter Suggate",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/peter-suggate/uilint.git",
+    "directory": "packages/uilint-mcp"
+  },
+  "homepage": "https://github.com/peter-suggate/uilint#readme",
+  "bugs": {
+    "url": "https://github.com/peter-suggate/uilint/issues"
+  },
   "type": "module",
   "main": "./dist/server.js",
   "bin": {
     "uilint-mcp": "./dist/server.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup src/server.ts --format esm --clean",

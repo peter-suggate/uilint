@@ -11,6 +11,31 @@ UILint scans your UI for design inconsistencies, auto-generates a style guide fr
 - **Style guide generation** - Auto-generates a Markdown style guide from your existing styles
 - **Multiple integration points** - Use in tests, at runtime, via CLI, or in your editor via MCP
 
+## Getting Started (Minimal)
+
+```bash
+# 1) Install Cursor integration (pick MCP when prompted)
+npx uilint-cli@latest install
+
+# 2) Generate `.uilint/styleguide.md` inside Cursor
+# Run: /genstyleguide
+
+# 3) Ask your agent to apply the guide to your code
+# "Update this Button to match our style guide (size, colors, spacing)."
+```
+
+**Example agentic workflow:**
+
+```
+You: "Scan this component and fix any style inconsistencies"
+
+AI uses MCP tools:
+  1. query_styleguide → "what colors are allowed?"
+  2. scan_snippet → analyzes your component markup
+  3. Suggests fixes → "Change #3575E2 to #3B82F6 (primary blue)"
+  4. Updates your code automatically
+```
+
 ## Architecture
 
 ```
@@ -221,46 +246,12 @@ The CLI provides powerful commands for analyzing HTML, managing style guides, an
 
 ### Commands Overview
 
-| Command         | Description                                 |
-| --------------- | ------------------------------------------- |
-| `uilint init`   | Create a style guide from detected styles   |
-| `uilint scan`   | Scan HTML for UI consistency issues         |
-| `uilint query`  | Query the style guide for specific rules    |
-| `uilint update` | Update existing style guide with new styles |
-
----
-
-### `uilint init` - Create a Style Guide
-
-Generate a style guide from your existing UI:
-
-```bash
-# From an HTML file
-uilint init --input-file index.html
-
-# Use LLM for a more polished style guide
-uilint init --input-file index.html --llm
-
-# Custom output path
-uilint init --input-file index.html --output ./docs/styleguide.md
-
-# Overwrite existing style guide
-uilint init --input-file index.html --force
-
-# From stdin (e.g., rendered Next.js page)
-curl http://localhost:3000 | uilint init
-```
-
-**Options:**
-
-| Option                    | Description                                    |
-| ------------------------- | ---------------------------------------------- |
-| `-f, --input-file <path>` | Path to HTML file to analyze                   |
-| `-j, --input-json <json>` | JSON input with html and styles                |
-| `-o, --output <path>`     | Output path (default: `.uilint/styleguide.md`) |
-| `-m, --model <name>`      | Ollama model (default: `qwen2.5-coder:7b`)     |
-| `--llm`                   | Use LLM for more polished output               |
-| `--force`                 | Overwrite existing style guide                 |
+| Command          | Description                                       |
+| ---------------- | ------------------------------------------------- |
+| `uilint scan`    | Scan HTML for UI consistency issues               |
+| `uilint query`   | Query the style guide for specific rules          |
+| `uilint update`  | Update existing style guide with new styles       |
+| `uilint install` | Install Cursor integration (MCP + commands/hooks) |
 
 ---
 
@@ -493,7 +484,7 @@ UILint uses a simple Markdown format for style guides:
 
 ```bash
 # Clone and install
-git clone https://github.com/your-org/uilint.git
+git clone https://github.com/peter-suggate/uilint.git
 cd uilint
 pnpm install
 

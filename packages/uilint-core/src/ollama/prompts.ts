@@ -101,7 +101,7 @@ export function buildQueryPrompt(
   if (!styleGuide) {
     return `The user is asking: "${query}"
 
-No style guide has been created yet. Explain that they should run "uilint init" to create a style guide from their existing styles.`;
+No style guide has been created yet. Explain that they should create ".uilint/styleguide.md" (recommended: run "/genstyleguide" in Cursor) and then try again.`;
   }
 
   return `You are a helpful assistant that answers questions about a UI style guide.

@@ -357,7 +357,7 @@ export async function install(options: InstallOptions): Promise<void> {
 
   // Determine integration mode
   let mode: IntegrationMode;
-  
+
   if (options.mode) {
     mode = options.mode;
     logInfo(`Using ${mode} mode (from --mode flag)`);
@@ -391,14 +391,16 @@ export async function install(options: InstallOptions): Promise<void> {
   // Check for existing installations
   const mcpJsonPath = join(cursorDir, "mcp.json");
   const hooksJsonPath = join(cursorDir, "hooks.json");
-  
+
   const mcpExists = existsSync(mcpJsonPath);
   const hooksExist = existsSync(hooksJsonPath);
 
   if (!options.force) {
     if (installMCP && mcpExists) {
       const mcpOverwrite = await confirm({
-        message: `${pc.dim(".cursor/mcp.json")} already exists. Merge UILint config?`,
+        message: `${pc.dim(
+          ".cursor/mcp.json"
+        )} already exists. Merge UILint config?`,
         initialValue: true,
       });
       if (!mcpOverwrite) {
@@ -433,35 +435,41 @@ export async function install(options: InstallOptions): Promise<void> {
 
   // Show summary
   const installedItems: string[] = [];
-  
+
   if (installMCP) {
     installedItems.push(`${pc.cyan("MCP Server")} → .cursor/mcp.json`);
   }
-  
+
   if (installHooks) {
     installedItems.push(`${pc.cyan("Hooks")} → .cursor/hooks.json`);
     installedItems.push(`  ${pc.dim("├")} uilint-session-start.sh`);
     installedItems.push(`  ${pc.dim("├")} uilint-track.sh`);
     installedItems.push(`  ${pc.dim("└")} uilint-session-end.sh`);
   }
-  
-  installedItems.push(`${pc.cyan("Command")} → .cursor/commands/genstyleguide.md`);
+
+  installedItems.push(
+    `${pc.cyan("Command")} → .cursor/commands/genstyleguide.md`
+  );
 
   note(installedItems.join("\n"), "Installed");
 
   // Next steps
   const steps: string[] = [];
-  
+
   if (!existsSync(join(projectPath, ".uilint", "styleguide.md"))) {
-    steps.push(`Create a styleguide: ${pc.cyan("uilint init")} or ${pc.cyan("/genstyleguide")}`);
+    steps.push(`Create a styleguide: ${pc.cyan("/genstyleguide")}`);
   }
-  
+
   steps.push("Restart Cursor to load the new configuration");
-  
+
   if (installMCP) {
-    steps.push(`The MCP server exposes: ${pc.dim("scan_file, scan_snippet, query_styleguide")}`);
+    steps.push(
+      `The MCP server exposes: ${pc.dim(
+        "scan_file, scan_snippet, query_styleguide"
+      )}`
+    );
   }
-  
+
   if (installHooks) {
     steps.push("Hooks will auto-validate UI files when the agent stops");
   }
@@ -474,7 +482,10 @@ export async function install(options: InstallOptions): Promise<void> {
 /**
  * Install MCP server configuration
  */
-async function installMCPServer(cursorDir: string, force?: boolean): Promise<void> {
+async function installMCPServer(
+  cursorDir: string,
+  force?: boolean
+): Promise<void> {
   const mcpJsonPath = join(cursorDir, "mcp.json");
 
   let config: MCPConfig;
@@ -482,7 +493,9 @@ async function installMCPServer(cursorDir: string, force?: boolean): Promise<voi
   if (existsSync(mcpJsonPath) && !force) {
     // Merge with existing config
     try {
-      const existing = JSON.parse(readFileSync(mcpJsonPath, "utf-8")) as MCPConfig;
+      const existing = JSON.parse(
+        readFileSync(mcpJsonPath, "utf-8")
+      ) as MCPConfig;
       config = {
         mcpServers: {
           ...existing.mcpServers,
@@ -502,7 +515,10 @@ async function installMCPServer(cursorDir: string, force?: boolean): Promise<voi
 /**
  * Install Cursor hooks
  */
-async function installCursorHooks(cursorDir: string, force?: boolean): Promise<void> {
+async function installCursorHooks(
+  cursorDir: string,
+  force?: boolean
+): Promise<void> {
   const hooksDir = join(cursorDir, "hooks");
   const hooksJsonPath = join(cursorDir, "hooks.json");
 

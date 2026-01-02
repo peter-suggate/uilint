@@ -56,7 +56,9 @@ export async function query(
       } else {
         logError("No style guide found");
         note(
-          `Run ${pc.cyan("uilint init")} to create a styleguide first.`,
+          `Create ${pc.cyan(
+            ".uilint/styleguide.md"
+          )} first (recommended: run ${pc.cyan("/genstyleguide")} in Cursor).`,
           "Tip"
         );
       }

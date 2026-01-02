@@ -3,6 +3,16 @@
   "version": "0.1.6",
   "private": false,
   "description": "AI-powered UI consistency checker for Next.js applications",
+  "author": "Peter Suggate",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/peter-suggate/uilint.git"
+  },
+  "homepage": "https://github.com/peter-suggate/uilint#readme",
+  "bugs": {
+    "url": "https://github.com/peter-suggate/uilint/issues"
+  },
+  "license": "MIT",
   "scripts": {
     "dev": "pnpm --filter test-app dev",
     "build": "pnpm -r build",

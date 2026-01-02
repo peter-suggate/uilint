@@ -22,7 +22,9 @@ export function formatIssues(issues: UILintIssue[]): string {
 
     if (issue.currentValue && issue.expectedValue) {
       lines.push(
-        chalk.gray(`   Current: ${issue.currentValue} → Expected: ${issue.expectedValue}`)
+        chalk.gray(
+          `   Current: ${issue.currentValue} → Expected: ${issue.expectedValue}`
+        )
       );
     } else if (issue.currentValue) {
       lines.push(chalk.gray(`   Value: ${issue.currentValue}`));
@@ -136,7 +138,7 @@ export function printStyleguideNotFound(
       ...searchedPaths.map((p) => `  • ${p}`),
       "",
       "To create one, run:",
-      `  ${chalk.cyan("uilint init")}`,
+      `  ${chalk.cyan("/genstyleguide")} ${chalk.gray("(Cursor)")}`,
     ],
     "warning"
   );

@@ -48,7 +48,9 @@ export async function update(options: UpdateOptions): Promise<void> {
     if (!styleGuidePath) {
       logError("No style guide found");
       note(
-        `Run ${pc.cyan("uilint init")} to create a styleguide first.`,
+        `Create ${pc.cyan(
+          ".uilint/styleguide.md"
+        )} first (recommended: run ${pc.cyan("/genstyleguide")} in Cursor).`,
         "Tip"
       );
       process.exit(1);
@@ -84,14 +86,17 @@ export async function update(options: UpdateOptions): Promise<void> {
         await ensureOllamaReady({ model: options.model });
       });
 
-      const result = await withSpinner("Analyzing styles with LLM", async () => {
-        const client = new OllamaClient({ model: options.model });
-        const styleSummary = createStyleSummary(snapshot.styles, {
-          html: snapshot.html,
-          tailwindTheme,
-        });
-        return await client.analyzeStyles(styleSummary, existingContent);
-      });
+      const result = await withSpinner(
+        "Analyzing styles with LLM",
+        async () => {
+          const client = new OllamaClient({ model: options.model });
+          const styleSummary = createStyleSummary(snapshot.styles, {
+            html: snapshot.html,
+            tailwindTheme,
+          });
+          return await client.analyzeStyles(styleSummary, existingContent);
+        }
+      );
 
       if (result.issues.length > 0) {
         const suggestions = result.issues.map((issue) => {
@@ -102,7 +107,10 @@ export async function update(options: UpdateOptions): Promise<void> {
           return line;
         });
 
-        note(suggestions.join("\n\n"), `Found ${result.issues.length} suggestion(s)`);
+        note(
+          suggestions.join("\n\n"),
+          `Found ${result.issues.length} suggestion(s)`
+        );
         logInfo("Edit the styleguide manually to apply these changes.");
         outro("Analysis complete");
       } else {

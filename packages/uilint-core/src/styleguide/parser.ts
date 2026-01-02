@@ -303,19 +303,29 @@ export function extractTailwindAllowlist(content: string): TailwindAllowlist {
 
     const themeTokens = (parsed as any).themeTokens ?? {};
     const themeColors = Array.isArray(themeTokens.colors)
-      ? (themeTokens.colors as unknown[]).filter((c): c is string => typeof c === "string")
+      ? (themeTokens.colors as unknown[]).filter(
+          (c): c is string => typeof c === "string"
+        )
       : [];
     const spacingKeys = Array.isArray(themeTokens.spacingKeys)
-      ? (themeTokens.spacingKeys as unknown[]).filter((k): k is string => typeof k === "string")
+      ? (themeTokens.spacingKeys as unknown[]).filter(
+          (k): k is string => typeof k === "string"
+        )
       : [];
     const borderRadiusKeys = Array.isArray(themeTokens.borderRadiusKeys)
-      ? (themeTokens.borderRadiusKeys as unknown[]).filter((k): k is string => typeof k === "string")
+      ? (themeTokens.borderRadiusKeys as unknown[]).filter(
+          (k): k is string => typeof k === "string"
+        )
       : [];
     const fontFamilyKeys = Array.isArray(themeTokens.fontFamilyKeys)
-      ? (themeTokens.fontFamilyKeys as unknown[]).filter((k): k is string => typeof k === "string")
+      ? (themeTokens.fontFamilyKeys as unknown[]).filter(
+          (k): k is string => typeof k === "string"
+        )
       : [];
     const fontSizeKeys = Array.isArray(themeTokens.fontSizeKeys)
-      ? (themeTokens.fontSizeKeys as unknown[]).filter((k): k is string => typeof k === "string")
+      ? (themeTokens.fontSizeKeys as unknown[]).filter(
+          (k): k is string => typeof k === "string"
+        )
       : [];
 
     const allowedTailwindColors = new Set<string>();
@@ -336,11 +346,21 @@ export function extractTailwindAllowlist(content: string): TailwindAllowlist {
       allowAnyColor,
       allowStandardSpacing,
       allowedTailwindColors,
-      allowedUtilities: new Set(allowedUtilitiesArr.map((s) => s.trim()).filter(Boolean)),
-      allowedSpacingKeys: new Set(spacingKeys.map((s) => s.trim()).filter(Boolean)),
-      allowedBorderRadiusKeys: new Set(borderRadiusKeys.map((s) => s.trim()).filter(Boolean)),
-      allowedFontSizeKeys: new Set(fontSizeKeys.map((s) => s.trim()).filter(Boolean)),
-      allowedFontFamilyKeys: new Set(fontFamilyKeys.map((s) => s.trim()).filter(Boolean)),
+      allowedUtilities: new Set(
+        allowedUtilitiesArr.map((s) => s.trim()).filter(Boolean)
+      ),
+      allowedSpacingKeys: new Set(
+        spacingKeys.map((s) => s.trim()).filter(Boolean)
+      ),
+      allowedBorderRadiusKeys: new Set(
+        borderRadiusKeys.map((s) => s.trim()).filter(Boolean)
+      ),
+      allowedFontSizeKeys: new Set(
+        fontSizeKeys.map((s) => s.trim()).filter(Boolean)
+      ),
+      allowedFontFamilyKeys: new Set(
+        fontFamilyKeys.map((s) => s.trim()).filter(Boolean)
+      ),
     };
   }
 
@@ -366,7 +386,9 @@ function tryParseFirstJsonCodeBlock(section: string): unknown | null {
   const jsonBlocks = [...section.matchAll(/```json\s*([\s\S]*?)```/gi)];
   const anyBlocks = [...section.matchAll(/```\s*([\s\S]*?)```/g)];
 
-  const candidates = (jsonBlocks.length ? jsonBlocks : anyBlocks).map((m) => m[1]);
+  const candidates = (jsonBlocks.length ? jsonBlocks : anyBlocks).map(
+    (m) => m[1]
+  );
   for (const raw of candidates) {
     const trimmed = raw.trim();
     if (!trimmed) continue;

@@ -136,7 +136,9 @@ export async function scan(options: ScanOptions): Promise<void> {
             "Looked for:",
             ...STYLEGUIDE_PATHS.map((p) => `  • ${p}`),
             "",
-            `Run ${pc.cyan("uilint init")} to create one.`,
+            `Create ${pc.cyan(
+              ".uilint/styleguide.md"
+            )} (recommended: run ${pc.cyan("/genstyleguide")} in Cursor).`,
           ].join("\n"),
           "Missing Styleguide"
         );
