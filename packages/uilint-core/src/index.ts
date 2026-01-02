@@ -1,6 +1,6 @@
 /**
  * UILint Core - Shared library for UI consistency checking
- * 
+ *
  * This is the browser-safe entry point. For Node.js-specific features
  * like JSDOM parsing, use the /node subpath.
  */
@@ -28,7 +28,6 @@ export { OllamaClient, getOllamaClient } from "./ollama/client.js";
 export {
   buildAnalysisPrompt,
   buildStyleGuidePrompt,
-  buildQueryPrompt,
 } from "./ollama/prompts.js";
 
 // Scanner (browser-safe parts only)

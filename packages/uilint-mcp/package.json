@@ -33,8 +33,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.25.1",
-    "uilint-core": "^0.1.10"
+    "@modelcontextprotocol/sdk": "^1.25.1"
   },
   "devDependencies": {
     "tsup": "^8.5.1",

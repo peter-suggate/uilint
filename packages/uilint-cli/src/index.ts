@@ -5,7 +5,6 @@
 import { Command } from "commander";
 import { scan } from "./commands/scan.js";
 import { update } from "./commands/update.js";
-import { query } from "./commands/query.js";
 import { install } from "./commands/install.js";
 import {
   sessionClear,
@@ -72,21 +71,6 @@ program
       styleguide: options.styleguide,
       model: options.model,
       llm: options.llm,
-    });
-  });
-
-// Query command
-program
-  .command("query <question>")
-  .description("Query the style guide for specific rules")
-  .option("-s, --styleguide <path>", "Path to style guide file")
-  .option("-o, --output <format>", "Output format: text or json", "text")
-  .option("-m, --model <name>", "Ollama model to use", "qwen2.5-coder:7b")
-  .action(async (question, options) => {
-    await query(question, {
-      styleguide: options.styleguide,
-      output: options.output,
-      model: options.model,
     });
   });
 

@@ -90,27 +90,3 @@ Use this format:
 
 Be concise and focus on the most used values.`;
 }
-
-/**
- * Builds a prompt for querying the style guide
- */
-export function buildQueryPrompt(
-  query: string,
-  styleGuide: string | null
-): string {
-  if (!styleGuide) {
-    return `The user is asking: "${query}"
-
-No style guide has been created yet. Explain that they should create ".uilint/styleguide.md" (recommended: run "/genstyleguide" in Cursor) and then try again.`;
-  }
-
-  return `You are a helpful assistant that answers questions about a UI style guide.
-
-## Style Guide
-${styleGuide}
-
-## User Question
-${query}
-
-Provide a clear, concise answer based on the style guide above. If the style guide doesn't contain the information needed, say so and suggest what might be missing.`;
-}

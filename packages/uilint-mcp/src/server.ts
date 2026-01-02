@@ -1,18 +1,109 @@
 #!/usr/bin/env node
 
+/**
+ * UILint MCP Server
+ *
+ * This server delegates to the CLI for all scan operations,
+ * providing a single source of truth for business logic.
+ */
+
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { findStyleGuidePath, readStyleGuide } from "uilint-core/node";
-import { queryStyleGuide } from "./tools/query-styleguide.js";
-import { scanSnippet } from "./tools/scan-snippet.js";
-import { scanFile, type FileAnalysisResult } from "./tools/scan-file.js";
-import { existsSync, readFileSync } from "fs";
-import { dirname, join } from "path";
+import { spawn } from "child_process";
+import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
+import { readFileSync, existsSync } from "fs";
+
+/**
+ * Result from running the CLI scan command
+ */
+interface CLIScanResult {
+  issues: Array<{
+    id: string;
+    type: string;
+    message: string;
+    currentValue?: string;
+    expectedValue?: string;
+    suggestion?: string;
+  }>;
+  analysisTime?: number;
+  elementCount?: number;
+  error?: string;
+}
+
+/**
+ * Resolves the path to the uilint CLI executable.
+ * In the monorepo, we can use the sibling package directly.
+ */
+function resolveCLIPath(): string {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  // In the monorepo: ../uilint-cli/dist/index.js
+  const monorepoPath = join(
+    __dirname,
+    "..",
+    "..",
+    "uilint-cli",
+    "dist",
+    "index.js"
+  );
+  if (existsSync(monorepoPath)) {
+    return monorepoPath;
+  }
+  // Fallback to npx uilint (for installed packages)
+  return "uilint";
+}
+
+/**
+ * Runs the CLI with the given arguments and returns the JSON result.
+ */
+async function runCLI(args: string[], cwd?: string): Promise<CLIScanResult> {
+  const cliPath = resolveCLIPath();
+
+  return new Promise((resolve, reject) => {
+    const isDirectPath = cliPath.endsWith(".js");
+    const command = isDirectPath ? process.execPath : cliPath;
+    const spawnArgs = isDirectPath ? [cliPath, ...args] : args;
+
+    const child = spawn(command, spawnArgs, {
+      cwd: cwd || process.cwd(),
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, FORCE_COLOR: "0" },
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    child.on("close", (code) => {
+      // CLI exits with 1 when issues are found (not an error)
+      try {
+        const result = JSON.parse(stdout);
+        resolve(result);
+      } catch {
+        if (code !== 0 && code !== 1) {
+          reject(new Error(stderr || `CLI exited with code ${code}`));
+        } else {
+          reject(new Error(`Failed to parse CLI output: ${stdout}`));
+        }
+      }
+    });
+
+    child.on("error", (err) => {
+      reject(err);
+    });
+  });
+}
 
 function getServerVersion(): string {
   try {
@@ -25,6 +116,58 @@ function getServerVersion(): string {
   } catch {
     return "0.0.0";
   }
+}
+
+/**
+ * Formats scan results for MCP response
+ */
+function formatScanResult(
+  result: CLIScanResult,
+  context: string
+): { content: Array<{ type: string; text: string }>; isError?: boolean } {
+  if (result.error) {
+    return {
+      content: [{ type: "text", text: `Error: ${result.error}` }],
+      isError: true,
+    };
+  }
+
+  if (result.issues.length === 0) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `✓ No UI consistency issues found${
+            context ? ` in ${context}` : ""
+          }\n\nAnalysis time: ${result.analysisTime ?? 0}ms`,
+        },
+      ],
+    };
+  }
+
+  const issueLines = result.issues.map((issue, i) => {
+    let line = `${i + 1}. [${issue.type}] ${issue.message}`;
+    if (issue.currentValue && issue.expectedValue) {
+      line += `\n   ${issue.currentValue} → ${issue.expectedValue}`;
+    }
+    if (issue.suggestion) {
+      line += `\n   💡 ${issue.suggestion}`;
+    }
+    return line;
+  });
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: `Found ${result.issues.length} issue(s)${
+          context ? ` in ${context}` : ""
+        }:\n\n${issueLines.join("\n\n")}\n\nAnalysis time: ${
+          result.analysisTime ?? 0
+        }ms`,
+      },
+    ],
+  };
 }
 
 const server = new Server(
@@ -44,27 +187,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
-        name: "query_styleguide",
-        description:
-          "Query the UI style guide for specific rules. Use this to check allowed colors, fonts, spacing values, or component patterns before generating UI code.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            query: {
-              type: "string",
-              description:
-                'What to query, e.g., "what colors are allowed?", "what is the primary font?", "what spacing values should I use?"',
-            },
-            styleguidePath: {
-              type: "string",
-              description:
-                "Full path to the style guide markdown file (e.g. /abs/path/.uilint/styleguide.md).",
-            },
-          },
-          required: ["query"],
-        },
-      },
-      {
         name: "scan_snippet",
         description:
           "Scan a markup snippet (best-effort HTML/JSX-ish) and return UI consistency issues using the scan/analyze pipeline.",
@@ -75,10 +197,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "string",
               description: "The markup snippet to scan",
             },
-            styleguidePath: {
+            projectPath: {
               type: "string",
               description:
-                "Full path to the style guide markdown file (e.g. /abs/path/.uilint/styleguide.md).",
+                "Path to the project root (to find .uilint/styleguide.md)",
             },
             model: {
               type: "string",
@@ -98,12 +220,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             filePath: {
               type: "string",
               description:
-                "Path to the file to scan. Can be absolute or relative to the MCP server's current working directory.",
+                "Path to the file to scan. Can be absolute or relative to projectPath.",
             },
-            styleguidePath: {
+            projectPath: {
               type: "string",
               description:
-                "Full path to the style guide markdown file (e.g. /abs/path/.uilint/styleguide.md).",
+                "Path to the project root (to find .uilint/styleguide.md and resolve relative file paths)",
             },
             model: {
               type: "string",
@@ -122,38 +244,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
-    // Find and read the style guide.
-    // Prefer explicit styleguidePath (robust for monorepos / subdir apps),
-    // but keep cwd-based lookup as a fallback.
-    const serverCwd = process.cwd();
-    const explicitStyleguidePath = (args?.styleguidePath as string) || "";
-
-    let styleGuide: string | null = null;
-    if (explicitStyleguidePath && explicitStyleguidePath.trim()) {
-      const p = explicitStyleguidePath.trim();
-      styleGuide = existsSync(p) ? await readStyleGuide(p) : null;
-    } else {
-      const styleGuidePath = findStyleGuidePath(serverCwd);
-      styleGuide = styleGuidePath ? await readStyleGuide(styleGuidePath) : null;
-    }
+    const projectPath = (args?.projectPath as string) || process.cwd();
 
     switch (name) {
-      case "query_styleguide": {
-        const query = args?.query as string;
-        if (!query) {
-          return {
-            content: [
-              { type: "text", text: "Error: query parameter is required" },
-            ],
-            isError: true,
-          };
-        }
-        const result = await queryStyleGuide(query, styleGuide);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
       case "scan_snippet": {
         const markup = args?.markup as string;
         if (!markup) {
@@ -164,20 +257,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             isError: true,
           };
         }
+
         const model = args?.model as string | undefined;
+        const inputJson = JSON.stringify({ html: markup });
 
-        const tailwindSearchPath =
-          explicitStyleguidePath && explicitStyleguidePath.trim()
-            ? dirname(explicitStyleguidePath.trim())
-            : serverCwd;
+        const cliArgs = ["scan", "--input-json", inputJson, "--output", "json"];
+        if (model) {
+          cliArgs.push("--model", model);
+        }
 
-        const result = await scanSnippet(markup, styleGuide, {
-          tailwindSearchPath,
-          model,
-        });
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
+        const result = await runCLI(cliArgs, projectPath);
+        return formatScanResult(result, "");
       }
 
       case "scan_file": {
@@ -190,54 +280,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             isError: true,
           };
         }
+
         const model = args?.model as string | undefined;
-        const result = await scanFile(filePath, styleGuide, {
-          model,
-        });
+        const absoluteFilePath = resolve(projectPath, filePath);
 
-        // Format the result nicely
-        if (result.error) {
-          return {
-            content: [{ type: "text", text: `Error: ${result.error}` }],
-            isError: true,
-          };
+        const cliArgs = [
+          "scan",
+          "--input-file",
+          absoluteFilePath,
+          "--output",
+          "json",
+        ];
+        if (model) {
+          cliArgs.push("--model", model);
         }
 
-        if (result.issues.length === 0) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `✓ No UI consistency issues found in ${filePath}\n\nAnalysis time: ${result.analysisTime}ms`,
-              },
-            ],
-          };
-        }
-
-        // Format issues
-        const issueLines = result.issues.map((issue, i) => {
-          let line = `${i + 1}. [${issue.type}] ${issue.message}`;
-          if (issue.currentValue && issue.expectedValue) {
-            line += `\n   ${issue.currentValue} → ${issue.expectedValue}`;
-          }
-          if (issue.suggestion) {
-            line += `\n   💡 ${issue.suggestion}`;
-          }
-          return line;
-        });
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Found ${
-                result.issues.length
-              } issue(s) in ${filePath}:\n\n${issueLines.join(
-                "\n\n"
-              )}\n\nAnalysis time: ${result.analysisTime}ms`,
-            },
-          ],
-        };
+        const result = await runCLI(cliArgs, projectPath);
+        return formatScanResult(result, filePath);
       }
 
       default:

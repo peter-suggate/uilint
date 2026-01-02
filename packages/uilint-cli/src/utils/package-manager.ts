@@ -46,7 +46,8 @@ function spawnAsync(
     child.on("error", reject);
     child.on("close", (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`${command} ${args.join(" ")} exited with ${code}`));
+      else
+        reject(new Error(`${command} ${args.join(" ")} exited with ${code}`));
     });
   });
 }

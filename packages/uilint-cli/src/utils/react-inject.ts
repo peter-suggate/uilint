@@ -32,15 +32,11 @@ function getDefaultCandidates(projectPath: string, appRoot: string): string[] {
   return candidates.filter((rel) => existsSync(join(projectPath, rel)));
 }
 
-function buildFileSelectionPrompt(candidates: Array<{ path: string; preview: string }>): string {
+function buildFileSelectionPrompt(
+  candidates: Array<{ path: string; preview: string }>
+): string {
   const serialized = candidates
-    .map(
-      (c) =>
-        `### ${c.path}\n` +
-        "```tsx\n" +
-        c.preview +
-        "\n```\n"
-    )
+    .map((c) => `### ${c.path}\n` + "```tsx\n" + c.preview + "\n```\n")
     .join("\n");
 
   return `You are helping install a React dev overlay component into a Next.js App Router project.
@@ -66,7 +62,10 @@ function tryParseJSON<T>(text: string): T | null {
 }
 
 function ensureUILintImport(source: string): string {
-  if (source.includes('from "uilint-react"') || source.includes("from 'uilint-react'")) {
+  if (
+    source.includes('from "uilint-react"') ||
+    source.includes("from 'uilint-react'")
+  ) {
     return source;
   }
 
@@ -86,7 +85,12 @@ function ensureUILintImport(source: string): string {
 
   if (lastImportEnd !== -1) {
     const absoluteEnd = lastImportEnd;
-    return source.slice(0, absoluteEnd) + "\n" + importLine + source.slice(absoluteEnd);
+    return (
+      source.slice(0, absoluteEnd) +
+      "\n" +
+      importLine +
+      source.slice(absoluteEnd)
+    );
   }
 
   return source.slice(0, startIdx) + importLine + source.slice(startIdx);
@@ -153,17 +157,17 @@ export async function installReactUILintOverlay(
 
   // If LLM didn't pick and there are multiple, ask user (interactive).
   if (opts.confirmFileChoice) {
-    const orderedChoices = [
-      chosen,
-      ...candidates.filter((c) => c !== chosen),
-    ];
+    const orderedChoices = [chosen, ...candidates.filter((c) => c !== chosen)];
     chosen = await opts.confirmFileChoice(orderedChoices);
   }
 
   const absTarget = join(opts.projectPath, chosen);
   const original = readFileSync(absTarget, "utf-8");
 
-  if (original.includes("<UILint") || original.includes('from "uilint-react"')) {
+  if (
+    original.includes("<UILint") ||
+    original.includes('from "uilint-react"')
+  ) {
     if (!opts.force) {
       const ok = await opts.confirmOverwrite?.(chosen);
       if (!ok) return { targetFile: chosen, usedLLM };

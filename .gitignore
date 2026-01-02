@@ -31,3 +31,6 @@ coverage/
 
 # Turbo
 .turbo/
+
+# Testing outputs
+apps/test-app/.uilint/

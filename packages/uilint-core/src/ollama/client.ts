@@ -8,11 +8,7 @@ import type {
   OllamaClientOptions,
   StreamProgressCallback,
 } from "../types.js";
-import {
-  buildAnalysisPrompt,
-  buildStyleGuidePrompt,
-  buildQueryPrompt,
-} from "./prompts.js";
+import { buildAnalysisPrompt, buildStyleGuidePrompt } from "./prompts.js";
 
 const DEFAULT_BASE_URL = "http://localhost:11434";
 const DEFAULT_MODEL = "qwen2.5-coder:7b";
@@ -95,24 +91,6 @@ export class OllamaClient {
     } catch (error) {
       console.error("[UILint] Style guide generation failed:", error);
       return null;
-    }
-  }
-
-  /**
-   * Queries the style guide for specific information
-   */
-  async queryStyleGuide(
-    query: string,
-    styleGuide: string | null
-  ): Promise<string> {
-    const prompt = buildQueryPrompt(query, styleGuide);
-
-    try {
-      const response = await this.generate(prompt, false);
-      return response;
-    } catch (error) {
-      console.error("[UILint] Query failed:", error);
-      return "Failed to query style guide. Please try again.";
     }
   }
 
