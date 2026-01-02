@@ -3,6 +3,7 @@
  */
 
 import { dirname, resolve } from "path";
+import { existsSync, statSync } from "fs";
 import {
   OllamaClient,
   createStyleSummary,
@@ -11,6 +12,7 @@ import {
 } from "uilint-core";
 import {
   ensureOllamaReady,
+  readStyleGuide,
   readStyleGuideFromProject,
   findStyleGuidePath,
   STYLEGUIDE_PATHS,
@@ -117,21 +119,52 @@ export async function scan(options: ScanOptions): Promise<void> {
     }
 
     // Get style guide
-    const projectPath = options.styleguide || process.cwd();
-    const styleguideLocation = findStyleGuidePath(projectPath);
-
+    // --styleguide can be either:
+    // 1. Direct path to a styleguide file (e.g., /path/to/.uilint/styleguide.md)
+    // 2. Path to a project directory to search in
+    // 3. Not provided - search from cwd
     let styleGuide: string | null = null;
-    if (styleguideLocation) {
-      styleGuide = await readStyleGuideFromProject(projectPath);
+    let styleguideLocation: string | null = null;
+    const projectPath = process.cwd();
+
+    if (options.styleguide) {
+      const styleguideArg = resolve(projectPath, options.styleguide);
+      if (existsSync(styleguideArg)) {
+        const stat = statSync(styleguideArg);
+        if (stat.isFile()) {
+          // Direct path to styleguide file
+          styleguideLocation = styleguideArg;
+          styleGuide = await readStyleGuide(styleguideArg);
+        } else if (stat.isDirectory()) {
+          // Path to project directory - search within it
+          styleguideLocation = findStyleGuidePath(styleguideArg);
+          if (styleguideLocation) {
+            styleGuide = await readStyleGuide(styleguideLocation);
+          }
+        }
+      } else {
+        if (!isJsonOutput) {
+          logWarning(`Styleguide not found: ${styleguideArg}`);
+        }
+      }
+    } else {
+      // No --styleguide provided, search from cwd
+      styleguideLocation = findStyleGuidePath(projectPath);
+      if (styleguideLocation) {
+        styleGuide = await readStyleGuide(styleguideLocation);
+      }
+    }
+
+    if (styleguideLocation && styleGuide) {
       if (!isJsonOutput) {
         logSuccess(`Using styleguide: ${pc.dim(styleguideLocation)}`);
       }
-    } else {
+    } else if (!styleGuide) {
       if (!isJsonOutput) {
         logWarning("No styleguide found");
         note(
           [
-            `Searched in: ${projectPath}`,
+            `Searched in: ${options.styleguide || projectPath}`,
             "",
             "Looked for:",
             ...STYLEGUIDE_PATHS.map((p) => `  • ${p}`),
