@@ -56,6 +56,7 @@ export function UILint({
   const [styleGuideContent, setStyleGuideContent] = useState<string | null>(
     null
   );
+  const [styleGuideError, setStyleGuideError] = useState<string | null>(null);
   const [highlightedIssue, setHighlightedIssue] = useState<UILintIssue | null>(
     null
   );
@@ -80,13 +81,28 @@ export function UILint({
       if (!response.ok) {
         setStyleGuideExists(false);
         setStyleGuideContent(null);
+        if (typeof (data as any)?.error === "string" && (data as any).error) {
+          setStyleGuideError((data as any).error);
+        } else if (response.status === 404) {
+          setStyleGuideError(
+            'UILint API route not found at "/api/uilint/styleguide". Ensure the UILint Next.js routes are installed (e.g. app/api/uilint/styleguide/route.ts).'
+          );
+        } else {
+          setStyleGuideError(
+            `Failed to load style guide (HTTP ${response.status}).`
+          );
+        }
         return;
       }
       setStyleGuideExists(!!data.exists);
       setStyleGuideContent(data.content ?? null);
+      setStyleGuideError(null);
     } catch {
       setStyleGuideExists(false);
       setStyleGuideContent(null);
+      setStyleGuideError(
+        'Failed to reach "/api/uilint/styleguide". Is your Next.js server running?'
+      );
     }
   }, []);
 
@@ -104,7 +120,10 @@ export function UILint({
       // No style guide: do not auto-generate.
       if (!styleGuideContent) {
         console.error(
-          '[UILint] No style guide found. Create ".uilint/styleguide.md" at your workspace root.'
+          `[UILint] ${
+            styleGuideError ??
+            'No style guide found. Create ".uilint/styleguide.md" at your Next.js app root (or pass styleguidePath / set UILINT_STYLEGUIDE_PATH on the server).'
+          }`
         );
         setIssues([]);
         return;

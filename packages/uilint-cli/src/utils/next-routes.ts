@@ -21,8 +21,47 @@ import {
   writeStyleGuide,
   findWorkspaceRoot,
 } from "uilint-core/node";
-import { existsSync } from "fs";
-import { isAbsolute, resolve } from "path";
+import { existsSync, readFileSync } from "fs";
+import { dirname, isAbsolute, join, resolve } from "path";
+
+function hasNextConfig(dir: string): boolean {
+  return (
+    existsSync(join(dir, "next.config.js")) ||
+    existsSync(join(dir, "next.config.mjs")) ||
+    existsSync(join(dir, "next.config.cjs")) ||
+    existsSync(join(dir, "next.config.ts"))
+  );
+}
+
+function hasNextDependency(dir: string): boolean {
+  const pkgPath = join(dir, "package.json");
+  if (!existsSync(pkgPath)) return false;
+  try {
+    const raw = readFileSync(pkgPath, "utf-8");
+    const pkg = JSON.parse(raw) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+    };
+    return Boolean(
+      pkg.dependencies?.next ||
+        pkg.devDependencies?.next ||
+        pkg.peerDependencies?.next
+    );
+  } catch {
+    return false;
+  }
+}
+
+function findNextAppRoot(startDir: string): string | null {
+  let dir = startDir;
+  for (;;) {
+    if (hasNextConfig(dir) || hasNextDependency(dir)) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
 
 function resolveExplicitStyleGuidePath(
   raw: string | null,
@@ -50,7 +89,11 @@ function resolveStyleGuidePath(explicit: string | null): {
   path: string | null;
   error?: string;
 } {
-  const workspaceRoot = findWorkspaceRoot(process.cwd());
+  // Important: in monorepos it's common to start Next from the workspace root,
+  // but the correct "project" root is the Next app root (where next.config.* lives).
+  // We infer that from the route file location to be robust to how the dev server is launched.
+  const appRoot = findNextAppRoot(__dirname) ?? process.cwd();
+  const workspaceRoot = findWorkspaceRoot(appRoot);
 
   // 1) Explicit per-request param
   const explicitRes = resolveExplicitStyleGuidePath(explicit, workspaceRoot);
@@ -64,8 +107,8 @@ function resolveStyleGuidePath(explicit: string | null): {
   );
   if (envRes.path) return { path: envRes.path };
 
-  // 3) Prefer local (app) cwd first
-  const local = findStyleGuidePath(process.cwd());
+  // 3) Prefer local (Next app root) first
+  const local = findStyleGuidePath(appRoot);
   if (local) return { path: local };
 
   // 4) Fallback to workspace root (monorepo)
@@ -154,13 +197,52 @@ const ANALYZE_ROUTE_TS = `export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { OllamaClient, UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
-import { existsSync } from "fs";
-import { isAbsolute, resolve } from "path";
+import { existsSync, readFileSync } from "fs";
+import { dirname, isAbsolute, join, resolve } from "path";
 import {
   findStyleGuidePath,
   readStyleGuide,
   findWorkspaceRoot,
 } from "uilint-core/node";
+
+function hasNextConfig(dir: string): boolean {
+  return (
+    existsSync(join(dir, "next.config.js")) ||
+    existsSync(join(dir, "next.config.mjs")) ||
+    existsSync(join(dir, "next.config.cjs")) ||
+    existsSync(join(dir, "next.config.ts"))
+  );
+}
+
+function hasNextDependency(dir: string): boolean {
+  const pkgPath = join(dir, "package.json");
+  if (!existsSync(pkgPath)) return false;
+  try {
+    const raw = readFileSync(pkgPath, "utf-8");
+    const pkg = JSON.parse(raw) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+    };
+    return Boolean(
+      pkg.dependencies?.next ||
+        pkg.devDependencies?.next ||
+        pkg.peerDependencies?.next
+    );
+  } catch {
+    return false;
+  }
+}
+
+function findNextAppRoot(startDir: string): string | null {
+  let dir = startDir;
+  for (;;) {
+    if (hasNextConfig(dir) || hasNextDependency(dir)) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
 
 function resolveExplicitStyleGuidePath(
   raw: string | null,
@@ -190,7 +272,8 @@ async function resolveStyleGuideContent(input: {
     return { styleGuide: input.styleGuide };
   }
 
-  const workspaceRoot = findWorkspaceRoot(process.cwd());
+  const appRoot = findNextAppRoot(__dirname) ?? process.cwd();
+  const workspaceRoot = findWorkspaceRoot(appRoot);
 
   // 1) Explicit per-request path
   const explicitRes = resolveExplicitStyleGuidePath(
@@ -212,7 +295,7 @@ async function resolveStyleGuideContent(input: {
   }
 
   // 3) Local then workspace fallback
-  const localPath = findStyleGuidePath(process.cwd());
+  const localPath = findStyleGuidePath(appRoot);
   if (localPath) return { styleGuide: await readStyleGuide(localPath) };
 
   const wsPath = findStyleGuidePath(workspaceRoot);
