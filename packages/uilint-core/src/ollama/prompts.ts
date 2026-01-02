@@ -51,6 +51,71 @@ Example response:
 }`;
 }
 
+export interface BuildSourceAnalysisPromptOptions {
+  /**
+   * Optional filename/path for extra context in the prompt.
+   */
+  filePath?: string;
+  /**
+   * Optional hint about language (e.g. tsx, jsx, html).
+   */
+  languageHint?: string;
+  /**
+   * Optional additional context (e.g., Tailwind tokens, extracted utilities).
+   * Keep this concise; it's appended verbatim.
+   */
+  extraContext?: string;
+}
+
+/**
+ * Builds a prompt for analyzing a raw source file/snippet (TSX/JSX/etc) directly,
+ * without attempting to parse it as HTML/DOM.
+ */
+export function buildSourceAnalysisPrompt(
+  source: string,
+  styleGuide: string | null,
+  options: BuildSourceAnalysisPromptOptions = {}
+): string {
+  const guideSection = styleGuide
+    ? `## Current Style Guide\n${styleGuide}\n\n`
+    : "## No Style Guide Found\nAnalyze the UI code and identify inconsistencies.\n\n";
+
+  const metaLines: string[] = [];
+  if (options.filePath) metaLines.push(`- filePath: ${options.filePath}`);
+  if (options.languageHint)
+    metaLines.push(`- languageHint: ${options.languageHint}`);
+  const metaSection =
+    metaLines.length > 0
+      ? `## Source Metadata\n${metaLines.join("\n")}\n\n`
+      : "";
+
+  const extra =
+    options.extraContext && options.extraContext.trim()
+      ? `## Additional Context\n${options.extraContext.trim()}\n\n`
+      : "";
+
+  return `You are a UI consistency analyzer. Analyze the following UI source code and identify inconsistencies with the style guide.
+
+${guideSection}${metaSection}${extra}## Source Code (raw)
+${source}
+
+Respond with a JSON object containing an "issues" array. Each issue should have:
+- id: unique string identifier
+- type: one of "color", "typography", "spacing", "component", "responsive", "accessibility"
+- message: human-readable description of the issue
+- currentValue: the problematic value found
+- expectedValue: what it should be (if known from style guide)
+- suggestion: how to fix it
+
+Focus on:
+1. Inconsistent Tailwind/utility classes (e.g., mixing px-4 and px-5 for the same component type)
+2. Inconsistent component variants (e.g., button sizes/radii/typography drift)
+3. Hardcoded colors/spacing/typography that should use tokens/scale
+4. Accessibility issues visible from code (e.g., missing labels, low-contrast combos if obvious)
+
+Be concise and actionable. Only report significant inconsistencies.`;
+}
+
 /**
  * Builds a prompt for style guide generation
  */

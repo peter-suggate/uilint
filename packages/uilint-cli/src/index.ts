@@ -45,6 +45,15 @@ program
   .option("-s, --styleguide <path>", "Path to style guide file")
   .option("-o, --output <format>", "Output format: text or json", "text")
   .option("-m, --model <name>", "Ollama model to use", "qwen2.5-coder:7b")
+  .option("--debug", "Enable debug logging (stderr)")
+  .option(
+    "--debug-full",
+    "Print full prompt/style summary/styleguide (can be very large)"
+  )
+  .option(
+    "--debug-dump <path>",
+    "Write full LLM payload dump to JSON file (or directory to auto-name)"
+  )
   .action(async (options) => {
     await scan({
       inputFile: options.inputFile,
@@ -52,6 +61,9 @@ program
       styleguide: options.styleguide,
       output: options.output,
       model: options.model,
+      debug: options.debug,
+      debugFull: options.debugFull,
+      debugDump: options.debugDump,
     });
   });
 

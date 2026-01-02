@@ -27,6 +27,7 @@ export type {
 export { OllamaClient, getOllamaClient } from "./ollama/client.js";
 export {
   buildAnalysisPrompt,
+  buildSourceAnalysisPrompt,
   buildStyleGuidePrompt,
 } from "./ollama/prompts.js";
 

@@ -4,6 +4,7 @@
 
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
+import { extname } from "path";
 import {
   parseCLIInput,
   hasStdin,
@@ -14,6 +15,28 @@ import {
 export interface InputOptions {
   inputFile?: string;
   inputJson?: string;
+}
+
+export type ScanInput =
+  | {
+      kind: "dom";
+      snapshot: DOMSnapshot;
+      source: "json" | "file" | "stdin";
+      inputPath?: string;
+    }
+  | {
+      kind: "source";
+      source: string;
+      inputPath: string;
+      extension: string;
+    };
+
+function isHtmlLikeExtension(ext: string): boolean {
+  return ext === ".html" || ext === ".htm";
+}
+
+function isJsonLikeExtension(ext: string): boolean {
+  return ext === ".json";
 }
 
 /**
@@ -39,6 +62,62 @@ export async function getInput(options: InputOptions): Promise<DOMSnapshot> {
       throw new Error("No input provided via stdin");
     }
     return parseCLIInput(content);
+  }
+
+  throw new Error(
+    "No input provided. Use --input-file, --input-json, or pipe content to stdin."
+  );
+}
+
+/**
+ * Gets scan input:
+ * - If input is a file and it's not HTML/JSON, treat it as raw source (TSX/JSX/etc).
+ * - Otherwise, treat it as HTML/DOM input (including JSON-wrapped snapshots).
+ */
+export async function getScanInput(options: InputOptions): Promise<ScanInput> {
+  // Priority: explicit JSON > explicit file > stdin
+  if (options.inputJson) {
+    return {
+      kind: "dom",
+      snapshot: parseCLIInput(options.inputJson),
+      source: "json",
+    };
+  }
+
+  if (options.inputFile) {
+    if (!existsSync(options.inputFile)) {
+      throw new Error(`File not found: ${options.inputFile}`);
+    }
+    const content = await readFile(options.inputFile, "utf-8");
+    const ext = extname(options.inputFile).toLowerCase();
+
+    if (isHtmlLikeExtension(ext) || isJsonLikeExtension(ext)) {
+      return {
+        kind: "dom",
+        snapshot: parseCLIInput(content),
+        source: "file",
+        inputPath: options.inputFile,
+      };
+    }
+
+    return {
+      kind: "source",
+      source: content,
+      inputPath: options.inputFile,
+      extension: ext,
+    };
+  }
+
+  if (hasStdin()) {
+    const content = await readStdin();
+    if (!content.trim()) {
+      throw new Error("No input provided via stdin");
+    }
+    return {
+      kind: "dom",
+      snapshot: parseCLIInput(content),
+      source: "stdin",
+    };
   }
 
   throw new Error(

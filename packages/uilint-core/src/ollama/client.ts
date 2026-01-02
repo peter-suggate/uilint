@@ -8,7 +8,12 @@ import type {
   OllamaClientOptions,
   StreamProgressCallback,
 } from "../types.js";
-import { buildAnalysisPrompt, buildStyleGuidePrompt } from "./prompts.js";
+import {
+  buildAnalysisPrompt,
+  buildSourceAnalysisPrompt,
+  buildStyleGuidePrompt,
+  type BuildSourceAnalysisPromptOptions,
+} from "./prompts.js";
 
 const DEFAULT_BASE_URL = "http://localhost:11434";
 const DEFAULT_MODEL = "qwen2.5-coder:7b";
@@ -59,6 +64,38 @@ export class OllamaClient {
   ): Promise<AnalysisResult> {
     const startTime = Date.now();
     const prompt = buildAnalysisPrompt(styleSummary, styleGuide);
+
+    try {
+      const response = onProgress
+        ? await this.generateStreaming(prompt, true, onProgress)
+        : await this.generate(prompt);
+      const issues = this.parseIssuesResponse(response);
+
+      return {
+        issues,
+        analysisTime: Date.now() - startTime,
+      };
+    } catch (error) {
+      console.error("[UILint] Analysis failed:", error);
+      return {
+        issues: [],
+        analysisTime: Date.now() - startTime,
+      };
+    }
+  }
+
+  /**
+   * Analyzes a raw source file/snippet (TSX/JSX/etc) directly and returns issues.
+   * This bypasses HTML/DOM parsing entirely.
+   */
+  async analyzeSource(
+    source: string,
+    styleGuide: string | null,
+    onProgress?: StreamProgressCallback,
+    options: BuildSourceAnalysisPromptOptions = {}
+  ): Promise<AnalysisResult> {
+    const startTime = Date.now();
+    const prompt = buildSourceAnalysisPrompt(source, styleGuide, options);
 
     try {
       const response = onProgress
