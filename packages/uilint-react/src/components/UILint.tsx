@@ -9,7 +9,6 @@ import React, {
   useRef,
 } from "react";
 import type { UILintIssue, ExtractedStyles } from "uilint-core";
-import { generateStyleGuideFromStyles as generateStyleGuide } from "uilint-core";
 import { scanDOM } from "../scanner/dom-scanner";
 import { isBrowser } from "../scanner/environment";
 import { LLMClient } from "../analyzer/llm-client";
@@ -77,28 +76,17 @@ export function UILint({
 
     try {
       const response = await fetch("/api/uilint/styleguide");
-      const data = await response.json();
-      setStyleGuideExists(data.exists);
-      setStyleGuideContent(data.content);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStyleGuideExists(false);
+        setStyleGuideContent(null);
+        return;
+      }
+      setStyleGuideExists(!!data.exists);
+      setStyleGuideContent(data.content ?? null);
     } catch {
       setStyleGuideExists(false);
-    }
-  }, []);
-
-  // Save style guide
-  const saveStyleGuide = useCallback(async (content: string) => {
-    if (!isBrowser()) return;
-
-    try {
-      await fetch("/api/uilint/styleguide", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      });
-      setStyleGuideExists(true);
-      setStyleGuideContent(content);
-    } catch (error) {
-      console.error("[UILint] Failed to save style guide:", error);
+      setStyleGuideContent(null);
     }
   }, []);
 
@@ -113,10 +101,13 @@ export function UILint({
       // Scan DOM
       const snapshot = scanDOM(document.body);
 
-      // If no style guide exists, generate one
+      // No style guide: do not auto-generate.
       if (!styleGuideContent) {
-        const generatedGuide = generateStyleGuide(snapshot.styles);
-        await saveStyleGuide(generatedGuide);
+        console.error(
+          '[UILint] No style guide found. Create ".uilint/styleguide.md" at your workspace root.'
+        );
+        setIssues([]);
+        return;
       }
 
       // Analyze with LLM
@@ -131,7 +122,7 @@ export function UILint({
     } finally {
       setIsScanning(false);
     }
-  }, [styleGuideContent, saveStyleGuide]);
+  }, [styleGuideContent]);
 
   const clearIssues = useCallback(() => {
     setIssues([]);

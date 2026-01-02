@@ -54,7 +54,7 @@ export async function scanFile(
   options: ScanFileOptions = {}
 ): Promise<FileAnalysisResult> {
   const projectPath = options.projectPath || process.cwd();
-  
+
   // Resolve the file path
   const absolutePath = isAbsolute(filePath)
     ? filePath
@@ -74,7 +74,9 @@ export async function scanFile(
     return {
       issues: [],
       analysisTime: 0,
-      error: `File type not supported. Scannable extensions: ${SCANNABLE_EXTENSIONS.join(", ")}`,
+      error: `File type not supported. Scannable extensions: ${SCANNABLE_EXTENSIONS.join(
+        ", "
+      )}`,
     };
   }
 

@@ -6,10 +6,8 @@ import { dirname, resolve } from "path";
 import {
   createStyleSummary,
   parseStyleGuide,
-  parseStyleGuideSections,
   mergeStyleGuides,
   styleGuideToMarkdown,
-  generateStyleGuideFromStyles,
   OllamaClient,
 } from "uilint-core";
 import {
@@ -146,24 +144,7 @@ export async function update(options: UpdateOptions): Promise<void> {
 
         // Merge with existing
         const mergedGuide = mergeStyleGuides(existingGuide, detectedGuide);
-        let newContent = styleGuideToMarkdown(mergedGuide);
-
-        // Preserve/update Tailwind section by regenerating it from current snapshot.
-        const regenerated = generateStyleGuideFromStyles(snapshot.styles, {
-          html: snapshot.html,
-          tailwindTheme,
-        });
-        const regenSections = parseStyleGuideSections(regenerated);
-        const tailwindBody = regenSections["tailwind"];
-        if (tailwindBody) {
-          newContent =
-            newContent.trimEnd() +
-            "\n\n## Tailwind\n" +
-            tailwindBody.trim() +
-            "\n";
-        }
-
-        return newContent;
+        return styleGuideToMarkdown(mergedGuide);
       });
 
       // Check if there are any changes

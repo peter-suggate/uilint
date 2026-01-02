@@ -95,6 +95,18 @@ program
   .command("install")
   .description("Install UILint integration (MCP server and/or Cursor hooks)")
   .option("--force", "Overwrite existing configuration files")
+  .option("--mcp", "Install MCP server integration (.cursor/mcp.json)")
+  .option("--hooks", "Install Cursor hooks integration (.cursor/hooks.json)")
+  .option("--genstyleguide", "Install /genstyleguide Cursor command")
+  .option(
+    "--routes",
+    "Back-compat: install Next.js overlay (routes + deps + inject)"
+  )
+  .option(
+    "--react",
+    "Back-compat: install Next.js overlay (routes + deps + inject)"
+  )
+  .option("-m, --model <name>", "Ollama model to use for installer LLM steps")
   .option(
     "--mode <mode>",
     "Integration mode: mcp, hooks, or both (skips interactive prompt)"
@@ -103,6 +115,12 @@ program
     await install({
       force: options.force,
       mode: options.mode,
+      mcp: options.mcp,
+      hooks: options.hooks,
+      genstyleguide: options.genstyleguide,
+      routes: options.routes,
+      react: options.react,
+      model: options.model,
     });
   });
 

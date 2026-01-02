@@ -30,6 +30,30 @@ export class OllamaClient {
   }
 
   /**
+   * Low-level completion API for custom prompts (used by installers/tools).
+   *
+   * When `json` is true, Ollama is requested to emit JSON (best-effort).
+   */
+  async complete(
+    prompt: string,
+    options: {
+      json?: boolean;
+      stream?: boolean;
+      onProgress?: StreamProgressCallback;
+    } = {}
+  ): Promise<string> {
+    const jsonFormat = options.json ?? false;
+    if (options.stream && options.onProgress) {
+      return await this.generateStreaming(
+        prompt,
+        jsonFormat,
+        options.onProgress
+      );
+    }
+    return await this.generate(prompt, jsonFormat);
+  }
+
+  /**
    * Analyzes styles and returns issues
    */
   async analyzeStyles(

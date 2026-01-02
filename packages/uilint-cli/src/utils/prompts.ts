@@ -194,11 +194,13 @@ export async function multiselect<T extends string>(options: {
   message: string;
   options: Array<{ value: T; label: string; hint?: string }>;
   required?: boolean;
+  initialValues?: T[];
 }): Promise<T[]> {
   const result = await p.multiselect({
     message: options.message,
     options: options.options as { value: T; label: string; hint?: string }[],
     required: options.required,
+    initialValues: options.initialValues,
   } as Parameters<typeof p.multiselect>[0]);
   return handleCancel(result) as T[];
 }
@@ -216,4 +218,3 @@ export async function group<T extends Record<string, unknown>>(
 
 // Re-export picocolors for consistent styling
 export { pc };
-

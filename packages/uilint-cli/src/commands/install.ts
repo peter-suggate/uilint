@@ -18,8 +18,9 @@ import { join } from "path";
 import {
   intro,
   outro,
-  select,
   confirm,
+  select,
+  multiselect,
   withSpinner,
   note,
   logSuccess,
@@ -27,13 +28,41 @@ import {
   logWarning,
   pc,
 } from "../utils/prompts.js";
+import {
+  detectNextAppRouter,
+  findNextAppRouterProjects,
+} from "../utils/next-detect.js";
+import {
+  detectPackageManager,
+  installDependencies,
+} from "../utils/package-manager.js";
+import { installNextUILintRoutes } from "../utils/next-routes.js";
+import { installReactUILintOverlay } from "../utils/react-inject.js";
+import { findWorkspaceRoot } from "uilint-core/node";
 
 export interface InstallOptions {
   force?: boolean;
   mode?: "mcp" | "hooks" | "both";
+  // Non-interactive selections
+  mcp?: boolean;
+  hooks?: boolean;
+  genstyleguide?: boolean;
+  /**
+   * Back-compat aliases for the combined Next.js overlay install.
+   * If either is selected, we install routes + deps + inject.
+   */
+  routes?: boolean;
+  react?: boolean;
+  model?: string;
 }
 
 type IntegrationMode = "mcp" | "hooks" | "both";
+type InstallItem = "mcp" | "hooks" | "genstyleguide" | "next";
+type OverlayPosition =
+  | "bottom-left"
+  | "bottom-right"
+  | "top-left"
+  | "top-right";
 
 interface HooksConfig {
   version: number;
@@ -355,15 +384,31 @@ export async function install(options: InstallOptions): Promise<void> {
 
   intro("Setup Wizard");
 
-  // Determine integration mode
-  let mode: IntegrationMode;
+  // Determine install items
+  const hasExplicitFlags =
+    options.mcp !== undefined ||
+    options.hooks !== undefined ||
+    options.genstyleguide !== undefined ||
+    options.routes !== undefined ||
+    options.react !== undefined;
 
-  if (options.mode) {
-    mode = options.mode;
+  let items: InstallItem[] = [];
+
+  if (hasExplicitFlags) {
+    if (options.mcp) items.push("mcp");
+    if (options.hooks) items.push("hooks");
+    if (options.genstyleguide) items.push("genstyleguide");
+    if (options.routes || options.react) items.push("next");
+  } else if (options.mode) {
+    const mode: IntegrationMode = options.mode;
     logInfo(`Using ${mode} mode (from --mode flag)`);
+    if (mode === "mcp" || mode === "both") items.push("mcp");
+    if (mode === "hooks" || mode === "both") items.push("hooks");
+    // Preserve previous behavior: install /genstyleguide by default when using mode.
+    items.push("genstyleguide");
   } else {
-    mode = await select<IntegrationMode>({
-      message: "How would you like to integrate UILint with Cursor?",
+    items = await multiselect<InstallItem>({
+      message: "What would you like to install?",
       options: [
         {
           value: "mcp",
@@ -373,20 +418,28 @@ export async function install(options: InstallOptions): Promise<void> {
         {
           value: "hooks",
           label: "Cursor Hooks",
-          hint: "Auto-validates files on agent stop",
+          hint: "Auto-validates UI files when the agent stops",
         },
         {
-          value: "both",
-          label: "Both",
-          hint: "Install MCP server and hooks together",
+          value: "genstyleguide",
+          label: "/genstyleguide command",
+          hint: "Adds .cursor/commands/genstyleguide.md",
+        },
+        {
+          value: "next",
+          label: "UI overlay",
+          hint: "Installs routes + uilint-react + injects <UILint>",
         },
       ],
-      initialValue: "mcp",
+      required: true,
+      initialValues: ["mcp", "genstyleguide"],
     });
   }
 
-  const installMCP = mode === "mcp" || mode === "both";
-  const installHooks = mode === "hooks" || mode === "both";
+  const installMCP = items.includes("mcp");
+  const installHooks = items.includes("hooks");
+  const installGenStyleguide = items.includes("genstyleguide");
+  const installNextOverlay = items.includes("next");
 
   // Check for existing installations
   const mcpJsonPath = join(cursorDir, "mcp.json");
@@ -410,7 +463,10 @@ export async function install(options: InstallOptions): Promise<void> {
   }
 
   // Create .cursor directory if needed
-  if (!existsSync(cursorDir)) {
+  if (
+    (installMCP || installHooks || installGenStyleguide) &&
+    !existsSync(cursorDir)
+  ) {
     mkdirSync(cursorDir, { recursive: true });
   }
 
@@ -429,9 +485,119 @@ export async function install(options: InstallOptions): Promise<void> {
   }
 
   // Install /genstyleguide command
-  await withSpinner("Installing /genstyleguide command", async () => {
-    await installGenStyleguideCommand(cursorDir);
-  });
+  if (installGenStyleguide) {
+    await withSpinner("Installing /genstyleguide command", async () => {
+      await installGenStyleguideCommand(cursorDir);
+    });
+  }
+
+  // Next.js app router detection (needed for routes/react)
+  let nextApp: ReturnType<typeof detectNextAppRouter> | null = null;
+  let nextProjectPath = projectPath;
+  let overlayPosition: OverlayPosition = "bottom-left";
+  let overlayAutoScan = false;
+  if (installNextOverlay) {
+    nextApp = detectNextAppRouter(projectPath);
+    if (!nextApp) {
+      const workspaceRoot = findWorkspaceRoot(projectPath);
+      const matches = findNextAppRouterProjects(workspaceRoot, { maxDepth: 5 });
+
+      if (matches.length === 1) {
+        nextProjectPath = matches[0].projectPath;
+        nextApp = matches[0].detection;
+      } else if (matches.length > 1) {
+        const chosen = await select<string>({
+          message:
+            "Which Next.js App Router project should UILint install into?",
+          options: matches.map((m) => ({
+            value: m.projectPath,
+            label: m.projectPath,
+          })),
+          initialValue: matches[0].projectPath,
+        });
+        const picked =
+          matches.find((m) => m.projectPath === chosen) || matches[0];
+        nextProjectPath = picked.projectPath;
+        nextApp = picked.detection;
+      } else {
+        throw new Error(
+          "Could not find a Next.js App Router app root (expected app/ or src/app/). Run this from your Next.js project root."
+        );
+      }
+    }
+
+    // Overlay UX options (prompt when UI overlay is enabled)
+    overlayPosition = await select<OverlayPosition>({
+      message: "Where should the UILint overlay appear?",
+      options: [
+        { value: "bottom-left", label: "Bottom left" },
+        { value: "bottom-right", label: "Bottom right" },
+        { value: "top-left", label: "Top left" },
+        { value: "top-right", label: "Top right" },
+      ],
+      initialValue: "bottom-left",
+    });
+
+    overlayAutoScan = await confirm({
+      message: "Enable auto-scan on page load?",
+      initialValue: false,
+    });
+  }
+
+  // Install Next overlay (routes + deps + injection)
+  if (installNextOverlay && nextApp) {
+    await withSpinner("Installing Next.js API routes", async () => {
+      await installNextUILintRoutes({
+        projectPath: nextProjectPath,
+        appRoot: nextApp.appRoot,
+        force: options.force,
+        confirmOverwrite: async (path) =>
+          confirm({
+            message: `${pc.dim(path)} already exists. Overwrite?`,
+            initialValue: false,
+          }),
+      });
+    });
+
+    await withSpinner("Installing React overlay dependencies", async () => {
+      const pm = detectPackageManager(nextProjectPath);
+      await installDependencies(pm, nextProjectPath, [
+        "uilint-react",
+        "uilint-core",
+      ]);
+    });
+
+    // IMPORTANT: do not wrap prompts (confirm/select) in a spinner; it can look
+    // like the CLI is "stuck" because the spinner keeps rendering.
+    logInfo("Injecting <UILint> into your app...");
+    const result = await installReactUILintOverlay({
+      projectPath: nextProjectPath,
+      appRoot: nextApp!.appRoot,
+      position: overlayPosition,
+      autoScan: overlayAutoScan,
+      model: options.model,
+      force: options.force,
+      confirmFileChoice: async (choices) =>
+        select<string>({
+          message:
+            choices.length === 1
+              ? `Confirm injection target: ${choices[0]}`
+              : "Which file should we inject <UILint> into?",
+          options: choices.map((c) => ({ value: c, label: c })),
+          initialValue: choices[0],
+        }),
+      confirmOverwrite: async (path) =>
+        confirm({
+          message: `${pc.dim(path)} already contains UILint. Re-apply anyway?`,
+          initialValue: false,
+        }),
+    });
+    logSuccess(
+      `Injected <UILint> in ${pc.dim(result.targetFile)}${
+        result.usedLLM ? pc.dim(" (LLM-selected)") : ""
+      }`
+    );
+  }
 
   // Show summary
   const installedItems: string[] = [];
@@ -447,9 +613,25 @@ export async function install(options: InstallOptions): Promise<void> {
     installedItems.push(`  ${pc.dim("└")} uilint-session-end.sh`);
   }
 
-  installedItems.push(
-    `${pc.cyan("Command")} → .cursor/commands/genstyleguide.md`
-  );
+  if (installGenStyleguide) {
+    installedItems.push(
+      `${pc.cyan("Command")} → .cursor/commands/genstyleguide.md`
+    );
+  }
+
+  if (installNextOverlay && nextApp) {
+    installedItems.push(
+      `${pc.cyan("Next Routes")} → ${pc.dim(
+        join(nextApp.appRoot, "api/uilint")
+      )}`
+    );
+  }
+
+  if (installNextOverlay) {
+    installedItems.push(
+      `${pc.cyan("Next Overlay")} → ${pc.dim("<UILint> injected")}`
+    );
+  }
 
   note(installedItems.join("\n"), "Installed");
 
@@ -460,7 +642,9 @@ export async function install(options: InstallOptions): Promise<void> {
     steps.push(`Create a styleguide: ${pc.cyan("/genstyleguide")}`);
   }
 
-  steps.push("Restart Cursor to load the new configuration");
+  if (installMCP || installHooks || installGenStyleguide) {
+    steps.push("Restart Cursor to load the new configuration");
+  }
 
   if (installMCP) {
     steps.push(
@@ -472,6 +656,10 @@ export async function install(options: InstallOptions): Promise<void> {
 
   if (installHooks) {
     steps.push("Hooks will auto-validate UI files when the agent stops");
+  }
+
+  if (installNextOverlay) {
+    steps.push("Run your Next.js dev server and check /api/uilint/styleguide");
   }
 
   note(steps.join("\n"), "Next Steps");

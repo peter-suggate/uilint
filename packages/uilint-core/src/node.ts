@@ -37,6 +37,9 @@ export {
   styleGuideExists,
 } from "./styleguide/reader.js";
 
+// Node.js-specific: workspace root detection (monorepo support)
+export { findWorkspaceRoot } from "./utils/workspace-root.js";
+
 // Node.js-specific: Tailwind config reader
 export {
   findTailwindConfigPath,
