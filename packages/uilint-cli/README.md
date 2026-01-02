@@ -22,7 +22,7 @@ npx uilint-cli --help
 
 ```bash
 # Install Ollama, then pull the default model
-ollama pull qwen2.5-coder:7b
+ollama pull qwen3-coder:30b
 ```
 
 The CLI can auto-start Ollama and auto-pull models if needed. On macOS, it can optionally offer to run `brew install ollama` (interactive TTY only).
@@ -65,13 +65,13 @@ curl http://localhost:3000 | uilint scan
 
 **Options:**
 
-| Option                    | Description                                |
-| ------------------------- | ------------------------------------------ |
-| `-f, --input-file <path>` | Path to HTML file to scan                  |
-| `-j, --input-json <json>` | JSON input with html and styles            |
-| `-s, --styleguide <path>` | Path to style guide file                   |
-| `-o, --output <format>`   | Output format: `text` or `json`            |
-| `-m, --model <name>`      | Ollama model (default: `qwen2.5-coder:7b`) |
+| Option                    | Description                               |
+| ------------------------- | ----------------------------------------- |
+| `-f, --input-file <path>` | Path to HTML file to scan                 |
+| `-j, --input-json <json>` | JSON input with html and styles           |
+| `-s, --styleguide <path>` | Path to style guide file                  |
+| `-o, --output <format>`   | Output format: `text` or `json`           |
+| `-m, --model <name>`      | Ollama model (default: `qwen3-coder:30b`) |
 
 **Example output:**
 
@@ -107,11 +107,11 @@ uilint query "what colors?" --output json
 
 **Options:**
 
-| Option                    | Description                                |
-| ------------------------- | ------------------------------------------ |
-| `-s, --styleguide <path>` | Path to style guide file                   |
-| `-o, --output <format>`   | Output format: `text` or `json`            |
-| `-m, --model <name>`      | Ollama model (default: `qwen2.5-coder:7b`) |
+| Option                    | Description                               |
+| ------------------------- | ----------------------------------------- |
+| `-s, --styleguide <path>` | Path to style guide file                  |
+| `-o, --output <format>`   | Output format: `text` or `json`           |
+| `-m, --model <name>`      | Ollama model (default: `qwen3-coder:30b`) |
 
 ### `uilint update` - Update Style Guide
 
@@ -149,7 +149,7 @@ jobs:
       - name: Install Ollama
         run: |
           curl -fsSL https://ollama.ai/install.sh | sh
-          ollama pull qwen2.5-coder:7b
+          ollama pull qwen3-coder:30b
 
       - name: Start Ollama
         run: ollama serve &

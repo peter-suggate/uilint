@@ -25,6 +25,7 @@ export type {
 
 // Ollama client
 export { OllamaClient, getOllamaClient } from "./ollama/client.js";
+export { UILINT_DEFAULT_OLLAMA_MODEL } from "./ollama/defaults.js";
 export {
   buildAnalysisPrompt,
   buildSourceAnalysisPrompt,

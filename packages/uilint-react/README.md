@@ -55,12 +55,14 @@ You'll need to add API routes for the React component:
 ```ts
 // app/api/uilint/analyze/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { OllamaClient } from "uilint-core";
+import { OllamaClient, UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
 
 export async function POST(request: NextRequest) {
   const { styleSummary, styleGuide, generateGuide, model } =
     await request.json();
-  const client = new OllamaClient({ model: model || "qwen2.5-coder:7b" });
+  const client = new OllamaClient({
+    model: model || UILINT_DEFAULT_OLLAMA_MODEL,
+  });
 
   if (generateGuide) {
     const styleGuideContent = await client.generateStyleGuide(styleSummary);
@@ -192,7 +194,7 @@ For LLM-powered features, you need [Ollama](https://ollama.ai) installed locally
 
 ```bash
 # Install Ollama, then pull the default model
-ollama pull qwen2.5-coder:7b
+ollama pull qwen3-coder:30b
 ```
 
 ## Related Packages

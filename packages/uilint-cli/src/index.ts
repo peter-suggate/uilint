@@ -3,6 +3,7 @@
  */
 
 import { Command } from "commander";
+import { UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
 import { scan } from "./commands/scan.js";
 import { update } from "./commands/update.js";
 import { install } from "./commands/install.js";
@@ -44,7 +45,11 @@ program
   .option("-j, --input-json <json>", "JSON input with html and styles")
   .option("-s, --styleguide <path>", "Path to style guide file")
   .option("-o, --output <format>", "Output format: text or json", "text")
-  .option("-m, --model <name>", "Ollama model to use", "qwen2.5-coder:7b")
+  .option(
+    "-m, --model <name>",
+    "Ollama model to use",
+    UILINT_DEFAULT_OLLAMA_MODEL
+  )
   .option("--debug", "Enable debug logging (stderr)")
   .option(
     "--debug-full",
@@ -74,7 +79,11 @@ program
   .option("-f, --input-file <path>", "Path to HTML file to analyze")
   .option("-j, --input-json <json>", "JSON input with html and styles")
   .option("-s, --styleguide <path>", "Path to style guide file")
-  .option("-m, --model <name>", "Ollama model to use", "qwen2.5-coder:7b")
+  .option(
+    "-m, --model <name>",
+    "Ollama model to use",
+    UILINT_DEFAULT_OLLAMA_MODEL
+  )
   .option("--llm", "Use LLM to suggest updates")
   .action(async (options) => {
     await update({
@@ -102,7 +111,11 @@ program
     "--react",
     "Back-compat: install Next.js overlay (routes + deps + inject)"
   )
-  .option("-m, --model <name>", "Ollama model to use for installer LLM steps")
+  .option(
+    "-m, --model <name>",
+    "Ollama model to use for installer LLM steps",
+    UILINT_DEFAULT_OLLAMA_MODEL
+  )
   .option(
     "--mode <mode>",
     "Integration mode: mcp, hooks, or both (skips interactive prompt)"
@@ -145,7 +158,11 @@ sessionCmd
   .command("scan")
   .description("Scan all tracked markup files (called on agent stop)")
   .option("--hook", "Output in Cursor hook format (followup_message JSON only)")
-  .option("-m, --model <name>", "Ollama model to use", "qwen2.5-coder:7b")
+  .option(
+    "-m, --model <name>",
+    "Ollama model to use",
+    UILINT_DEFAULT_OLLAMA_MODEL
+  )
   .action(async (options: { hook?: boolean; model?: string }) => {
     await sessionScan({ hookFormat: options.hook, model: options.model });
   });

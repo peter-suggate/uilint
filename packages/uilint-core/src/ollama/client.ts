@@ -14,9 +14,9 @@ import {
   buildStyleGuidePrompt,
   type BuildSourceAnalysisPromptOptions,
 } from "./prompts.js";
+import { UILINT_DEFAULT_OLLAMA_MODEL } from "./defaults.js";
 
 const DEFAULT_BASE_URL = "http://localhost:11434";
-const DEFAULT_MODEL = "qwen2.5-coder:7b";
 const DEFAULT_TIMEOUT = 60000;
 
 export class OllamaClient {
@@ -26,7 +26,7 @@ export class OllamaClient {
 
   constructor(options: OllamaClientOptions = {}) {
     this.baseUrl = options.baseUrl || DEFAULT_BASE_URL;
-    this.model = options.model || DEFAULT_MODEL;
+    this.model = options.model || UILINT_DEFAULT_OLLAMA_MODEL;
     this.timeout = options.timeout || DEFAULT_TIMEOUT;
   }
 

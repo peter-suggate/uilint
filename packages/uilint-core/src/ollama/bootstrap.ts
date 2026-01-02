@@ -10,9 +10,9 @@
 import { spawn, spawnSync } from "child_process";
 import readline from "readline";
 import { OllamaClient } from "./client.js";
+import { UILINT_DEFAULT_OLLAMA_MODEL } from "./defaults.js";
 
 const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434";
-const DEFAULT_MODEL = "qwen2.5-coder:7b";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -182,7 +182,7 @@ export async function ensureOllamaModelPulled(options?: {
   model?: string;
   baseUrl?: string;
 }): Promise<void> {
-  const desired = (options?.model || DEFAULT_MODEL).trim();
+  const desired = (options?.model || UILINT_DEFAULT_OLLAMA_MODEL).trim();
   if (!desired) return;
 
   const baseUrl = options?.baseUrl || DEFAULT_OLLAMA_BASE_URL;

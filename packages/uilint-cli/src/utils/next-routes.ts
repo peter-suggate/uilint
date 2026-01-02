@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
 const ANALYZE_ROUTE_TS = `export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { OllamaClient } from "uilint-core";
+import { OllamaClient, UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
 import { existsSync } from "fs";
 import { isAbsolute, resolve } from "path";
 import {
@@ -161,8 +161,6 @@ import {
   readStyleGuide,
   findWorkspaceRoot,
 } from "uilint-core/node";
-
-const DEFAULT_MODEL = "qwen2.5-coder:7b";
 
 function resolveExplicitStyleGuidePath(
   raw: string | null,
@@ -232,7 +230,9 @@ export async function POST(request: NextRequest) {
     const { styleSummary, styleGuide, styleguidePath, generateGuide, model } =
       await request.json();
 
-    const client = new OllamaClient({ model: model || DEFAULT_MODEL });
+    const client = new OllamaClient({
+      model: model || UILINT_DEFAULT_OLLAMA_MODEL,
+    });
 
     // Check if Ollama is available
     const available = await client.isAvailable();

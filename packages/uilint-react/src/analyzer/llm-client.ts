@@ -7,6 +7,7 @@ import {
   createStyleSummary,
   buildAnalysisPrompt,
   buildStyleGuidePrompt,
+  UILINT_DEFAULT_OLLAMA_MODEL,
   type ExtractedStyles,
   type UILintIssue,
   type AnalysisResult,
@@ -18,7 +19,6 @@ export interface LLMClientOptions {
 }
 
 const DEFAULT_API_ENDPOINT = "/api/uilint/analyze";
-const DEFAULT_MODEL = "qwen2.5-coder:7b";
 
 /**
  * Client for communicating with the LLM via API route (browser environment)
@@ -29,7 +29,7 @@ export class LLMClient {
 
   constructor(options: LLMClientOptions = {}) {
     this.apiEndpoint = options.apiEndpoint || DEFAULT_API_ENDPOINT;
-    this.model = options.model || DEFAULT_MODEL;
+    this.model = options.model || UILINT_DEFAULT_OLLAMA_MODEL;
   }
 
   /**

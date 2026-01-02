@@ -25,9 +25,9 @@ npm install uilint-core
 ### Ollama Client
 
 ```typescript
-import { OllamaClient } from "uilint-core";
+import { OllamaClient, UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
 
-const client = new OllamaClient({ model: "qwen2.5-coder:7b" });
+const client = new OllamaClient({ model: UILINT_DEFAULT_OLLAMA_MODEL });
 
 // Generate a style guide from extracted styles
 const styleGuide = await client.generateStyleGuide({
@@ -125,7 +125,7 @@ For LLM-powered features, you need [Ollama](https://ollama.ai) installed locally
 
 ```bash
 # Install Ollama, then pull the default model
-ollama pull qwen2.5-coder:7b
+ollama pull qwen3-coder:30b
 ```
 
 ## Related Packages

@@ -118,7 +118,7 @@ For LLM-powered features, you need [Ollama](https://ollama.ai) installed locally
 
 ```bash
 # Install Ollama, then pull the default model
-ollama pull qwen2.5-coder:7b
+ollama pull qwen3-coder:30b
 ```
 
 ## Direct Usage

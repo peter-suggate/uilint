@@ -60,7 +60,7 @@ AI uses MCP tools:
 
 ```bash
 # Install Ollama, then pull the default model:
-ollama pull qwen2.5-coder:7b
+ollama pull qwen3-coder:30b
 ```
 
 If Ollama isn’t installed, the CLI will print install instructions; on macOS it can optionally offer to run `brew install ollama` (interactive TTY only).
@@ -127,12 +127,14 @@ Add these API routes to enable the React component:
 ```ts
 // app/api/uilint/analyze/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { OllamaClient } from "uilint-core";
+import { OllamaClient, UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
 
 export async function POST(request: NextRequest) {
   const { styleSummary, styleGuide, generateGuide, model } =
     await request.json();
-  const client = new OllamaClient({ model: model || "qwen2.5-coder:7b" });
+  const client = new OllamaClient({
+    model: model || UILINT_DEFAULT_OLLAMA_MODEL,
+  });
 
   if (generateGuide) {
     const styleGuideContent = await client.generateStyleGuide(styleSummary);
@@ -281,13 +283,13 @@ uilint scan --input-json '{"html":"<button class=\"bg-blue-500\">","styles":{"co
 
 **Options:**
 
-| Option                    | Description                                |
-| ------------------------- | ------------------------------------------ |
-| `-f, --input-file <path>` | Path to HTML file to scan                  |
-| `-j, --input-json <json>` | JSON input with html and styles            |
-| `-s, --styleguide <path>` | Path to style guide file                   |
-| `-o, --output <format>`   | Output format: `text` or `json`            |
-| `-m, --model <name>`      | Ollama model (default: `qwen2.5-coder:7b`) |
+| Option                    | Description                               |
+| ------------------------- | ----------------------------------------- |
+| `-f, --input-file <path>` | Path to HTML file to scan                 |
+| `-j, --input-json <json>` | JSON input with html and styles           |
+| `-s, --styleguide <path>` | Path to style guide file                  |
+| `-o, --output <format>`   | Output format: `text` or `json`           |
+| `-m, --model <name>`      | Ollama model (default: `qwen3-coder:30b`) |
 
 **Example output:**
 
@@ -328,11 +330,11 @@ uilint query "what fonts?" --styleguide ./design/styleguide.md
 
 **Options:**
 
-| Option                    | Description                                |
-| ------------------------- | ------------------------------------------ |
-| `-s, --styleguide <path>` | Path to style guide file                   |
-| `-o, --output <format>`   | Output format: `text` or `json`            |
-| `-m, --model <name>`      | Ollama model (default: `qwen2.5-coder:7b`) |
+| Option                    | Description                               |
+| ------------------------- | ----------------------------------------- |
+| `-s, --styleguide <path>` | Path to style guide file                  |
+| `-o, --output <format>`   | Output format: `text` or `json`           |
+| `-m, --model <name>`      | Ollama model (default: `qwen3-coder:30b`) |
 
 **Example output:**
 
@@ -388,7 +390,7 @@ jobs:
       - name: Install Ollama
         run: |
           curl -fsSL https://ollama.ai/install.sh | sh
-          ollama pull qwen2.5-coder:7b
+          ollama pull qwen3-coder:30b
 
       - name: Start Ollama
         run: ollama serve &
