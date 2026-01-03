@@ -243,3 +243,88 @@ function InfoTooltip({
     </div>
   );
 }
+
+/**
+ * Highlight overlay for the inspected element (when sidebar is open)
+ */
+export function InspectedElementHighlight() {
+  const { inspectedElement } = useUILintContext();
+  const [mounted, setMounted] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Update rect when element changes or on scroll/resize
+  useEffect(() => {
+    if (!inspectedElement?.element) return;
+
+    const updateRect = () => {
+      if (inspectedElement.element) {
+        setRect(inspectedElement.element.getBoundingClientRect());
+      }
+    };
+
+    updateRect();
+
+    // Update on scroll and resize
+    window.addEventListener("scroll", updateRect, true);
+    window.addEventListener("resize", updateRect);
+
+    return () => {
+      window.removeEventListener("scroll", updateRect, true);
+      window.removeEventListener("resize", updateRect);
+    };
+  }, [inspectedElement?.element]);
+
+  if (!mounted || !inspectedElement || !rect) return null;
+
+  const content = (
+    <div data-ui-lint style={{ pointerEvents: "none" }}>
+      <style>{`
+        @keyframes uilint-inspected-pulse {
+          0%, 100% { box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.6), 0 0 8px rgba(16, 185, 129, 0.3); }
+          50% { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.8), 0 0 16px rgba(16, 185, 129, 0.5); }
+        }
+      `}</style>
+
+      {/* Element highlight with pulsing border */}
+      <div
+        style={{
+          position: "fixed",
+          top: rect.top - 3,
+          left: rect.left - 3,
+          width: rect.width + 6,
+          height: rect.height + 6,
+          border: "2px solid #10B981",
+          borderRadius: "6px",
+          backgroundColor: "rgba(16, 185, 129, 0.08)",
+          animation: "uilint-inspected-pulse 2s ease-in-out infinite",
+          zIndex: 99996,
+        }}
+      />
+
+      {/* Small label at top-left of element */}
+      <div
+        style={{
+          position: "fixed",
+          top: rect.top - 24,
+          left: rect.left - 3,
+          padding: "2px 8px",
+          backgroundColor: "#10B981",
+          color: "#FFFFFF",
+          fontSize: "10px",
+          fontWeight: 600,
+          fontFamily: STYLES.font,
+          borderRadius: "4px 4px 0 0",
+          zIndex: 99996,
+        }}
+      >
+        Inspecting
+      </div>
+    </div>
+  );
+
+  return createPortal(content, document.body);
+}

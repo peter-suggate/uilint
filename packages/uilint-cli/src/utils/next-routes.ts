@@ -450,11 +450,21 @@ async function analyzeSourceCode(
   client: OllamaClient,
   sourceCode: string,
   filePath: string,
-  styleGuide: string | null
+  styleGuide: string | null,
+  componentName?: string,
+  componentLine?: number
 ): Promise<{ issues: Array<{ line?: number; message: string }> }> {
+  // Build component focus context
+  const componentContext = componentName
+    ? \`\\n## Focus Component\\n\\nFocus your analysis on the **\${componentName}** component\${
+        componentLine ? \` (around line \${componentLine})\` : ""
+      }. While you have the full file for context, only report issues that are directly related to this specific component.\\n\`
+    : "";
+
   const prompt = \`You are a UI code reviewer. Analyze the following React/TypeScript component for style consistency issues.
 
-\${styleGuide ? \`## Style Guide\\n\\n\${styleGuide}\\n\\n\` : ""}## Source Code (\${filePath})
+\${styleGuide ? \`## Style Guide\\n\\n\${styleGuide}\\n\\n\` : ""}\${componentContext}
+## Source Code (\${filePath})
 
 \\\`\\\`\\\`tsx
 \${sourceCode}
@@ -463,6 +473,7 @@ async function analyzeSourceCode(
 ## Task
 
 Identify any style inconsistencies, violations of best practices, or deviations from the style guide.
+\${componentName ? \`Focus only on the \${componentName} component and its direct styling/structure.\` : ""}
 For each issue, provide the line number (if identifiable) and a clear description.
 
 Respond with a JSON array of issues:
@@ -502,6 +513,9 @@ export async function POST(request: NextRequest) {
       // New fields for source code analysis
       sourceCode,
       filePath,
+      // Component focus context
+      componentName,
+      componentLine,
     } = body;
 
     const client = new OllamaClient({
@@ -531,7 +545,9 @@ export async function POST(request: NextRequest) {
         client,
         sourceCode,
         filePath || "component.tsx",
-        styleGuideContent
+        styleGuideContent,
+        componentName,
+        componentLine
       );
       return NextResponse.json(result);
     }
@@ -585,7 +601,7 @@ async function writeRouteFile(
 export async function installNextUILintRoutes(
   opts: InstallNextRoutesOptions
 ): Promise<void> {
-  const baseRel = join(opts.appRoot, "api", "uilint");
+  const baseRel = join(opts.appRoot, "api", ".uilint");
   const baseAbs = join(opts.projectPath, baseRel);
 
   // UILint API routes
@@ -606,15 +622,12 @@ export async function installNextUILintRoutes(
     opts
   );
 
-  // Dev-only source file API (for source visualization overlay)
-  const devSourceRel = join(opts.appRoot, "api", "dev", "source");
-  const devSourceAbs = join(opts.projectPath, devSourceRel);
-
-  await mkdir(devSourceAbs, { recursive: true });
+  // Source file API (for source visualization in overlay)
+  await mkdir(join(baseAbs, "source"), { recursive: true });
 
   await writeRouteFile(
-    join(devSourceAbs, "route.ts"),
-    join(devSourceRel, "route.ts"),
+    join(baseAbs, "source", "route.ts"),
+    join(baseRel, "source", "route.ts"),
     DEV_SOURCE_ROUTE_TS,
     opts
   );

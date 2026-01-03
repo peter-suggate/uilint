@@ -38,6 +38,7 @@ import {
 } from "../utils/package-manager.js";
 import { installNextUILintRoutes } from "../utils/next-routes.js";
 import { installReactUILintOverlay } from "../utils/react-inject.js";
+import { installJsxLocPlugin } from "../utils/next-config-inject.js";
 import { findWorkspaceRoot } from "uilint-core/node";
 
 export interface InstallOptions {
@@ -540,6 +541,7 @@ export async function install(options: InstallOptions): Promise<void> {
       await installDependencies(pm, nextProjectPath, [
         "uilint-react",
         "uilint-core",
+        "jsx-loc-plugin",
       ]);
     });
 
@@ -573,6 +575,28 @@ export async function install(options: InstallOptions): Promise<void> {
         result.usedLLM ? pc.dim(" (LLM-selected)") : ""
       }`
     );
+
+    // Inject jsx-loc-plugin into next.config
+    logInfo("Configuring jsx-loc-plugin in next.config...");
+    const jsxLocResult = await installJsxLocPlugin({
+      projectPath: nextProjectPath,
+      force: options.force,
+      confirmOverwrite: async (path) =>
+        confirm({
+          message: `${pc.dim(path)} already has withJsxLoc. Re-apply anyway?`,
+          initialValue: false,
+        }),
+    });
+
+    if (jsxLocResult.modified && jsxLocResult.configFile) {
+      logSuccess(
+        `Wrapped export with withJsxLoc in ${pc.dim(jsxLocResult.configFile)}`
+      );
+    } else if (jsxLocResult.configFile) {
+      logInfo(`${pc.dim(jsxLocResult.configFile)} already configured`);
+    } else {
+      logWarning("No next.config file found - please add withJsxLoc manually");
+    }
   }
 
   // Show summary
@@ -598,7 +622,7 @@ export async function install(options: InstallOptions): Promise<void> {
   if (installNextOverlay && nextApp) {
     installedItems.push(
       `${pc.cyan("Next Routes")} → ${pc.dim(
-        join(nextApp.appRoot, "api/uilint")
+        join(nextApp.appRoot, "api/.uilint")
       )}`
     );
   }
@@ -606,6 +630,11 @@ export async function install(options: InstallOptions): Promise<void> {
   if (installNextOverlay) {
     installedItems.push(
       `${pc.cyan("Next Overlay")} → ${pc.dim("<UILintProvider> injected")}`
+    );
+    installedItems.push(
+      `${pc.cyan("JSX Loc Plugin")} → ${pc.dim(
+        "next.config wrapped with withJsxLoc"
+      )}`
     );
   }
 
@@ -623,11 +652,7 @@ export async function install(options: InstallOptions): Promise<void> {
   }
 
   if (installMCP) {
-    steps.push(
-      `The MCP server exposes: ${pc.dim(
-        "scan_file, scan_snippet, query_styleguide"
-      )}`
-    );
+    steps.push(`The MCP server exposes: ${pc.dim("scan_file, scan_snippet")}`);
   }
 
   if (installHooks) {

@@ -373,6 +373,7 @@ function UILintUI() {
     Toolbar: React.ComponentType;
     Panel: React.ComponentType;
     LocatorOverlay: React.ComponentType;
+    InspectedHighlight: React.ComponentType;
   } | null>(null);
 
   useEffect(() => {
@@ -386,19 +387,25 @@ function UILintUI() {
         Toolbar: toolbar.UILintToolbar,
         Panel: panel.InspectionPanel,
         LocatorOverlay: locator.LocatorOverlay,
+        InspectedHighlight: locator.InspectedElementHighlight,
       });
     });
   }, []);
 
   if (!components) return null;
 
-  const { Toolbar, Panel, LocatorOverlay } = components;
+  const { Toolbar, Panel, LocatorOverlay, InspectedHighlight } = components;
 
   return (
     <>
       <Toolbar />
       {altKeyHeld && <LocatorOverlay />}
-      {inspectedElement && <Panel />}
+      {inspectedElement && (
+        <>
+          <InspectedHighlight />
+          <Panel />
+        </>
+      )}
     </>
   );
 }

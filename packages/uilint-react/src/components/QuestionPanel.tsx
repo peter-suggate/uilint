@@ -66,7 +66,7 @@ export function QuestionPanel() {
 
     try {
       // Fetch existing style guide
-      const getResponse = await fetch("/api/uilint/styleguide");
+      const getResponse = await fetch("/api/.uilint/styleguide");
       const data = await getResponse.json().catch(() => ({}));
 
       if (!getResponse.ok || !data?.exists || !data?.content) {
@@ -80,7 +80,7 @@ export function QuestionPanel() {
       const updatedContent = applyAnswersToStyleGuide(data.content, answers);
 
       // Save to style guide
-      const postResponse = await fetch("/api/uilint/styleguide", {
+      const postResponse = await fetch("/api/.uilint/styleguide", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: updatedContent }),

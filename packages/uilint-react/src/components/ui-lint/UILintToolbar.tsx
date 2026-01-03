@@ -68,8 +68,8 @@ export function UILintToolbar() {
       data-ui-lint
       style={{
         position: "fixed",
-        bottom: "24px",
-        left: "24px",
+        top: "24px",
+        right: "24px",
         zIndex: 99999,
         fontFamily: STYLES.font,
       }}
@@ -168,9 +168,9 @@ function SettingsPopover({
     <div
       style={{
         position: "absolute",
-        bottom: "100%",
-        left: 0,
-        marginBottom: "8px",
+        top: "100%",
+        right: 0,
+        marginTop: "8px",
         width: "280px",
         padding: "16px",
         borderRadius: "12px",

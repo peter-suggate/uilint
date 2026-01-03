@@ -18,7 +18,7 @@ export interface LLMClientOptions {
   model?: string;
 }
 
-const DEFAULT_API_ENDPOINT = "/api/uilint/analyze";
+const DEFAULT_API_ENDPOINT = "/api/.uilint/analyze";
 
 /**
  * Client for communicating with the LLM via API route (browser environment)

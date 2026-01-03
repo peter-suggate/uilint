@@ -13,7 +13,7 @@ const CACHE_TTL = 5 * 60 * 1000;
 /**
  * API endpoint for source fetching
  */
-const API_ENDPOINT = "/api/dev/source";
+const API_ENDPOINT = "/api/.uilint/source";
 
 /**
  * Fetch source code for a file

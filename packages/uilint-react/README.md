@@ -61,10 +61,10 @@ export default function RootLayout({ children }) {
 The CLI installs these routes automatically, or you can add them manually:
 
 ```ts
-// app/api/uilint/analyze/route.ts
+// app/api/.uilint/analyze/route.ts
 // Handles LLM analysis of source code
 
-// app/api/dev/source/route.ts
+// app/api/.uilint/source/route.ts
 // Dev-only route for fetching source files
 ```
 

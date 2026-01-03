@@ -540,6 +540,11 @@ function ScanTab({ element }: { element: InspectedElement }) {
   const [fixPrompt, setFixPrompt] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Get component context for focused analysis
+  const componentName =
+    element.componentStack[0]?.name || element.element.tagName.toLowerCase();
+  const componentLine = element.source?.lineNumber;
+
   const handleScan = useCallback(async () => {
     if (!element.source) {
       setError("No source information available");
@@ -553,7 +558,7 @@ function ScanTab({ element }: { element: InspectedElement }) {
     try {
       // Fetch the source code
       const sourceResponse = await fetch(
-        `/api/dev/source?path=${encodeURIComponent(element.source.fileName)}`
+        `/api/.uilint/source?path=${encodeURIComponent(element.source.fileName)}`
       );
 
       if (!sourceResponse.ok) {
@@ -564,13 +569,15 @@ function ScanTab({ element }: { element: InspectedElement }) {
       const sourceCode = sourceData.content;
       const relativePath = sourceData.relativePath || element.source.fileName;
 
-      // Send to analyze route
-      const analyzeResponse = await fetch("/api/uilint/analyze", {
+      // Send to analyze route with component context
+      const analyzeResponse = await fetch("/api/.uilint/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sourceCode,
           filePath: relativePath,
+          componentName,
+          componentLine,
         }),
       });
 
@@ -581,10 +588,10 @@ function ScanTab({ element }: { element: InspectedElement }) {
       const result = await analyzeResponse.json();
       const issues = result.issues || [];
 
-      // Generate the clipboard-ready prompt
+      // Generate the clipboard-ready prompt with component focus
       if (issues.length === 0) {
         setFixPrompt(
-          `No style issues found in \`${relativePath}\`. The file appears to follow the styleguide.`
+          `No style issues found in the \`${componentName}\` component in \`${relativePath}\`. The component appears to follow the styleguide.`
         );
       } else {
         const issueList = issues
@@ -595,12 +602,12 @@ function ScanTab({ element }: { element: InspectedElement }) {
           .join("\n");
 
         setFixPrompt(
-          `Fix the following style issues in \`${relativePath}\`:
+          `Fix the following style issues in the \`${componentName}\` component in \`${relativePath}\`:
 
 Issues found:
 ${issueList}
 
-Please update this file to match our styleguide.`
+Please update this component to match our styleguide.`
         );
       }
     } catch (err) {
@@ -610,7 +617,7 @@ Please update this file to match our styleguide.`
     } finally {
       setScanning(false);
     }
-  }, [element.source]);
+  }, [element.source, componentName, componentLine]);
 
   const handleCopy = useCallback(async () => {
     if (!fixPrompt) return;

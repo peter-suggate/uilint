@@ -43,22 +43,6 @@ Or if installed globally:
 
 Once configured, your AI assistant has access to these tools:
 
-### `query_styleguide`
-
-Query specific style rules from your project's style guide.
-
-**Example prompts:**
-
-- "What colors are allowed in my style guide?"
-- "What fonts should I use for buttons?"
-- "Query the style guide for spacing values"
-
-**Parameters:**
-
-- `query` (string) - The question to ask about the style guide
-- `styleguidePath` (string, optional) - Full path to the style guide file
-- If `styleguidePath` is omitted, the server falls back to searching for `.uilint/styleguide*.md` from its current working directory.
-
 ### `scan_snippet`
 
 Scan a markup snippet for UI consistency issues.
@@ -101,15 +85,6 @@ AI: [Uses scan_snippet tool]
 Found 1 issue:
 ⚠️ Color #2563EB (blue-600) is not in the style guide.
    Expected: #3B82F6 (primary blue)
-```
-
-```
-You: What spacing values should I use?
-
-AI: [Uses query_styleguide tool]
-The style guide specifies these spacing values:
-- Base unit: 4px
-- Common values: 4px, 8px, 16px, 24px, 32px
 ```
 
 ## Prerequisites

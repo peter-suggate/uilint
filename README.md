@@ -30,10 +30,9 @@ npx uilint-cli@latest install
 You: "Scan this component and fix any style inconsistencies"
 
 AI uses MCP tools:
-  1. query_styleguide → "what colors are allowed?"
-  2. scan_snippet → analyzes your component markup
-  3. Suggests fixes → "Change #3575E2 to #3B82F6 (primary blue)"
-  4. Updates your code automatically
+  1. scan_file → analyzes your component markup
+  2. Suggests fixes → "Change #3575E2 to #3B82F6 (primary blue)"
+  3. Updates your code automatically
 ```
 
 ## Architecture
@@ -370,10 +369,10 @@ Add to your Cursor settings:
 
 ### Available Tools
 
-| Tool               | Description                         |
-| ------------------ | ----------------------------------- |
-| `query_styleguide` | Query specific style rules          |
-| `scan_snippet`     | Scan a markup snippet for UI issues |
+| Tool           | Description                         |
+| -------------- | ----------------------------------- |
+| `scan_file`    | Scan a component file for UI issues |
+| `scan_snippet` | Scan a markup snippet for UI issues |
 
 ---
 

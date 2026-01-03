@@ -33,4 +33,4 @@ coverage/
 .turbo/
 
 # Testing outputs
-apps/test-app/.uilint/
+/.uilint/
