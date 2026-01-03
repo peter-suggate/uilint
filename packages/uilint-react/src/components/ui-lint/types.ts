@@ -89,6 +89,8 @@ export interface InspectedElement {
   source: SourceLocation | null;
   componentStack: ComponentInfo[];
   rect: DOMRect;
+  /** Optional ID from auto-scan to link to cached results */
+  scannedElementId?: string;
 }
 
 /**
