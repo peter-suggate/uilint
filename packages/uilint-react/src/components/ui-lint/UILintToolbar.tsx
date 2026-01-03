@@ -164,6 +164,19 @@ function SettingsPopover({
   settings: ReturnType<typeof useUILintContext>["settings"];
   onUpdate: (partial: Partial<typeof settings>) => void;
 }) {
+  const {
+    autoScanState,
+    startAutoScan,
+    pauseAutoScan,
+    resumeAutoScan,
+    stopAutoScan,
+  } = useUILintContext();
+
+  const isScanning = autoScanState.status === "scanning";
+  const isPaused = autoScanState.status === "paused";
+  const isComplete = autoScanState.status === "complete";
+  const isActive = isScanning || isPaused || isComplete;
+
   return (
     <div
       style={{
@@ -171,7 +184,7 @@ function SettingsPopover({
         top: "100%",
         right: 0,
         marginTop: "8px",
-        width: "280px",
+        width: "300px",
         padding: "16px",
         borderRadius: "12px",
         border: `1px solid ${STYLES.border}`,
@@ -199,6 +212,219 @@ function SettingsPopover({
         checked={settings.hideNodeModules}
         onChange={(checked) => onUpdate({ hideNodeModules: checked })}
       />
+
+      {/* Auto-scan section */}
+      <div
+        style={{
+          marginTop: "12px",
+          paddingTop: "12px",
+          borderTop: `1px solid ${STYLES.border}`,
+        }}
+      >
+        <div
+          style={{
+            fontSize: "12px",
+            fontWeight: 600,
+            color: STYLES.text,
+            marginBottom: "10px",
+          }}
+        >
+          Auto-Scan Page
+        </div>
+
+        {!isActive ? (
+          // Start button
+          <button
+            onClick={startAutoScan}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              padding: "10px",
+              borderRadius: "8px",
+              border: "none",
+              backgroundColor: "#10B981",
+              color: "#FFFFFF",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "background-color 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#059669";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#10B981";
+            }}
+          >
+            <ScanIcon />
+            Scan All Elements
+          </button>
+        ) : (
+          // Progress and controls
+          <div>
+            {/* Progress bar */}
+            <div
+              style={{
+                marginBottom: "10px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "11px",
+                  color: STYLES.textMuted,
+                  marginBottom: "4px",
+                }}
+              >
+                <span>
+                  {isComplete
+                    ? "Complete"
+                    : isPaused
+                    ? "Paused"
+                    : "Scanning..."}
+                </span>
+                <span>
+                  {autoScanState.currentIndex} / {autoScanState.totalElements}
+                </span>
+              </div>
+              <div
+                style={{
+                  height: "4px",
+                  backgroundColor: "rgba(75, 85, 99, 0.5)",
+                  borderRadius: "2px",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${
+                      autoScanState.totalElements > 0
+                        ? (autoScanState.currentIndex /
+                            autoScanState.totalElements) *
+                          100
+                        : 0
+                    }%`,
+                    backgroundColor: isComplete ? "#10B981" : STYLES.accent,
+                    transition: "width 0.2s ease-out",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Control buttons */}
+            <div style={{ display: "flex", gap: "8px" }}>
+              {isScanning && (
+                <button
+                  onClick={pauseAutoScan}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                    padding: "8px",
+                    borderRadius: "6px",
+                    border: `1px solid ${STYLES.border}`,
+                    backgroundColor: "transparent",
+                    color: STYLES.text,
+                    fontSize: "11px",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = STYLES.bgHover;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                  }}
+                >
+                  <PauseIcon />
+                  Pause
+                </button>
+              )}
+
+              {isPaused && (
+                <button
+                  onClick={resumeAutoScan}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                    padding: "8px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: STYLES.accent,
+                    color: "#FFFFFF",
+                    fontSize: "11px",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = STYLES.accentHover;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = STYLES.accent;
+                  }}
+                >
+                  <PlayIcon />
+                  Resume
+                </button>
+              )}
+
+              <button
+                onClick={stopAutoScan}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  padding: "8px",
+                  borderRadius: "6px",
+                  border: `1px solid ${STYLES.border}`,
+                  backgroundColor: "transparent",
+                  color: STYLES.textMuted,
+                  fontSize: "11px",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = STYLES.bgHover;
+                  e.currentTarget.style.color = STYLES.text;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = STYLES.textMuted;
+                }}
+              >
+                <StopIcon />
+                {isComplete ? "Clear" : "Stop"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div
+          style={{
+            marginTop: "8px",
+            fontSize: "10px",
+            color: STYLES.textMuted,
+            lineHeight: 1.4,
+          }}
+        >
+          Scan all elements for style issues and show badges
+        </div>
+      </div>
 
       {/* Hint */}
       <div
@@ -290,6 +516,44 @@ function UILintIcon({ active }: { active: boolean }) {
         strokeWidth="2"
         strokeLinecap="round"
       />
+    </svg>
+  );
+}
+
+function ScanIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+      <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" />
+      <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+      <path d="M8 5v14l11-7L8 5z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function StopIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+      <rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" />
     </svg>
   );
 }

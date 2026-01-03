@@ -47,6 +47,26 @@ export interface SourceFile {
  */
 export interface UILintSettings {
   hideNodeModules: boolean;
+  autoScanEnabled: boolean;
+}
+
+/**
+ * State for the auto-scan feature
+ */
+export interface AutoScanState {
+  status: "idle" | "scanning" | "paused" | "complete";
+  currentIndex: number;
+  totalElements: number;
+  elements: ScannedElement[];
+}
+
+/**
+ * Cached issue data for a scanned element
+ */
+export interface ElementIssue {
+  elementId: string;
+  issues: Array<{ line?: number; message: string }>;
+  status: "pending" | "scanning" | "complete" | "error";
 }
 
 /**
@@ -89,6 +109,18 @@ export interface UILintContextValue {
   inspectedElement: InspectedElement | null;
   /** Set the element to inspect (opens sidebar) */
   setInspectedElement: (element: InspectedElement | null) => void;
+  /** Auto-scan state */
+  autoScanState: AutoScanState;
+  /** Cache of element issues from auto-scan */
+  elementIssuesCache: Map<string, ElementIssue>;
+  /** Start auto-scanning all page elements */
+  startAutoScan: () => void;
+  /** Pause the auto-scan */
+  pauseAutoScan: () => void;
+  /** Resume the auto-scan */
+  resumeAutoScan: () => void;
+  /** Stop and reset the auto-scan */
+  stopAutoScan: () => void;
 }
 
 /**
@@ -139,6 +171,17 @@ export const FILE_COLORS = [
  */
 export const DEFAULT_SETTINGS: UILintSettings = {
   hideNodeModules: true,
+  autoScanEnabled: false,
+};
+
+/**
+ * Default auto-scan state
+ */
+export const DEFAULT_AUTO_SCAN_STATE: AutoScanState = {
+  status: "idle",
+  currentIndex: 0,
+  totalElements: 0,
+  elements: [],
 };
 
 /**

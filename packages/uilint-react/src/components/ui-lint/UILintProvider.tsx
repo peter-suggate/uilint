@@ -15,23 +15,27 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 import type {
   UILintContextValue,
   UILintProviderProps,
   UILintSettings,
   LocatorTarget,
-  SourceLocation,
   ComponentInfo,
   InspectedElement,
+  AutoScanState,
+  ElementIssue,
+  ScannedElement,
 } from "./types";
-import { DEFAULT_SETTINGS } from "./types";
+import { DEFAULT_SETTINGS, DEFAULT_AUTO_SCAN_STATE } from "./types";
 import {
   getFiberFromElement,
   getDebugSource,
   getComponentStack,
   getSourceFromDataLoc,
   isNodeModulesPath,
+  scanDOMForSources,
 } from "./fiber-utils";
 
 // Create context
@@ -77,11 +81,259 @@ export function UILintProvider({
   const [inspectedElement, setInspectedElement] =
     useState<InspectedElement | null>(null);
 
+  // Auto-scan state
+  const [autoScanState, setAutoScanState] = useState<AutoScanState>(
+    DEFAULT_AUTO_SCAN_STATE
+  );
+  const [elementIssuesCache, setElementIssuesCache] = useState<
+    Map<string, ElementIssue>
+  >(new Map());
+
+  // Refs for scan control
+  const scanPausedRef = useRef(false);
+  const scanAbortRef = useRef(false);
+
   /**
    * Update settings partially
    */
   const updateSettings = useCallback((partial: Partial<UILintSettings>) => {
     setSettings((prev) => ({ ...prev, ...partial }));
+  }, []);
+
+  /**
+   * Scan a single element for issues
+   */
+  const scanElementForIssues = useCallback(
+    async (element: ScannedElement): Promise<ElementIssue> => {
+      if (!element.source) {
+        return {
+          elementId: element.id,
+          issues: [],
+          status: "complete",
+        };
+      }
+
+      try {
+        // Fetch source code
+        const sourceResponse = await fetch(
+          `/api/.uilint/source?path=${encodeURIComponent(
+            element.source.fileName
+          )}`
+        );
+
+        if (!sourceResponse.ok) {
+          return {
+            elementId: element.id,
+            issues: [],
+            status: "error",
+          };
+        }
+
+        const sourceData = await sourceResponse.json();
+
+        // Analyze with LLM
+        const analyzeResponse = await fetch("/api/.uilint/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sourceCode: sourceData.content,
+            filePath: sourceData.relativePath || element.source.fileName,
+            componentName: element.componentStack[0]?.name || element.tagName,
+            componentLine: element.source.lineNumber,
+          }),
+        });
+
+        if (!analyzeResponse.ok) {
+          return {
+            elementId: element.id,
+            issues: [],
+            status: "error",
+          };
+        }
+
+        const result = await analyzeResponse.json();
+        return {
+          elementId: element.id,
+          issues: result.issues || [],
+          status: "complete",
+        };
+      } catch {
+        return {
+          elementId: element.id,
+          issues: [],
+          status: "error",
+        };
+      }
+    },
+    []
+  );
+
+  /**
+   * Run the scan loop
+   */
+  const runScanLoop = useCallback(
+    async (elements: ScannedElement[], startIndex: number) => {
+      // Group elements by source file to avoid duplicate scans
+      const fileToElements = new Map<string, ScannedElement[]>();
+      const scannedFiles = new Set<string>();
+
+      for (const el of elements) {
+        if (el.source) {
+          const file = el.source.fileName;
+          const existing = fileToElements.get(file) || [];
+          existing.push(el);
+          fileToElements.set(file, existing);
+        }
+      }
+
+      for (let i = startIndex; i < elements.length; i++) {
+        // Check abort
+        if (scanAbortRef.current) {
+          setAutoScanState((prev) => ({ ...prev, status: "idle" }));
+          return;
+        }
+
+        // Check pause
+        while (scanPausedRef.current) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          if (scanAbortRef.current) {
+            setAutoScanState((prev) => ({ ...prev, status: "idle" }));
+            return;
+          }
+        }
+
+        const element = elements[i];
+
+        // Update progress
+        setAutoScanState((prev) => ({
+          ...prev,
+          currentIndex: i,
+        }));
+
+        // Skip if this file was already scanned
+        if (element.source && scannedFiles.has(element.source.fileName)) {
+          // Apply cached result from the first element with this file
+          const existingElements = fileToElements.get(element.source.fileName);
+          if (existingElements && existingElements.length > 0) {
+            const firstId = existingElements[0].id;
+            setElementIssuesCache((prev) => {
+              const cached = prev.get(firstId);
+              if (cached) {
+                const newCache = new Map(prev);
+                newCache.set(element.id, { ...cached, elementId: element.id });
+                return newCache;
+              }
+              return prev;
+            });
+          }
+          continue;
+        }
+
+        // Mark as scanning
+        setElementIssuesCache((prev) => {
+          const newCache = new Map(prev);
+          newCache.set(element.id, {
+            elementId: element.id,
+            issues: [],
+            status: "scanning",
+          });
+          return newCache;
+        });
+
+        // Scan the element
+        const result = await scanElementForIssues(element);
+
+        // Cache result
+        setElementIssuesCache((prev) => {
+          const newCache = new Map(prev);
+          newCache.set(element.id, result);
+          return newCache;
+        });
+
+        // Mark file as scanned
+        if (element.source) {
+          scannedFiles.add(element.source.fileName);
+        }
+
+        // Small delay to avoid overwhelming the API
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      // Complete
+      setAutoScanState((prev) => ({
+        ...prev,
+        status: "complete",
+        currentIndex: elements.length,
+      }));
+    },
+    [scanElementForIssues]
+  );
+
+  /**
+   * Start auto-scanning all page elements
+   */
+  const startAutoScan = useCallback(() => {
+    // Reset state
+    scanPausedRef.current = false;
+    scanAbortRef.current = false;
+
+    // Get all scannable elements
+    const elements = scanDOMForSources(document.body, settings.hideNodeModules);
+
+    // Initialize cache with pending status for all elements
+    const initialCache = new Map<string, ElementIssue>();
+    for (const el of elements) {
+      initialCache.set(el.id, {
+        elementId: el.id,
+        issues: [],
+        status: "pending",
+      });
+    }
+    setElementIssuesCache(initialCache);
+
+    // Set initial state
+    setAutoScanState({
+      status: "scanning",
+      currentIndex: 0,
+      totalElements: elements.length,
+      elements,
+    });
+
+    // Start the scan loop
+    runScanLoop(elements, 0);
+  }, [settings.hideNodeModules, runScanLoop]);
+
+  /**
+   * Pause the auto-scan
+   */
+  const pauseAutoScan = useCallback(() => {
+    scanPausedRef.current = true;
+    setAutoScanState((prev) => ({ ...prev, status: "paused" }));
+  }, []);
+
+  /**
+   * Resume the auto-scan
+   */
+  const resumeAutoScan = useCallback(() => {
+    scanPausedRef.current = false;
+    setAutoScanState((prev) => {
+      if (prev.status === "paused") {
+        // Resume from current index
+        runScanLoop(prev.elements, prev.currentIndex);
+        return { ...prev, status: "scanning" };
+      }
+      return prev;
+    });
+  }, [runScanLoop]);
+
+  /**
+   * Stop and reset the auto-scan
+   */
+  const stopAutoScan = useCallback(() => {
+    scanAbortRef.current = true;
+    scanPausedRef.current = false;
+    setAutoScanState(DEFAULT_AUTO_SCAN_STATE);
+    setElementIssuesCache(new Map());
   }, []);
 
   /**
@@ -156,10 +408,11 @@ export function UILintProvider({
 
   /**
    * Handle mouse move for locator mode
+   * When inspecting, allow hover without Alt key
    */
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (!altKeyHeld) return;
+      if (!altKeyHeld && !inspectedElement) return;
 
       const elementAtPoint = document.elementFromPoint(e.clientX, e.clientY);
       if (!elementAtPoint) {
@@ -180,7 +433,7 @@ export function UILintProvider({
 
       setLocatorTarget(null);
     },
-    [altKeyHeld, getLocatorTargetFromElement]
+    [altKeyHeld, inspectedElement, getLocatorTargetFromElement]
   );
 
   /**
@@ -259,18 +512,29 @@ export function UILintProvider({
 
   /**
    * Mouse tracking for locator mode
+   * Active when Alt is held OR when inspecting an element
    */
   useEffect(() => {
-    if (!isBrowser() || !enabled || !altKeyHeld) return;
+    if (!isBrowser() || !enabled) return;
+    if (!altKeyHeld && !inspectedElement) return;
 
     window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("click", handleLocatorClick, true);
+    // Only add click handler when Alt is held (not during passive inspection hover)
+    if (altKeyHeld) {
+      window.addEventListener("click", handleLocatorClick, true);
+    }
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("click", handleLocatorClick, true);
     };
-  }, [enabled, altKeyHeld, handleMouseMove, handleLocatorClick]);
+  }, [
+    enabled,
+    altKeyHeld,
+    inspectedElement,
+    handleMouseMove,
+    handleLocatorClick,
+  ]);
 
   /**
    * Scroll wheel for parent navigation in locator mode
@@ -339,6 +603,12 @@ export function UILintProvider({
       locatorGoDown,
       inspectedElement,
       setInspectedElement,
+      autoScanState,
+      elementIssuesCache,
+      startAutoScan,
+      pauseAutoScan,
+      resumeAutoScan,
+      stopAutoScan,
     }),
     [
       settings,
@@ -348,6 +618,12 @@ export function UILintProvider({
       locatorGoUp,
       locatorGoDown,
       inspectedElement,
+      autoScanState,
+      elementIssuesCache,
+      startAutoScan,
+      pauseAutoScan,
+      resumeAutoScan,
+      stopAutoScan,
     ]
   );
 
@@ -366,7 +642,7 @@ export function UILintProvider({
  * UI components rendered when UILint is active
  */
 function UILintUI() {
-  const { altKeyHeld, inspectedElement } = useUILintContext();
+  const { altKeyHeld, inspectedElement, autoScanState } = useUILintContext();
 
   // Dynamically import components to avoid circular dependencies
   const [components, setComponents] = useState<{
@@ -374,6 +650,7 @@ function UILintUI() {
     Panel: React.ComponentType;
     LocatorOverlay: React.ComponentType;
     InspectedHighlight: React.ComponentType;
+    ElementBadges: React.ComponentType;
   } | null>(null);
 
   useEffect(() => {
@@ -382,24 +659,30 @@ function UILintUI() {
       import("./UILintToolbar"),
       import("./InspectionPanel"),
       import("./LocatorOverlay"),
-    ]).then(([toolbar, panel, locator]) => {
+      import("./ElementBadges"),
+    ]).then(([toolbar, panel, locator, badges]) => {
       setComponents({
         Toolbar: toolbar.UILintToolbar,
         Panel: panel.InspectionPanel,
         LocatorOverlay: locator.LocatorOverlay,
         InspectedHighlight: locator.InspectedElementHighlight,
+        ElementBadges: badges.ElementBadges,
       });
     });
   }, []);
 
   if (!components) return null;
 
-  const { Toolbar, Panel, LocatorOverlay, InspectedHighlight } = components;
+  const { Toolbar, Panel, LocatorOverlay, InspectedHighlight, ElementBadges } =
+    components;
+
+  const showBadges = autoScanState.status !== "idle";
 
   return (
     <>
       <Toolbar />
-      {altKeyHeld && <LocatorOverlay />}
+      {(altKeyHeld || inspectedElement) && <LocatorOverlay />}
+      {showBadges && <ElementBadges />}
       {inspectedElement && (
         <>
           <InspectedHighlight />
