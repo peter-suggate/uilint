@@ -66,4 +66,28 @@ export {
   createComponentRule,
 } from "./styleguide/schema.js";
 
+// Consistency analysis
+export type {
+  StyleSnapshot,
+  ElementRole,
+  ElementSnapshot,
+  GroupedSnapshot,
+  ViolationCategory,
+  ViolationSeverity,
+  Violation,
+  ConsistencyResult,
+  AnalyzeConsistencyOptions,
+} from "./consistency/index.js";
+
+export {
+  buildConsistencyPrompt,
+  countElements,
+  hasAnalyzableGroups,
+  parseGroupedSnapshot,
+  parseViolationsResponse,
+  validateViolations,
+  analyzeConsistency,
+  formatConsistencyViolations,
+} from "./consistency/index.js";
+
 // NOTE: rule-based code validation/linting was removed in favor of scan/analyze flows.

@@ -8,12 +8,12 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import type { UILintIssue, ExtractedStyles } from "uilint-core";
-import { scanDOM } from "../scanner/dom-scanner";
+import type { Violation, ConsistencyResult } from "../consistency/types";
+import { createSnapshot, cleanupDataElements } from "../consistency/snapshot";
 import { isBrowser } from "../scanner/environment";
-import { LLMClient } from "../analyzer/llm-client";
 import { Overlay } from "./Overlay";
-import { Highlighter } from "./Highlighter";
+import { ConsistencyHighlighter } from "../consistency/highlights";
+import { countElements } from "uilint-core";
 
 export interface UILintProps {
   children: React.ReactNode;
@@ -24,13 +24,15 @@ export interface UILintProps {
 }
 
 interface UILintContextValue {
-  issues: UILintIssue[];
+  violations: Violation[];
   isScanning: boolean;
-  styleGuideExists: boolean;
+  elementCount: number;
   scan: () => Promise<void>;
-  clearIssues: () => void;
-  highlightedIssue: UILintIssue | null;
-  setHighlightedIssue: (issue: UILintIssue | null) => void;
+  clearViolations: () => void;
+  selectedViolation: Violation | null;
+  setSelectedViolation: (violation: Violation | null) => void;
+  lockedViolation: Violation | null;
+  setLockedViolation: (violation: Violation | null) => void;
 }
 
 const UILintContext = createContext<UILintContextValue | null>(null);
@@ -48,22 +50,20 @@ export function UILint({
   enabled = true,
   position = "bottom-left",
   autoScan = false,
-  apiEndpoint,
+  apiEndpoint = "/api/uilint/consistency",
 }: UILintProps) {
-  const [issues, setIssues] = useState<UILintIssue[]>([]);
+  const [violations, setViolations] = useState<Violation[]>([]);
   const [isScanning, setIsScanning] = useState(false);
-  const [styleGuideExists, setStyleGuideExists] = useState(false);
-  const [styleGuideContent, setStyleGuideContent] = useState<string | null>(
+  const [elementCount, setElementCount] = useState(0);
+  const [selectedViolation, setSelectedViolation] = useState<Violation | null>(
     null
   );
-  const [styleGuideError, setStyleGuideError] = useState<string | null>(null);
-  const [highlightedIssue, setHighlightedIssue] = useState<UILintIssue | null>(
+  const [lockedViolation, setLockedViolation] = useState<Violation | null>(
     null
   );
   // Track if we're mounted on the client to avoid hydration mismatch
   const [isMounted, setIsMounted] = useState(false);
 
-  const llmClient = useRef(new LLMClient({ apiEndpoint }));
   const hasInitialized = useRef(false);
 
   // Set mounted state after hydration to avoid SSR mismatch
@@ -71,81 +71,71 @@ export function UILint({
     setIsMounted(true);
   }, []);
 
-  // Check if style guide exists
-  const checkStyleGuide = useCallback(async () => {
-    if (!isBrowser()) return;
-
-    try {
-      const response = await fetch("/api/uilint/styleguide");
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setStyleGuideExists(false);
-        setStyleGuideContent(null);
-        if (typeof (data as any)?.error === "string" && (data as any).error) {
-          setStyleGuideError((data as any).error);
-        } else if (response.status === 404) {
-          setStyleGuideError(
-            'UILint API route not found at "/api/uilint/styleguide". Ensure the UILint Next.js routes are installed (e.g. app/api/uilint/styleguide/route.ts).'
-          );
-        } else {
-          setStyleGuideError(
-            `Failed to load style guide (HTTP ${response.status}).`
-          );
-        }
-        return;
+  // Cleanup data-elements attributes on unmount
+  useEffect(() => {
+    return () => {
+      if (isBrowser()) {
+        cleanupDataElements();
       }
-      setStyleGuideExists(!!data.exists);
-      setStyleGuideContent(data.content ?? null);
-      setStyleGuideError(null);
-    } catch {
-      setStyleGuideExists(false);
-      setStyleGuideContent(null);
-      setStyleGuideError(
-        'Failed to reach "/api/uilint/styleguide". Is your Next.js server running?'
-      );
-    }
+    };
   }, []);
 
-  // Main scan function
+  // Main scan function - non-blocking, shows spinner while running
   const scan = useCallback(async () => {
     // Only run in browser environment
     if (!isBrowser()) return;
 
     setIsScanning(true);
+    setSelectedViolation(null);
+    setLockedViolation(null);
 
     try {
-      // Scan DOM
-      const snapshot = scanDOM(document.body);
+      // Create DOM snapshot with data-elements attributes
+      const snapshot = createSnapshot(document.body);
+      const count = countElements(snapshot);
+      setElementCount(count);
 
-      // No style guide: do not auto-generate.
-      if (!styleGuideContent) {
+      // Post to API for analysis
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ snapshot }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
         console.error(
-          `[UILint] ${
-            styleGuideError ??
-            'No style guide found. Create ".uilint/styleguide.md" at your Next.js app root (or pass styleguidePath / set UILINT_STYLEGUIDE_PATH on the server).'
-          }`
+          "[UILint] Analysis failed:",
+          errorData.error || response.statusText
         );
-        setIssues([]);
+        setViolations([]);
         return;
       }
 
-      // Analyze with LLM
-      const result = await llmClient.current.analyze(
-        snapshot.styles,
-        styleGuideContent
-      );
+      const result: ConsistencyResult = await response.json();
+      setViolations(result.violations);
 
-      setIssues(result.issues);
+      if (result.violations.length === 0) {
+        console.log(`[UILint] No consistency issues found (${count} elements)`);
+      } else {
+        console.log(
+          `[UILint] Found ${result.violations.length} consistency issue(s)`
+        );
+      }
     } catch (error) {
       console.error("[UILint] Scan failed:", error);
+      setViolations([]);
     } finally {
       setIsScanning(false);
     }
-  }, [styleGuideContent]);
+  }, [apiEndpoint]);
 
-  const clearIssues = useCallback(() => {
-    setIssues([]);
-    setHighlightedIssue(null);
+  const clearViolations = useCallback(() => {
+    setViolations([]);
+    setSelectedViolation(null);
+    setLockedViolation(null);
+    cleanupDataElements();
+    setElementCount(0);
   }, []);
 
   // Initialize on mount
@@ -155,24 +145,23 @@ export function UILint({
 
     if (!isBrowser()) return;
 
-    // In browser, check for style guide
-    checkStyleGuide();
-
     if (autoScan) {
       // Delay scan to allow page to render
       const timer = setTimeout(scan, 1000);
       return () => clearTimeout(timer);
     }
-  }, [enabled, autoScan, scan, checkStyleGuide]);
+  }, [enabled, autoScan, scan]);
 
   const contextValue: UILintContextValue = {
-    issues,
+    violations,
     isScanning,
-    styleGuideExists,
+    elementCount,
     scan,
-    clearIssues,
-    highlightedIssue,
-    setHighlightedIssue,
+    clearViolations,
+    selectedViolation,
+    setSelectedViolation,
+    lockedViolation,
+    setLockedViolation,
   };
 
   // Don't render overlay until client is mounted (prevents hydration mismatch)
@@ -184,7 +173,11 @@ export function UILint({
       {shouldRenderOverlay && (
         <>
           <Overlay position={position} />
-          <Highlighter />
+          <ConsistencyHighlighter
+            violations={violations}
+            selectedViolation={selectedViolation}
+            lockedViolation={lockedViolation}
+          />
         </>
       )}
     </UILintContext.Provider>

@@ -1,6 +1,24 @@
 // Main component
-export { UILint } from "./components/UILint";
+export { UILint, useUILint } from "./components/UILint";
 export type { UILintProps } from "./components/UILint";
+
+// Consistency analysis
+export {
+  createSnapshot,
+  cleanupDataElements,
+  getElementBySnapshotId,
+  ConsistencyHighlighter,
+} from "./consistency/index";
+export type {
+  StyleSnapshot,
+  ElementRole,
+  ElementSnapshot,
+  GroupedSnapshot,
+  Violation,
+  ViolationCategory,
+  ViolationSeverity,
+  ConsistencyResult,
+} from "./consistency/types";
 
 // Re-export core types for convenience
 export type {

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useUILint } from "./UILint";
-import { IssueList } from "./IssueList";
+import { ViolationList } from "./ViolationList";
 import { QuestionPanel } from "./QuestionPanel";
 
 interface OverlayProps {
@@ -11,7 +11,7 @@ interface OverlayProps {
 
 export function Overlay({ position }: OverlayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { issues, isScanning, scan } = useUILint();
+  const { violations, isScanning, scan, elementCount } = useUILint();
 
   const positionStyles: React.CSSProperties = {
     position: "fixed",
@@ -20,8 +20,8 @@ export function Overlay({ position }: OverlayProps) {
     ...(position.includes("left") ? { left: "16px" } : { right: "16px" }),
   };
 
-  const issueCount = issues.length;
-  const hasIssues = issueCount > 0;
+  const violationCount = violations.length;
+  const hasViolations = violationCount > 0;
 
   return (
     <div style={positionStyles}>
@@ -30,12 +30,13 @@ export function Overlay({ position }: OverlayProps) {
           onCollapse={() => setIsExpanded(false)}
           onScan={scan}
           isScanning={isScanning}
+          elementCount={elementCount}
         />
       ) : (
         <CollapsedButton
           onClick={() => setIsExpanded(true)}
-          issueCount={issueCount}
-          hasIssues={hasIssues}
+          violationCount={violationCount}
+          hasViolations={hasViolations}
           isScanning={isScanning}
         />
       )}
@@ -45,15 +46,15 @@ export function Overlay({ position }: OverlayProps) {
 
 interface CollapsedButtonProps {
   onClick: () => void;
-  issueCount: number;
-  hasIssues: boolean;
+  violationCount: number;
+  hasViolations: boolean;
   isScanning: boolean;
 }
 
 function CollapsedButton({
   onClick,
-  issueCount,
-  hasIssues,
+  violationCount,
+  hasViolations,
   isScanning,
 }: CollapsedButtonProps) {
   return (
@@ -67,7 +68,11 @@ function CollapsedButton({
         height: "48px",
         borderRadius: "50%",
         border: "none",
-        backgroundColor: hasIssues ? "#EF4444" : "#10B981",
+        backgroundColor: isScanning
+          ? "#3B82F6"
+          : hasViolations
+          ? "#EF4444"
+          : "#10B981",
         color: "white",
         cursor: "pointer",
         boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
@@ -83,16 +88,47 @@ function CollapsedButton({
         e.currentTarget.style.transform = "scale(1)";
         e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
       }}
-      title={`UILint: ${issueCount} issues found`}
+      title={
+        isScanning
+          ? "Analyzing..."
+          : `UILint: ${violationCount} issue${
+              violationCount !== 1 ? "s" : ""
+            } found`
+      }
     >
-      {isScanning ? (
-        <span style={{ animation: "spin 1s linear infinite" }}>⟳</span>
-      ) : hasIssues ? (
-        issueCount
-      ) : (
-        "✓"
-      )}
+      {isScanning ? <SpinnerIcon /> : hasViolations ? violationCount : "✓"}
     </button>
+  );
+}
+
+function SpinnerIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      style={{
+        animation: "uilint-spin 1s linear infinite",
+      }}
+    >
+      <style>{`
+        @keyframes uilint-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+      <circle
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeDasharray="31.4 31.4"
+        fill="none"
+      />
+    </svg>
   );
 }
 
@@ -100,10 +136,18 @@ interface ExpandedPanelProps {
   onCollapse: () => void;
   onScan: () => void;
   isScanning: boolean;
+  elementCount: number;
 }
 
-function ExpandedPanel({ onCollapse, onScan, isScanning }: ExpandedPanelProps) {
-  const [activeTab, setActiveTab] = useState<"issues" | "questions">("issues");
+function ExpandedPanel({
+  onCollapse,
+  onScan,
+  isScanning,
+  elementCount,
+}: ExpandedPanelProps) {
+  const [activeTab, setActiveTab] = useState<"violations" | "questions">(
+    "violations"
+  );
 
   return (
     <div
@@ -132,6 +176,17 @@ function ExpandedPanel({ onCollapse, onScan, isScanning }: ExpandedPanelProps) {
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <span style={{ fontSize: "16px" }}>🎨</span>
           <span style={{ fontWeight: "600", fontSize: "14px" }}>UILint</span>
+          {elementCount > 0 && !isScanning && (
+            <span
+              style={{
+                fontSize: "11px",
+                color: "#6B7280",
+                marginLeft: "4px",
+              }}
+            >
+              ({elementCount} elements)
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
           <button
@@ -147,9 +202,34 @@ function ExpandedPanel({ onCollapse, onScan, isScanning }: ExpandedPanelProps) {
               fontWeight: "500",
               cursor: isScanning ? "not-allowed" : "pointer",
               opacity: isScanning ? 0.7 : 1,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
             }}
           >
-            {isScanning ? "Scanning..." : "Scan"}
+            {isScanning && (
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                style={{
+                  animation: "uilint-spin 1s linear infinite",
+                }}
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray="31.4 31.4"
+                  fill="none"
+                />
+              </svg>
+            )}
+            {isScanning ? "Analyzing..." : "Scan"}
           </button>
           <button
             onClick={onCollapse}
@@ -176,10 +256,10 @@ function ExpandedPanel({ onCollapse, onScan, isScanning }: ExpandedPanelProps) {
         }}
       >
         <TabButton
-          active={activeTab === "issues"}
-          onClick={() => setActiveTab("issues")}
+          active={activeTab === "violations"}
+          onClick={() => setActiveTab("violations")}
         >
-          Issues
+          Violations
         </TabButton>
         <TabButton
           active={activeTab === "questions"}
@@ -191,7 +271,7 @@ function ExpandedPanel({ onCollapse, onScan, isScanning }: ExpandedPanelProps) {
 
       {/* Content */}
       <div style={{ maxHeight: "380px", overflow: "auto" }}>
-        {activeTab === "issues" ? <IssueList /> : <QuestionPanel />}
+        {activeTab === "violations" ? <ViolationList /> : <QuestionPanel />}
       </div>
     </div>
   );

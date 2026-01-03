@@ -5,6 +5,7 @@
 import { Command } from "commander";
 import { UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
 import { scan } from "./commands/scan.js";
+import { consistency } from "./commands/consistency.js";
 import { update } from "./commands/update.js";
 import { install } from "./commands/install.js";
 import {
@@ -69,6 +70,25 @@ program
       debug: options.debug,
       debugFull: options.debugFull,
       debugDump: options.debugDump,
+    });
+  });
+
+// Consistency command
+program
+  .command("consistency")
+  .description("Analyze grouped DOM elements for visual inconsistencies")
+  .option("-j, --input-json <json>", "JSON input with GroupedSnapshot")
+  .option("-o, --output <format>", "Output format: text or json", "text")
+  .option(
+    "-m, --model <name>",
+    "Ollama model to use",
+    UILINT_DEFAULT_OLLAMA_MODEL
+  )
+  .action(async (options) => {
+    await consistency({
+      inputJson: options.inputJson,
+      output: options.output,
+      model: options.model,
     });
   });
 
