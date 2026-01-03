@@ -4,7 +4,7 @@ React component for AI-powered UI consistency checking in running applications.
 
 ## Overview
 
-`uilint-react` provides React components and utilities for analyzing UI consistency at runtime and in tests. It includes a visual overlay for development and a JSDOM adapter for testing.
+`uilint-react` provides the `UILintProvider` component that enables element inspection and LLM-powered code analysis in your React/Next.js application.
 
 ## Installation
 
@@ -12,127 +12,70 @@ React component for AI-powered UI consistency checking in running applications.
 npm install uilint-react uilint-core
 ```
 
+Or use the CLI to install everything automatically:
+
+```bash
+npx uilint-cli install
+```
+
 ## Usage in a Running App
 
-Wrap your app with the `<UILint>` component to get a visual overlay:
+Wrap your app with the `UILintProvider` component:
 
 ### Next.js Setup
 
 ```tsx
 // app/layout.tsx
-import { UILint } from "uilint-react";
+import { UILintProvider } from "uilint-react";
 
 export default function RootLayout({ children }) {
   return (
     <html>
       <body>
-        <UILint
-          enabled={process.env.NODE_ENV !== "production"}
-          position="bottom-left"
-          autoScan={false}
-        >
+        <UILintProvider enabled={process.env.NODE_ENV !== "production"}>
           {children}
-        </UILint>
+        </UILintProvider>
       </body>
     </html>
   );
 }
 ```
 
+### Features
+
+- **Alt+Click** on any element to open the inspector sidebar
+- View component source location and file path
+- Navigate through the component stack (scroll while holding Alt)
+- **Open in Cursor** - jump directly to the source file
+- **Scan with LLM** - analyze the component for style issues
+- **Copy fix prompt** - paste into Cursor agent for automatic fixes
+
 ### Props
 
-| Prop          | Type                                                           | Default                 | Description                     |
-| ------------- | -------------------------------------------------------------- | ----------------------- | ------------------------------- |
-| `enabled`     | `boolean`                                                      | `true`                  | Enable/disable UILint           |
-| `position`    | `'bottom-left' \| 'bottom-right' \| 'top-left' \| 'top-right'` | `'bottom-left'`         | Overlay position                |
-| `autoScan`    | `boolean`                                                      | `false`                 | Automatically scan on page load |
-| `apiEndpoint` | `string`                                                       | `'/api/uilint/analyze'` | Custom API endpoint             |
+| Prop      | Type      | Default | Description           |
+| --------- | --------- | ------- | --------------------- |
+| `enabled` | `boolean` | `true`  | Enable/disable UILint |
 
 ### API Routes
 
-You'll need to add API routes for the React component:
+The CLI installs these routes automatically, or you can add them manually:
 
 ```ts
 // app/api/uilint/analyze/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { OllamaClient, UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
+// Handles LLM analysis of source code
 
-export async function POST(request: NextRequest) {
-  const { styleSummary, styleGuide, generateGuide, model } =
-    await request.json();
-  const client = new OllamaClient({
-    model: model || UILINT_DEFAULT_OLLAMA_MODEL,
-  });
-
-  if (generateGuide) {
-    const styleGuideContent = await client.generateStyleGuide(styleSummary);
-    return NextResponse.json({ styleGuide: styleGuideContent });
-  } else {
-    const result = await client.analyzeStyles(styleSummary, styleGuide);
-    return NextResponse.json({ issues: result.issues });
-  }
-}
-```
-
-```ts
-// app/api/uilint/styleguide/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import {
-  readStyleGuideFromProject,
-  writeStyleGuide,
-  styleGuideExists,
-  getDefaultStyleGuidePath,
-} from "uilint-core/node";
-
-export async function GET() {
-  const projectPath = process.cwd();
-  if (!styleGuideExists(projectPath)) {
-    return NextResponse.json({ exists: false, content: null });
-  }
-  const content = await readStyleGuideFromProject(projectPath);
-  return NextResponse.json({ exists: true, content });
-}
-
-export async function POST(request: NextRequest) {
-  const { content } = await request.json();
-  const projectPath = process.cwd();
-  const stylePath = getDefaultStyleGuidePath(projectPath);
-  await writeStyleGuide(stylePath, content);
-  return NextResponse.json({ success: true });
-}
+// app/api/dev/source/route.ts
+// Dev-only route for fetching source files
 ```
 
 ## Usage in Tests
 
 UILint can run in Vitest/Jest tests with JSDOM:
 
-### Basic Test
-
-```tsx
-import { render, screen } from "@testing-library/react";
-import { UILint } from "uilint-react";
-import { MyComponent } from "./MyComponent";
-
-test("MyComponent has consistent styles", async () => {
-  render(
-    <UILint enabled={true}>
-      <MyComponent />
-    </UILint>
-  );
-
-  expect(screen.getByRole("button")).toBeInTheDocument();
-
-  // UILint automatically outputs warnings to console:
-  // ⚠️ [UILint] Button uses #3B82F6 but style guide specifies #2563EB
-});
-```
-
 ### Direct JSDOM Adapter
 
-For more control, use the `JSDOMAdapter`:
-
 ```tsx
-import { JSDOMAdapter, runUILintInTest } from "uilint-react";
+import { JSDOMAdapter, runUILintInTest } from "uilint-react/node";
 import { render } from "@testing-library/react";
 
 test("detect style inconsistencies", async () => {
@@ -160,23 +103,37 @@ test("custom adapter usage", async () => {
 
 ## API
 
-### UILint Component
+### UILintProvider
 
 ```tsx
-interface UILintProps {
+interface UILintProviderProps {
   enabled?: boolean;
-  position?: "bottom-left" | "bottom-right" | "top-left" | "top-right";
-  autoScan?: boolean;
-  apiEndpoint?: string;
   children: React.ReactNode;
 }
 
-function UILint(props: UILintProps): JSX.Element;
+function UILintProvider(props: UILintProviderProps): JSX.Element;
 ```
 
-### JSDOM Adapter
+### useUILintContext
+
+```tsx
+function useUILintContext(): UILintContextValue;
+
+interface UILintContextValue {
+  settings: UILintSettings;
+  updateSettings: (settings: Partial<UILintSettings>) => void;
+  altKeyHeld: boolean;
+  locatorTarget: LocatorTarget | null;
+  inspectedElement: InspectedElement | null;
+  setInspectedElement: (element: InspectedElement | null) => void;
+  // ... additional context values
+}
+```
+
+### JSDOM Adapter (Node.js)
 
 ```typescript
+// Import from "uilint-react/node" for test environments
 class JSDOMAdapter {
   constructor(styleGuidePath?: string);
 

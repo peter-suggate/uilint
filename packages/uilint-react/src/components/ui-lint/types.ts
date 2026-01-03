@@ -46,16 +46,8 @@ export interface SourceFile {
  * User-configurable settings for the overlay
  */
 export interface UILintSettings {
-  showLabels: boolean;
   hideNodeModules: boolean;
-  overlayOpacity: number;
-  labelPosition: "top-left" | "top-right" | "bottom-left" | "bottom-right";
 }
-
-/**
- * Operating modes for the UILint overlay
- */
-export type UILintMode = "off" | "sources" | "inspect";
 
 /**
  * Element detected under the cursor during Alt-key locator mode
@@ -70,21 +62,21 @@ export interface LocatorTarget {
 }
 
 /**
+ * Element being inspected in the sidebar
+ */
+export interface InspectedElement {
+  element: Element;
+  source: SourceLocation | null;
+  componentStack: ComponentInfo[];
+  rect: DOMRect;
+}
+
+/**
  * Context value provided by UILintProvider
  */
 export interface UILintContextValue {
-  mode: UILintMode;
-  setMode: (mode: UILintMode) => void;
-  scannedElements: ScannedElement[];
-  sourceFiles: SourceFile[];
-  selectedElement: ScannedElement | null;
-  setSelectedElement: (element: ScannedElement | null) => void;
-  hoveredElement: ScannedElement | null;
-  setHoveredElement: (element: ScannedElement | null) => void;
   settings: UILintSettings;
   updateSettings: (settings: Partial<UILintSettings>) => void;
-  rescan: () => void;
-  isScanning: boolean;
   /** True when Alt/Option key is held down */
   altKeyHeld: boolean;
   /** Current element under cursor when Alt is held */
@@ -93,6 +85,10 @@ export interface UILintContextValue {
   locatorGoUp: () => void;
   /** Navigate to child component in locator mode */
   locatorGoDown: () => void;
+  /** Element currently being inspected in sidebar */
+  inspectedElement: InspectedElement | null;
+  /** Set the element to inspect (opens sidebar) */
+  setInspectedElement: (element: InspectedElement | null) => void;
 }
 
 /**
@@ -101,7 +97,6 @@ export interface UILintContextValue {
 export interface UILintProviderProps {
   children: React.ReactNode;
   enabled?: boolean;
-  defaultMode?: UILintMode;
 }
 
 /**
@@ -143,10 +138,7 @@ export const FILE_COLORS = [
  * Default settings
  */
 export const DEFAULT_SETTINGS: UILintSettings = {
-  showLabels: true,
   hideNodeModules: true,
-  overlayOpacity: 0.2,
-  labelPosition: "top-left",
 };
 
 /**

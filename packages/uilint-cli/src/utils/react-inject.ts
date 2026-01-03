@@ -9,8 +9,6 @@ export interface InstallReactOverlayOptions {
    * Relative app root: "app" or "src/app"
    */
   appRoot: string;
-  position?: "bottom-left" | "bottom-right" | "top-left" | "top-right";
-  autoScan?: boolean;
   model?: string;
   force?: boolean;
   confirmOverwrite?: (relPath: string) => Promise<boolean>;
@@ -41,7 +39,7 @@ function buildFileSelectionPrompt(
 
   return `You are helping install a React dev overlay component into a Next.js App Router project.
 
-Choose the SINGLE best file to inject a <UILint> wrapper into, from the list below.
+Choose the SINGLE best file to inject a <UILintProvider> wrapper into, from the list below.
 
 Rules:
 - You MUST pick exactly one of the provided file paths.
@@ -61,15 +59,29 @@ function tryParseJSON<T>(text: string): T | null {
   }
 }
 
-function ensureUILintImport(source: string): string {
+function ensureUILintProviderImport(source: string): string {
   if (
     source.includes('from "uilint-react"') ||
     source.includes("from 'uilint-react'")
   ) {
-    return source;
+    // Check if UILintProvider is imported
+    if (source.includes("UILintProvider")) {
+      return source;
+    }
+    // Add UILintProvider to existing import
+    return source.replace(
+      /import\s*{([^}]*?)}\s*from\s*["']uilint-react["']/,
+      (match, imports) => {
+        const trimmedImports = imports.trim();
+        if (trimmedImports) {
+          return `import { ${trimmedImports}, UILintProvider } from "uilint-react"`;
+        }
+        return `import { UILintProvider } from "uilint-react"`;
+      }
+    );
   }
 
-  const importLine = `import { UILint } from "uilint-react";\n`;
+  const importLine = `import { UILintProvider } from "uilint-react";\n`;
 
   // Keep "use client" first if present.
   const useClientMatch = source.match(/^["']use client["'];\s*\n/);
@@ -96,19 +108,18 @@ function ensureUILintImport(source: string): string {
   return source.slice(0, startIdx) + importLine + source.slice(startIdx);
 }
 
-function wrapChildrenWithUILint(
-  source: string,
-  opts: { position: string; autoScan: boolean }
-): string {
-  if (source.includes("<UILint")) return source;
+function wrapChildrenWithUILintProvider(source: string): string {
+  if (source.includes("<UILintProvider")) return source;
   const marker = "{children}";
   const idx = source.indexOf(marker);
   if (idx === -1) {
     throw new Error("Could not find `{children}` in target file to wrap.");
   }
 
-  const wrapperStart = `<UILint enabled={process.env.NODE_ENV !== "production"} position="${opts.position}" autoScan={${opts.autoScan}}>\n          `;
-  const wrapperEnd = `\n        </UILint>`;
+  const wrapperStart = `<UILintProvider enabled={process.env.NODE_ENV !== "production"}>
+          `;
+  const wrapperEnd = `
+        </UILintProvider>`;
 
   return (
     source.slice(0, idx) +
@@ -165,7 +176,7 @@ export async function installReactUILintOverlay(
   const original = readFileSync(absTarget, "utf-8");
 
   if (
-    original.includes("<UILint") ||
+    original.includes("<UILintProvider") ||
     original.includes('from "uilint-react"')
   ) {
     if (!opts.force) {
@@ -175,11 +186,8 @@ export async function installReactUILintOverlay(
   }
 
   let updated = original;
-  updated = ensureUILintImport(updated);
-  updated = wrapChildrenWithUILint(updated, {
-    position: opts.position || "bottom-left",
-    autoScan: !!opts.autoScan,
-  });
+  updated = ensureUILintProviderImport(updated);
+  updated = wrapChildrenWithUILintProvider(updated);
 
   if (updated !== original) {
     writeFileSync(absTarget, updated, "utf-8");

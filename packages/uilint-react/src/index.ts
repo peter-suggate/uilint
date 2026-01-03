@@ -1,15 +1,10 @@
-// Main component (original)
-export { UILint, useUILint } from "./components/UILint";
-export type { UILintProps } from "./components/UILint";
-
-// Source Visualization Components (new)
+// UILint Provider and Components
 export {
   UILintProvider,
   useUILintContext,
   UILintToolbar,
-  SourceOverlays,
   InspectionPanel,
-  useElementScan,
+  LocatorOverlay,
   // Fiber utilities
   getFiberFromElement,
   getDebugSource,
@@ -40,11 +35,12 @@ export type {
   ScannedElement,
   SourceFile,
   UILintSettings,
-  UILintMode,
   UILintContextValue,
   UILintProviderProps,
   SourceApiResponse,
   CachedSource,
+  LocatorTarget,
+  InspectedElement,
 } from "./components/ui-lint";
 
 // Consistency analysis

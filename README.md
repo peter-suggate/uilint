@@ -86,93 +86,53 @@ npx uilint-cli --help
 
 ## Using UILint in a Running App
 
-Wrap your app with the `<UILint>` component to get a visual overlay that scans for inconsistencies:
+Wrap your app with `<UILintProvider>` to enable the element inspector overlay:
 
 ### Setup
 
 ```tsx
 // app/layout.tsx (Next.js)
-import { UILint } from "uilint-react";
+import { UILintProvider } from "uilint-react";
 
 export default function RootLayout({ children }) {
   return (
     <html>
       <body>
-        <UILint
-          enabled={process.env.NODE_ENV !== "production"}
-          position="bottom-left"
-          autoScan={false}
-        >
+        <UILintProvider enabled={process.env.NODE_ENV !== "production"}>
           {children}
-        </UILint>
+        </UILintProvider>
       </body>
     </html>
   );
 }
 ```
 
+### Usage
+
+- **Alt+Click** on any element to open the inspector sidebar
+- View component source location and navigate to parent components
+- **Scan with LLM** to analyze the component for style issues
+- Copy the generated fix prompt and paste it into Cursor to auto-fix issues
+
 ### Props
 
-| Prop          | Type                                                           | Default                 | Description                     |
-| ------------- | -------------------------------------------------------------- | ----------------------- | ------------------------------- |
-| `enabled`     | `boolean`                                                      | `true`                  | Enable/disable UILint           |
-| `position`    | `'bottom-left' \| 'bottom-right' \| 'top-left' \| 'top-right'` | `'bottom-left'`         | Overlay position                |
-| `autoScan`    | `boolean`                                                      | `false`                 | Automatically scan on page load |
-| `apiEndpoint` | `string`                                                       | `'/api/uilint/analyze'` | Custom API endpoint             |
+| Prop      | Type      | Default | Description           |
+| --------- | --------- | ------- | --------------------- |
+| `enabled` | `boolean` | `true`  | Enable/disable UILint |
 
-### API Routes
+### Automatic Installation
 
-Add these API routes to enable the React component:
+The easiest way to set up UILint in your Next.js app:
 
-```ts
-// app/api/uilint/analyze/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { OllamaClient, UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
-
-export async function POST(request: NextRequest) {
-  const { styleSummary, styleGuide, generateGuide, model } =
-    await request.json();
-  const client = new OllamaClient({
-    model: model || UILINT_DEFAULT_OLLAMA_MODEL,
-  });
-
-  if (generateGuide) {
-    const styleGuideContent = await client.generateStyleGuide(styleSummary);
-    return NextResponse.json({ styleGuide: styleGuideContent });
-  } else {
-    const result = await client.analyzeStyles(styleSummary, styleGuide);
-    return NextResponse.json({ issues: result.issues });
-  }
-}
+```bash
+npx uilint-cli install
 ```
 
-```ts
-// app/api/uilint/styleguide/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import {
-  readStyleGuideFromProject,
-  writeStyleGuide,
-  styleGuideExists,
-  getDefaultStyleGuidePath,
-} from "uilint-core/node";
+This will:
 
-export async function GET() {
-  const projectPath = process.cwd();
-  if (!styleGuideExists(projectPath)) {
-    return NextResponse.json({ exists: false, content: null });
-  }
-  const content = await readStyleGuideFromProject(projectPath);
-  return NextResponse.json({ exists: true, content });
-}
-
-export async function POST(request: NextRequest) {
-  const { content } = await request.json();
-  const projectPath = process.cwd();
-  const stylePath = getDefaultStyleGuidePath(projectPath);
-  await writeStyleGuide(stylePath, content);
-  return NextResponse.json({ success: true });
-}
-```
+- Install the required dependencies (`uilint-react`, `uilint-core`)
+- Add the necessary API routes
+- Inject `<UILintProvider>` into your layout
 
 ---
 
@@ -187,34 +147,12 @@ UILint can run in Vitest/Jest tests with JSDOM to catch UI inconsistencies durin
 import "@testing-library/jest-dom";
 ```
 
-### Basic Test
-
-```tsx
-import { render, screen } from "@testing-library/react";
-import { UILint } from "uilint-react";
-import { MyComponent } from "./MyComponent";
-
-test("MyComponent has consistent styles", async () => {
-  render(
-    <UILint enabled={true}>
-      <MyComponent />
-    </UILint>
-  );
-
-  // Your normal assertions
-  expect(screen.getByRole("button")).toBeInTheDocument();
-
-  // UILint automatically outputs warnings to console:
-  // ⚠️ [UILint] Button uses #3B82F6 but style guide specifies #2563EB
-});
-```
-
 ### Direct JSDOM Adapter
 
-For more control, use the `JSDOMAdapter` directly:
+Use the `JSDOMAdapter` for testing:
 
 ```tsx
-import { JSDOMAdapter, runUILintInTest } from "uilint-react";
+import { JSDOMAdapter, runUILintInTest } from "uilint-react/node";
 import { render } from "@testing-library/react";
 
 test("detect style inconsistencies", async () => {

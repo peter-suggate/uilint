@@ -145,7 +145,9 @@ export function findInsertionPoint(node: any, source: string): number {
     // Insert before the first attribute
     const firstAttr = node.attributes[0];
     // Find a good position - after name/generics but before first attr
-    const nameEnd = node.typeParameters ? node.typeParameters.end : node.name.end;
+    const nameEnd = node.typeParameters
+      ? node.typeParameters.end
+      : node.name.end;
 
     // Make sure we insert after any whitespace following the name
     let pos = nameEnd;

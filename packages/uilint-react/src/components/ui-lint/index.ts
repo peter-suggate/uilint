@@ -1,7 +1,8 @@
 /**
  * UILint Source Visualization Components
  *
- * A beautiful dev overlay for visualizing React component source files.
+ * A dev overlay for inspecting React components and analyzing code with LLM.
+ * Use Alt+Click on any element to open the inspector sidebar.
  */
 
 // Main provider and context
@@ -9,7 +10,6 @@ export { UILintProvider, useUILintContext } from "./UILintProvider";
 
 // UI components
 export { UILintToolbar } from "./UILintToolbar";
-export { SourceOverlays } from "./SourceOverlays";
 export { InspectionPanel } from "./InspectionPanel";
 export { LocatorOverlay } from "./LocatorOverlay";
 
@@ -38,9 +38,6 @@ export {
   prefetchSources,
 } from "./source-fetcher";
 
-// Scan hook
-export { useElementScan } from "./use-element-scan";
-
 // Types
 export type {
   SourceLocation,
@@ -48,12 +45,12 @@ export type {
   ScannedElement,
   SourceFile,
   UILintSettings,
-  UILintMode,
   UILintContextValue,
   UILintProviderProps,
   SourceApiResponse,
   CachedSource,
   LocatorTarget,
+  InspectedElement,
 } from "./types";
 
 // Constants

@@ -58,11 +58,6 @@ export interface InstallOptions {
 
 type IntegrationMode = "mcp" | "hooks" | "both";
 type InstallItem = "mcp" | "hooks" | "genstyleguide" | "next";
-type OverlayPosition =
-  | "bottom-left"
-  | "bottom-right"
-  | "top-left"
-  | "top-right";
 
 interface HooksConfig {
   version: number;
@@ -428,11 +423,11 @@ export async function install(options: InstallOptions): Promise<void> {
         {
           value: "next",
           label: "UI overlay",
-          hint: "Installs routes + uilint-react + injects <UILint>",
+          hint: "Installs routes + UILintProvider (Alt+Click to inspect)",
         },
       ],
       required: true,
-      initialValues: ["mcp", "genstyleguide"],
+      initialValues: ["mcp", "hooks", "genstyleguide", "next"],
     });
   }
 
@@ -494,8 +489,6 @@ export async function install(options: InstallOptions): Promise<void> {
   // Next.js app router detection (needed for routes/react)
   let nextApp: ReturnType<typeof detectNextAppRouter> | null = null;
   let nextProjectPath = projectPath;
-  let overlayPosition: OverlayPosition = "bottom-left";
-  let overlayAutoScan = false;
   if (installNextOverlay) {
     nextApp = detectNextAppRouter(projectPath);
     if (!nextApp) {
@@ -525,23 +518,6 @@ export async function install(options: InstallOptions): Promise<void> {
         );
       }
     }
-
-    // Overlay UX options (prompt when UI overlay is enabled)
-    overlayPosition = await select<OverlayPosition>({
-      message: "Where should the UILint overlay appear?",
-      options: [
-        { value: "bottom-left", label: "Bottom left" },
-        { value: "bottom-right", label: "Bottom right" },
-        { value: "top-left", label: "Top left" },
-        { value: "top-right", label: "Top right" },
-      ],
-      initialValue: "bottom-left",
-    });
-
-    overlayAutoScan = await confirm({
-      message: "Enable auto-scan on page load?",
-      initialValue: false,
-    });
   }
 
   // Install Next overlay (routes + deps + injection)
@@ -569,12 +545,10 @@ export async function install(options: InstallOptions): Promise<void> {
 
     // IMPORTANT: do not wrap prompts (confirm/select) in a spinner; it can look
     // like the CLI is "stuck" because the spinner keeps rendering.
-    logInfo("Injecting <UILint> into your app...");
+    logInfo("Injecting <UILintProvider> into your app...");
     const result = await installReactUILintOverlay({
       projectPath: nextProjectPath,
       appRoot: nextApp!.appRoot,
-      position: overlayPosition,
-      autoScan: overlayAutoScan,
       model: options.model,
       force: options.force,
       confirmFileChoice: async (choices) =>
@@ -582,18 +556,20 @@ export async function install(options: InstallOptions): Promise<void> {
           message:
             choices.length === 1
               ? `Confirm injection target: ${choices[0]}`
-              : "Which file should we inject <UILint> into?",
+              : "Which file should we inject <UILintProvider> into?",
           options: choices.map((c) => ({ value: c, label: c })),
           initialValue: choices[0],
         }),
       confirmOverwrite: async (path) =>
         confirm({
-          message: `${pc.dim(path)} already contains UILint. Re-apply anyway?`,
+          message: `${pc.dim(
+            path
+          )} already contains UILintProvider. Re-apply anyway?`,
           initialValue: false,
         }),
     });
     logSuccess(
-      `Injected <UILint> in ${pc.dim(result.targetFile)}${
+      `Injected <UILintProvider> in ${pc.dim(result.targetFile)}${
         result.usedLLM ? pc.dim(" (LLM-selected)") : ""
       }`
     );
@@ -629,7 +605,7 @@ export async function install(options: InstallOptions): Promise<void> {
 
   if (installNextOverlay) {
     installedItems.push(
-      `${pc.cyan("Next Overlay")} → ${pc.dim("<UILint> injected")}`
+      `${pc.cyan("Next Overlay")} → ${pc.dim("<UILintProvider> injected")}`
     );
   }
 
@@ -660,7 +636,7 @@ export async function install(options: InstallOptions): Promise<void> {
 
   if (installNextOverlay) {
     steps.push(
-      "Run your Next.js dev server and check /api/uilint/styleguide (optionally pass ?styleguidePath=... if your style guide lives outside the app directory)"
+      "Run your Next.js dev server - use Alt+Click on any element to inspect"
     );
   }
 

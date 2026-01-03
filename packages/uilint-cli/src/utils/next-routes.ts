@@ -193,174 +193,6 @@ export async function POST(request: NextRequest) {
 }
 `;
 
-const CONSISTENCY_ROUTE_TS = `export const runtime = "nodejs";
-
-import { NextRequest, NextResponse } from "next/server";
-import { spawn } from "child_process";
-import { existsSync } from "fs";
-import { dirname, join } from "path";
-import type { GroupedSnapshot } from "uilint-core";
-
-function hasNextConfig(dir: string): boolean {
-  return (
-    existsSync(join(dir, "next.config.js")) ||
-    existsSync(join(dir, "next.config.mjs")) ||
-    existsSync(join(dir, "next.config.cjs")) ||
-    existsSync(join(dir, "next.config.ts"))
-  );
-}
-
-function hasNextDependency(dir: string): boolean {
-  const pkgPath = join(dir, "package.json");
-  if (!existsSync(pkgPath)) return false;
-  try {
-    const { readFileSync } = require("fs");
-    const raw = readFileSync(pkgPath, "utf-8");
-    const pkg = JSON.parse(raw) as {
-      dependencies?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-      peerDependencies?: Record<string, string>;
-    };
-    return Boolean(
-      pkg.dependencies?.next ||
-        pkg.devDependencies?.next ||
-        pkg.peerDependencies?.next
-    );
-  } catch {
-    return false;
-  }
-}
-
-function findNextAppRoot(startDir: string): string | null {
-  let dir = startDir;
-  for (;;) {
-    if (hasNextConfig(dir) || hasNextDependency(dir)) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-
-/**
- * Find the uilint CLI binary, preferring local installation over npx
- */
-function findUILintCLI(appRoot: string): { command: string; args: string[] } {
-  // 1) Check local node_modules/.bin/uilint
-  const localBin = join(appRoot, "node_modules", ".bin", "uilint");
-  if (existsSync(localBin)) {
-    return { command: localBin, args: [] };
-  }
-
-  // 2) Walk up to find workspace root with local CLI
-  let dir = dirname(appRoot);
-  while (dir !== dirname(dir)) {
-    const wsLocalBin = join(dir, "node_modules", ".bin", "uilint");
-    if (existsSync(wsLocalBin)) {
-      return { command: wsLocalBin, args: [] };
-    }
-    dir = dirname(dir);
-  }
-
-  // 3) Fallback to npx (package is "uilint-cli", binary is "uilint")
-  return { command: "npx", args: ["--yes", "uilint-cli"] };
-}
-
-function runCLI(
-  cliInfo: { command: string; args: string[] },
-  cliArgs: string[],
-  input: string
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  return new Promise((resolve) => {
-    const proc = spawn(cliInfo.command, [...cliInfo.args, ...cliArgs], {
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    proc.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
-
-    proc.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
-
-    proc.on("close", (code) => {
-      resolve({ stdout, stderr, exitCode: code ?? 1 });
-    });
-
-    proc.on("error", (err) => {
-      stderr += err.message;
-      resolve({ stdout, stderr, exitCode: 1 });
-    });
-
-    proc.stdin.write(input);
-    proc.stdin.end();
-  });
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { snapshot, model } = body as {
-      snapshot: GroupedSnapshot;
-      model?: string;
-    };
-
-    if (!snapshot) {
-      return NextResponse.json(
-        { error: "No snapshot provided", violations: [], elementCount: 0, analysisTime: 0 },
-        { status: 400 }
-      );
-    }
-
-    const appRoot = findNextAppRoot(__dirname) ?? process.cwd();
-    const cliInfo = findUILintCLI(appRoot);
-
-    // Build CLI args
-    const cliArgs = ["consistency", "--output", "json"];
-    if (model) {
-      cliArgs.push("--model", model);
-    }
-
-    // Run CLI with snapshot as stdin
-    const snapshotJson = JSON.stringify(snapshot);
-    const { stdout, stderr, exitCode } = await runCLI(cliInfo, cliArgs, snapshotJson);
-
-    // Parse CLI output (JSON format)
-    try {
-      const result = JSON.parse(stdout);
-      return NextResponse.json(result);
-    } catch {
-      // If JSON parse fails, return error with raw output
-      console.error("[UILint API] CLI stderr:", stderr);
-      console.error("[UILint API] CLI stdout:", stdout);
-      return NextResponse.json(
-        {
-          error: stderr || stdout || "CLI returned invalid JSON",
-          violations: [],
-          elementCount: 0,
-          analysisTime: 0,
-        },
-        { status: 500 }
-      );
-    }
-  } catch (error) {
-    console.error("[UILint API] Error:", error);
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Analysis failed",
-        violations: [],
-        elementCount: 0,
-        analysisTime: 0,
-      },
-      { status: 500 }
-    );
-  }
-}
-`;
-
 const DEV_SOURCE_ROUTE_TS = `/**
  * Dev-only API route for fetching source files
  *
@@ -611,10 +443,66 @@ async function resolveStyleGuideContent(input: {
   };
 }
 
+/**
+ * Analyze source code for style issues using LLM
+ */
+async function analyzeSourceCode(
+  client: OllamaClient,
+  sourceCode: string,
+  filePath: string,
+  styleGuide: string | null
+): Promise<{ issues: Array<{ line?: number; message: string }> }> {
+  const prompt = \`You are a UI code reviewer. Analyze the following React/TypeScript component for style consistency issues.
+
+\${styleGuide ? \`## Style Guide\\n\\n\${styleGuide}\\n\\n\` : ""}## Source Code (\${filePath})
+
+\\\`\\\`\\\`tsx
+\${sourceCode}
+\\\`\\\`\\\`
+
+## Task
+
+Identify any style inconsistencies, violations of best practices, or deviations from the style guide.
+For each issue, provide the line number (if identifiable) and a clear description.
+
+Respond with a JSON array of issues:
+\\\`\\\`\\\`json
+{
+  "issues": [
+    { "line": 12, "message": "Color #3575E2 should be #3B82F6 (primary blue from styleguide)" },
+    { "line": 25, "message": "Use p-4 instead of p-3 for consistent button padding" }
+  ]
+}
+\\\`\\\`\\\`
+
+If no issues are found, respond with:
+\\\`\\\`\\\`json
+{ "issues": [] }
+\\\`\\\`\\\`\`;
+
+  try {
+    const response = await client.complete(prompt, { json: true });
+    const parsed = JSON.parse(response);
+    return { issues: parsed.issues || [] };
+  } catch (error) {
+    console.error("[UILint] Failed to parse LLM response:", error);
+    return { issues: [] };
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { styleSummary, styleGuide, styleguidePath, generateGuide, model } =
-      await request.json();
+    const body = await request.json();
+    const { 
+      styleSummary, 
+      styleGuide, 
+      styleguidePath, 
+      generateGuide, 
+      model,
+      // New fields for source code analysis
+      sourceCode,
+      filePath,
+    } = body;
 
     const client = new OllamaClient({
       model: model || UILINT_DEFAULT_OLLAMA_MODEL,
@@ -627,6 +515,25 @@ export async function POST(request: NextRequest) {
         { error: "Failed to connect to Ollama" },
         { status: 502 }
       );
+    }
+
+    // Source code analysis mode (for Alt+Click scan feature)
+    if (sourceCode && typeof sourceCode === "string") {
+      const resolved = await resolveStyleGuideContent({
+        styleGuide,
+        styleguidePath,
+      });
+      
+      // Don't fail if no style guide - just analyze without it
+      const styleGuideContent = resolved.error ? null : (resolved.styleGuide ?? null);
+      
+      const result = await analyzeSourceCode(
+        client,
+        sourceCode,
+        filePath || "component.tsx",
+        styleGuideContent
+      );
+      return NextResponse.json(result);
     }
 
     if (generateGuide) {
@@ -684,7 +591,6 @@ export async function installNextUILintRoutes(
   // UILint API routes
   await mkdir(join(baseAbs, "styleguide"), { recursive: true });
   await mkdir(join(baseAbs, "analyze"), { recursive: true });
-  await mkdir(join(baseAbs, "consistency"), { recursive: true });
 
   await writeRouteFile(
     join(baseAbs, "styleguide", "route.ts"),
@@ -697,13 +603,6 @@ export async function installNextUILintRoutes(
     join(baseAbs, "analyze", "route.ts"),
     join(baseRel, "analyze", "route.ts"),
     ANALYZE_ROUTE_TS,
-    opts
-  );
-
-  await writeRouteFile(
-    join(baseAbs, "consistency", "route.ts"),
-    join(baseRel, "consistency", "route.ts"),
-    CONSISTENCY_ROUTE_TS,
     opts
   );
 

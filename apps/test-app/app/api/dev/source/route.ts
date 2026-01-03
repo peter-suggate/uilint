@@ -48,6 +48,25 @@ function isPathWithinRoot(filePath: string, root: string): boolean {
   return resolved.startsWith(resolvedRoot + "/") || resolved === resolvedRoot;
 }
 
+/**
+ * Find workspace root by walking up looking for pnpm-workspace.yaml or .git
+ */
+function findWorkspaceRoot(startDir: string): string {
+  let dir = startDir;
+  for (let i = 0; i < 10; i++) {
+    if (
+      existsSync(resolve(dir, "pnpm-workspace.yaml")) ||
+      existsSync(resolve(dir, ".git"))
+    ) {
+      return dir;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return startDir;
+}
+
 export async function GET(request: NextRequest) {
   // Block in production
   if (process.env.NODE_ENV === "production") {
@@ -76,19 +95,18 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Find project root (go up from current file's directory)
+  // Find project root
   const projectRoot = findProjectRoot(process.cwd());
 
   // Resolve the file path
   const resolvedPath = resolve(filePath);
 
-  // Security check: ensure path is within project root
-  // Allow both the app root and parent monorepo root
-  const monorepoRoot = dirname(dirname(projectRoot)); // Go up from apps/test-app
+  // Security check: ensure path is within project root or workspace root
+  const workspaceRoot = findWorkspaceRoot(projectRoot);
   const isWithinApp = isPathWithinRoot(resolvedPath, projectRoot);
-  const isWithinMonorepo = isPathWithinRoot(resolvedPath, monorepoRoot);
+  const isWithinWorkspace = isPathWithinRoot(resolvedPath, workspaceRoot);
 
-  if (!isWithinApp && !isWithinMonorepo) {
+  if (!isWithinApp && !isWithinWorkspace) {
     return NextResponse.json(
       { error: "Path outside project directory" },
       { status: 403 }
@@ -102,7 +120,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const content = readFileSync(resolvedPath, "utf-8");
-    const relativePath = relative(monorepoRoot, resolvedPath);
+    const relativePath = relative(workspaceRoot, resolvedPath);
 
     return NextResponse.json({
       content,

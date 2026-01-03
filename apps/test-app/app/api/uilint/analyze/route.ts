@@ -115,10 +115,68 @@ async function resolveStyleGuideContent(input: {
   };
 }
 
+/**
+ * Analyze source code for style issues using LLM
+ */
+async function analyzeSourceCode(
+  client: OllamaClient,
+  sourceCode: string,
+  filePath: string,
+  styleGuide: string | null
+): Promise<{ issues: Array<{ line?: number; message: string }> }> {
+  const prompt = `You are a UI code reviewer. Analyze the following React/TypeScript component for style consistency issues.
+
+${
+  styleGuide ? `## Style Guide\n\n${styleGuide}\n\n` : ""
+}## Source Code (${filePath})
+
+\`\`\`tsx
+${sourceCode}
+\`\`\`
+
+## Task
+
+Identify any style inconsistencies, violations of best practices, or deviations from the style guide.
+For each issue, provide the line number (if identifiable) and a clear description.
+
+Respond with a JSON array of issues:
+\`\`\`json
+{
+  "issues": [
+    { "line": 12, "message": "Color #3575E2 should be #3B82F6 (primary blue from styleguide)" },
+    { "line": 25, "message": "Use p-4 instead of p-3 for consistent button padding" }
+  ]
+}
+\`\`\`
+
+If no issues are found, respond with:
+\`\`\`json
+{ "issues": [] }
+\`\`\``;
+
+  try {
+    const response = await client.complete(prompt, { json: true });
+    const parsed = JSON.parse(response);
+    return { issues: parsed.issues || [] };
+  } catch (error) {
+    console.error("[UILint] Failed to parse LLM response:", error);
+    return { issues: [] };
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { styleSummary, styleGuide, styleguidePath, generateGuide, model } =
-      await request.json();
+    const body = await request.json();
+    const {
+      styleSummary,
+      styleGuide,
+      styleguidePath,
+      generateGuide,
+      model,
+      // New fields for source code analysis
+      sourceCode,
+      filePath,
+    } = body;
 
     const client = new OllamaClient({
       model: model || UILINT_DEFAULT_OLLAMA_MODEL,
@@ -131,6 +189,27 @@ export async function POST(request: NextRequest) {
         { error: "Failed to connect to Ollama" },
         { status: 502 }
       );
+    }
+
+    // Source code analysis mode (for Alt+Click scan feature)
+    if (sourceCode && typeof sourceCode === "string") {
+      const resolved = await resolveStyleGuideContent({
+        styleGuide,
+        styleguidePath,
+      });
+
+      // Don't fail if no style guide - just analyze without it
+      const styleGuideContent = resolved.error
+        ? null
+        : resolved.styleGuide ?? null;
+
+      const result = await analyzeSourceCode(
+        client,
+        sourceCode,
+        filePath || "component.tsx",
+        styleGuideContent
+      );
+      return NextResponse.json(result);
     }
 
     if (generateGuide) {
@@ -150,8 +229,6 @@ export async function POST(request: NextRequest) {
       }
 
       // Analyze styles for issues
-      console.log("styleSummary", styleSummary);
-      console.log("resolved.styleGuide", resolved.styleGuide);
       const result = await client.analyzeStyles(
         styleSummary,
         resolved.styleGuide ?? null

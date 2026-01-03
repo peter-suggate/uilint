@@ -2,6 +2,10 @@
 
 /**
  * UILint Provider - Context, state management, and keyboard shortcuts
+ *
+ * Provides Alt+Click element inspection functionality.
+ * When Alt is held and hovering, shows element info tooltip.
+ * When Alt+Click, opens the InspectionPanel sidebar.
  */
 
 import React, {
@@ -15,22 +19,19 @@ import React, {
 import type {
   UILintContextValue,
   UILintProviderProps,
-  UILintMode,
   UILintSettings,
-  ScannedElement,
   LocatorTarget,
   SourceLocation,
   ComponentInfo,
+  InspectedElement,
 } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
-import { useElementScan } from "./use-element-scan";
 import {
   getFiberFromElement,
   getDebugSource,
   getComponentStack,
   getSourceFromDataLoc,
   isNodeModulesPath,
-  buildEditorUrl,
 } from "./fiber-utils";
 
 // Create context
@@ -60,17 +61,9 @@ function isBrowser(): boolean {
 export function UILintProvider({
   children,
   enabled = true,
-  defaultMode = "off",
 }: UILintProviderProps) {
   // State
-  const [mode, setMode] = useState<UILintMode>(defaultMode);
   const [settings, setSettings] = useState<UILintSettings>(DEFAULT_SETTINGS);
-  const [selectedElement, setSelectedElement] = useState<ScannedElement | null>(
-    null
-  );
-  const [hoveredElement, setHoveredElement] = useState<ScannedElement | null>(
-    null
-  );
   const [isMounted, setIsMounted] = useState(false);
 
   // Locator mode state (Alt-key hover)
@@ -80,14 +73,9 @@ export function UILintProvider({
   );
   const [locatorStackIndex, setLocatorStackIndex] = useState(0);
 
-  // Determine if scanning should be active
-  const isActive = enabled && mode !== "off";
-
-  // Element scanning hook
-  const { elements, sourceFiles, isScanning, rescan } = useElementScan({
-    enabled: isActive,
-    settings,
-  });
+  // Inspected element state (opens sidebar)
+  const [inspectedElement, setInspectedElement] =
+    useState<InspectedElement | null>(null);
 
   /**
    * Update settings partially
@@ -95,28 +83,6 @@ export function UILintProvider({
   const updateSettings = useCallback((partial: Partial<UILintSettings>) => {
     setSettings((prev) => ({ ...prev, ...partial }));
   }, []);
-
-  /**
-   * Toggle through modes
-   */
-  const toggleMode = useCallback(() => {
-    setMode((prev) => {
-      if (prev === "off") return "sources";
-      if (prev === "sources") return "inspect";
-      return "off";
-    });
-  }, []);
-
-  /**
-   * Close/deselect handler
-   */
-  const handleEscape = useCallback(() => {
-    if (selectedElement) {
-      setSelectedElement(null);
-    } else if (mode !== "off") {
-      setMode("off");
-    }
-  }, [selectedElement, mode]);
 
   /**
    * Navigate up the component stack in locator mode
@@ -218,7 +184,7 @@ export function UILintProvider({
   );
 
   /**
-   * Handle click in locator mode - open in editor
+   * Handle click in locator mode - open sidebar instead of editor
    */
   const handleLocatorClick = useCallback(
     (e: MouseEvent) => {
@@ -236,10 +202,18 @@ export function UILintProvider({
         }
       }
 
-      if (source) {
-        const url = buildEditorUrl(source, "cursor");
-        window.open(url, "_blank");
-      }
+      // Open the inspection panel sidebar
+      setInspectedElement({
+        element: locatorTarget.element,
+        source,
+        componentStack: locatorTarget.componentStack,
+        rect: locatorTarget.rect,
+      });
+
+      // Reset locator state
+      setAltKeyHeld(false);
+      setLocatorTarget(null);
+      setLocatorStackIndex(0);
     },
     [altKeyHeld, locatorTarget, locatorStackIndex]
   );
@@ -319,29 +293,20 @@ export function UILintProvider({
   }, [enabled, altKeyHeld, locatorTarget, locatorGoUp, locatorGoDown]);
 
   /**
-   * Keyboard shortcuts
+   * Escape key to close sidebar
    */
   useEffect(() => {
     if (!isBrowser() || !enabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + Shift + D - Toggle mode
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "d") {
-        e.preventDefault();
-        toggleMode();
-        return;
-      }
-
-      // Escape - Close/deselect
-      if (e.key === "Escape") {
-        handleEscape();
-        return;
+      if (e.key === "Escape" && inspectedElement) {
+        setInspectedElement(null);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [enabled, toggleMode, handleEscape]);
+  }, [enabled, inspectedElement]);
 
   /**
    * Set mounted state after hydration
@@ -349,14 +314,6 @@ export function UILintProvider({
   useEffect(() => {
     setIsMounted(true);
   }, []);
-
-  /**
-   * Clear selection when mode changes
-   */
-  useEffect(() => {
-    setSelectedElement(null);
-    setHoveredElement(null);
-  }, [mode]);
 
   /**
    * Compute the effective locator target with current stack index
@@ -374,37 +331,23 @@ export function UILintProvider({
    */
   const contextValue = useMemo<UILintContextValue>(
     () => ({
-      mode,
-      setMode,
-      scannedElements: elements,
-      sourceFiles,
-      selectedElement,
-      setSelectedElement,
-      hoveredElement,
-      setHoveredElement,
       settings,
       updateSettings,
-      rescan,
-      isScanning,
       altKeyHeld,
       locatorTarget: effectiveLocatorTarget,
       locatorGoUp,
       locatorGoDown,
+      inspectedElement,
+      setInspectedElement,
     }),
     [
-      mode,
-      elements,
-      sourceFiles,
-      selectedElement,
-      hoveredElement,
       settings,
       updateSettings,
-      rescan,
-      isScanning,
       altKeyHeld,
       effectiveLocatorTarget,
       locatorGoUp,
       locatorGoDown,
+      inspectedElement,
     ]
   );
 
@@ -421,15 +364,13 @@ export function UILintProvider({
 
 /**
  * UI components rendered when UILint is active
- * This is a placeholder - actual components will be imported
  */
 function UILintUI() {
-  const { mode, altKeyHeld } = useUILintContext();
+  const { altKeyHeld, inspectedElement } = useUILintContext();
 
   // Dynamically import components to avoid circular dependencies
   const [components, setComponents] = useState<{
     Toolbar: React.ComponentType;
-    Overlays: React.ComponentType;
     Panel: React.ComponentType;
     LocatorOverlay: React.ComponentType;
   } | null>(null);
@@ -438,13 +379,11 @@ function UILintUI() {
     // Import components
     Promise.all([
       import("./UILintToolbar"),
-      import("./SourceOverlays"),
       import("./InspectionPanel"),
       import("./LocatorOverlay"),
-    ]).then(([toolbar, overlays, panel, locator]) => {
+    ]).then(([toolbar, panel, locator]) => {
       setComponents({
         Toolbar: toolbar.UILintToolbar,
-        Overlays: overlays.SourceOverlays,
         Panel: panel.InspectionPanel,
         LocatorOverlay: locator.LocatorOverlay,
       });
@@ -453,19 +392,13 @@ function UILintUI() {
 
   if (!components) return null;
 
-  const { Toolbar, Overlays, Panel, LocatorOverlay } = components;
+  const { Toolbar, Panel, LocatorOverlay } = components;
 
   return (
     <>
       <Toolbar />
-      {mode === "sources" && <Overlays />}
-      {mode === "inspect" && (
-        <>
-          <Overlays />
-          <Panel />
-        </>
-      )}
       {altKeyHeld && <LocatorOverlay />}
+      {inspectedElement && <Panel />}
     </>
   );
 }
