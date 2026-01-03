@@ -44,11 +44,7 @@ Example response:
 {
   "issues": [
     {
-      "id": "color-1",
-      "type": "color",
-      "message": "Found similar blue colors that should be consolidated",
-      "currentValue": "#3575E2",
-      "expectedValue": "#3B82F6"
+      ...issue fields...
     }
   ]
 }`;
