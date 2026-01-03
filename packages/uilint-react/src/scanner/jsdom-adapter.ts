@@ -3,12 +3,8 @@
  * Uses uilint-core for analysis
  */
 
-import {
-  OllamaClient,
-  createStyleSummary,
-  type UILintIssue,
-  type AnalysisResult,
-} from "uilint-core";
+import { OllamaClient, createStyleSummary } from "uilint-core";
+import type { UILintIssue, AnalysisResult } from "uilint-core";
 import { scanDOM } from "./dom-scanner.js";
 import { isJSDOM } from "./environment.js";
 
@@ -19,7 +15,7 @@ import { isJSDOM } from "./environment.js";
 export class JSDOMAdapter {
   private styleGuideContent: string | null = null;
   private styleGuidePath: string;
-  private client: OllamaClient;
+  private client: InstanceType<typeof OllamaClient>;
 
   constructor(styleGuidePath: string = ".uilint/styleguide.md") {
     this.styleGuidePath = styleGuidePath;

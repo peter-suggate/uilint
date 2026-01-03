@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --turbo",
+    "build": "next build --turbo",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
@@ -20,6 +20,7 @@
     "uilint-react": "workspace:*"
   },
   "devDependencies": {
+    "jsx-loc-plugin": "workspace:*",
     "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
