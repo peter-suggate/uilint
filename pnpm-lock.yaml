@@ -107,8 +107,8 @@ importers:
         specifier: ^1.1.1
         version: 1.1.1
       uilint-core:
-        specifier: ^0.1.19
-        version: 0.1.19
+        specifier: ^0.1.23
+        version: 0.1.23
     devDependencies:
       tsup:
         specifier: ^8.5.1
@@ -145,8 +145,8 @@ importers:
         specifier: ^1.25.1
         version: 1.25.1(hono@4.11.3)(zod@4.3.4)
       uilint-core:
-        specifier: ^0.1.19
-        version: 0.1.19
+        specifier: ^0.1.23
+        version: 0.1.23
     devDependencies:
       tsup:
         specifier: ^8.5.1
@@ -158,8 +158,8 @@ importers:
   packages/uilint-react:
     dependencies:
       uilint-core:
-        specifier: ^0.1.19
-        version: 0.1.19
+        specifier: ^0.1.23
+        version: 0.1.23
     devDependencies:
       '@types/react':
         specifier: ^19.2.7
@@ -1850,8 +1850,8 @@ packages:
   ufo@1.6.1:
     resolution: {integrity: sha512-9a4/uxlTWJ4+a5i0ooc1rU7C7YOw3wT+UGqdeNNHWnOF9qcMBgLRS+4IYUqbczewFx4mLEig6gawh7X6mFlEkA==}
 
-  uilint-core@0.1.19:
-    resolution: {integrity: sha512-1u9F1cW4P9Y0yWgrBUZ+WhgrrFJnQyroJkl/bxg9eLxzTJOgBf0TsrAJGs65BiXSznX+xYHrM35yopsFnl74jg==}
+  uilint-core@0.1.23:
+    resolution: {integrity: sha512-3JT0mMrTKlN2eSeAQjiFqjhNc+8/I8sZ4y2wam7WhA0pmNSuF7oJzpjLwGDo4cdT5ZRUiki3OkaWwl/hVfDTKg==}
     engines: {node: '>=20.0.0'}
 
   undici-types@7.16.0:
@@ -3501,7 +3501,7 @@ snapshots:
 
   ufo@1.6.1: {}
 
-  uilint-core@0.1.19:
+  uilint-core@0.1.23:
     dependencies:
       jiti: 2.6.1
       jsdom: 27.4.0
