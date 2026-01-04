@@ -473,7 +473,7 @@ When reporting issues, include the matching dataLoc value so we can highlight th
 
 \${styleGuide ? \`## Style Guide\\n\\n\${styleGuide}\\n\\n\` : ""}\${
     focus?.componentName
-      ? \`## Focus\\n\\nFocus on the \\\\\`\${focus.componentName}\\\\\` component\${
+      ? \`## Focus\\n\\nFocus on the "\${focus.componentName}" component\${
           typeof focus.componentLine === "number"
             ? \` (near line \${focus.componentLine})\`
             : ""
@@ -607,7 +607,7 @@ When reporting issues, include the matching dataLoc value so we can highlight th
 
 \${styleGuideContent ? \`## Style Guide\\n\\n\${styleGuideContent}\\n\\n\` : ""}\${
                   focus.componentName
-                    ? \`## Focus\\n\\nFocus on the \\\\\`\${focus.componentName}\\\\\` component\${
+                    ? \`## Focus\\n\\nFocus on the "\${focus.componentName}" component\${
                         typeof focus.componentLine === "number"
                           ? \` (near line \${focus.componentLine})\`
                           : ""
