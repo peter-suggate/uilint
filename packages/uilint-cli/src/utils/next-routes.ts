@@ -445,26 +445,41 @@ async function resolveStyleGuideContent(input: {
 
 /**
  * Analyze source code for style issues using LLM
+ * @param dataLocs - Array of data-loc values (format: "path:line:column") for elements in this file
  */
 async function analyzeSourceCode(
   client: OllamaClient,
   sourceCode: string,
   filePath: string,
   styleGuide: string | null,
-  componentName?: string,
-  componentLine?: number
-): Promise<{ issues: Array<{ line?: number; message: string }> }> {
-  // Build component focus context
-  const componentContext = componentName
-    ? \`\\n## Focus Component\\n\\nFocus your analysis on the **\${componentName}** component\${
-        componentLine ? \` (around line \${componentLine})\` : ""
-      }. While you have the full file for context, only report issues that are directly related to this specific component.\\n\`
+  dataLocs: string[] = [],
+  focus?: { componentName?: string; componentLine?: number }
+): Promise<{ issues: Array<{ line?: number; message: string; dataLoc?: string }> }> {
+  // Build the data-loc reference section if we have any
+  const dataLocSection = dataLocs.length > 0
+    ? \`## Element Locations (data-loc values)
+
+The following elements are rendered on the page from this file. Each data-loc has format "path:line:column".
+When reporting issues, include the matching dataLoc value so we can highlight the specific element.
+
+\\\`\\\`\\\`
+\${dataLocs.join("\\n")}
+\\\`\\\`\\\`
+
+\`
     : "";
 
   const prompt = \`You are a UI code reviewer. Analyze the following React/TypeScript component for style consistency issues.
 
-\${styleGuide ? \`## Style Guide\\n\\n\${styleGuide}\\n\\n\` : ""}\${componentContext}
-## Source Code (\${filePath})
+\${styleGuide ? \`## Style Guide\\n\\n\${styleGuide}\\n\\n\` : ""}\${
+    focus?.componentName
+      ? \`## Focus\\n\\nFocus on the \\\\\`\${focus.componentName}\\\\\` component\${
+          typeof focus.componentLine === "number"
+            ? \` (near line \${focus.componentLine})\`
+            : ""
+        }.\\n\\n\`
+      : ""
+  }\${dataLocSection}## Source Code (\${filePath})
 
 \\\`\\\`\\\`tsx
 \${sourceCode}
@@ -473,15 +488,23 @@ async function analyzeSourceCode(
 ## Task
 
 Identify any style inconsistencies, violations of best practices, or deviations from the style guide.
-\${componentName ? \`Focus only on the \${componentName} component and its direct styling/structure.\` : ""}
-For each issue, provide the line number (if identifiable) and a clear description.
+For each issue, provide:
+- line: the line number in the source file
+- message: a clear description of the issue
+- dataLoc: the matching data-loc value from the list above (if applicable, to identify the specific element)
 
-Respond with a JSON array of issues:
+## Critical Requirements for dataLoc
+
+- If "Element Locations (data-loc values)" are provided, ONLY report issues that correspond to one of those elements.
+- When you include a dataLoc, it MUST be copied verbatim from the list (no shortening paths, no normalization).
+- If you cannot match an issue to a provided dataLoc, omit that issue from the response.
+
+Respond with JSON:
 \\\`\\\`\\\`json
 {
   "issues": [
-    { "line": 12, "message": "Color #3575E2 should be #3B82F6 (primary blue from styleguide)" },
-    { "line": 25, "message": "Use p-4 instead of p-3 for consistent button padding" }
+    { "line": 12, "message": "Color #3575E2 should be #3B82F6 (primary blue from styleguide)", "dataLoc": "app/page.tsx:12:5" },
+    { "line": 25, "message": "Use p-4 instead of p-3 for consistent button padding", "dataLoc": "app/page.tsx:25:8" }
   ]
 }
 \\\`\\\`\\\`
@@ -510,12 +533,14 @@ export async function POST(request: NextRequest) {
       styleguidePath, 
       generateGuide, 
       model,
-      // New fields for source code analysis
+      // Fields for source code analysis
       sourceCode,
       filePath,
-      // Component focus context
       componentName,
       componentLine,
+      stream,
+      // Array of data-loc values for elements in this file (for per-file scanning)
+      dataLocs,
     } = body;
 
     const client = new OllamaClient({
@@ -541,13 +566,125 @@ export async function POST(request: NextRequest) {
       // Don't fail if no style guide - just analyze without it
       const styleGuideContent = resolved.error ? null : (resolved.styleGuide ?? null);
       
+      const focus = {
+        componentName: typeof componentName === "string" ? componentName : undefined,
+        componentLine: typeof componentLine === "number" ? componentLine : undefined,
+      };
+
+      // Optional streaming mode (SSE) for long-running LLM calls
+      if (stream === true) {
+        const encoder = new TextEncoder();
+        const dataLocList = Array.isArray(dataLocs) ? dataLocs : [];
+
+        const sse = new ReadableStream<Uint8Array>({
+          start(controller) {
+            const send = (event: string, payload: unknown) => {
+              controller.enqueue(encoder.encode(\`event: \${event}\\n\`));
+              controller.enqueue(
+                encoder.encode(\`data: \${JSON.stringify(payload)}\\n\\n\`)
+              );
+            };
+
+            (async () => {
+              try {
+                send("progress", { phase: "Starting LLM…" });
+
+                const dataLocSection =
+                  dataLocList.length > 0
+                    ? \`## Element Locations (data-loc values)
+
+The following elements are rendered on the page from this file. Each data-loc has format "path:line:column".
+When reporting issues, include the matching dataLoc value so we can highlight the specific element.
+
+\\\\\`\\\\\`\\\\\`
+\${dataLocList.join("\\n")}
+\\\\\`\\\\\`\\\\\`
+
+\`
+                    : "";
+
+                const prompt = \`You are a UI code reviewer. Analyze the following React/TypeScript component for style consistency issues.
+
+\${styleGuideContent ? \`## Style Guide\\n\\n\${styleGuideContent}\\n\\n\` : ""}\${
+                  focus.componentName
+                    ? \`## Focus\\n\\nFocus on the \\\\\`\${focus.componentName}\\\\\` component\${
+                        typeof focus.componentLine === "number"
+                          ? \` (near line \${focus.componentLine})\`
+                          : ""
+                      }.\\n\\n\`
+                    : ""
+                }\${dataLocSection}## Source Code (\${filePath || "component.tsx"})
+
+\\\\\`\\\\\`\\\\\`tsx
+\${sourceCode}
+\\\\\`\\\\\`\\\\\`
+
+## Task
+
+Identify any style inconsistencies, violations of best practices, or deviations from the style guide.
+For each issue, provide:
+- line: the line number in the source file
+- message: a clear description of the issue
+- dataLoc: the matching data-loc value from the list above (if applicable, to identify the specific element)
+
+## Critical Requirements for dataLoc
+
+- If "Element Locations (data-loc values)" are provided, ONLY report issues that correspond to one of those elements.
+- When you include a dataLoc, it MUST be copied verbatim from the list (no shortening paths, no normalization).
+- If you cannot match an issue to a provided dataLoc, omit that issue from the response.
+
+Respond with JSON:
+\\\\\`\\\\\`\\\\\`json
+{
+  "issues": [
+    { "line": 12, "message": "Color #3575E2 should be #3B82F6 (primary blue from styleguide)", "dataLoc": "app/page.tsx:12:5" },
+    { "line": 25, "message": "Use p-4 instead of p-3 for consistent button padding", "dataLoc": "app/page.tsx:25:8" }
+  ]
+}
+\\\\\`\\\\\`\\\\\`
+
+If no issues are found, respond with:
+\\\\\`\\\\\`\\\\\`json
+{ "issues": [] }
+\\\\\`\\\\\`\\\\\`\`;
+
+                const full = await client.complete(prompt, {
+                  json: true,
+                  stream: true,
+                  onProgress: (latestLine) => {
+                    send("progress", { phase: "Running LLM…", latestLine });
+                  },
+                });
+
+                const parsed = JSON.parse(full);
+                send("done", { issues: parsed.issues || [] });
+                controller.close();
+              } catch (err) {
+                send("error", {
+                  error: err instanceof Error ? err.message : String(err),
+                });
+                controller.close();
+              }
+            })();
+          },
+        });
+
+        return new Response(sse, {
+          headers: {
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "Cache-Control": "no-cache, no-transform",
+            Connection: "keep-alive",
+          },
+        });
+      }
+
       const result = await analyzeSourceCode(
         client,
         sourceCode,
         filePath || "component.tsx",
         styleGuideContent,
-        componentName,
-        componentLine
+        Array.isArray(dataLocs) ? dataLocs : [],
+        focus
       );
       return NextResponse.json(result);
     }

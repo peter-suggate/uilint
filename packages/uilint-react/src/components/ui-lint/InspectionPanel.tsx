@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUILintContext } from "./UILintProvider";
+import { useUILintStore, type UILintStore } from "./store";
 import { fetchSourceWithContext } from "./source-fetcher";
 import { buildEditorUrl } from "./fiber-utils";
 import type {
@@ -46,9 +47,7 @@ export function InspectionPanel() {
   const { inspectedElement, setInspectedElement } = useUILintContext();
 
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"info" | "source" | "scan">(
-    "info"
-  );
+  const [activeTab, setActiveTab] = useState<"info" | "source">("info");
 
   useEffect(() => {
     setMounted(true);
@@ -109,7 +108,7 @@ export function InspectionPanel() {
           }}
         >
           <TabButton
-            label="Info"
+            label="Inspect"
             active={activeTab === "info"}
             onClick={() => setActiveTab("info")}
           />
@@ -118,19 +117,12 @@ export function InspectionPanel() {
             active={activeTab === "source"}
             onClick={() => setActiveTab("source")}
           />
-          <TabButton
-            label="Scan"
-            active={activeTab === "scan"}
-            onClick={() => setActiveTab("scan")}
-            accent
-          />
         </div>
 
         {/* Content */}
         <div style={{ flex: 1, overflow: "auto" }}>
           {activeTab === "info" && <InfoTab element={inspectedElement} />}
           {activeTab === "source" && <SourceTab element={inspectedElement} />}
-          {activeTab === "scan" && <ScanTab element={inspectedElement} />}
         </div>
       </div>
     </div>
@@ -246,12 +238,10 @@ function TabButton({
   label,
   active,
   onClick,
-  accent,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
-  accent?: boolean;
 }) {
   return (
     <button
@@ -261,16 +251,12 @@ function TabButton({
         padding: "10px 16px",
         border: "none",
         backgroundColor: "transparent",
-        color: active
-          ? accent
-            ? STYLES.success
-            : STYLES.accent
-          : STYLES.textMuted,
+        color: active ? STYLES.accent : STYLES.textMuted,
         fontSize: "12px",
         fontWeight: 500,
         cursor: "pointer",
         borderBottom: active
-          ? `2px solid ${accent ? STYLES.success : STYLES.accent}`
+          ? `2px solid ${STYLES.accent}`
           : "2px solid transparent",
         marginBottom: "-1px",
         transition: "all 0.15s",
@@ -282,98 +268,106 @@ function TabButton({
 }
 
 /**
- * Info tab content
+ * Info tab content - includes scan UI and element details
  */
 function InfoTab({ element }: { element: InspectedElement }) {
   return (
-    <div style={{ padding: "16px" }}>
-      {/* Element details */}
-      <Section title="Element">
-        <InfoRow
-          label="Tag"
-          value={`<${element.element.tagName.toLowerCase()}>`}
-        />
-        {element.element.className && (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      {/* Scan Section - prominent at the top */}
+      <ScanSection element={element} />
+
+      {/* Element Details - scrollable below */}
+      <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
+        {/* Element details */}
+        <Section title="Element">
           <InfoRow
-            label="Classes"
-            value={
-              typeof element.element.className === "string"
-                ? element.element.className
-                : ""
-            }
-            mono
+            label="Tag"
+            value={`<${element.element.tagName.toLowerCase()}>`}
           />
-        )}
+          {element.element.className && (
+            <InfoRow
+              label="Classes"
+              value={
+                typeof element.element.className === "string"
+                  ? element.element.className
+                  : ""
+              }
+              mono
+            />
+          )}
+          {element.source && (
+            <InfoRow
+              label="Location"
+              value={`Line ${element.source.lineNumber}${
+                element.source.columnNumber
+                  ? `, Col ${element.source.columnNumber}`
+                  : ""
+              }`}
+            />
+          )}
+        </Section>
+
+        {/* File info */}
         {element.source && (
-          <InfoRow
-            label="Location"
-            value={`Line ${element.source.lineNumber}${
-              element.source.columnNumber
-                ? `, Col ${element.source.columnNumber}`
-                : ""
-            }`}
-          />
+          <Section title="Source File">
+            <div
+              style={{
+                fontSize: "11px",
+                color: STYLES.textDim,
+                fontFamily: STYLES.fontMono,
+                wordBreak: "break-all",
+              }}
+            >
+              {element.source.fileName}
+            </div>
+          </Section>
         )}
-      </Section>
 
-      {/* File info */}
-      {element.source && (
-        <Section title="Source File">
-          <div
-            style={{
-              fontSize: "11px",
-              color: STYLES.textDim,
-              fontFamily: STYLES.fontMono,
-              wordBreak: "break-all",
-            }}
-          >
-            {element.source.fileName}
-          </div>
+        {/* Component stack */}
+        {element.componentStack.length > 0 && (
+          <Section title="Component Stack">
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "4px" }}
+            >
+              {element.componentStack.slice(0, 10).map((comp, index) => (
+                <ComponentStackItem
+                  key={index}
+                  component={comp}
+                  index={index}
+                  isFirst={index === 0}
+                />
+              ))}
+              {element.componentStack.length > 10 && (
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: STYLES.textDim,
+                    marginTop: "4px",
+                  }}
+                >
+                  ...and {element.componentStack.length - 10} more
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
+        {/* Dimensions */}
+        <Section title="Dimensions">
+          <InfoRow
+            label="Size"
+            value={`${Math.round(element.rect.width)} × ${Math.round(
+              element.rect.height
+            )}px`}
+          />
+          <InfoRow
+            label="Position"
+            value={`(${Math.round(element.rect.left)}, ${Math.round(
+              element.rect.top
+            )})`}
+          />
         </Section>
-      )}
-
-      {/* Component stack */}
-      {element.componentStack.length > 0 && (
-        <Section title="Component Stack">
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            {element.componentStack.slice(0, 10).map((comp, index) => (
-              <ComponentStackItem
-                key={index}
-                component={comp}
-                index={index}
-                isFirst={index === 0}
-              />
-            ))}
-            {element.componentStack.length > 10 && (
-              <div
-                style={{
-                  fontSize: "11px",
-                  color: STYLES.textDim,
-                  marginTop: "4px",
-                }}
-              >
-                ...and {element.componentStack.length - 10} more
-              </div>
-            )}
-          </div>
-        </Section>
-      )}
-
-      {/* Dimensions */}
-      <Section title="Dimensions">
-        <InfoRow
-          label="Size"
-          value={`${Math.round(element.rect.width)} × ${Math.round(
-            element.rect.height
-          )}px`}
-        />
-        <InfoRow
-          label="Position"
-          value={`(${Math.round(element.rect.left)}, ${Math.round(
-            element.rect.top
-          )})`}
-        />
-      </Section>
+      </div>
     </div>
   );
 }
@@ -537,15 +531,32 @@ function SourceTab({ element }: { element: InspectedElement }) {
 }
 
 /**
- * Scan tab - LLM analysis with clipboard-ready fix prompt
- * Now also displays cached results from auto-scan
+ * Scan section - LLM analysis with clipboard-ready fix prompt
+ * Displays prominently at the top of the Info tab
  */
-function ScanTab({ element }: { element: InspectedElement }) {
+function ScanSection({ element }: { element: InspectedElement }) {
   const { elementIssuesCache, autoScanState } = useUILintContext();
-  const [scanning, setScanning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [fixPrompt, setFixPrompt] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Stable key for manual scan cache
+  const manualKey = useMemo(() => {
+    const dataLoc = element.element.getAttribute("data-loc");
+    if (dataLoc) return `dataloc:${dataLoc}`;
+    if (element.source) {
+      return `src:${element.source.fileName}:${element.source.lineNumber}:${
+        element.source.columnNumber ?? 0
+      }`;
+    }
+    // Worst-case fallback: tag+rect (not stable across layout changes, but better than nothing)
+    return `fallback:${element.element.tagName.toLowerCase()}:${Math.round(
+      element.rect.left
+    )}:${Math.round(element.rect.top)}`;
+  }, [element.element, element.source, element.rect]);
+
+  const manualScan = useUILintStore((s: UILintStore) =>
+    s.manualScanCache.get(manualKey)
+  );
+  const upsertManualScan = useUILintStore((s: UILintStore) => s.upsertManualScan);
 
   // Get component context for focused analysis
   const componentName =
@@ -617,13 +628,20 @@ Please update this component to match our styleguide.`;
 
   const handleScan = useCallback(async () => {
     if (!element.source) {
-      setError("No source information available");
+      upsertManualScan(manualKey, {
+        status: "error",
+        error: "No source information available",
+      });
       return;
     }
 
-    setScanning(true);
-    setError(null);
-    setFixPrompt(null);
+    upsertManualScan(manualKey, {
+      status: "scanning",
+      error: undefined,
+      fixPrompt: undefined,
+      issues: [],
+      progressLine: "Preparing analysis…",
+    });
 
     try {
       // Fetch the source code
@@ -641,7 +659,10 @@ Please update this component to match our styleguide.`;
       const sourceCode = sourceData.content;
       const relativePath = sourceData.relativePath || element.source.fileName;
 
-      // Send to analyze route with component context
+      // Extract data-loc from the DOM element for precise matching
+      const dataLoc = element.element.getAttribute("data-loc");
+
+      // Send to analyze route with component context and dataLoc (streaming)
       const analyzeResponse = await fetch("/api/.uilint/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -650,6 +671,8 @@ Please update this component to match our styleguide.`;
           filePath: relativePath,
           componentName,
           componentLine,
+          dataLocs: dataLoc ? [dataLoc] : undefined,
+          stream: true,
         }),
       });
 
@@ -657,18 +680,88 @@ Please update this component to match our styleguide.`;
         throw new Error("Failed to analyze source code");
       }
 
-      const result = await analyzeResponse.json();
-      const issues = result.issues || [];
+      const contentType = analyzeResponse.headers.get("content-type") || "";
+      if (!contentType.includes("text/event-stream") || !analyzeResponse.body) {
+        // Fallback: non-streaming JSON
+        const result = await analyzeResponse.json();
+        const issues = result.issues || [];
+        upsertManualScan(manualKey, {
+          status: "complete",
+          issues,
+          fixPrompt: generateFixPrompt(issues, relativePath),
+          progressLine: undefined,
+        });
+        return;
+      }
 
-      setFixPrompt(generateFixPrompt(issues, relativePath));
+      // Parse SSE stream
+      const reader = analyzeResponse.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() || "";
+
+        for (const part of parts) {
+          const lines = part.split("\n");
+          let eventName = "message";
+          let dataStr = "";
+          for (const line of lines) {
+            if (line.startsWith("event:")) eventName = line.slice(6).trim();
+            if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+          }
+          if (!dataStr) continue;
+          try {
+            const data = JSON.parse(dataStr);
+            if (eventName === "progress") {
+              upsertManualScan(manualKey, {
+                status: "scanning",
+                progressLine:
+                  data.latestLine || data.phase || "Running analysis…",
+              });
+            } else if (eventName === "done") {
+              const issues = data.issues || [];
+              upsertManualScan(manualKey, {
+                status: "complete",
+                issues,
+                fixPrompt: generateFixPrompt(issues, relativePath),
+                progressLine: undefined,
+              });
+            } else if (eventName === "error") {
+              upsertManualScan(manualKey, {
+                status: "error",
+                error: data.error || "Analysis failed",
+                progressLine: undefined,
+              });
+            }
+          } catch {
+            // ignore malformed event payloads
+          }
+        }
+      }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An error occurred during scanning"
-      );
-    } finally {
-      setScanning(false);
+      upsertManualScan(manualKey, {
+        status: "error",
+        error:
+          err instanceof Error ? err.message : "An error occurred during scanning",
+        progressLine: undefined,
+      });
     }
-  }, [element.source, componentName, componentLine, generateFixPrompt]);
+  }, [
+    element.source,
+    element.element,
+    element.rect,
+    componentName,
+    componentLine,
+    generateFixPrompt,
+    manualKey,
+    upsertManualScan,
+  ]);
 
   const handleCopy = useCallback(async (text: string) => {
     try {
@@ -676,124 +769,295 @@ Please update this component to match our styleguide.`;
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Failed to copy to clipboard");
+      upsertManualScan(manualKey, {
+        status: "error",
+        error: "Failed to copy to clipboard",
+      });
     }
-  }, []);
+  }, [manualKey, upsertManualScan]);
 
   // Determine what to show based on cached status and local state
+  const manualStatus = manualScan?.status ?? "idle";
   const showCachedScanning =
-    cachedIssue?.status === "scanning" && !scanning && !fixPrompt;
+    cachedIssue?.status === "scanning" && manualStatus === "idle";
   const showCachedPending =
-    cachedIssue?.status === "pending" && !scanning && !fixPrompt;
+    cachedIssue?.status === "pending" && manualStatus === "idle";
   const showCachedError =
-    cachedIssue?.status === "error" && !scanning && !fixPrompt;
-  const showCachedResult = cachedFixPrompt && !fixPrompt && !scanning;
-  const showScanButton = !cachedIssue && !fixPrompt && !scanning;
-  const showManualResult = fixPrompt && !scanning;
+    cachedIssue?.status === "error" && manualStatus === "idle";
+  const showCachedResult = cachedFixPrompt && manualStatus === "idle";
+  const showScanButton = !cachedIssue && manualStatus === "idle";
+  const showManualResult = manualStatus === "complete" && manualScan?.fixPrompt;
+  const scanning = manualStatus === "scanning";
+  const error = manualScan?.status === "error" ? manualScan.error : null;
+  const fixPrompt = manualScan?.fixPrompt ?? null;
+  const progressLine = manualScan?.progressLine ?? null;
 
   return (
-    <div style={{ padding: "16px" }}>
-      {/* Cached: scanning in progress */}
-      {showCachedScanning && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "48px 24px",
-            gap: "16px",
-          }}
-        >
+    <div
+      style={{
+        borderBottom: `1px solid ${STYLES.border}`,
+        backgroundColor: STYLES.bgSurface,
+      }}
+    >
+      <div style={{ padding: "16px" }}>
+        {/* Cached: scanning in progress */}
+        {showCachedScanning && (
           <div
             style={{
-              width: "32px",
-              height: "32px",
-              border: `3px solid ${STYLES.border}`,
-              borderTopColor: STYLES.success,
-              borderRadius: "50%",
-              animation: "uilint-spin 1s linear infinite",
-            }}
-          />
-          <div style={{ color: STYLES.textMuted, fontSize: "13px" }}>
-            Auto-scan in progress...
-          </div>
-        </div>
-      )}
-
-      {/* Cached: pending in queue */}
-      {showCachedPending && (
-        <div style={{ textAlign: "center", padding: "24px 0" }}>
-          <div
-            style={{
-              display: "inline-flex",
+              display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              gap: "8px",
-              padding: "12px 24px",
-              borderRadius: "8px",
-              backgroundColor: STYLES.bgSurface,
-              color: STYLES.textMuted,
-              fontSize: "13px",
+              justifyContent: "center",
+              padding: "32px 24px",
+              gap: "12px",
             }}
           >
             <div
               style={{
-                width: "8px",
-                height: "8px",
+                width: "32px",
+                height: "32px",
+                border: `3px solid ${STYLES.border}`,
+                borderTopColor: STYLES.success,
                 borderRadius: "50%",
-                backgroundColor: "rgba(156, 163, 175, 0.5)",
+                animation: "uilint-spin 1s linear infinite",
               }}
             />
-            Waiting in scan queue...
+            <div style={{ color: STYLES.textMuted, fontSize: "13px" }}>
+              Auto-scan in progress...
+            </div>
           </div>
-          <div style={{ marginTop: "16px" }}>
-            <button
-              onClick={handleScan}
-              disabled={!element.source}
+        )}
+
+        {/* Cached: pending in queue */}
+        {showCachedPending && (
+          <div style={{ textAlign: "center", padding: "16px 0" }}>
+            <div
               style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: `1px solid ${STYLES.border}`,
-                backgroundColor: "transparent",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 20px",
+                borderRadius: "8px",
+                backgroundColor: STYLES.bg,
                 color: STYLES.textMuted,
                 fontSize: "12px",
-                cursor: element.source ? "pointer" : "not-allowed",
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                if (element.source) {
-                  e.currentTarget.style.borderColor = STYLES.accent;
-                  e.currentTarget.style.color = STYLES.text;
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = STYLES.border;
-                e.currentTarget.style.color = STYLES.textMuted;
+                marginBottom: "12px",
               }}
             >
-              Scan Now
-            </button>
+              <div
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(156, 163, 175, 0.5)",
+                }}
+              />
+              Waiting in scan queue...
+            </div>
+            <div>
+              <button
+                onClick={handleScan}
+                disabled={!element.source}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  border: `1px solid ${STYLES.border}`,
+                  backgroundColor: "transparent",
+                  color: element.source ? STYLES.text : STYLES.textDim,
+                  fontSize: "12px",
+                  fontWeight: 500,
+                  cursor: element.source ? "pointer" : "not-allowed",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  if (element.source) {
+                    e.currentTarget.style.borderColor = STYLES.accent;
+                    e.currentTarget.style.backgroundColor =
+                      "rgba(59, 130, 246, 0.1)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = STYLES.border;
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}
+              >
+                Scan Now
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Cached: error occurred */}
-      {showCachedError && (
-        <div>
-          <div
-            style={{
-              padding: "16px",
-              backgroundColor: "rgba(239, 68, 68, 0.1)",
-              border: "1px solid rgba(239, 68, 68, 0.3)",
-              borderRadius: "8px",
-              color: "#EF4444",
-              fontSize: "13px",
-              marginBottom: "16px",
-            }}
-          >
-            Auto-scan failed for this element
+        {/* Cached: error occurred */}
+        {showCachedError && (
+          <div>
+            <div
+              style={{
+                padding: "12px",
+                backgroundColor: "rgba(239, 68, 68, 0.1)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                borderRadius: "8px",
+                color: "#EF4444",
+                fontSize: "12px",
+                marginBottom: "12px",
+              }}
+            >
+              Auto-scan failed for this element
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <button
+                onClick={handleScan}
+                disabled={!element.source}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "10px 20px",
+                  borderRadius: "8px",
+                  border: "none",
+                  backgroundColor: element.source
+                    ? STYLES.success
+                    : STYLES.textDim,
+                  color: "#FFFFFF",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: element.source ? "pointer" : "not-allowed",
+                  transition: "background-color 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  if (element.source) {
+                    e.currentTarget.style.backgroundColor = "#059669";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (element.source) {
+                    e.currentTarget.style.backgroundColor = STYLES.success;
+                  }
+                }}
+              >
+                <ScanIcon />
+                Retry Scan
+              </button>
+            </div>
           </div>
-          <div style={{ textAlign: "center" }}>
+        )}
+
+        {/* Cached: show results from auto-scan */}
+        {showCachedResult && (
+          <div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "12px",
+                padding: "8px 12px",
+                backgroundColor: "rgba(16, 185, 129, 0.1)",
+                borderRadius: "6px",
+                fontSize: "11px",
+                color: STYLES.success,
+              }}
+            >
+              <CheckIconSmall />
+              Scan complete
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "10px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: STYLES.text,
+                }}
+              >
+                Fix Prompt
+              </div>
+              <button
+                onClick={() => handleCopy(cachedFixPrompt)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: "none",
+                  backgroundColor: copied ? STYLES.success : STYLES.accent,
+                  color: "#FFFFFF",
+                  fontSize: "11px",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {copied ? (
+                  <>
+                    <CheckIcon />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <CopyIcon />
+                    Copy
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div
+              style={{
+                padding: "12px",
+                backgroundColor: STYLES.bg,
+                border: `1px solid ${STYLES.border}`,
+                borderRadius: "8px",
+                fontFamily: STYLES.fontMono,
+                fontSize: "11px",
+                lineHeight: 1.6,
+                whiteSpace: "pre-wrap",
+                color: STYLES.text,
+                maxHeight: "200px",
+                overflow: "auto",
+              }}
+            >
+              {cachedFixPrompt}
+            </div>
+
+            <div style={{ textAlign: "center", marginTop: "12px" }}>
+              <button
+                onClick={handleScan}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: `1px solid ${STYLES.border}`,
+                  backgroundColor: "transparent",
+                  color: STYLES.textMuted,
+                  fontSize: "11px",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = STYLES.accent;
+                  e.currentTarget.style.color = STYLES.text;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = STYLES.border;
+                  e.currentTarget.style.color = STYLES.textMuted;
+                }}
+              >
+                Rescan
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* No cached result - show scan button */}
+        {showScanButton && (
+          <div style={{ textAlign: "center", padding: "16px 0" }}>
             <button
               onClick={handleScan}
               disabled={!element.source}
@@ -801,364 +1065,220 @@ Please update this component to match our styleguide.`;
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "8px",
-                padding: "10px 20px",
+                padding: "12px 24px",
                 borderRadius: "8px",
                 border: "none",
                 backgroundColor: element.source
                   ? STYLES.success
                   : STYLES.textDim,
                 color: "#FFFFFF",
-                fontSize: "13px",
+                fontSize: "14px",
                 fontWeight: 600,
                 cursor: element.source ? "pointer" : "not-allowed",
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                if (element.source) {
+                  e.currentTarget.style.backgroundColor = "#059669";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (element.source) {
+                  e.currentTarget.style.backgroundColor = STYLES.success;
+                }
               }}
             >
               <ScanIcon />
-              Retry Scan
+              Scan for Issues
             </button>
-          </div>
-        </div>
-      )}
 
-      {/* Cached: show results from auto-scan */}
-      {showCachedResult && (
-        <div>
+            <div
+              style={{
+                marginTop: "10px",
+                fontSize: "12px",
+                color: STYLES.textMuted,
+              }}
+            >
+              Analyze this component for style issues
+            </div>
+
+            {!element.source && (
+              <div
+                style={{
+                  marginTop: "8px",
+                  fontSize: "11px",
+                  color: STYLES.warning,
+                }}
+              >
+                No source information available
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Manual scanning state */}
+        {scanning && (
           <div
             style={{
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              gap: "8px",
-              marginBottom: "12px",
-              padding: "8px 12px",
-              backgroundColor: "rgba(16, 185, 129, 0.1)",
-              borderRadius: "6px",
-              fontSize: "11px",
-              color: STYLES.success,
-            }}
-          >
-            <CheckIconSmall />
-            Results from auto-scan
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "12px",
+              justifyContent: "center",
+              padding: "32px 24px",
+              gap: "12px",
             }}
           >
             <div
               style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                color: STYLES.text,
+                width: "32px",
+                height: "32px",
+                border: `3px solid ${STYLES.border}`,
+                borderTopColor: STYLES.success,
+                borderRadius: "50%",
+                animation: "uilint-spin 1s linear infinite",
               }}
-            >
-              Fix Prompt
+            />
+            <div style={{ color: STYLES.textMuted, fontSize: "13px" }}>
+              Analyzing source code...
             </div>
-            <button
-              onClick={() => handleCopy(cachedFixPrompt)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "6px 12px",
-                borderRadius: "6px",
-                border: "none",
-                backgroundColor: copied ? STYLES.success : STYLES.accent,
-                color: "#FFFFFF",
-                fontSize: "11px",
-                fontWeight: 500,
-                cursor: "pointer",
-                transition: "all 0.15s",
-              }}
-            >
-              {copied ? (
-                <>
-                  <CheckIcon />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <CopyIcon />
-                  Copy to Clipboard
-                </>
-              )}
-            </button>
+            {progressLine && (
+              <div
+                style={{
+                  color: STYLES.textDim,
+                  fontSize: "11px",
+                  fontFamily: STYLES.fontMono,
+                  maxWidth: "320px",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+                title={progressLine}
+              >
+                {progressLine}
+              </div>
+            )}
           </div>
+        )}
 
+        {/* Error state */}
+        {error && (
           <div
             style={{
               padding: "12px",
-              backgroundColor: STYLES.bgSurface,
-              border: `1px solid ${STYLES.border}`,
+              backgroundColor: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
               borderRadius: "8px",
-              fontFamily: STYLES.fontMono,
+              color: "#EF4444",
               fontSize: "12px",
-              lineHeight: 1.6,
-              whiteSpace: "pre-wrap",
-              color: STYLES.text,
-              maxHeight: "300px",
-              overflow: "auto",
-            }}
-          >
-            {cachedFixPrompt}
-          </div>
-
-          <div
-            style={{
               marginTop: "12px",
-              fontSize: "11px",
-              color: STYLES.textMuted,
-              textAlign: "center",
             }}
           >
-            Paste this prompt into Cursor to fix the issues
+            {error}
           </div>
+        )}
 
-          <div style={{ textAlign: "center", marginTop: "16px" }}>
-            <button
-              onClick={handleScan}
-              style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: `1px solid ${STYLES.border}`,
-                backgroundColor: "transparent",
-                color: STYLES.textMuted,
-                fontSize: "12px",
-                cursor: "pointer",
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = STYLES.accent;
-                e.currentTarget.style.color = STYLES.text;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = STYLES.border;
-                e.currentTarget.style.color = STYLES.textMuted;
-              }}
-            >
-              Rescan
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* No cached result - show scan button */}
-      {showScanButton && (
-        <div style={{ textAlign: "center", padding: "24px 0" }}>
-          <button
-            onClick={handleScan}
-            disabled={!element.source}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "12px 24px",
-              borderRadius: "8px",
-              border: "none",
-              backgroundColor: element.source ? STYLES.success : STYLES.textDim,
-              color: "#FFFFFF",
-              fontSize: "14px",
-              fontWeight: 600,
-              cursor: element.source ? "pointer" : "not-allowed",
-              transition: "all 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              if (element.source) {
-                e.currentTarget.style.backgroundColor = "#059669";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (element.source) {
-                e.currentTarget.style.backgroundColor = STYLES.success;
-              }
-            }}
-          >
-            <ScanIcon />
-            Scan with LLM
-          </button>
-
-          <div
-            style={{
-              marginTop: "12px",
-              fontSize: "12px",
-              color: STYLES.textMuted,
-            }}
-          >
-            Analyze this component for style issues
-          </div>
-
-          {!element.source && (
+        {/* Manual scan result */}
+        {showManualResult && (
+          <div>
             <div
-              style={{
-                marginTop: "8px",
-                fontSize: "11px",
-                color: STYLES.warning,
-              }}
-            >
-              No source information available
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Manual scanning state */}
-      {scanning && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "48px 24px",
-            gap: "16px",
-          }}
-        >
-          <div
-            style={{
-              width: "32px",
-              height: "32px",
-              border: `3px solid ${STYLES.border}`,
-              borderTopColor: STYLES.success,
-              borderRadius: "50%",
-              animation: "uilint-spin 1s linear infinite",
-            }}
-          />
-          <div style={{ color: STYLES.textMuted, fontSize: "13px" }}>
-            Analyzing source code...
-          </div>
-        </div>
-      )}
-
-      {/* Error state */}
-      {error && (
-        <div
-          style={{
-            padding: "16px",
-            backgroundColor: "rgba(239, 68, 68, 0.1)",
-            border: "1px solid rgba(239, 68, 68, 0.3)",
-            borderRadius: "8px",
-            color: "#EF4444",
-            fontSize: "13px",
-            marginTop: "16px",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {/* Manual scan result */}
-      {showManualResult && (
-        <div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "12px",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                color: STYLES.text,
-              }}
-            >
-              Fix Prompt
-            </div>
-            <button
-              onClick={() => handleCopy(fixPrompt)}
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "6px",
-                padding: "6px 12px",
-                borderRadius: "6px",
-                border: "none",
-                backgroundColor: copied ? STYLES.success : STYLES.accent,
-                color: "#FFFFFF",
-                fontSize: "11px",
-                fontWeight: 500,
-                cursor: "pointer",
-                transition: "all 0.15s",
+                justifyContent: "space-between",
+                marginBottom: "10px",
               }}
             >
-              {copied ? (
-                <>
-                  <CheckIcon />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <CopyIcon />
-                  Copy to Clipboard
-                </>
-              )}
-            </button>
-          </div>
+              <div
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: STYLES.text,
+                }}
+              >
+                Fix Prompt
+              </div>
+              <button
+                onClick={() => {
+                  if (!fixPrompt) return;
+                  handleCopy(fixPrompt);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: "none",
+                  backgroundColor: copied ? STYLES.success : STYLES.accent,
+                  color: "#FFFFFF",
+                  fontSize: "11px",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {copied ? (
+                  <>
+                    <CheckIcon />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <CopyIcon />
+                    Copy
+                  </>
+                )}
+              </button>
+            </div>
 
-          <div
-            style={{
-              padding: "12px",
-              backgroundColor: STYLES.bgSurface,
-              border: `1px solid ${STYLES.border}`,
-              borderRadius: "8px",
-              fontFamily: STYLES.fontMono,
-              fontSize: "12px",
-              lineHeight: 1.6,
-              whiteSpace: "pre-wrap",
-              color: STYLES.text,
-              maxHeight: "300px",
-              overflow: "auto",
-            }}
-          >
-            {fixPrompt}
-          </div>
-
-          <div
-            style={{
-              marginTop: "12px",
-              fontSize: "11px",
-              color: STYLES.textMuted,
-              textAlign: "center",
-            }}
-          >
-            Paste this prompt into Cursor to fix the issues
-          </div>
-
-          <div style={{ textAlign: "center", marginTop: "16px" }}>
-            <button
-              onClick={() => {
-                setFixPrompt(null);
-                handleScan();
-              }}
+            <div
               style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
+                padding: "12px",
+                backgroundColor: STYLES.bg,
                 border: `1px solid ${STYLES.border}`,
-                backgroundColor: "transparent",
-                color: STYLES.textMuted,
-                fontSize: "12px",
-                cursor: "pointer",
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = STYLES.accent;
-                e.currentTarget.style.color = STYLES.text;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = STYLES.border;
-                e.currentTarget.style.color = STYLES.textMuted;
+                borderRadius: "8px",
+                fontFamily: STYLES.fontMono,
+                fontSize: "11px",
+                lineHeight: 1.6,
+                whiteSpace: "pre-wrap",
+                color: STYLES.text,
+                maxHeight: "200px",
+                overflow: "auto",
               }}
             >
-              Scan Again
-            </button>
+              {fixPrompt}
+            </div>
+
+            <div style={{ textAlign: "center", marginTop: "12px" }}>
+              <button
+                onClick={() => {
+                  handleScan();
+                }}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: `1px solid ${STYLES.border}`,
+                  backgroundColor: "transparent",
+                  color: STYLES.textMuted,
+                  fontSize: "11px",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = STYLES.accent;
+                  e.currentTarget.style.color = STYLES.text;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = STYLES.border;
+                  e.currentTarget.style.color = STYLES.textMuted;
+                }}
+              >
+                Scan Again
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

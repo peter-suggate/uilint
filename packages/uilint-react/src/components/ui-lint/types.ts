@@ -61,12 +61,41 @@ export interface AutoScanState {
 }
 
 /**
+ * A single issue found during scanning
+ */
+export interface ScanIssue {
+  /** Line number in source file */
+  line?: number;
+  /** Issue description */
+  message: string;
+  /** data-loc value to match to DOM element (format: path:line:column) */
+  dataLoc?: string;
+}
+
+/**
  * Cached issue data for a scanned element
  */
 export interface ElementIssue {
   elementId: string;
-  issues: Array<{ line?: number; message: string }>;
+  issues: ScanIssue[];
   status: "pending" | "scanning" | "complete" | "error";
+}
+
+/**
+ * Manual scan state for the InspectionPanel "Scan" section.
+ * Keyed by a stable element key (prefer data-loc; fallback to source location).
+ */
+export interface ManualScanResult {
+  key: string;
+  status: "idle" | "scanning" | "complete" | "error";
+  issues: ScanIssue[];
+  /** Human-readable fix prompt generated from issues (UI convenience) */
+  fixPrompt?: string;
+  /** Optional error message when status="error" */
+  error?: string;
+  /** Subtle progress text for long-running LLM calls */
+  progressLine?: string;
+  updatedAt: number;
 }
 
 /**

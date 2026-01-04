@@ -7,6 +7,7 @@
 
 import { parse, ParserOptions } from "@babel/parser";
 import MagicString from "magic-string";
+import { relative, resolve } from "path";
 
 /**
  * Valid file extensions for processing
@@ -162,11 +163,21 @@ export function findInsertionPoint(node: any, source: string): number {
 
 /**
  * Normalize file path
- * Keeps the full absolute path for source fetching, but normalizes separators
+ * Prefer a stable, project-relative path when possible (more portable across machines),
+ * otherwise keep the absolute path, but normalize separators.
  */
 function normalizeFilePath(filePath: string): string {
-  // Normalize path separators (Windows -> Unix style)
-  return filePath.replace(/\\/g, "/");
+  const abs = resolve(filePath).replace(/\\/g, "/");
+  const cwd = resolve(process.cwd()).replace(/\\/g, "/");
+
+  // If the file is inside the current working directory (Next app root),
+  // use a relative path to avoid machine-specific absolute prefixes.
+  if (abs === cwd || abs.startsWith(cwd + "/")) {
+    return relative(cwd, abs).replace(/\\/g, "/");
+  }
+
+  // Fallback: absolute path (still normalized)
+  return abs;
 }
 
 /**

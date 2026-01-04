@@ -28,9 +28,24 @@ const STYLES = {
 };
 
 /**
- * Proximity threshold for showing full badges (in pixels)
+ * Proximity scaling constants
+ * Badges scale from MIN_SCALE at FAR_DISTANCE to MAX_SCALE at NEAR_DISTANCE
  */
-const PROXIMITY_THRESHOLD = 100;
+const NEAR_DISTANCE = 0;
+const FAR_DISTANCE = 150;
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 1.0;
+
+/**
+ * Calculate scale factor based on distance from cursor
+ */
+function getScaleFromDistance(distance: number): number {
+  if (distance <= NEAR_DISTANCE) return MAX_SCALE;
+  if (distance >= FAR_DISTANCE) return MIN_SCALE;
+  // Linear interpolation
+  const t = (distance - NEAR_DISTANCE) / (FAR_DISTANCE - NEAR_DISTANCE);
+  return MAX_SCALE - t * (MAX_SCALE - MIN_SCALE);
+}
 
 /**
  * Cluster threshold for grouping nearby badges (in pixels)
@@ -52,14 +67,14 @@ function getBadgeColor(issueCount: number): string {
 interface ElementBadgeProps {
   element: ScannedElement;
   issue: ElementIssue;
-  isNearCursor: boolean;
+  distance: number;
   onSelect: (element: ScannedElement, issue: ElementIssue) => void;
 }
 
 function ElementBadge({
   element,
   issue,
-  isNearCursor,
+  distance,
   onSelect,
 }: ElementBadgeProps) {
   const [rect, setRect] = useState<DOMRect | null>(null);
@@ -107,6 +122,9 @@ function ElementBadge({
   if (rect.top < -50 || rect.top > window.innerHeight + 50) return null;
   if (rect.left < -50 || rect.left > window.innerWidth + 50) return null;
 
+  // Calculate scale based on distance (hover overrides to full scale)
+  const scale = isHovered ? 1.1 : getScaleFromDistance(distance);
+
   // Position at top-right corner of element
   const badgeStyle: React.CSSProperties = {
     position: "fixed",
@@ -114,19 +132,10 @@ function ElementBadge({
     left: rect.right - 8,
     zIndex: isHovered ? 99999 : 99995,
     cursor: "pointer",
-    transition: "transform 0.15s ease-out",
-    transform: isHovered ? "scale(1.1)" : "scale(1)",
+    transition: "transform 0.1s ease-out",
+    transform: `scale(${scale})`,
+    transformOrigin: "center center",
   };
-
-  // Get badge color for minimized state
-  const badgeColor =
-    issue.status === "complete"
-      ? getBadgeColor(issue.issues.length)
-      : issue.status === "error"
-      ? STYLES.error
-      : issue.status === "scanning"
-      ? STYLES.highlight
-      : "rgba(156, 163, 175, 0.5)";
 
   return (
     <>
@@ -149,7 +158,7 @@ function ElementBadge({
         />
       )}
 
-      {/* Badge */}
+      {/* Badge - always show full version, scale based on proximity */}
       <div
         style={badgeStyle}
         data-ui-lint
@@ -157,39 +166,14 @@ function ElementBadge({
         onMouseLeave={() => setIsHovered(false)}
         onClick={handleClick}
       >
-        {isNearCursor || isHovered ? (
-          <>
-            {issue.status === "scanning" && <ScanningBadge />}
-            {issue.status === "complete" && (
-              <IssueBadge count={issue.issues.length} />
-            )}
-            {issue.status === "error" && <ErrorBadge />}
-            {issue.status === "pending" && <PendingBadge />}
-          </>
-        ) : (
-          <MinimizedBadge color={badgeColor} />
+        {issue.status === "scanning" && <ScanningBadge />}
+        {issue.status === "complete" && (
+          <IssueBadge count={issue.issues.length} />
         )}
+        {issue.status === "error" && <ErrorBadge />}
+        {issue.status === "pending" && <PendingBadge />}
       </div>
     </>
-  );
-}
-
-/**
- * Minimized badge - small dot when far from cursor
- */
-function MinimizedBadge({ color }: { color: string }) {
-  return (
-    <div
-      style={{
-        width: "6px",
-        height: "6px",
-        borderRadius: "50%",
-        backgroundColor: color,
-        opacity: 0.7,
-        transition: "all 0.15s ease-out",
-        boxShadow: STYLES.shadow,
-      }}
-    />
   );
 }
 
@@ -506,14 +490,13 @@ export function ElementBadges() {
           // Single badge - render normally
           const { element, issue, x, y } = cluster.badges[0];
           const distance = Math.hypot(x - cursorPos.x, y - cursorPos.y);
-          const isNearCursor = distance <= PROXIMITY_THRESHOLD;
 
           return (
             <ElementBadge
               key={element.id}
               element={element}
               issue={issue}
-              isNearCursor={isNearCursor}
+              distance={distance}
               onSelect={handleSelect}
             />
           );
@@ -523,13 +506,12 @@ export function ElementBadges() {
             cluster.centroidX - cursorPos.x,
             cluster.centroidY - cursorPos.y
           );
-          const isNearCursor = distance <= PROXIMITY_THRESHOLD;
 
           return (
             <ClusteredBadge
               key={cluster.id}
               cluster={cluster}
-              isNearCursor={isNearCursor}
+              distance={distance}
               onSelect={handleSelect}
             />
           );
@@ -546,15 +528,11 @@ export function ElementBadges() {
  */
 interface ClusteredBadgeProps {
   cluster: BadgeCluster;
-  isNearCursor: boolean;
+  distance: number;
   onSelect: (element: ScannedElement, issue: ElementIssue) => void;
 }
 
-function ClusteredBadge({
-  cluster,
-  isNearCursor,
-  onSelect,
-}: ClusteredBadgeProps) {
+function ClusteredBadge({ cluster, distance, onSelect }: ClusteredBadgeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const closeTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -577,19 +555,6 @@ function ClusteredBadge({
         return { type: "pending" as const, color: "rgba(156, 163, 175, 0.5)" };
       }
     });
-  }, [cluster.badges]);
-
-  // Get worst color for minimized state
-  const worstColor = useMemo(() => {
-    let worst = 0;
-    for (const { issue } of cluster.badges) {
-      if (issue.status === "complete") {
-        worst = Math.max(worst, issue.issues.length);
-      } else if (issue.status === "error") {
-        worst = Math.max(worst, 10);
-      }
-    }
-    return getBadgeColor(worst);
   }, [cluster.badges]);
 
   const handleMouseEnter = useCallback(() => {
@@ -658,7 +623,7 @@ function ClusteredBadge({
         />
       )}
 
-      {/* Cluster badge */}
+      {/* Cluster badge - always show full version, scale based on proximity */}
       <div
         style={{
           position: "fixed",
@@ -666,87 +631,86 @@ function ClusteredBadge({
           left: cluster.centroidX - 9,
           zIndex: isExpanded ? 99999 : 99995,
           cursor: "pointer",
+          transition: "transform 0.1s ease-out",
+          transform: `scale(${
+            isExpanded ? 1.1 : getScaleFromDistance(distance)
+          })`,
+          transformOrigin: "center center",
         }}
         data-ui-lint
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {isNearCursor || isExpanded ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              height: "20px",
-              borderRadius: "10px",
-              backgroundColor: STYLES.bg,
-              boxShadow: STYLES.shadow,
-              border: `1px solid ${STYLES.border}`,
-              overflow: "hidden",
-              transition: "transform 0.15s ease-out",
-              transform: isExpanded ? "scale(1.1)" : "scale(1)",
-            }}
-          >
-            {badgeSegments.map((segment, index) => (
-              <div
-                key={index}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minWidth: "18px",
-                  height: "100%",
-                  padding: "0 4px",
-                  backgroundColor: segment.color,
-                  borderRight:
-                    index < badgeSegments.length - 1
-                      ? `1px solid rgba(0, 0, 0, 0.2)`
-                      : undefined,
-                }}
-              >
-                {segment.type === "count" &&
-                  (segment.count === 0 ? (
-                    <CheckIconTiny />
-                  ) : (
-                    <span
-                      style={{
-                        color: STYLES.text,
-                        fontSize: "10px",
-                        fontWeight: 700,
-                        fontFamily: STYLES.font,
-                      }}
-                    >
-                      {segment.count > 9 ? "9+" : segment.count}
-                    </span>
-                  ))}
-                {segment.type === "error" && <ExclamationIconTiny />}
-                {segment.type === "scanning" && (
-                  <div
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            height: "20px",
+            borderRadius: "10px",
+            backgroundColor: STYLES.bg,
+            boxShadow: STYLES.shadow,
+            border: `1px solid ${STYLES.border}`,
+            overflow: "hidden",
+          }}
+        >
+          {badgeSegments.map((segment, index) => (
+            <div
+              key={index}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: "18px",
+                height: "100%",
+                padding: "0 4px",
+                backgroundColor: segment.color,
+                borderRight:
+                  index < badgeSegments.length - 1
+                    ? `1px solid rgba(0, 0, 0, 0.2)`
+                    : undefined,
+              }}
+            >
+              {segment.type === "count" &&
+                (segment.count === 0 ? (
+                  <CheckIconTiny />
+                ) : (
+                  <span
                     style={{
-                      width: "8px",
-                      height: "8px",
-                      border: "1.5px solid rgba(255, 255, 255, 0.3)",
-                      borderTopColor: "#FFFFFF",
-                      borderRadius: "50%",
-                      animation: "uilint-badge-spin 0.8s linear infinite",
+                      color: STYLES.text,
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      fontFamily: STYLES.font,
                     }}
-                  />
-                )}
-                {segment.type === "pending" && (
-                  <div
-                    style={{
-                      width: "6px",
-                      height: "6px",
-                      borderRadius: "50%",
-                      backgroundColor: "rgba(255, 255, 255, 0.4)",
-                    }}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <MinimizedBadge color={worstColor} />
-        )}
+                  >
+                    {segment.count > 9 ? "9+" : segment.count}
+                  </span>
+                ))}
+              {segment.type === "error" && <ExclamationIconTiny />}
+              {segment.type === "scanning" && (
+                <div
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    border: "1.5px solid rgba(255, 255, 255, 0.3)",
+                    borderTopColor: "#FFFFFF",
+                    borderRadius: "50%",
+                    animation: "uilint-badge-spin 0.8s linear infinite",
+                  }}
+                />
+              )}
+              {segment.type === "pending" && (
+                <div
+                  style={{
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "50%",
+                    backgroundColor: "rgba(255, 255, 255, 0.4)",
+                  }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Expanded dropdown */}

@@ -52,3 +52,4 @@ export function findWorkspaceRoot(startDir: string): string {
 
   return lastFallback || startDir;
 }
+

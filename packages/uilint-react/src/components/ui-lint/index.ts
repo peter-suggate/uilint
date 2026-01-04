@@ -8,6 +8,10 @@
 // Main provider and context
 export { UILintProvider, useUILintContext } from "./UILintProvider";
 
+// Zustand store for direct access
+export { useUILintStore, useEffectiveLocatorTarget } from "./store";
+export type { UILintStore } from "./store";
+
 // UI components
 export { UILintToolbar } from "./UILintToolbar";
 export { InspectionPanel } from "./InspectionPanel";

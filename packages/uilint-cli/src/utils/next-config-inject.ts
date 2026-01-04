@@ -251,3 +251,4 @@ export async function installJsxLocPlugin(
 
   return { configFile: configFilename, modified: false };
 }
+

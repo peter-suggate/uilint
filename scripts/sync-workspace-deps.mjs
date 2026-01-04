@@ -73,3 +73,4 @@ if (filesChanged > 0) {
   // eslint-disable-next-line no-console
   console.log("sync-workspace-deps: no changes");
 }
+

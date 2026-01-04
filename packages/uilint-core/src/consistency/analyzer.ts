@@ -199,3 +199,4 @@ export function formatConsistencyViolations(violations: Violation[]): string {
 
   return lines.join("\n");
 }
+

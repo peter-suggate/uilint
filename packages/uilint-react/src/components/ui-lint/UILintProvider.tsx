@@ -6,6 +6,11 @@
  * Provides Alt+Click element inspection functionality.
  * When Alt is held and hovering, shows element info tooltip.
  * When Alt+Click, opens the InspectionPanel sidebar.
+ *
+ * State management is handled by Zustand store. This component provides:
+ * - React Context for backwards compatibility with useUILintContext()
+ * - DOM event handlers for Alt key, mouse tracking, scroll wheel navigation
+ * - UI component mounting
  */
 
 import React, {
@@ -15,34 +20,32 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
-  useRef,
 } from "react";
 import type {
   UILintContextValue,
   UILintProviderProps,
-  UILintSettings,
   LocatorTarget,
   ComponentInfo,
-  InspectedElement,
-  AutoScanState,
-  ElementIssue,
-  ScannedElement,
 } from "./types";
-import { DEFAULT_SETTINGS, DEFAULT_AUTO_SCAN_STATE } from "./types";
 import {
   getFiberFromElement,
   getDebugSource,
   getComponentStack,
   getSourceFromDataLoc,
   isNodeModulesPath,
-  scanDOMForSources,
 } from "./fiber-utils";
+import {
+  useUILintStore,
+  useEffectiveLocatorTarget,
+  type UILintStore,
+} from "./store";
 
 // Create context
 const UILintContext = createContext<UILintContextValue | null>(null);
 
 /**
  * Hook to access UILint context
+ * For backwards compatibility - delegates to Zustand store
  */
 export function useUILintContext(): UILintContextValue {
   const context = useContext(UILintContext);
@@ -66,291 +69,41 @@ export function UILintProvider({
   children,
   enabled = true,
 }: UILintProviderProps) {
-  // State
-  const [settings, setSettings] = useState<UILintSettings>(DEFAULT_SETTINGS);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Locator mode state (Alt-key hover)
-  const [altKeyHeld, setAltKeyHeld] = useState(false);
-  const [locatorTarget, setLocatorTarget] = useState<LocatorTarget | null>(
-    null
+  // Get state from Zustand store
+  const settings = useUILintStore((s: UILintStore) => s.settings);
+  const updateSettings = useUILintStore((s: UILintStore) => s.updateSettings);
+  const altKeyHeld = useUILintStore((s: UILintStore) => s.altKeyHeld);
+  const setAltKeyHeld = useUILintStore((s: UILintStore) => s.setAltKeyHeld);
+  const setLocatorTarget = useUILintStore(
+    (s: UILintStore) => s.setLocatorTarget
   );
-  const [locatorStackIndex, setLocatorStackIndex] = useState(0);
-
-  // Inspected element state (opens sidebar)
-  const [inspectedElement, setInspectedElement] =
-    useState<InspectedElement | null>(null);
-
-  // Auto-scan state
-  const [autoScanState, setAutoScanState] = useState<AutoScanState>(
-    DEFAULT_AUTO_SCAN_STATE
+  const locatorStackIndex = useUILintStore(
+    (s: UILintStore) => s.locatorStackIndex
   );
-  const [elementIssuesCache, setElementIssuesCache] = useState<
-    Map<string, ElementIssue>
-  >(new Map());
-
-  // Refs for scan control
-  const scanPausedRef = useRef(false);
-  const scanAbortRef = useRef(false);
-
-  /**
-   * Update settings partially
-   */
-  const updateSettings = useCallback((partial: Partial<UILintSettings>) => {
-    setSettings((prev) => ({ ...prev, ...partial }));
-  }, []);
-
-  /**
-   * Scan a single element for issues
-   */
-  const scanElementForIssues = useCallback(
-    async (element: ScannedElement): Promise<ElementIssue> => {
-      if (!element.source) {
-        return {
-          elementId: element.id,
-          issues: [],
-          status: "complete",
-        };
-      }
-
-      try {
-        // Fetch source code
-        const sourceResponse = await fetch(
-          `/api/.uilint/source?path=${encodeURIComponent(
-            element.source.fileName
-          )}`
-        );
-
-        if (!sourceResponse.ok) {
-          return {
-            elementId: element.id,
-            issues: [],
-            status: "error",
-          };
-        }
-
-        const sourceData = await sourceResponse.json();
-
-        // Analyze with LLM
-        const analyzeResponse = await fetch("/api/.uilint/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sourceCode: sourceData.content,
-            filePath: sourceData.relativePath || element.source.fileName,
-            componentName: element.componentStack[0]?.name || element.tagName,
-            componentLine: element.source.lineNumber,
-          }),
-        });
-
-        if (!analyzeResponse.ok) {
-          return {
-            elementId: element.id,
-            issues: [],
-            status: "error",
-          };
-        }
-
-        const result = await analyzeResponse.json();
-        return {
-          elementId: element.id,
-          issues: result.issues || [],
-          status: "complete",
-        };
-      } catch {
-        return {
-          elementId: element.id,
-          issues: [],
-          status: "error",
-        };
-      }
-    },
-    []
+  const setLocatorStackIndex = useUILintStore(
+    (s: UILintStore) => s.setLocatorStackIndex
   );
-
-  /**
-   * Run the scan loop
-   */
-  const runScanLoop = useCallback(
-    async (elements: ScannedElement[], startIndex: number) => {
-      // Group elements by source file to avoid duplicate scans
-      const fileToElements = new Map<string, ScannedElement[]>();
-      const scannedFiles = new Set<string>();
-
-      for (const el of elements) {
-        if (el.source) {
-          const file = el.source.fileName;
-          const existing = fileToElements.get(file) || [];
-          existing.push(el);
-          fileToElements.set(file, existing);
-        }
-      }
-
-      for (let i = startIndex; i < elements.length; i++) {
-        // Check abort
-        if (scanAbortRef.current) {
-          setAutoScanState((prev) => ({ ...prev, status: "idle" }));
-          return;
-        }
-
-        // Check pause
-        while (scanPausedRef.current) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-          if (scanAbortRef.current) {
-            setAutoScanState((prev) => ({ ...prev, status: "idle" }));
-            return;
-          }
-        }
-
-        const element = elements[i];
-
-        // Update progress
-        setAutoScanState((prev) => ({
-          ...prev,
-          currentIndex: i,
-        }));
-
-        // Skip if this file was already scanned
-        if (element.source && scannedFiles.has(element.source.fileName)) {
-          // Apply cached result from the first element with this file
-          const existingElements = fileToElements.get(element.source.fileName);
-          if (existingElements && existingElements.length > 0) {
-            const firstId = existingElements[0].id;
-            setElementIssuesCache((prev) => {
-              const cached = prev.get(firstId);
-              if (cached) {
-                const newCache = new Map(prev);
-                newCache.set(element.id, { ...cached, elementId: element.id });
-                return newCache;
-              }
-              return prev;
-            });
-          }
-          continue;
-        }
-
-        // Mark as scanning
-        setElementIssuesCache((prev) => {
-          const newCache = new Map(prev);
-          newCache.set(element.id, {
-            elementId: element.id,
-            issues: [],
-            status: "scanning",
-          });
-          return newCache;
-        });
-
-        // Scan the element
-        const result = await scanElementForIssues(element);
-
-        // Cache result
-        setElementIssuesCache((prev) => {
-          const newCache = new Map(prev);
-          newCache.set(element.id, result);
-          return newCache;
-        });
-
-        // Mark file as scanned
-        if (element.source) {
-          scannedFiles.add(element.source.fileName);
-        }
-
-        // Small delay to avoid overwhelming the API
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-
-      // Complete
-      setAutoScanState((prev) => ({
-        ...prev,
-        status: "complete",
-        currentIndex: elements.length,
-      }));
-    },
-    [scanElementForIssues]
+  const locatorGoUp = useUILintStore((s: UILintStore) => s.locatorGoUp);
+  const locatorGoDown = useUILintStore((s: UILintStore) => s.locatorGoDown);
+  const inspectedElement = useUILintStore(
+    (s: UILintStore) => s.inspectedElement
   );
+  const setInspectedElement = useUILintStore(
+    (s: UILintStore) => s.setInspectedElement
+  );
+  const autoScanState = useUILintStore((s: UILintStore) => s.autoScanState);
+  const elementIssuesCache = useUILintStore(
+    (s: UILintStore) => s.elementIssuesCache
+  );
+  const startAutoScan = useUILintStore((s: UILintStore) => s.startAutoScan);
+  const pauseAutoScan = useUILintStore((s: UILintStore) => s.pauseAutoScan);
+  const resumeAutoScan = useUILintStore((s: UILintStore) => s.resumeAutoScan);
+  const stopAutoScan = useUILintStore((s: UILintStore) => s.stopAutoScan);
 
-  /**
-   * Start auto-scanning all page elements
-   */
-  const startAutoScan = useCallback(() => {
-    // Reset state
-    scanPausedRef.current = false;
-    scanAbortRef.current = false;
-
-    // Get all scannable elements
-    const elements = scanDOMForSources(document.body, settings.hideNodeModules);
-
-    // Initialize cache with pending status for all elements
-    const initialCache = new Map<string, ElementIssue>();
-    for (const el of elements) {
-      initialCache.set(el.id, {
-        elementId: el.id,
-        issues: [],
-        status: "pending",
-      });
-    }
-    setElementIssuesCache(initialCache);
-
-    // Set initial state
-    setAutoScanState({
-      status: "scanning",
-      currentIndex: 0,
-      totalElements: elements.length,
-      elements,
-    });
-
-    // Start the scan loop
-    runScanLoop(elements, 0);
-  }, [settings.hideNodeModules, runScanLoop]);
-
-  /**
-   * Pause the auto-scan
-   */
-  const pauseAutoScan = useCallback(() => {
-    scanPausedRef.current = true;
-    setAutoScanState((prev) => ({ ...prev, status: "paused" }));
-  }, []);
-
-  /**
-   * Resume the auto-scan
-   */
-  const resumeAutoScan = useCallback(() => {
-    scanPausedRef.current = false;
-    setAutoScanState((prev) => {
-      if (prev.status === "paused") {
-        // Resume from current index
-        runScanLoop(prev.elements, prev.currentIndex);
-        return { ...prev, status: "scanning" };
-      }
-      return prev;
-    });
-  }, [runScanLoop]);
-
-  /**
-   * Stop and reset the auto-scan
-   */
-  const stopAutoScan = useCallback(() => {
-    scanAbortRef.current = true;
-    scanPausedRef.current = false;
-    setAutoScanState(DEFAULT_AUTO_SCAN_STATE);
-    setElementIssuesCache(new Map());
-  }, []);
-
-  /**
-   * Navigate up the component stack in locator mode
-   */
-  const locatorGoUp = useCallback(() => {
-    if (!locatorTarget) return;
-    const maxIndex = locatorTarget.componentStack.length;
-    setLocatorStackIndex((prev) => Math.min(prev + 1, maxIndex));
-  }, [locatorTarget]);
-
-  /**
-   * Navigate down the component stack in locator mode
-   */
-  const locatorGoDown = useCallback(() => {
-    setLocatorStackIndex((prev) => Math.max(prev - 1, 0));
-  }, []);
+  // Get computed locator target with stack index
+  const effectiveLocatorTarget = useEffectiveLocatorTarget();
 
   /**
    * Get element info from a DOM element for locator mode
@@ -360,20 +113,23 @@ export function UILintProvider({
       // Skip UILint's own UI elements
       if (element.closest("[data-ui-lint]")) return null;
 
-      // Try data-loc first
-      let source = getSourceFromDataLoc(element);
+      // Prefer React Fiber debug info for source paths (keeps absolute paths for editor links).
+      // Fall back to data-loc if fiber info isn't available.
+      let source: ReturnType<typeof getDebugSource> | null = null;
       let componentStack: ComponentInfo[] = [];
 
-      // Fallback to React Fiber
-      if (!source) {
-        const fiber = getFiberFromElement(element);
-        if (fiber) {
-          source = getDebugSource(fiber);
-          if (!source && fiber._debugOwner) {
-            source = getDebugSource(fiber._debugOwner);
-          }
-          componentStack = getComponentStack(fiber);
+      const fiber = getFiberFromElement(element);
+      if (fiber) {
+        source = getDebugSource(fiber);
+        if (!source && fiber._debugOwner) {
+          source = getDebugSource(fiber._debugOwner);
         }
+        componentStack = getComponentStack(fiber);
+      }
+
+      // Fallback to data-loc (injected by build transform) if we couldn't get fiber source
+      if (!source) {
+        source = getSourceFromDataLoc(element);
       }
 
       // Skip if no source found
@@ -433,7 +189,12 @@ export function UILintProvider({
 
       setLocatorTarget(null);
     },
-    [altKeyHeld, inspectedElement, getLocatorTargetFromElement]
+    [
+      altKeyHeld,
+      inspectedElement,
+      getLocatorTargetFromElement,
+      setLocatorTarget,
+    ]
   );
 
   /**
@@ -441,15 +202,25 @@ export function UILintProvider({
    */
   const handleLocatorClick = useCallback(
     (e: MouseEvent) => {
-      if (!altKeyHeld || !locatorTarget) return;
+      // Allow click-to-select when Alt is held OR when inspector is already open.
+      // (When inspector is open we want plain click to select without requiring Alt.)
+      if ((!altKeyHeld && !inspectedElement) || !effectiveLocatorTarget) return;
+
+      // Ignore clicks on UILint UI
+      const targetEl = e.target as Element | null;
+      if (targetEl?.closest?.("[data-ui-lint]")) return;
 
       e.preventDefault();
       e.stopPropagation();
 
       // Determine which source to use based on stack index
-      let source = locatorTarget.source;
-      if (locatorStackIndex > 0 && locatorTarget.componentStack.length > 0) {
-        const stackItem = locatorTarget.componentStack[locatorStackIndex - 1];
+      let source = effectiveLocatorTarget.source;
+      if (
+        locatorStackIndex > 0 &&
+        effectiveLocatorTarget.componentStack.length > 0
+      ) {
+        const stackItem =
+          effectiveLocatorTarget.componentStack[locatorStackIndex - 1];
         if (stackItem?.source) {
           source = stackItem.source;
         }
@@ -457,18 +228,25 @@ export function UILintProvider({
 
       // Open the inspection panel sidebar
       setInspectedElement({
-        element: locatorTarget.element,
+        element: effectiveLocatorTarget.element,
         source,
-        componentStack: locatorTarget.componentStack,
-        rect: locatorTarget.rect,
+        componentStack: effectiveLocatorTarget.componentStack,
+        rect: effectiveLocatorTarget.rect,
       });
 
-      // Reset locator state
-      setAltKeyHeld(false);
+      // Reset locator state (but do not reset altKeyHeld - user may still be holding Alt)
       setLocatorTarget(null);
       setLocatorStackIndex(0);
     },
-    [altKeyHeld, locatorTarget, locatorStackIndex]
+    [
+      altKeyHeld,
+      effectiveLocatorTarget,
+      inspectedElement,
+      locatorStackIndex,
+      setInspectedElement,
+      setLocatorTarget,
+      setLocatorStackIndex,
+    ]
   );
 
   /**
@@ -508,7 +286,7 @@ export function UILintProvider({
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [enabled]);
+  }, [enabled, setAltKeyHeld, setLocatorTarget, setLocatorStackIndex]);
 
   /**
    * Mouse tracking for locator mode
@@ -519,10 +297,8 @@ export function UILintProvider({
     if (!altKeyHeld && !inspectedElement) return;
 
     window.addEventListener("mousemove", handleMouseMove);
-    // Only add click handler when Alt is held (not during passive inspection hover)
-    if (altKeyHeld) {
-      window.addEventListener("click", handleLocatorClick, true);
-    }
+    // Add click handler when Alt is held OR inspector is open (click-to-select)
+    window.addEventListener("click", handleLocatorClick, true);
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
@@ -543,7 +319,7 @@ export function UILintProvider({
     if (!isBrowser() || !enabled || !altKeyHeld) return;
 
     const handleWheel = (e: WheelEvent) => {
-      if (!locatorTarget) return;
+      if (!effectiveLocatorTarget) return;
       e.preventDefault();
       if (e.deltaY > 0) {
         locatorGoUp();
@@ -554,7 +330,7 @@ export function UILintProvider({
 
     window.addEventListener("wheel", handleWheel, { passive: false });
     return () => window.removeEventListener("wheel", handleWheel);
-  }, [enabled, altKeyHeld, locatorTarget, locatorGoUp, locatorGoDown]);
+  }, [enabled, altKeyHeld, effectiveLocatorTarget, locatorGoUp, locatorGoDown]);
 
   /**
    * Escape key to close sidebar
@@ -570,7 +346,7 @@ export function UILintProvider({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [enabled, inspectedElement]);
+  }, [enabled, inspectedElement, setInspectedElement]);
 
   /**
    * Set mounted state after hydration
@@ -580,18 +356,14 @@ export function UILintProvider({
   }, []);
 
   /**
-   * Compute the effective locator target with current stack index
+   * Wrap startAutoScan to pass hideNodeModules from settings
    */
-  const effectiveLocatorTarget = useMemo<LocatorTarget | null>(() => {
-    if (!locatorTarget) return null;
-    return {
-      ...locatorTarget,
-      stackIndex: locatorStackIndex,
-    };
-  }, [locatorTarget, locatorStackIndex]);
+  const wrappedStartAutoScan = useCallback(() => {
+    startAutoScan(settings.hideNodeModules);
+  }, [startAutoScan, settings.hideNodeModules]);
 
   /**
-   * Context value
+   * Context value - provides backwards compatibility with useUILintContext
    */
   const contextValue = useMemo<UILintContextValue>(
     () => ({
@@ -605,7 +377,7 @@ export function UILintProvider({
       setInspectedElement,
       autoScanState,
       elementIssuesCache,
-      startAutoScan,
+      startAutoScan: wrappedStartAutoScan,
       pauseAutoScan,
       resumeAutoScan,
       stopAutoScan,
@@ -618,9 +390,10 @@ export function UILintProvider({
       locatorGoUp,
       locatorGoDown,
       inspectedElement,
+      setInspectedElement,
       autoScanState,
       elementIssuesCache,
-      startAutoScan,
+      wrappedStartAutoScan,
       pauseAutoScan,
       resumeAutoScan,
       stopAutoScan,

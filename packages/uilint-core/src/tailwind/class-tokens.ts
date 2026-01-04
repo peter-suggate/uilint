@@ -131,3 +131,4 @@ function splitVariants(token: string): { base: string; variantList: string[] } {
 
   return { base, variantList };
 }
+

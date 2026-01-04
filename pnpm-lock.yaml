@@ -107,8 +107,8 @@ importers:
         specifier: ^1.1.1
         version: 1.1.1
       uilint-core:
-        specifier: ^0.1.23
-        version: 0.1.23
+        specifier: ^0.1.25
+        version: 0.1.25
     devDependencies:
       tsup:
         specifier: ^8.5.1
@@ -145,8 +145,8 @@ importers:
         specifier: ^1.25.1
         version: 1.25.1(hono@4.11.3)(zod@4.3.4)
       uilint-core:
-        specifier: ^0.1.23
-        version: 0.1.23
+        specifier: ^0.1.25
+        version: 0.1.25
     devDependencies:
       tsup:
         specifier: ^8.5.1
@@ -158,8 +158,11 @@ importers:
   packages/uilint-react:
     dependencies:
       uilint-core:
-        specifier: ^0.1.23
-        version: 0.1.23
+        specifier: ^0.1.25
+        version: 0.1.25
+      zustand:
+        specifier: ^5.0.5
+        version: 5.0.9(@types/react@19.2.7)(react@19.2.3)
     devDependencies:
       '@types/react':
         specifier: ^19.2.7
@@ -1850,8 +1853,8 @@ packages:
   ufo@1.6.1:
     resolution: {integrity: sha512-9a4/uxlTWJ4+a5i0ooc1rU7C7YOw3wT+UGqdeNNHWnOF9qcMBgLRS+4IYUqbczewFx4mLEig6gawh7X6mFlEkA==}
 
-  uilint-core@0.1.23:
-    resolution: {integrity: sha512-3JT0mMrTKlN2eSeAQjiFqjhNc+8/I8sZ4y2wam7WhA0pmNSuF7oJzpjLwGDo4cdT5ZRUiki3OkaWwl/hVfDTKg==}
+  uilint-core@0.1.25:
+    resolution: {integrity: sha512-e3AMVZs9Co+4/UWY3WvfZhLCxOMG45t0vxu1TSAt2VHg7RFX8M7yQX6+RKJ1FrQIbbwNwFHtOWXfubf5O3y01A==}
     engines: {node: '>=20.0.0'}
 
   undici-types@7.16.0:
@@ -2000,6 +2003,24 @@ packages:
 
   zod@4.3.4:
     resolution: {integrity: sha512-Zw/uYiiyF6pUT1qmKbZziChgNPRu+ZRneAsMUDU6IwmXdWt5JwcUfy2bvLOCUtz5UniaN/Zx5aFttZYbYc7O/A==}
+
+  zustand@5.0.9:
+    resolution: {integrity: sha512-ALBtUj0AfjJt3uNRQoL1tL2tMvj6Gp/6e39dnfT6uzpelGru8v1tPOGBzayOWbPJvujM8JojDk3E1LxeFisBNg==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      '@types/react': '>=18.0.0'
+      immer: '>=9.0.6'
+      react: '>=18.0.0'
+      use-sync-external-store: '>=1.2.0'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      immer:
+        optional: true
+      react:
+        optional: true
+      use-sync-external-store:
+        optional: true
 
 snapshots:
 
@@ -3501,7 +3522,7 @@ snapshots:
 
   ufo@1.6.1: {}
 
-  uilint-core@0.1.23:
+  uilint-core@0.1.25:
     dependencies:
       jiti: 2.6.1
       jsdom: 27.4.0
@@ -3612,3 +3633,8 @@ snapshots:
       zod: 4.3.4
 
   zod@4.3.4: {}
+
+  zustand@5.0.9(@types/react@19.2.7)(react@19.2.3):
+    optionalDependencies:
+      '@types/react': 19.2.7
+      react: 19.2.3

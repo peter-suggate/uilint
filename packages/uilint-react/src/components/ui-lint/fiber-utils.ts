@@ -62,6 +62,26 @@ interface Fiber {
 let elementCounter = 0;
 
 /**
+ * Generate a stable element ID from data-loc or fallback to counter
+ * Using data-loc ensures the same element always gets the same ID across scans
+ */
+function generateStableId(element: Element, source: SourceLocation | null): string {
+  // Prefer data-loc as it's injected by the build plugin and is stable
+  const dataLoc = element.getAttribute("data-loc");
+  if (dataLoc) {
+    return `loc:${dataLoc}`;
+  }
+  
+  // Fallback: use source location if available
+  if (source) {
+    return `src:${source.fileName}:${source.lineNumber}:${source.columnNumber ?? 0}`;
+  }
+  
+  // Last resort: use counter (not stable across scans)
+  return `uilint-${++elementCounter}`;
+}
+
+/**
  * Get React Fiber from a DOM element
  * React attaches fiber via __reactFiber$xxx key
  */
@@ -227,7 +247,7 @@ function shouldSkipElement(element: Element): boolean {
 }
 
 /**
- * Generate a unique element ID
+ * Generate a unique element ID (deprecated - use generateStableId instead)
  */
 function generateElementId(): string {
   return `uilint-${++elementCounter}`;
@@ -260,20 +280,22 @@ export function scanDOMForSources(
   let node: Node | null = walker.currentNode;
   while (node) {
     if (node instanceof Element) {
-      // Strategy 1: Try data-loc attribute (injected by @builder.io/nextjs-plugin-jsx-loc)
-      let source = getSourceFromDataLoc(node);
+      // Strategy 1: Prefer React Fiber _debugSource for file paths (keeps absolute paths).
+      let source: SourceLocation | null = null;
       let componentStack: ComponentInfo[] = [];
 
-      // Strategy 2: Fall back to React Fiber _debugSource
-      if (!source) {
-        const fiber = getFiberFromElement(node);
-        if (fiber) {
-          source = getDebugSource(fiber);
-          if (!source && fiber._debugOwner) {
-            source = getDebugSource(fiber._debugOwner);
-          }
-          componentStack = getComponentStack(fiber);
+      const fiber = getFiberFromElement(node);
+      if (fiber) {
+        source = getDebugSource(fiber);
+        if (!source && fiber._debugOwner) {
+          source = getDebugSource(fiber._debugOwner);
         }
+        componentStack = getComponentStack(fiber);
+      }
+
+      // Strategy 2: Fall back to data-loc attribute (injected by jsx-loc-plugin)
+      if (!source) {
+        source = getSourceFromDataLoc(node);
       }
 
       // Skip node_modules if setting enabled
@@ -291,7 +313,8 @@ export function scanDOMForSources(
       }
 
       if (source) {
-        const id = generateElementId();
+        // Use stable ID based on data-loc for consistent tracking across scans
+        const id = generateStableId(node, source);
         node.setAttribute(DATA_ATTR, id);
 
         const scannedElement: ScannedElement = {
