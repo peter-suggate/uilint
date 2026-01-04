@@ -10,4 +10,3 @@ export { JSDOMAdapter, runUILintInTest } from "./scanner/jsdom-adapter.js";
 
 // Re-export isJSDOM for convenience
 export { isJSDOM } from "./scanner/environment.js";
-

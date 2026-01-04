@@ -7,4 +7,3 @@ export default defineConfig({
   clean: true,
   external: ["next", "@builder.io/jsx-loc-internals"],
 });
-

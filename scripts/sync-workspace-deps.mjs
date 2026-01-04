@@ -24,13 +24,23 @@ function listWorkspacePackages() {
     if (!fs.existsSync(pkgJsonPath)) continue;
     const pkg = readJSON(pkgJsonPath);
     if (!pkg?.name || !pkg?.version) continue;
-    pkgs.push({ dir: ent.name, path: pkgJsonPath, name: pkg.name, version: pkg.version });
+    pkgs.push({
+      dir: ent.name,
+      path: pkgJsonPath,
+      name: pkg.name,
+      version: pkg.version,
+    });
   }
   return pkgs;
 }
 
 function syncDepsForPackage(pkgJson, versionsByName) {
-  const sections = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"];
+  const sections = [
+    "dependencies",
+    "devDependencies",
+    "peerDependencies",
+    "optionalDependencies",
+  ];
   let changed = false;
 
   for (const section of sections) {
@@ -68,9 +78,10 @@ for (const pkg of workspacePkgs) {
 
 if (filesChanged > 0) {
   // eslint-disable-next-line no-console
-  console.log(`sync-workspace-deps: updated ${filesChanged} package.json file(s)`);
+  console.log(
+    `sync-workspace-deps: updated ${filesChanged} package.json file(s)`
+  );
 } else {
   // eslint-disable-next-line no-console
   console.log("sync-workspace-deps: no changes");
 }
-

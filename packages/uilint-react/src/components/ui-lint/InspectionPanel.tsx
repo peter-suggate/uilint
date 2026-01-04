@@ -559,6 +559,8 @@ function ScanSection({ element }: { element: InspectedElement }) {
   const upsertManualScan = useUILintStore(
     (s: UILintStore) => s.upsertManualScan
   );
+  const clearManualScan = useUILintStore((s: UILintStore) => s.clearManualScan);
+  const includeChildren = manualScan?.includeChildren ?? false;
 
   // Get component context for focused analysis
   const componentName =
@@ -637,6 +639,27 @@ Please update this component to match our styleguide.`;
       return;
     }
 
+    const MAX_DATALOCS = 80;
+    const selectedDataLoc = element.element.getAttribute("data-loc");
+    let dataLocList: string[] = [];
+
+    if (includeChildren) {
+      // Include the selected element and all descendants with data-loc
+      const nodes: Element[] = [
+        element.element,
+        ...Array.from(element.element.querySelectorAll("[data-loc]")),
+      ];
+      for (const n of nodes) {
+        const v = n.getAttribute("data-loc");
+        if (v) dataLocList.push(v);
+      }
+    } else if (selectedDataLoc) {
+      dataLocList = [selectedDataLoc];
+    }
+
+    // Dedupe and cap to keep prompts bounded
+    dataLocList = Array.from(new Set(dataLocList)).slice(0, MAX_DATALOCS);
+
     upsertManualScan(manualKey, {
       status: "scanning",
       error: undefined,
@@ -661,9 +684,6 @@ Please update this component to match our styleguide.`;
       const sourceCode = sourceData.content;
       const relativePath = sourceData.relativePath || element.source.fileName;
 
-      // Extract data-loc from the DOM element for precise matching
-      const dataLoc = element.element.getAttribute("data-loc");
-
       // Send to analyze route with component context and dataLoc (streaming)
       const analyzeResponse = await fetch("/api/.uilint/analyze", {
         method: "POST",
@@ -673,7 +693,8 @@ Please update this component to match our styleguide.`;
           filePath: relativePath,
           componentName,
           componentLine,
-          dataLocs: dataLoc ? [dataLoc] : undefined,
+          includeChildren,
+          dataLocs: dataLocList.length > 0 ? dataLocList : undefined,
           stream: true,
         }),
       });
@@ -765,6 +786,7 @@ Please update this component to match our styleguide.`;
     generateFixPrompt,
     manualKey,
     upsertManualScan,
+    includeChildren,
   ]);
 
   const handleCopy = useCallback(
@@ -798,6 +820,7 @@ Please update this component to match our styleguide.`;
   const error = manualScan?.status === "error" ? manualScan.error : null;
   const fixPrompt = manualScan?.fixPrompt ?? null;
   const progressLine = manualScan?.progressLine ?? null;
+  const scopeLabel = includeChildren ? "Element + children" : "Element only";
 
   return (
     <div
@@ -1036,7 +1059,7 @@ Please update this component to match our styleguide.`;
 
             <div style={{ textAlign: "center", marginTop: "12px" }}>
               <button
-                onClick={handleScan}
+                onClick={() => clearManualScan(manualKey)}
                 style={{
                   padding: "6px 12px",
                   borderRadius: "6px",
@@ -1056,7 +1079,7 @@ Please update this component to match our styleguide.`;
                   e.currentTarget.style.color = STYLES.textMuted;
                 }}
               >
-                Rescan
+                Clear Analysis
               </button>
             </div>
           </div>
@@ -1065,6 +1088,39 @@ Please update this component to match our styleguide.`;
         {/* No cached result - show scan button */}
         {showScanButton && (
           <div style={{ textAlign: "center", padding: "16px 0" }}>
+            <div style={{ marginBottom: "10px" }}>
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "12px",
+                  color: STYLES.textMuted,
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={includeChildren}
+                  onChange={(e) =>
+                    upsertManualScan(manualKey, {
+                      includeChildren: e.currentTarget.checked,
+                    })
+                  }
+                />
+                Include children
+              </label>
+              <div
+                style={{
+                  marginTop: "6px",
+                  fontSize: "11px",
+                  color: STYLES.textDim,
+                }}
+              >
+                Scope: {scopeLabel}
+              </div>
+            </div>
             <button
               onClick={handleScan}
               disabled={!element.source}
@@ -1258,9 +1314,7 @@ Please update this component to match our styleguide.`;
 
             <div style={{ textAlign: "center", marginTop: "12px" }}>
               <button
-                onClick={() => {
-                  handleScan();
-                }}
+                onClick={() => clearManualScan(manualKey)}
                 style={{
                   padding: "6px 12px",
                   borderRadius: "6px",
@@ -1280,7 +1334,7 @@ Please update this component to match our styleguide.`;
                   e.currentTarget.style.color = STYLES.textMuted;
                 }}
               >
-                Scan Again
+                Clear Analysis
               </button>
             </div>
           </div>

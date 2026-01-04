@@ -89,6 +89,8 @@ export interface ManualScanResult {
   key: string;
   status: "idle" | "scanning" | "complete" | "error";
   issues: ScanIssue[];
+  /** If true, the scan scope includes the selected element's descendants */
+  includeChildren?: boolean;
   /** Human-readable fix prompt generated from issues (UI convenience) */
   fixPrompt?: string;
   /** Optional error message when status="error" */

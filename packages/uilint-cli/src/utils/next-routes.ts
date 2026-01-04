@@ -453,7 +453,8 @@ async function analyzeSourceCode(
   filePath: string,
   styleGuide: string | null,
   dataLocs: string[] = [],
-  focus?: { componentName?: string; componentLine?: number }
+  focus?: { componentName?: string; componentLine?: number },
+  scopeText?: string
 ): Promise<{ issues: Array<{ line?: number; message: string; dataLoc?: string }> }> {
   // Build the data-loc reference section if we have any
   const dataLocSection = dataLocs.length > 0
@@ -479,7 +480,7 @@ When reporting issues, include the matching dataLoc value so we can highlight th
             : ""
         }.\\n\\n\`
       : ""
-  }\${dataLocSection}## Source Code (\${filePath})
+  }\${scopeText ? \`\${scopeText}\\n\\n\` : ""}\${dataLocSection}## Source Code (\${filePath})
 
 \\\`\\\`\\\`tsx
 \${sourceCode}
@@ -539,6 +540,7 @@ export async function POST(request: NextRequest) {
       componentName,
       componentLine,
       stream,
+      includeChildren,
       // Array of data-loc values for elements in this file (for per-file scanning)
       dataLocs,
     } = body;
@@ -570,6 +572,10 @@ export async function POST(request: NextRequest) {
         componentName: typeof componentName === "string" ? componentName : undefined,
         componentLine: typeof componentLine === "number" ? componentLine : undefined,
       };
+      const scopeText =
+        includeChildren === true
+          ? "Scope: selected element + children."
+          : "Scope: selected element only.";
 
       // Optional streaming mode (SSE) for long-running LLM calls
       if (stream === true) {
@@ -611,7 +617,7 @@ When reporting issues, include the matching dataLoc value so we can highlight th
                         typeof focus.componentLine === "number"
                           ? \` (near line \${focus.componentLine})\`
                           : ""
-                      }.\\n\\n\`
+                      }.\\n\${scopeText}\\n\\n\`
                     : ""
                 }\${dataLocSection}## Source Code (\${filePath || "component.tsx"})
 
@@ -684,7 +690,8 @@ If no issues are found, respond with:
         filePath || "component.tsx",
         styleGuideContent,
         Array.isArray(dataLocs) ? dataLocs : [],
-        focus
+        focus,
+        scopeText
       );
       return NextResponse.json(result);
     }

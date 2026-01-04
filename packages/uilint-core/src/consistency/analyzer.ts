@@ -9,7 +9,11 @@ import type {
   ViolationCategory,
   ViolationSeverity,
 } from "./types.js";
-import { buildConsistencyPrompt, countElements, hasAnalyzableGroups } from "./prompts.js";
+import {
+  buildConsistencyPrompt,
+  countElements,
+  hasAnalyzableGroups,
+} from "./prompts.js";
 import { OllamaClient } from "../ollama/client.js";
 
 const VALID_CATEGORIES: ViolationCategory[] = [
@@ -93,10 +97,12 @@ export function validateViolations(violations: unknown[]): Violation[] {
       if (!obj.details || typeof obj.details !== "object") return false;
 
       // Validate category
-      if (!VALID_CATEGORIES.includes(obj.category as ViolationCategory)) return false;
+      if (!VALID_CATEGORIES.includes(obj.category as ViolationCategory))
+        return false;
 
       // Validate severity
-      if (!VALID_SEVERITIES.includes(obj.severity as ViolationSeverity)) return false;
+      if (!VALID_SEVERITIES.includes(obj.severity as ViolationSeverity))
+        return false;
 
       return true;
     })
@@ -171,7 +177,9 @@ export function formatConsistencyViolations(violations: Violation[]): string {
     return "✓ No consistency issues found.";
   }
 
-  const lines: string[] = [`Found ${violations.length} consistency issue(s):\n`];
+  const lines: string[] = [
+    `Found ${violations.length} consistency issue(s):\n`,
+  ];
 
   const severityIcons: Record<ViolationSeverity, string> = {
     error: "✖",
@@ -199,4 +207,3 @@ export function formatConsistencyViolations(violations: Violation[]): string {
 
   return lines.join("\n");
 }
-
