@@ -556,7 +556,9 @@ function ScanSection({ element }: { element: InspectedElement }) {
   const manualScan = useUILintStore((s: UILintStore) =>
     s.manualScanCache.get(manualKey)
   );
-  const upsertManualScan = useUILintStore((s: UILintStore) => s.upsertManualScan);
+  const upsertManualScan = useUILintStore(
+    (s: UILintStore) => s.upsertManualScan
+  );
 
   // Get component context for focused analysis
   const componentName =
@@ -748,7 +750,9 @@ Please update this component to match our styleguide.`;
       upsertManualScan(manualKey, {
         status: "error",
         error:
-          err instanceof Error ? err.message : "An error occurred during scanning",
+          err instanceof Error
+            ? err.message
+            : "An error occurred during scanning",
         progressLine: undefined,
       });
     }
@@ -763,18 +767,21 @@ Please update this component to match our styleguide.`;
     upsertManualScan,
   ]);
 
-  const handleCopy = useCallback(async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      upsertManualScan(manualKey, {
-        status: "error",
-        error: "Failed to copy to clipboard",
-      });
-    }
-  }, [manualKey, upsertManualScan]);
+  const handleCopy = useCallback(
+    async (text: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        upsertManualScan(manualKey, {
+          status: "error",
+          error: "Failed to copy to clipboard",
+        });
+      }
+    },
+    [manualKey, upsertManualScan]
+  );
 
   // Determine what to show based on cached status and local state
   const manualStatus = manualScan?.status ?? "idle";

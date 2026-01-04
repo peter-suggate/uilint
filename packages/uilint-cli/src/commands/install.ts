@@ -547,7 +547,7 @@ export async function install(options: InstallOptions): Promise<void> {
 
     // IMPORTANT: do not wrap prompts (confirm/select) in a spinner; it can look
     // like the CLI is "stuck" because the spinner keeps rendering.
-    logInfo("Injecting <UILintProvider> into your app...");
+    logInfo("Finding a place in your app to inject <UILintProvider>...");
     const result = await installReactUILintOverlay({
       projectPath: nextProjectPath,
       appRoot: nextApp!.appRoot,

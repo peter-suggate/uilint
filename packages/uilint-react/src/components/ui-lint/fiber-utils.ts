@@ -65,18 +65,23 @@ let elementCounter = 0;
  * Generate a stable element ID from data-loc or fallback to counter
  * Using data-loc ensures the same element always gets the same ID across scans
  */
-function generateStableId(element: Element, source: SourceLocation | null): string {
+function generateStableId(
+  element: Element,
+  source: SourceLocation | null
+): string {
   // Prefer data-loc as it's injected by the build plugin and is stable
   const dataLoc = element.getAttribute("data-loc");
   if (dataLoc) {
     return `loc:${dataLoc}`;
   }
-  
+
   // Fallback: use source location if available
   if (source) {
-    return `src:${source.fileName}:${source.lineNumber}:${source.columnNumber ?? 0}`;
+    return `src:${source.fileName}:${source.lineNumber}:${
+      source.columnNumber ?? 0
+    }`;
   }
-  
+
   // Last resort: use counter (not stable across scans)
   return `uilint-${++elementCounter}`;
 }

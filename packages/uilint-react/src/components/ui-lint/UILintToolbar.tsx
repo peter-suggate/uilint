@@ -207,11 +207,11 @@ function SettingsPopover({
       </div>
 
       {/* Hide node_modules toggle */}
-      <SettingToggle
+      {/* <SettingToggle
         label="Hide node_modules"
         checked={settings.hideNodeModules}
         onChange={(checked) => onUpdate({ hideNodeModules: checked })}
-      />
+      /> */}
 
       {/* Auto-scan section */}
       <div
