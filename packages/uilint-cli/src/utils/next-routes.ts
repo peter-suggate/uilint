@@ -596,9 +596,9 @@ export async function POST(request: NextRequest) {
 The following elements are rendered on the page from this file. Each data-loc has format "path:line:column".
 When reporting issues, include the matching dataLoc value so we can highlight the specific element.
 
-\\\\\`\\\\\`\\\\\`
+\\\`\\\`\\\`
 \${dataLocList.join("\\n")}
-\\\\\`\\\\\`\\\\\`
+\\\`\\\`\\\`
 
 \`
                     : "";
@@ -615,9 +615,9 @@ When reporting issues, include the matching dataLoc value so we can highlight th
                     : ""
                 }\${dataLocSection}## Source Code (\${filePath || "component.tsx"})
 
-\\\\\`\\\\\`\\\\\`tsx
+\\\`\\\`\\\`tsx
 \${sourceCode}
-\\\\\`\\\\\`\\\\\`
+\\\`\\\`\\\`
 
 ## Task
 
@@ -634,19 +634,19 @@ For each issue, provide:
 - If you cannot match an issue to a provided dataLoc, omit that issue from the response.
 
 Respond with JSON:
-\\\\\`\\\\\`\\\\\`json
+\\\`\\\`\\\`json
 {
   "issues": [
     { "line": 12, "message": "Color #3575E2 should be #3B82F6 (primary blue from styleguide)", "dataLoc": "app/page.tsx:12:5" },
     { "line": 25, "message": "Use p-4 instead of p-3 for consistent button padding", "dataLoc": "app/page.tsx:25:8" }
   ]
 }
-\\\\\`\\\\\`\\\\\`
+\\\`\\\`\\\`
 
 If no issues are found, respond with:
-\\\\\`\\\\\`\\\\\`json
+\\\`\\\`\\\`json
 { "issues": [] }
-\\\\\`\\\\\`\\\\\`\`;
+\\\`\\\`\\\`\`;
 
                 const full = await client.complete(prompt, {
                   json: true,
