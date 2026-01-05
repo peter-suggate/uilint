@@ -5,7 +5,6 @@
 import { dirname, resolve } from "path";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import {
-  OllamaClient,
   UILINT_DEFAULT_OLLAMA_MODEL,
   buildSourceScanPrompt,
   ensureOllamaReady,
@@ -16,6 +15,7 @@ import {
 } from "uilint-core/node";
 import { getCodeInput } from "../utils/input.js";
 import { resolvePathSpecifier } from "../utils/path-specifiers.js";
+import { createLLMClient, flushLangfuse } from "../utils/llm-client.js";
 import {
   intro,
   withSpinner,
@@ -254,7 +254,7 @@ export async function analyze(options: AnalyzeOptions): Promise<void> {
       await ensureOllamaReady({ model: options.model });
     }
 
-    const client = new OllamaClient({
+    const client = await createLLMClient({
       model: options.model || UILINT_DEFAULT_OLLAMA_MODEL,
     });
 
@@ -401,7 +401,10 @@ export async function analyze(options: AnalyzeOptions): Promise<void> {
       process.stdout.write(formatScanIssuesText(issues) + "\n");
     }
 
-    if (issues.length > 0) process.exit(1);
+    if (issues.length > 0) {
+      await flushLangfuse();
+      process.exit(1);
+    }
   } catch (error) {
     if (isJsonOutput) {
       printJSON({
@@ -411,6 +414,10 @@ export async function analyze(options: AnalyzeOptions): Promise<void> {
     } else {
       logError(error instanceof Error ? error.message : "Analyze failed");
     }
+    await flushLangfuse();
     process.exit(1);
   }
+
+  // Flush before normal exit
+  await flushLangfuse();
 }

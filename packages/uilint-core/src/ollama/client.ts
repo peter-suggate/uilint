@@ -7,6 +7,7 @@ import type {
   AnalysisResult,
   OllamaClientOptions,
   StreamProgressCallback,
+  LLMInstrumentationCallbacks,
 } from "../types.js";
 import {
   buildAnalysisPrompt,
@@ -23,11 +24,13 @@ export class OllamaClient {
   private baseUrl: string;
   private model: string;
   private timeout: number;
+  private instrumentation?: LLMInstrumentationCallbacks;
 
   constructor(options: OllamaClientOptions = {}) {
     this.baseUrl = options.baseUrl || DEFAULT_BASE_URL;
     this.model = options.model || UILINT_DEFAULT_OLLAMA_MODEL;
     this.timeout = options.timeout || DEFAULT_TIMEOUT;
+    this.instrumentation = options.instrumentation;
   }
 
   /**
@@ -67,8 +70,13 @@ export class OllamaClient {
 
     try {
       const response = onProgress
-        ? await this.generateStreaming(prompt, true, onProgress)
-        : await this.generate(prompt);
+        ? await this.generateStreaming(
+            prompt,
+            true,
+            onProgress,
+            "analyze-styles"
+          )
+        : await this.generate(prompt, true, "analyze-styles");
       const issues = this.parseIssuesResponse(response);
 
       return {
@@ -99,8 +107,13 @@ export class OllamaClient {
 
     try {
       const response = onProgress
-        ? await this.generateStreaming(prompt, true, onProgress)
-        : await this.generate(prompt);
+        ? await this.generateStreaming(
+            prompt,
+            true,
+            onProgress,
+            "analyze-source"
+          )
+        : await this.generate(prompt, true, "analyze-source");
       const issues = this.parseIssuesResponse(response);
 
       return {
@@ -123,7 +136,11 @@ export class OllamaClient {
     const prompt = buildStyleGuidePrompt(styleSummary);
 
     try {
-      const response = await this.generate(prompt, false);
+      const response = await this.generate(
+        prompt,
+        false,
+        "generate-styleguide"
+      );
       return response;
     } catch (error) {
       console.error("[UILint] Style guide generation failed:", error);
@@ -136,10 +153,19 @@ export class OllamaClient {
    */
   private async generate(
     prompt: string,
-    jsonFormat: boolean = true
+    jsonFormat: boolean = true,
+    operationName: string = "ollama-generate"
   ): Promise<string> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+    // Start instrumentation span if available
+    const span = this.instrumentation?.onGenerationStart?.({
+      name: operationName,
+      model: this.model,
+      prompt,
+      metadata: { jsonFormat, stream: false },
+    });
 
     try {
       const response = await fetch(`${this.baseUrl}/api/generate`, {
@@ -155,11 +181,26 @@ export class OllamaClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Ollama API error: ${response.status}`);
+        const error = `Ollama API error: ${response.status}`;
+        span?.end("", { error });
+        throw new Error(error);
       }
 
       const data = await response.json();
-      return data.response || "";
+      const output = data.response || "";
+
+      // End instrumentation span with output and usage
+      span?.end(output, {
+        promptTokens: data.prompt_eval_count,
+        completionTokens: data.eval_count,
+        totalTokens:
+          (data.prompt_eval_count || 0) + (data.eval_count || 0) || undefined,
+      });
+
+      return output;
+    } catch (error) {
+      span?.end("", { error: String(error) });
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -172,10 +213,23 @@ export class OllamaClient {
   private async generateStreaming(
     prompt: string,
     jsonFormat: boolean = true,
-    onProgress: StreamProgressCallback
+    onProgress: StreamProgressCallback,
+    operationName: string = "ollama-generate-stream"
   ): Promise<string> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+    // Start instrumentation span if available
+    const span = this.instrumentation?.onGenerationStart?.({
+      name: operationName,
+      model: this.model,
+      prompt,
+      metadata: { jsonFormat, stream: true },
+    });
+
+    // Track token counts from streaming response
+    let promptTokens: number | undefined;
+    let completionTokens: number | undefined;
 
     try {
       const response = await fetch(`${this.baseUrl}/api/generate`, {
@@ -191,11 +245,15 @@ export class OllamaClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Ollama API error: ${response.status}`);
+        const error = `Ollama API error: ${response.status}`;
+        span?.end("", { error });
+        throw new Error(error);
       }
 
       if (!response.body) {
-        throw new Error("No response body for streaming");
+        const error = "No response body for streaming";
+        span?.end("", { error });
+        throw new Error(error);
       }
 
       const reader = response.body.getReader();
@@ -227,6 +285,11 @@ export class OllamaClient {
                 "";
               onProgress(latestLine.trim(), fullResponse);
             }
+            // Capture token counts from final chunk
+            if (chunk.done) {
+              promptTokens = chunk.prompt_eval_count;
+              completionTokens = chunk.eval_count;
+            }
           } catch {
             // Skip malformed JSON chunks
           }
@@ -240,12 +303,26 @@ export class OllamaClient {
           if (chunk.response) {
             fullResponse += chunk.response;
           }
+          if (chunk.done) {
+            promptTokens = chunk.prompt_eval_count;
+            completionTokens = chunk.eval_count;
+          }
         } catch {
           // Skip malformed JSON
         }
       }
 
+      // End instrumentation span with output and usage
+      span?.end(fullResponse, {
+        promptTokens,
+        completionTokens,
+        totalTokens: (promptTokens || 0) + (completionTokens || 0) || undefined,
+      });
+
       return fullResponse;
+    } catch (error) {
+      span?.end("", { error: String(error) });
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -291,6 +368,23 @@ export class OllamaClient {
    */
   setModel(model: string): void {
     this.model = model;
+  }
+
+  /**
+   * Sets instrumentation callbacks for observability.
+   * This allows configuring instrumentation after construction.
+   */
+  setInstrumentation(
+    instrumentation: LLMInstrumentationCallbacks | undefined
+  ): void {
+    this.instrumentation = instrumentation;
+  }
+
+  /**
+   * Returns true if instrumentation is currently configured.
+   */
+  hasInstrumentation(): boolean {
+    return !!this.instrumentation;
   }
 }
 

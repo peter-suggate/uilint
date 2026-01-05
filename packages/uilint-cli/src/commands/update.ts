@@ -8,7 +8,6 @@ import {
   parseStyleGuide,
   mergeStyleGuides,
   styleGuideToMarkdown,
-  OllamaClient,
 } from "uilint-core";
 import {
   readStyleGuide,
@@ -18,6 +17,7 @@ import {
   readTailwindThemeTokens,
 } from "uilint-core/node";
 import { getInput, type InputOptions } from "../utils/input.js";
+import { createLLMClient, flushLangfuse } from "../utils/llm-client.js";
 import {
   intro,
   outro,
@@ -51,6 +51,7 @@ export async function update(options: UpdateOptions): Promise<void> {
         )} first (recommended: run ${pc.cyan("/genstyleguide")} in Cursor).`,
         "Tip"
       );
+      await flushLangfuse();
       process.exit(1);
     }
 
@@ -68,6 +69,7 @@ export async function update(options: UpdateOptions): Promise<void> {
       });
     } catch {
       logError("No input provided. Use --input-file or pipe HTML to stdin.");
+      await flushLangfuse();
       process.exit(1);
     }
 
@@ -87,7 +89,7 @@ export async function update(options: UpdateOptions): Promise<void> {
       const result = await withSpinner(
         "Analyzing styles with LLM",
         async () => {
-          const client = new OllamaClient({ model: options.model });
+          const client = await createLLMClient({ model: options.model });
           const styleSummary = createStyleSummary(snapshot.styles, {
             html: snapshot.html,
             tailwindTheme,
@@ -164,6 +166,10 @@ export async function update(options: UpdateOptions): Promise<void> {
     }
   } catch (error) {
     logError(error instanceof Error ? error.message : "Update failed");
+    await flushLangfuse();
     process.exit(1);
   }
+
+  // Flush before normal exit
+  await flushLangfuse();
 }

@@ -64,7 +64,10 @@ export async function readStyleGuideFromProject(
 /**
  * Writes style guide content to file
  */
-export async function writeStyleGuide(path: string, content: string): Promise<void> {
+export async function writeStyleGuide(
+  path: string,
+  content: string
+): Promise<void> {
   const dir = dirname(path);
   await mkdir(dir, { recursive: true });
   await writeFile(path, content, "utf-8");

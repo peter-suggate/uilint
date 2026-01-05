@@ -104,11 +104,53 @@ export interface UILintSourceScanResult {
   issues: UILintScanIssue[];
 }
 
+// LLM Instrumentation types (for optional observability integration)
+/**
+ * Represents an active generation span that can be ended with output data.
+ * Returned by onGenerationStart when instrumentation is enabled.
+ */
+export interface InstrumentationSpan {
+  /** End the span with the generation output and optional usage metrics */
+  end: (
+    output: string,
+    usage?: {
+      promptTokens?: number;
+      completionTokens?: number;
+      totalTokens?: number;
+      error?: string;
+    }
+  ) => void;
+}
+
+/**
+ * Optional instrumentation callbacks for LLM observability.
+ * Allows plugging in any observability tool (Langfuse, OpenTelemetry, etc.)
+ * without adding hard dependencies to uilint-core.
+ */
+export interface LLMInstrumentationCallbacks {
+  /**
+   * Called when an LLM generation starts.
+   * Return an InstrumentationSpan to track the generation, or void to skip.
+   */
+  onGenerationStart?: (params: {
+    /** Operation name (e.g., "ollama-generate", "analyze-styles") */
+    name: string;
+    /** Model identifier */
+    model: string;
+    /** The prompt sent to the LLM */
+    prompt: string;
+    /** Optional metadata */
+    metadata?: Record<string, unknown>;
+  }) => InstrumentationSpan | void;
+}
+
 // Ollama client options
 export interface OllamaClientOptions {
   baseUrl?: string;
   model?: string;
   timeout?: number;
+  /** Optional instrumentation callbacks for observability (Langfuse, OpenTelemetry, etc.) */
+  instrumentation?: LLMInstrumentationCallbacks;
 }
 
 // Callback for streaming progress updates

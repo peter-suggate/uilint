@@ -437,6 +437,43 @@ pnpm dev
 pnpm test
 ```
 
+### LLM Observability with Langfuse (Optional)
+
+For development, you can enable [Langfuse](https://langfuse.com) to trace LLM calls, manage prompts, and run evaluations. This is **optional** and does not affect published packages.
+
+#### Setup
+
+```bash
+# 1. Start Langfuse (requires Docker)
+pnpm langfuse:up
+
+# 2. Open http://localhost:3333 and create an account
+
+# 3. Create API keys in project settings, then set environment variables:
+export LANGFUSE_BASE_URL=http://localhost:3333
+export LANGFUSE_PUBLIC_KEY=pk-lf-...
+export LANGFUSE_SECRET_KEY=sk-lf-...
+export LANGFUSE_ENABLED=1
+
+# 4. (Optional) Sync prompts from code to Langfuse for version tracking:
+pnpm langfuse:sync-prompts
+
+# 5. View logs
+pnpm langfuse:logs
+
+# 6. Stop Langfuse when done
+pnpm langfuse:down
+```
+
+**Why use Langfuse?**
+
+- **Tracing**: See all LLM calls with prompts, completions, and token usage
+- **Prompt versioning**: Track changes to prompts over time
+- **Analytics**: Measure which prompt versions produce better results
+- **Evaluations**: Run LLM-as-a-judge evals on your outputs
+
+**Note for contributors**: The instrumentation hooks in `OllamaClient` are designed to be pluggable. You can implement `LLMInstrumentationCallbacks` with any observability tool, not just Langfuse.
+
 ---
 
 ## Publishing to npm (Maintainers)

@@ -23,6 +23,9 @@ export type {
   ExtractedStyleValues,
   TailwindThemeTokens,
   StreamProgressCallback,
+  // Instrumentation types (for optional observability integration)
+  InstrumentationSpan,
+  LLMInstrumentationCallbacks,
 } from "./types.js";
 
 // Ollama client

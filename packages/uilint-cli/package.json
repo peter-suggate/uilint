@@ -43,8 +43,15 @@
     "@clack/prompts": "^0.10.0",
     "commander": "^14.0.2",
     "chalk": "^5.6.2",
+    "dotenv": "^16.4.7",
     "picocolors": "^1.1.1",
     "uilint-core": "workspace:*"
+  },
+  "optionalDependencies": {
+    "@langfuse/client": "^4.5.1",
+    "@langfuse/otel": "^4.5.1",
+    "@langfuse/tracing": "^4.5.1",
+    "@opentelemetry/sdk-node": "^0.208.0"
   },
   "devDependencies": {
     "tsup": "^8.5.1",

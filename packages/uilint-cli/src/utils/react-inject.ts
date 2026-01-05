@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import { OllamaClient } from "uilint-core";
 import { ensureOllamaReady } from "uilint-core/node";
+import { createLLMClient } from "./llm-client.js";
 
 export interface InstallReactOverlayOptions {
   projectPath: string;
@@ -146,7 +146,7 @@ export async function installReactUILintOverlay(
   // Try LLM selection first.
   try {
     await ensureOllamaReady({ model: opts.model });
-    const client = new OllamaClient({ model: opts.model });
+    const client = await createLLMClient({ model: opts.model });
 
     const promptCandidates = candidates.slice(0, 6).map((p) => {
       const abs = join(opts.projectPath, p);

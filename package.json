@@ -22,6 +22,10 @@
     "typecheck": "pnpm -r typecheck",
     "uilint-cli": "node packages/uilint-cli/dist/index.js",
     "sync:workspace": "node scripts/sync-workspace-deps.mjs",
+    "langfuse:up": "docker compose -f docker/langfuse/docker-compose.yml up -d",
+    "langfuse:down": "docker compose -f docker/langfuse/docker-compose.yml down",
+    "langfuse:logs": "docker compose -f docker/langfuse/docker-compose.yml logs -f langfuse-web",
+    "langfuse:sync-prompts": "npx tsx scripts/sync-prompts-to-langfuse.ts",
     "version:patch": "pnpm --filter 'uilint-*' exec npm version patch --no-git-tag-version && pnpm --filter jsx-loc-plugin exec npm version patch --no-git-tag-version && npm version patch --no-git-tag-version && pnpm sync:workspace",
     "version:minor": "pnpm --filter 'uilint-*' exec npm version minor --no-git-tag-version && pnpm --filter jsx-loc-plugin exec npm version minor --no-git-tag-version && npm version minor --no-git-tag-version && pnpm sync:workspace",
     "version:major": "pnpm --filter 'uilint-*' exec npm version major --no-git-tag-version && pnpm --filter jsx-loc-plugin exec npm version major --no-git-tag-version && npm version major --no-git-tag-version && pnpm sync:workspace",
@@ -30,6 +34,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "packageManager": "pnpm@9.14.2",

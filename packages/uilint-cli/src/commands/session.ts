@@ -6,17 +6,14 @@
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "fs";
 import { basename, dirname, resolve } from "path";
-import {
-  OllamaClient,
-  createStyleSummary,
-  type UILintIssue,
-} from "uilint-core";
+import { createStyleSummary, type UILintIssue } from "uilint-core";
 import {
   ensureOllamaReady,
   parseCLIInput,
   readStyleGuideFromProject,
   readTailwindThemeTokens,
 } from "uilint-core/node";
+import { createLLMClient, flushLangfuse } from "../utils/llm-client.js";
 
 const SESSION_FILE = "/tmp/uilint-session.json";
 
@@ -173,9 +170,9 @@ export async function sessionScan(
     return;
   }
 
-  // Prep Ollama + client once
+  // Prep Ollama + client once (with optional Langfuse tracing)
   await ensureOllamaReady({ model: options.model });
-  const client = new OllamaClient({ model: options.model });
+  const client = await createLLMClient({ model: options.model });
 
   const results: FileScanResult[] = [];
 
@@ -259,6 +256,9 @@ export async function sessionScan(
   if (existsSync(SESSION_FILE)) {
     unlinkSync(SESSION_FILE);
   }
+
+  // Flush Langfuse traces before returning
+  await flushLangfuse();
 }
 
 /**

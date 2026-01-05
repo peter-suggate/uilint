@@ -5,7 +5,6 @@
 import { dirname, resolve } from "path";
 import { existsSync, mkdirSync, statSync, writeFileSync } from "fs";
 import {
-  OllamaClient,
   createStyleSummary,
   buildAnalysisPrompt,
   buildSourceAnalysisPrompt,
@@ -25,6 +24,7 @@ import {
   type ScanInput,
 } from "../utils/input.js";
 import { resolvePathSpecifier } from "../utils/path-specifiers.js";
+import { createLLMClient, flushLangfuse } from "../utils/llm-client.js";
 import {
   intro,
   outro,
@@ -136,6 +136,7 @@ export async function scan(options: ScanOptions): Promise<void> {
       } else {
         logError("No input provided. Use --input-file or pipe HTML to stdin.");
       }
+      await flushLangfuse();
       process.exit(1);
     }
 
@@ -330,7 +331,7 @@ export async function scan(options: ScanOptions): Promise<void> {
     }
 
     // Call Ollama for analysis
-    const client = new OllamaClient({ model: options.model });
+    const client = await createLLMClient({ model: options.model });
     let result;
 
     // Build the exact prompt (this is what analyzeStyles() uses internally)
@@ -518,6 +519,7 @@ export async function scan(options: ScanOptions): Promise<void> {
 
     // Exit with error code if issues found
     if (issues.length > 0) {
+      await flushLangfuse();
       process.exit(1);
     }
   } catch (error) {
@@ -529,6 +531,10 @@ export async function scan(options: ScanOptions): Promise<void> {
     } else {
       logError(error instanceof Error ? error.message : "Scan failed");
     }
+    await flushLangfuse();
     process.exit(1);
   }
+
+  // Flush before normal exit
+  await flushLangfuse();
 }

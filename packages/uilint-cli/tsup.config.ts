@@ -10,4 +10,12 @@ export default defineConfig({
   banner: {
     js: "#!/usr/bin/env node",
   },
+  // Mark Langfuse/OpenTelemetry as external - they use CommonJS internals
+  // that don't work when bundled into ESM. These are optional dev dependencies.
+  external: [
+    "@opentelemetry/sdk-node",
+    "@langfuse/otel",
+    "@langfuse/tracing",
+    "@langfuse/client",
+  ],
 });
