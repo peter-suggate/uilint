@@ -1,17 +1,15 @@
 /**
  * LLM client for browser environment
- * Uses uilint-core for prompts and wraps API calls
+ * Wraps API calls to the dev server analyze route (browser environment)
  */
 
-import {
-  createStyleSummary,
-  buildAnalysisPrompt,
-  buildStyleGuidePrompt,
-  UILINT_DEFAULT_OLLAMA_MODEL,
-  type ExtractedStyles,
-  type UILintIssue,
-  type AnalysisResult,
-} from "uilint-core";
+import { UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
+
+export type UILintScanIssue = {
+  line?: number;
+  message: string;
+  dataLoc?: string;
+};
 
 export interface LLMClientOptions {
   apiEndpoint?: string;
@@ -33,22 +31,32 @@ export class LLMClient {
   }
 
   /**
-   * Analyzes extracted styles and returns issues
+   * Analyze a source file/snippet and return issues.
+   *
+   * NOTE: This matches the (simplified) `/api/.uilint/analyze` route which is
+   * now source-only (no styleSummary / styleguide generation).
    */
-  async analyze(
-    styles: ExtractedStyles,
-    styleGuide: string | null
-  ): Promise<AnalysisResult> {
-    const startTime = Date.now();
-    const styleSummary = createStyleSummary(styles);
-
+  async analyzeSource(input: {
+    sourceCode: string;
+    filePath?: string;
+    styleGuide?: string | null;
+    componentName?: string;
+    componentLine?: number;
+    includeChildren?: boolean;
+    dataLocs?: string[];
+  }): Promise<{ issues: UILintScanIssue[] }> {
     try {
       const response = await fetch(this.apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          styleSummary,
-          styleGuide,
+          sourceCode: input.sourceCode,
+          filePath: input.filePath,
+          styleGuide: input.styleGuide ?? undefined,
+          componentName: input.componentName,
+          componentLine: input.componentLine,
+          includeChildren: input.includeChildren,
+          dataLocs: input.dataLocs,
           model: this.model,
         }),
       });
@@ -58,50 +66,10 @@ export class LLMClient {
       }
 
       const data = await response.json();
-
-      return {
-        issues: data.issues || [],
-        suggestedStyleGuide: data.suggestedStyleGuide,
-        analysisTime: Date.now() - startTime,
-      };
+      return { issues: data.issues || [] };
     } catch (error) {
       console.error("[UILint] Analysis failed:", error);
-      return {
-        issues: [],
-        analysisTime: Date.now() - startTime,
-      };
-    }
-  }
-
-  /**
-   * Generates a style guide from detected styles
-   */
-  async generateStyleGuide(styles: ExtractedStyles): Promise<string | null> {
-    const styleSummary = createStyleSummary(styles);
-
-    try {
-      const response = await fetch(this.apiEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          styleSummary,
-          generateGuide: true,
-          model: this.model,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.styleGuide || null;
-    } catch (error) {
-      console.error("[UILint] Style guide generation failed:", error);
-      return null;
+      return { issues: [] };
     }
   }
 }
-
-// Re-export prompt builders for any code that uses them directly
-export { buildAnalysisPrompt, buildStyleGuidePrompt };

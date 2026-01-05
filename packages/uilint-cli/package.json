@@ -44,7 +44,7 @@
     "commander": "^14.0.2",
     "chalk": "^5.6.2",
     "picocolors": "^1.1.1",
-    "uilint-core": "^0.1.31"
+    "uilint-core": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.5.1",

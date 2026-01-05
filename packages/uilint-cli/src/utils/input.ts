@@ -11,6 +11,7 @@ import {
   readStdin,
   type DOMSnapshot,
 } from "uilint-core/node";
+import { resolvePathSpecifier } from "./path-specifiers.js";
 
 export interface InputOptions {
   inputFile?: string;
@@ -49,10 +50,11 @@ export async function getInput(options: InputOptions): Promise<DOMSnapshot> {
   }
 
   if (options.inputFile) {
-    if (!existsSync(options.inputFile)) {
+    const filePath = resolvePathSpecifier(options.inputFile, process.cwd());
+    if (!existsSync(filePath)) {
       throw new Error(`File not found: ${options.inputFile}`);
     }
-    const content = await readFile(options.inputFile, "utf-8");
+    const content = await readFile(filePath, "utf-8");
     return parseCLIInput(content);
   }
 
@@ -85,25 +87,26 @@ export async function getScanInput(options: InputOptions): Promise<ScanInput> {
   }
 
   if (options.inputFile) {
-    if (!existsSync(options.inputFile)) {
+    const filePath = resolvePathSpecifier(options.inputFile, process.cwd());
+    if (!existsSync(filePath)) {
       throw new Error(`File not found: ${options.inputFile}`);
     }
-    const content = await readFile(options.inputFile, "utf-8");
-    const ext = extname(options.inputFile).toLowerCase();
+    const content = await readFile(filePath, "utf-8");
+    const ext = extname(filePath).toLowerCase();
 
     if (isHtmlLikeExtension(ext) || isJsonLikeExtension(ext)) {
       return {
         kind: "dom",
         snapshot: parseCLIInput(content),
         source: "file",
-        inputPath: options.inputFile,
+        inputPath: filePath,
       };
     }
 
     return {
       kind: "source",
       source: content,
-      inputPath: options.inputFile,
+      inputPath: filePath,
       extension: ext,
     };
   }
@@ -137,10 +140,11 @@ export async function getCodeInput(options: {
   }
 
   if (options.file) {
-    if (!existsSync(options.file)) {
+    const filePath = resolvePathSpecifier(options.file, process.cwd());
+    if (!existsSync(filePath)) {
       throw new Error(`File not found: ${options.file}`);
     }
-    return readFile(options.file, "utf-8");
+    return readFile(filePath, "utf-8");
   }
 
   if (hasStdin()) {

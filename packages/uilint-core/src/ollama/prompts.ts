@@ -119,6 +119,121 @@ Focus on:
 Be minimal. Only report significant inconsistencies.`;
 }
 
+export interface BuildSourceScanPromptOptions {
+  /**
+   * Display filename/path for context in the prompt.
+   */
+  filePath?: string;
+  /**
+   * Optional focus target for manual scan UX.
+   */
+  componentName?: string;
+  componentLine?: number;
+  /**
+   * If true, the scan is for the selected element + children (UI text only).
+   */
+  includeChildren?: boolean;
+  /**
+   * Optional list of data-loc values (format: "path:line:column") that the model MUST
+   * restrict issues to (so UI can highlight exactly).
+   */
+  dataLocs?: string[];
+}
+
+/**
+ * Builds a prompt for scanning a source file/snippet for issues that can be mapped
+ * back to rendered DOM elements via `data-loc`.
+ *
+ * Response schema (JSON):
+ * { "issues": [{ "line"?: number, "message": string, "dataLoc"?: string }] }
+ */
+export function buildSourceScanPrompt(
+  sourceCode: string,
+  styleGuide: string | null,
+  options: BuildSourceScanPromptOptions = {}
+): string {
+  const fileLabel = options.filePath || "component.tsx";
+  const dataLocList = Array.isArray(options.dataLocs) ? options.dataLocs : [];
+
+  const focusSection =
+    options.componentName && options.componentName.trim()
+      ? `## Focus
+
+Focus on the "${options.componentName.trim()}" component${
+          typeof options.componentLine === "number"
+            ? ` (near line ${options.componentLine})`
+            : ""
+        }.
+
+`
+      : "";
+
+  const scopeText =
+    options.includeChildren === true
+      ? "Scope: selected element + children."
+      : "Scope: selected element only.";
+
+  const dataLocSection =
+    dataLocList.length > 0
+      ? `## Element Locations (data-loc values)
+
+The following elements are rendered on the page from this file. Each data-loc has format "path:line:column".
+When reporting issues, include the matching dataLoc value so we can highlight the specific element.
+
+\`\`\`
+${dataLocList.join("\n")}
+\`\`\`
+
+`
+      : "";
+
+  const guideSection = styleGuide
+    ? `## Style Guide
+
+${styleGuide}
+
+`
+    : "";
+
+  return `You are a UI code reviewer. Analyze the following React/TypeScript UI code for style consistency issues.
+
+${guideSection}${focusSection}${scopeText}
+
+${dataLocSection}## Source Code (${fileLabel})
+
+\`\`\`tsx
+${sourceCode}
+\`\`\`
+
+## Task
+
+Identify any style inconsistencies, violations of best practices, or deviations from the style guide.
+For each issue, provide:
+- line: the line number in the source file
+- message: a clear description of the issue
+- dataLoc: the matching data-loc value from the list above (if applicable, to identify the specific element)
+
+## Critical Requirements for dataLoc
+
+- If "Element Locations (data-loc values)" are provided, ONLY report issues that correspond to one of those elements.
+- When you include a dataLoc, it MUST be copied verbatim from the list (no shortening paths, no normalization).
+- If you cannot match an issue to a provided dataLoc, omit that issue from the response.
+
+Respond with JSON:
+\`\`\`json
+{
+  "issues": [
+    { "line": 12, "message": "Color #3575E2 should be #3B82F6 (primary blue from styleguide)", "dataLoc": "app/page.tsx:12:5" }
+  ]
+}
+\`\`\`
+
+If no issues are found, respond with:
+\`\`\`json
+{ "issues": [] }
+\`\`\``;
+}
+
 /**
  * Builds a prompt for style guide generation
  */

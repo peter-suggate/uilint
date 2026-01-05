@@ -8,6 +8,8 @@
 // Types
 export type {
   UILintIssue,
+  UILintScanIssue,
+  UILintSourceScanResult,
   StyleGuide,
   ColorRule,
   TypographyRule,
@@ -29,6 +31,7 @@ export { UILINT_DEFAULT_OLLAMA_MODEL } from "./ollama/defaults.js";
 export {
   buildAnalysisPrompt,
   buildSourceAnalysisPrompt,
+  buildSourceScanPrompt,
   buildStyleGuidePrompt,
 } from "./ollama/prompts.js";
 

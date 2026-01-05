@@ -13,6 +13,24 @@ export const STYLEGUIDE_PATHS = [
 ];
 
 /**
+ * Walk upward from a starting directory and look specifically for `.uilint/styleguide.md`.
+ *
+ * This is intended for flows where the "project root" is ambiguous (e.g., analyzing
+ * an arbitrary file path) and we want the nearest `.uilint` config on the way up.
+ */
+export function findUILintStyleGuideUpwards(startDir: string): string | null {
+  let dir = startDir;
+  for (;;) {
+    const candidate = join(dir, ".uilint", "styleguide.md");
+    if (existsSync(candidate)) return candidate;
+
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+/**
  * Finds the style guide file in a project
  */
 export function findStyleGuidePath(projectPath: string): string | null {
@@ -65,4 +83,3 @@ export function getDefaultStyleGuidePath(projectPath: string): string {
 export function styleGuideExists(projectPath: string): boolean {
   return findStyleGuidePath(projectPath) !== null;
 }
-

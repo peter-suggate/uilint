@@ -11,13 +11,11 @@ import {
   buildSourceAnalysisPrompt,
   formatViolationsText,
   sanitizeIssues,
-  type StreamProgressCallback,
-} from "uilint-core";
-import {
   ensureOllamaReady,
   readStyleGuide,
   readStyleGuideFromProject,
   findStyleGuidePath,
+  findUILintStyleGuideUpwards,
   STYLEGUIDE_PATHS,
   readTailwindThemeTokens,
 } from "uilint-core/node";
@@ -26,6 +24,7 @@ import {
   type InputOptions,
   type ScanInput,
 } from "../utils/input.js";
+import { resolvePathSpecifier } from "../utils/path-specifiers.js";
 import {
   intro,
   outro,
@@ -118,11 +117,17 @@ export async function scan(options: ScanOptions): Promise<void> {
     // Get input
     let snapshot: ScanInput;
     try {
+      const normalizedOptions: ScanOptions = {
+        ...options,
+        inputFile: options.inputFile
+          ? resolvePathSpecifier(options.inputFile, process.cwd())
+          : options.inputFile,
+      };
       if (isJsonOutput) {
-        snapshot = await getScanInput(options);
+        snapshot = await getScanInput(normalizedOptions);
       } else {
         snapshot = await withSpinner("Parsing input", async () => {
-          return await getScanInput(options);
+          return await getScanInput(normalizedOptions);
         });
       }
     } catch {
@@ -198,7 +203,10 @@ export async function scan(options: ScanOptions): Promise<void> {
     const projectPath = process.cwd();
 
     if (options.styleguide) {
-      const styleguideArg = resolve(projectPath, options.styleguide);
+      const styleguideArg = resolvePathSpecifier(
+        options.styleguide,
+        projectPath
+      );
       if (existsSync(styleguideArg)) {
         const stat = statSync(styleguideArg);
         if (stat.isFile()) {
@@ -218,8 +226,22 @@ export async function scan(options: ScanOptions): Promise<void> {
         }
       }
     } else {
-      // No --styleguide provided, search from cwd
-      styleguideLocation = findStyleGuidePath(projectPath);
+      // No --styleguide provided:
+      // Prefer searching upward from the input file directory for `.uilint/styleguide.md`
+      // (helps when running from repo root but scanning a nested app/package).
+      const startPath =
+        snapshot.kind === "source"
+          ? snapshot.inputPath
+          : snapshot.kind === "dom"
+          ? snapshot.inputPath
+          : undefined;
+      if (startPath) {
+        styleguideLocation = findUILintStyleGuideUpwards(dirname(startPath));
+      }
+
+      // Fallback: search from cwd
+      styleguideLocation =
+        styleguideLocation ?? findStyleGuidePath(projectPath);
       if (styleguideLocation) {
         styleGuide = await readStyleGuide(styleguideLocation);
       }
@@ -260,9 +282,11 @@ export async function scan(options: ScanOptions): Promise<void> {
     }
 
     // Create style summary
-    const tailwindSearchDir = options.inputFile
-      ? dirname(resolve(process.cwd(), options.inputFile))
-      : projectPath;
+    const tailwindSearchDir =
+      (snapshot.kind === "source" || snapshot.kind === "dom") &&
+      snapshot.inputPath
+        ? dirname(snapshot.inputPath)
+        : projectPath;
     const tailwindTheme = readTailwindThemeTokens(tailwindSearchDir);
     const styleSummary =
       snapshot.kind === "dom"
@@ -435,7 +459,7 @@ export async function scan(options: ScanOptions): Promise<void> {
       const s = createSpinner();
       s.start("Analyzing with LLM");
 
-      const onProgress: StreamProgressCallback = (latestLine) => {
+      const onProgress = (latestLine: string): void => {
         // Truncate line if too long for terminal
         const maxLen = 60;
         const displayLine =

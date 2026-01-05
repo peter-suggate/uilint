@@ -12,18 +12,7 @@ export interface InstallNextRoutesOptions {
   confirmOverwrite?: (relPath: string) => Promise<boolean>;
 }
 
-const STYLEGUIDE_ROUTE_TS = `export const runtime = "nodejs";
-
-import { NextRequest, NextResponse } from "next/server";
-import {
-  findStyleGuidePath,
-  readStyleGuide,
-  writeStyleGuide,
-  findWorkspaceRoot,
-} from "uilint-core/node";
-import { existsSync, readFileSync } from "fs";
-import { dirname, isAbsolute, join, resolve } from "path";
-
+const NEXT_STYLEGUIDE_UTILS_TS = `
 function hasNextConfig(dir: string): boolean {
   return (
     existsSync(join(dir, "next.config.js")) ||
@@ -68,7 +57,12 @@ function resolveExplicitStyleGuidePath(
   workspaceRoot: string
 ): { path?: string; error?: string } {
   if (!raw || !raw.trim()) return {};
-  const trimmed = raw.trim();
+  let trimmed = raw.trim();
+  // Support workspace-relative "@..." specifiers (common in monorepos)
+  if (trimmed.startsWith("@")) {
+    trimmed = trimmed.slice(1);
+    if (trimmed.startsWith("/")) trimmed = trimmed.slice(1);
+  }
   const candidate = isAbsolute(trimmed) ? trimmed : resolve(workspaceRoot, trimmed);
   const abs = resolve(candidate);
   const rootAbs = resolve(workspaceRoot);
@@ -114,6 +108,42 @@ function resolveStyleGuidePath(explicit: string | null): {
   // 4) Fallback to workspace root (monorepo)
   return { path: findStyleGuidePath(workspaceRoot) };
 }
+
+async function resolveStyleGuideContent(input: {
+  styleGuide?: string;
+  styleguidePath?: string | null;
+}): Promise<{ styleGuide?: string; error?: string; status?: number }> {
+  if (input.styleGuide && typeof input.styleGuide === "string") {
+    return { styleGuide: input.styleGuide };
+  }
+
+  const { path, error } = resolveStyleGuidePath(input.styleguidePath ?? null);
+  if (error) return { error, status: 400 };
+  if (!path) {
+    return {
+      error:
+        'No style guide found. Create ".uilint/styleguide.md", pass styleguidePath, or set UILINT_STYLEGUIDE_PATH.',
+      status: 404,
+    };
+  }
+
+  return { styleGuide: await readStyleGuide(path) };
+}
+`;
+
+const STYLEGUIDE_ROUTE_TS = `export const runtime = "nodejs";
+
+import { NextRequest, NextResponse } from "next/server";
+import {
+  findStyleGuidePath,
+  readStyleGuide,
+  writeStyleGuide,
+  findWorkspaceRoot,
+} from "uilint-core/node";
+import { existsSync, readFileSync } from "fs";
+import { dirname, isAbsolute, join, resolve } from "path";
+
+${NEXT_STYLEGUIDE_UTILS_TS}
 
 export async function GET(request: NextRequest) {
   try {
@@ -331,7 +361,11 @@ export async function GET(request: NextRequest) {
 const ANALYZE_ROUTE_TS = `export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { OllamaClient, UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
+import {
+  OllamaClient,
+  UILINT_DEFAULT_OLLAMA_MODEL,
+  buildSourceScanPrompt,
+} from "uilint-core";
 import { existsSync, readFileSync } from "fs";
 import { dirname, isAbsolute, join, resolve } from "path";
 import {
@@ -340,199 +374,14 @@ import {
   findWorkspaceRoot,
 } from "uilint-core/node";
 
-function hasNextConfig(dir: string): boolean {
-  return (
-    existsSync(join(dir, "next.config.js")) ||
-    existsSync(join(dir, "next.config.mjs")) ||
-    existsSync(join(dir, "next.config.cjs")) ||
-    existsSync(join(dir, "next.config.ts"))
-  );
-}
-
-function hasNextDependency(dir: string): boolean {
-  const pkgPath = join(dir, "package.json");
-  if (!existsSync(pkgPath)) return false;
-  try {
-    const raw = readFileSync(pkgPath, "utf-8");
-    const pkg = JSON.parse(raw) as {
-      dependencies?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-      peerDependencies?: Record<string, string>;
-    };
-    return Boolean(
-      pkg.dependencies?.next ||
-        pkg.devDependencies?.next ||
-        pkg.peerDependencies?.next
-    );
-  } catch {
-    return false;
-  }
-}
-
-function findNextAppRoot(startDir: string): string | null {
-  let dir = startDir;
-  for (;;) {
-    if (hasNextConfig(dir) || hasNextDependency(dir)) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-
-function resolveExplicitStyleGuidePath(
-  raw: string | null,
-  workspaceRoot: string
-): { path?: string; error?: string } {
-  if (!raw || !raw.trim()) return {};
-  const trimmed = raw.trim();
-  const candidate = isAbsolute(trimmed) ? trimmed : resolve(workspaceRoot, trimmed);
-  const abs = resolve(candidate);
-  const rootAbs = resolve(workspaceRoot);
-  if (abs !== rootAbs && !abs.startsWith(rootAbs + "/")) {
-    return {
-      error: "styleguidePath must be within the workspace root: " + rootAbs,
-    };
-  }
-  if (!existsSync(abs)) {
-    return { error: "styleguidePath not found: " + abs };
-  }
-  return { path: abs };
-}
-
-async function resolveStyleGuideContent(input: {
-  styleGuide?: string;
-  styleguidePath?: string | null;
-}): Promise<{ styleGuide?: string; error?: string; status?: number }> {
-  if (input.styleGuide && typeof input.styleGuide === "string") {
-    return { styleGuide: input.styleGuide };
-  }
-
-  const appRoot = findNextAppRoot(__dirname) ?? process.cwd();
-  const workspaceRoot = findWorkspaceRoot(appRoot);
-
-  // 1) Explicit per-request path
-  const explicitRes = resolveExplicitStyleGuidePath(
-    input.styleguidePath ?? null,
-    workspaceRoot
-  );
-  if (explicitRes.error) return { error: explicitRes.error, status: 400 };
-  if (explicitRes.path) {
-    return { styleGuide: await readStyleGuide(explicitRes.path) };
-  }
-
-  // 2) Env var pin (optional)
-  const envRes = resolveExplicitStyleGuidePath(
-    process.env.UILINT_STYLEGUIDE_PATH ?? null,
-    workspaceRoot
-  );
-  if (envRes.path) {
-    return { styleGuide: await readStyleGuide(envRes.path) };
-  }
-
-  // 3) Local then workspace fallback
-  const localPath = findStyleGuidePath(appRoot);
-  if (localPath) return { styleGuide: await readStyleGuide(localPath) };
-
-  const wsPath = findStyleGuidePath(workspaceRoot);
-  if (wsPath) return { styleGuide: await readStyleGuide(wsPath) };
-
-  return {
-    error:
-      'No style guide found. Create ".uilint/styleguide.md", pass styleguidePath, or set UILINT_STYLEGUIDE_PATH.',
-    status: 404,
-  };
-}
-
-/**
- * Analyze source code for style issues using LLM
- * @param dataLocs - Array of data-loc values (format: "path:line:column") for elements in this file
- */
-async function analyzeSourceCode(
-  client: OllamaClient,
-  sourceCode: string,
-  filePath: string,
-  styleGuide: string | null,
-  dataLocs: string[] = [],
-  focus?: { componentName?: string; componentLine?: number },
-  scopeText?: string
-): Promise<{ issues: Array<{ line?: number; message: string; dataLoc?: string }> }> {
-  // Build the data-loc reference section if we have any
-  const dataLocSection = dataLocs.length > 0
-    ? \`## Element Locations (data-loc values)
-
-The following elements are rendered on the page from this file. Each data-loc has format "path:line:column".
-When reporting issues, include the matching dataLoc value so we can highlight the specific element.
-
-\\\`\\\`\\\`
-\${dataLocs.join("\\n")}
-\\\`\\\`\\\`
-
-\`
-    : "";
-
-  const prompt = \`You are a UI code reviewer. Analyze the following React/TypeScript component for style consistency issues.
-
-\${styleGuide ? \`## Style Guide\\n\\n\${styleGuide}\\n\\n\` : ""}\${
-    focus?.componentName
-      ? \`## Focus\\n\\nFocus on the "\${focus.componentName}" component\${
-          typeof focus.componentLine === "number"
-            ? \` (near line \${focus.componentLine})\`
-            : ""
-        }.\\n\\n\`
-      : ""
-  }\${scopeText ? \`\${scopeText}\\n\\n\` : ""}\${dataLocSection}## Source Code (\${filePath})
-
-\\\`\\\`\\\`tsx
-\${sourceCode}
-\\\`\\\`\\\`
-
-## Task
-
-Identify any style inconsistencies, violations of best practices, or deviations from the style guide.
-For each issue, provide:
-- line: the line number in the source file
-- message: a clear description of the issue
-- dataLoc: the matching data-loc value from the list above (if applicable, to identify the specific element)
-
-## Critical Requirements for dataLoc
-
-- If "Element Locations (data-loc values)" are provided, ONLY report issues that correspond to one of those elements.
-- When you include a dataLoc, it MUST be copied verbatim from the list (no shortening paths, no normalization).
-- If you cannot match an issue to a provided dataLoc, omit that issue from the response.
-
-Respond with JSON:
-\\\`\\\`\\\`json
-{
-  "issues": [
-    { "line": 12, "message": "Color #3575E2 should be #3B82F6 (primary blue from styleguide)", "dataLoc": "app/page.tsx:12:5" },
-    { "line": 25, "message": "Use p-4 instead of p-3 for consistent button padding", "dataLoc": "app/page.tsx:25:8" }
-  ]
-}
-\\\`\\\`\\\`
-
-If no issues are found, respond with:
-\\\`\\\`\\\`json
-{ "issues": [] }
-\\\`\\\`\\\`\`;
-
-  try {
-    const response = await client.complete(prompt, { json: true });
-    const parsed = JSON.parse(response);
-    return { issues: parsed.issues || [] };
-  } catch (error) {
-    console.error("[UILint] Failed to parse LLM response:", error);
-    return { issues: [] };
-  }
-}
+${NEXT_STYLEGUIDE_UTILS_TS}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { 
-      styleSummary, 
       styleGuide, 
       styleguidePath, 
-      generateGuide, 
       model,
       // Fields for source code analysis
       sourceCode,
@@ -559,165 +408,83 @@ export async function POST(request: NextRequest) {
     }
 
     // Source code analysis mode (for Alt+Click scan feature)
-    if (sourceCode && typeof sourceCode === "string") {
-      const resolved = await resolveStyleGuideContent({
-        styleGuide,
-        styleguidePath,
-      });
-      
-      // Don't fail if no style guide - just analyze without it
-      const styleGuideContent = resolved.error ? null : (resolved.styleGuide ?? null);
-      
-      const focus = {
-        componentName: typeof componentName === "string" ? componentName : undefined,
-        componentLine: typeof componentLine === "number" ? componentLine : undefined,
-      };
-      const scopeText =
-        includeChildren === true
-          ? "Scope: selected element + children."
-          : "Scope: selected element only.";
-
-      // Optional streaming mode (SSE) for long-running LLM calls
-      if (stream === true) {
-        const encoder = new TextEncoder();
-        const dataLocList = Array.isArray(dataLocs) ? dataLocs : [];
-
-        const sse = new ReadableStream<Uint8Array>({
-          start(controller) {
-            const send = (event: string, payload: unknown) => {
-              controller.enqueue(encoder.encode(\`event: \${event}\\n\`));
-              controller.enqueue(
-                encoder.encode(\`data: \${JSON.stringify(payload)}\\n\\n\`)
-              );
-            };
-
-            (async () => {
-              try {
-                send("progress", { phase: "Starting LLM…" });
-
-                const dataLocSection =
-                  dataLocList.length > 0
-                    ? \`## Element Locations (data-loc values)
-
-The following elements are rendered on the page from this file. Each data-loc has format "path:line:column".
-When reporting issues, include the matching dataLoc value so we can highlight the specific element.
-
-\\\`\\\`\\\`
-\${dataLocList.join("\\n")}
-\\\`\\\`\\\`
-
-\`
-                    : "";
-
-                const prompt = \`You are a UI code reviewer. Analyze the following React/TypeScript component for style consistency issues.
-
-\${styleGuideContent ? \`## Style Guide\\n\\n\${styleGuideContent}\\n\\n\` : ""}\${
-                  focus.componentName
-                    ? \`## Focus\\n\\nFocus on the "\${focus.componentName}" component\${
-                        typeof focus.componentLine === "number"
-                          ? \` (near line \${focus.componentLine})\`
-                          : ""
-                      }.\\n\${scopeText}\\n\\n\`
-                    : ""
-                }\${dataLocSection}## Source Code (\${filePath || "component.tsx"})
-
-\\\`\\\`\\\`tsx
-\${sourceCode}
-\\\`\\\`\\\`
-
-## Task
-
-Identify any style inconsistencies, violations of best practices, or deviations from the style guide.
-For each issue, provide:
-- line: the line number in the source file
-- message: a clear description of the issue
-- dataLoc: the matching data-loc value from the list above (if applicable, to identify the specific element)
-
-## Critical Requirements for dataLoc
-
-- If "Element Locations (data-loc values)" are provided, ONLY report issues that correspond to one of those elements.
-- When you include a dataLoc, it MUST be copied verbatim from the list (no shortening paths, no normalization).
-- If you cannot match an issue to a provided dataLoc, omit that issue from the response.
-
-Respond with JSON:
-\\\`\\\`\\\`json
-{
-  "issues": [
-    { "line": 12, "message": "Color #3575E2 should be #3B82F6 (primary blue from styleguide)", "dataLoc": "app/page.tsx:12:5" },
-    { "line": 25, "message": "Use p-4 instead of p-3 for consistent button padding", "dataLoc": "app/page.tsx:25:8" }
-  ]
-}
-\\\`\\\`\\\`
-
-If no issues are found, respond with:
-\\\`\\\`\\\`json
-{ "issues": [] }
-\\\`\\\`\\\`\`;
-
-                const full = await client.complete(prompt, {
-                  json: true,
-                  stream: true,
-                  onProgress: (latestLine) => {
-                    send("progress", { phase: "Running LLM…", latestLine });
-                  },
-                });
-
-                const parsed = JSON.parse(full);
-                send("done", { issues: parsed.issues || [] });
-                controller.close();
-              } catch (err) {
-                send("error", {
-                  error: err instanceof Error ? err.message : String(err),
-                });
-                controller.close();
-              }
-            })();
-          },
-        });
-
-        return new Response(sse, {
-          headers: {
-            "Content-Type": "text/event-stream; charset=utf-8",
-            "Cache-Control": "no-cache, no-transform",
-            Connection: "keep-alive",
-          },
-        });
-      }
-
-      const result = await analyzeSourceCode(
-        client,
-        sourceCode,
-        filePath || "component.tsx",
-        styleGuideContent,
-        Array.isArray(dataLocs) ? dataLocs : [],
-        focus,
-        scopeText
+    if (!sourceCode || typeof sourceCode !== "string") {
+      return NextResponse.json(
+        { error: "sourceCode is required", issues: [] },
+        { status: 400 }
       );
-      return NextResponse.json(result);
     }
 
-    if (generateGuide) {
-      // Generate a new style guide
-      const styleGuideContent = await client.generateStyleGuide(styleSummary);
-      return NextResponse.json({ styleGuide: styleGuideContent });
-    } else {
-      const resolved = await resolveStyleGuideContent({
-        styleGuide,
-        styleguidePath,
-      });
-      if (resolved.error) {
-        return NextResponse.json(
-          { error: resolved.error, issues: [] },
-          { status: resolved.status ?? 500 }
-        );
-      }
+    const resolved = await resolveStyleGuideContent({
+      styleGuide,
+      styleguidePath,
+    });
 
-      // Analyze styles for issues
-      const result = await client.analyzeStyles(
-        styleSummary,
-        resolved.styleGuide ?? null
-      );
-      return NextResponse.json({ issues: result.issues });
+    // Don't fail if no style guide - just analyze without it
+    const styleGuideContent = resolved.error ? null : (resolved.styleGuide ?? null);
+
+    const prompt = buildSourceScanPrompt(sourceCode, styleGuideContent, {
+      filePath: typeof filePath === "string" && filePath ? filePath : "component.tsx",
+      componentName: typeof componentName === "string" ? componentName : undefined,
+      componentLine: typeof componentLine === "number" ? componentLine : undefined,
+      includeChildren: includeChildren === true,
+      dataLocs: Array.isArray(dataLocs) ? dataLocs : undefined,
+    });
+
+    // Optional streaming mode (SSE) for long-running LLM calls
+    if (stream === true) {
+      const encoder = new TextEncoder();
+
+      const sse = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const send = (event: string, payload: unknown) => {
+            controller.enqueue(encoder.encode(\`event: \${event}\\n\`));
+            controller.enqueue(
+              encoder.encode(\`data: \${JSON.stringify(payload)}\\n\\n\`)
+            );
+          };
+
+          (async () => {
+            try {
+              send("progress", { phase: "Starting LLM…" });
+
+              const full = await client.complete(prompt, {
+                json: true,
+                stream: true,
+                onProgress: (latestLine) => {
+                  send("progress", { phase: "Running LLM…", latestLine });
+                },
+              });
+
+              const parsed = JSON.parse(full);
+              send("done", { issues: parsed.issues || [] });
+              controller.close();
+            } catch (err) {
+              send("error", {
+                error: err instanceof Error ? err.message : String(err),
+              });
+              controller.close();
+            }
+          })();
+        },
+      });
+
+      return new Response(sse, {
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    try {
+      const response = await client.complete(prompt, { json: true });
+      const parsed = JSON.parse(response);
+      return NextResponse.json({ issues: parsed.issues || [] });
+    } catch (error) {
+      console.error("[UILint] Failed to parse LLM response:", error);
+      return NextResponse.json({ issues: [] });
     }
   } catch (error) {
     console.error("[UILint API] Error:", error);

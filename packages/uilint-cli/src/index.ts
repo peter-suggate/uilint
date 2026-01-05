@@ -3,8 +3,9 @@
  */
 
 import { Command } from "commander";
-import { UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
+import { UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core/node";
 import { scan } from "./commands/scan.js";
+import { analyze } from "./commands/analyze.js";
 import { consistency } from "./commands/consistency.js";
 import { update } from "./commands/update.js";
 import { install } from "./commands/install.js";
@@ -37,6 +38,62 @@ program
   .name("uilint")
   .description("AI-powered UI consistency checker")
   .version(getCLIVersion());
+
+// Analyze command
+program
+  .command("analyze")
+  .description("Analyze a source file/snippet for style issues (data-loc aware)")
+  .option("-f, --input-file <path>", "Path to a source file to analyze")
+  .option("--source-code <code>", "Source code to analyze (string)")
+  .option("--file-path <path>", "File path label shown in the prompt")
+  .option("--style-guide <text>", "Inline styleguide content to use")
+  .option("--styleguide-path <path>", "Path to a style guide file")
+  .option("--component-name <name>", "Component name for focused analysis")
+  .option("--component-line <n>", "Component line number (integer)", (v) =>
+    parseInt(v, 10)
+  )
+  .option("--include-children", "Scope: selected element + children")
+  .option(
+    "--data-loc <value>",
+    "data-loc value (repeatable) in format path:line:column",
+    (v, prev: string[] | undefined) => (prev ? [...prev, v] : [v]),
+    []
+  )
+  .option("-o, --output <format>", "Output format: text or json", "text")
+  .option(
+    "-m, --model <name>",
+    "Ollama model to use",
+    UILINT_DEFAULT_OLLAMA_MODEL
+  )
+  .option("--stream", "Stream progress while analyzing (text mode UI only)")
+  .option("--debug", "Enable debug logging (stderr)")
+  .option(
+    "--debug-full",
+    "Print full prompt/source/styleguide (can be very large)"
+  )
+  .option(
+    "--debug-dump <path>",
+    "Write full LLM payload dump to JSON file (or directory to auto-name)"
+  )
+  .action(async (options) => {
+    await analyze({
+      inputFile: options.inputFile,
+      sourceCode: options.sourceCode,
+      filePath: options.filePath,
+      styleGuide: options.styleGuide,
+      styleguidePath: options.styleguidePath,
+      componentName: options.componentName,
+      componentLine: options.componentLine,
+      includeChildren: options.includeChildren,
+      dataLoc: options.dataLoc,
+      output: options.output,
+      model: options.model,
+      stream: options.stream,
+      debug: options.debug,
+      debugFull: options.debugFull,
+      debugDump: options.debugDump,
+    });
+  });
 
 // Scan command
 program

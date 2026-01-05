@@ -30,6 +30,7 @@ export {
 export {
   STYLEGUIDE_PATHS,
   findStyleGuidePath,
+  findUILintStyleGuideUpwards,
   readStyleGuide,
   readStyleGuideFromProject,
   writeStyleGuide,

@@ -87,6 +87,23 @@ export interface AnalysisResult {
   analysisTime: number;
 }
 
+/**
+ * Lightweight issue type used for per-source scanning (e.g. via data-loc).
+ * This intentionally differs from `UILintIssue` (which is for styleSummary analysis).
+ */
+export interface UILintScanIssue {
+  /** Line number in the source file (1-based). */
+  line?: number;
+  /** Human-readable description of the issue. */
+  message: string;
+  /** Optional data-loc reference (format: "path:line:column") */
+  dataLoc?: string;
+}
+
+export interface UILintSourceScanResult {
+  issues: UILintScanIssue[];
+}
+
 // Ollama client options
 export interface OllamaClientOptions {
   baseUrl?: string;
