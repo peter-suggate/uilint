@@ -184,10 +184,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               description:
                 "Path to the project root (to find .uilint/styleguide.md)",
             },
-            model: {
-              type: "string",
-              description: "Ollama model to use (optional)",
-            },
           },
           required: ["markup"],
         },
@@ -208,10 +204,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "string",
               description:
                 "Path to the project root (to find .uilint/styleguide.md and resolve relative file paths)",
-            },
-            model: {
-              type: "string",
-              description: "Ollama model to use (optional)",
             },
           },
           required: ["filePath"],
@@ -240,13 +232,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
 
-        const model = args?.model as string | undefined;
         const inputJson = JSON.stringify({ html: markup });
 
         const cliArgs = ["scan", "--input-json", inputJson, "--output", "json"];
-        if (model) {
-          cliArgs.push("--model", model);
-        }
 
         const result = await runCLI(cliArgs, projectPath);
         return formatScanResult(result, "");
@@ -263,7 +251,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
 
-        const model = args?.model as string | undefined;
         const absoluteFilePath = resolve(projectPath, filePath);
 
         const cliArgs = [
@@ -273,9 +260,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           "--output",
           "json",
         ];
-        if (model) {
-          cliArgs.push("--model", model);
-        }
 
         const result = await runCLI(cliArgs, projectPath);
         return formatScanResult(result, filePath);

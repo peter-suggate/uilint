@@ -18,10 +18,7 @@ import { createRequire } from "module";
 import { dirname, resolve, relative, join } from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { watch, type FSWatcher } from "chokidar";
-import {
-  findWorkspaceRoot,
-  UILINT_DEFAULT_OLLAMA_MODEL,
-} from "uilint-core/node";
+import { findWorkspaceRoot } from "uilint-core/node";
 import {
   logInfo,
   logSuccess,
@@ -32,7 +29,6 @@ import {
 
 export interface ServeOptions {
   port?: number;
-  model?: string;
 }
 
 export interface LintIssue {
@@ -669,16 +665,6 @@ function handleFileChange(filePath: string): void {
  */
 export async function serve(options: ServeOptions): Promise<void> {
   const port = options.port || 9234;
-  const model = options.model || UILINT_DEFAULT_OLLAMA_MODEL;
-
-  // Back-compat: model option remains, but `serve` now runs ESLint (not LLM).
-  if (options.model) {
-    logInfo(
-      `(note) --model ${pc.cyan(
-        model
-      )} ignored; server runs ESLint via project config`
-    );
-  }
 
   const cwd = process.cwd();
   const wsRoot = findWorkspaceRoot(cwd);

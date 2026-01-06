@@ -5,7 +5,6 @@
 import { dirname, resolve } from "path";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import {
-  UILINT_DEFAULT_OLLAMA_MODEL,
   buildSourceScanPrompt,
   ensureOllamaReady,
   readStyleGuide,
@@ -50,7 +49,6 @@ export interface AnalyzeOptions {
   dataLoc?: string[]; // repeatable
 
   // LLM
-  model?: string;
   stream?: boolean;
 
   // Output
@@ -192,7 +190,6 @@ export async function analyze(options: AnalyzeOptions): Promise<void> {
       componentLine: options.componentLine,
       includeChildren: options.includeChildren,
       dataLoc: options.dataLoc,
-      model: options.model,
       stream: options.stream,
       output: options.output,
     });
@@ -248,15 +245,13 @@ export async function analyze(options: AnalyzeOptions): Promise<void> {
     // Prepare Ollama
     if (!isJsonOutput) {
       await withSpinner("Preparing Ollama", async () => {
-        await ensureOllamaReady({ model: options.model });
+        await ensureOllamaReady();
       });
     } else {
-      await ensureOllamaReady({ model: options.model });
+      await ensureOllamaReady();
     }
 
-    const client = await createLLMClient({
-      model: options.model || UILINT_DEFAULT_OLLAMA_MODEL,
-    });
+    const client = await createLLMClient({});
 
     const promptContext = {
       filePath:

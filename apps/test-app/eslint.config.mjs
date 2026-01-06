@@ -49,6 +49,10 @@ export default [
         "error",
         { libraries: ["shadcn", "mui"] },
       ],
+      "uilint/semantic": [
+        "warn",
+        { model: "qwen3-coder:30b", styleguidePath: ".uilint/styleguide.md" },
+      ],
     },
   },
 ];

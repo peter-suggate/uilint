@@ -31,10 +31,10 @@ export default function Home() {
             <OutlineButton>Outline</OutlineButton>
 
             {/* Intentionally different styling */}
-            <button className="bg-blue-500 text-white px-3 py-1 rounded">
+            <button className="bg-blue-500 text-white px-[12px] py-1 rounded">
               Different Blue
             </button>
-            <button className="bg-blue-600 text-white px-5 py-3 rounded-xl">
+            <button className="bg-blue-600 text-white px-5 py-[12px] rounded-xl">
               Another Blue
             </button>
           </div>

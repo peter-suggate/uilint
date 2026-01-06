@@ -31,7 +31,6 @@ import {
 
 export interface UpdateOptions extends InputOptions {
   styleguide?: string;
-  model?: string;
   llm?: boolean;
 }
 
@@ -83,13 +82,13 @@ export async function update(options: UpdateOptions): Promise<void> {
     if (options.llm) {
       // Use LLM to suggest updates
       await withSpinner("Preparing Ollama", async () => {
-        await ensureOllamaReady({ model: options.model });
+        await ensureOllamaReady();
       });
 
       const result = await withSpinner(
         "Analyzing styles with LLM",
         async () => {
-          const client = await createLLMClient({ model: options.model });
+          const client = await createLLMClient({});
           const styleSummary = createStyleSummary(snapshot.styles, {
             html: snapshot.html,
             tailwindTheme,

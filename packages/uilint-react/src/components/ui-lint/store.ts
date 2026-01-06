@@ -256,6 +256,9 @@ const pendingRequests = new Map<
   { resolve: (issues: ESLintIssue[]) => void; reject: (error: Error) => void }
 >();
 
+/** Timeout for WebSocket lint requests (in ms) */
+const WS_REQUEST_TIMEOUT_MS = 120_000; // 2 minutes
+
 function makeRequestId(): string {
   try {
     // Modern browsers
@@ -596,13 +599,13 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       };
       wsConnection.send(JSON.stringify(message));
 
-      // Timeout after 30 seconds
+      // Timeout after 2 minutes
       setTimeout(() => {
         if (pendingRequests.has(requestId)) {
           pendingRequests.delete(requestId);
           reject(new Error("Request timed out"));
         }
-      }, 30000);
+      }, WS_REQUEST_TIMEOUT_MS);
     });
   },
 
@@ -629,13 +632,13 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       };
       wsConnection.send(JSON.stringify(message));
 
-      // Timeout after 30 seconds
+      // Timeout after 2 minutes
       setTimeout(() => {
         if (pendingRequests.has(requestId)) {
           pendingRequests.delete(requestId);
           reject(new Error("Request timed out"));
         }
-      }, 30000);
+      }, WS_REQUEST_TIMEOUT_MS);
     });
   },
 

@@ -26,7 +26,6 @@ import { printJSON } from "../utils/output.js";
 export interface ConsistencyOptions {
   inputJson?: string;
   output?: "text" | "json";
-  model?: string;
 }
 
 /**
@@ -110,19 +109,19 @@ export async function consistency(options: ConsistencyOptions): Promise<void> {
     // Prepare Ollama
     if (!isJsonOutput) {
       await withSpinner("Preparing Ollama", async () => {
-        await ensureOllamaReady({ model: options.model });
+        await ensureOllamaReady();
       });
     } else {
-      await ensureOllamaReady({ model: options.model });
+      await ensureOllamaReady();
     }
 
     // Analyze with core function
     let result: ConsistencyResult;
     if (isJsonOutput) {
-      result = await analyzeConsistency(snapshot, { model: options.model });
+      result = await analyzeConsistency(snapshot, {});
     } else {
       result = await withSpinner("Analyzing with LLM", async () => {
-        return await analyzeConsistency(snapshot, { model: options.model });
+        return await analyzeConsistency(snapshot, {});
       });
     }
 

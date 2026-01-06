@@ -8,6 +8,17 @@
 // Re-export everything from main entry
 export * from "./index.js";
 
+// Node.js-specific: logger (writes to stderr, uses process)
+export {
+  logInfo,
+  logSuccess,
+  logWarning,
+  logError,
+  logDebug,
+  createProgress,
+  pc,
+} from "./logger.js";
+
 // Node.js-specific: Ollama bootstrap helpers (LLM readiness)
 export {
   isOllamaInstalled,

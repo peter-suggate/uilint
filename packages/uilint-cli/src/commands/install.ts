@@ -39,12 +39,17 @@ import {
 import { installNextUILintRoutes } from "../utils/next-routes.js";
 import { installReactUILintOverlay } from "../utils/react-inject.js";
 import { installJsxLocPlugin } from "../utils/next-config-inject.js";
+import {
+  installEslintPlugin,
+  findEslintConfigFile,
+} from "../utils/eslint-config-inject.js";
 import { findWorkspaceRoot } from "uilint-core/node";
 import {
   findPackages,
   formatPackageOption,
   type PackageInfo,
 } from "../utils/package-detect.js";
+import { ruleRegistry, type RuleMetadata } from "uilint-eslint";
 
 export interface InstallOptions {
   force?: boolean;
@@ -61,7 +66,6 @@ export interface InstallOptions {
   react?: boolean;
   genrules?: boolean;
   eslint?: boolean;
-  model?: string;
 }
 
 type IntegrationMode = "mcp" | "hooks" | "both";
@@ -689,7 +693,6 @@ export async function install(options: InstallOptions): Promise<void> {
     const result = await installReactUILintOverlay({
       projectPath: nextProjectPath,
       appRoot: nextApp!.appRoot,
-      model: options.model,
       force: options.force,
       confirmFileChoice: async (choices) =>
         select<string>({
@@ -708,11 +711,7 @@ export async function install(options: InstallOptions): Promise<void> {
           initialValue: false,
         }),
     });
-    logSuccess(
-      `Injected <UILintProvider> in ${pc.dim(result.targetFile)}${
-        result.usedLLM ? pc.dim(" (LLM-selected)") : ""
-      }`
-    );
+    logSuccess(`Injected <UILintProvider> in ${pc.dim(result.targetFile)}`);
 
     // Inject jsx-loc-plugin into next.config
     logInfo("Configuring jsx-loc-plugin in next.config...");
@@ -747,56 +746,125 @@ export async function install(options: InstallOptions): Promise<void> {
     if (packages.length === 0) {
       logWarning("No packages with package.json found");
     } else {
-      // Let user select which packages to install ESLint plugin into
-      let selectedPaths: string[];
+      // Filter to only packages that have an eslint.config file
+      const packagesWithEslint = packages.filter((p) => {
+        const hasConfig = findEslintConfigFile(p.path) !== null;
+        return hasConfig;
+      });
 
-      if (packages.length === 1) {
-        // Single package - just confirm
-        const confirmed = await confirm({
-          message: `Install ESLint plugin in ${pc.cyan(
-            packages[0].displayPath
-          )}?`,
-          initialValue: true,
-        });
-        selectedPaths = confirmed ? [packages[0].path] : [];
+      if (packagesWithEslint.length === 0) {
+        logWarning(
+          "No packages with eslint.config.{mjs,js,cjs} found. Create an ESLint config first."
+        );
       } else {
-        // Multiple packages - multiselect
-        // Pre-select frontend packages without existing ESLint config
-        const initialValues = packages
-          .filter((p) => p.isFrontend && !p.hasEslintConfig)
-          .map((p) => p.path);
+        // Let user select which packages to install ESLint plugin into
+        let selectedPaths: string[];
 
-        selectedPaths = await multiselect<string>({
-          message: "Which packages should have ESLint plugin installed?",
-          options: packages.map(formatPackageOption),
-          required: false,
-          initialValues:
-            initialValues.length > 0 ? initialValues : [packages[0].path],
-        });
-      }
+        if (packagesWithEslint.length === 1) {
+          // Single package - just confirm
+          const confirmed = await confirm({
+            message: `Install ESLint plugin in ${pc.cyan(
+              packagesWithEslint[0].displayPath
+            )}?`,
+            initialValue: true,
+          });
+          selectedPaths = confirmed ? [packagesWithEslint[0].path] : [];
+        } else {
+          // Multiple packages - multiselect
+          // Pre-select frontend packages
+          const initialValues = packagesWithEslint
+            .filter((p) => p.isFrontend)
+            .map((p) => p.path);
 
-      // Install to each selected package
-      for (const pkgPath of selectedPaths) {
-        const pkgInfo = packages.find((p) => p.path === pkgPath);
-        const displayName = pkgInfo?.displayPath || pkgPath;
+          selectedPaths = await multiselect<string>({
+            message: "Which packages should have ESLint plugin installed?",
+            options: packagesWithEslint.map(formatPackageOption),
+            required: false,
+            initialValues:
+              initialValues.length > 0
+                ? initialValues
+                : [packagesWithEslint[0].path],
+          });
+        }
 
-        await withSpinner(
-          `Installing ESLint plugin in ${pc.dim(displayName)}`,
-          async () => {
-            const pm = detectPackageManager(pkgPath);
-            await installDependencies(pm, pkgPath, ["uilint-eslint"]);
+        if (selectedPaths.length === 0) {
+          logInfo("No packages selected for ESLint installation");
+        } else {
+          // Ask which rules to enable (once for all packages)
+          logInfo("\nSelect which ESLint rules to enable:");
+
+          const selectedRuleIds = await multiselect<string>({
+            message: "Which rules would you like to enable?",
+            options: ruleRegistry.map((rule: RuleMetadata) => ({
+              value: rule.id,
+              label: rule.name,
+              hint: rule.description,
+            })),
+            required: false,
+            initialValues: ruleRegistry
+              .filter(
+                (r: RuleMetadata) =>
+                  r.category === "static" || !r.requiresStyleguide
+              )
+              .map((r: RuleMetadata) => r.id),
+          });
+
+          if (selectedRuleIds.length === 0) {
+            logWarning("No rules selected - skipping ESLint configuration");
+          } else {
+            const selectedRules = ruleRegistry.filter((r: RuleMetadata) =>
+              selectedRuleIds.includes(r.id)
+            );
+
+            // Install to each selected package
+            for (const pkgPath of selectedPaths) {
+              const pkgInfo = packagesWithEslint.find(
+                (p) => p.path === pkgPath
+              );
+              const displayName = pkgInfo?.displayPath || pkgPath;
+
+              await withSpinner(
+                `Installing ESLint plugin in ${pc.dim(displayName)}`,
+                async () => {
+                  const pm = detectPackageManager(pkgPath);
+                  await installDependencies(pm, pkgPath, ["uilint-eslint"]);
+                }
+              );
+
+              // Inject rules into existing eslint.config
+              const result = await installEslintPlugin({
+                projectPath: pkgPath,
+                selectedRules,
+                force: options.force,
+                confirmOverwrite: async (path) =>
+                  confirm({
+                    message: `${pc.dim(
+                      path
+                    )} already has uilint rules. Overwrite?`,
+                    initialValue: false,
+                  }),
+              });
+
+              if (result.modified && result.configFile) {
+                logSuccess(
+                  `Configured ${pc.dim(result.configFile)} in ${pc.dim(
+                    displayName
+                  )}`
+                );
+              } else if (result.configFile) {
+                logInfo(
+                  `${pc.dim(result.configFile)} in ${pc.dim(
+                    displayName
+                  )} already configured`
+                );
+              } else {
+                logWarning(`No eslint.config found in ${pc.dim(displayName)}`);
+              }
+
+              eslintInstalledPaths.push(displayName);
+            }
           }
-        );
-
-        // Create or update eslint.config.js
-        await withSpinner(
-          `Configuring ESLint in ${pc.dim(displayName)}`,
-          async () => {
-            await installESLintConfig(pkgPath, options.force);
-          }
-        );
-
-        eslintInstalledPaths.push(displayName);
+        }
       }
 
       // Add .uilint/.cache to .gitignore (at workspace root)
@@ -1087,79 +1155,4 @@ function mergeHooksConfig(
   }
 
   return result;
-}
-
-/**
- * ESLint flat config template for uilint-eslint
- */
-const ESLINT_CONFIG_TEMPLATE = `import uilint from 'uilint-eslint';
-
-export default [
-  // UILint recommended rules (static analysis)
-  uilint.configs.recommended,
-
-  // UILint strict rules (includes LLM-powered semantic analysis)
-  // Uncomment to enable: uilint.configs.strict,
-
-  // Override settings as needed
-  {
-    rules: {
-      // 'uilint/no-arbitrary-tailwind': 'error',
-      // 'uilint/consistent-spacing': ['warn', { scale: [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16] }],
-      // 'uilint/no-direct-store-import': ['error', { storePattern: 'use*Store' }],
-      // 'uilint/no-mixed-component-libraries': ['error', { libraries: ['shadcn', 'mui'] }],
-    },
-  },
-];
-`;
-
-/**
- * Install ESLint configuration for uilint-eslint
- */
-async function installESLintConfig(
-  projectPath: string,
-  force?: boolean
-): Promise<void> {
-  // Look for existing ESLint config files
-  const configFiles = [
-    "eslint.config.js",
-    "eslint.config.mjs",
-    "eslint.config.cjs",
-  ];
-
-  let existingConfig: string | null = null;
-  for (const file of configFiles) {
-    const fullPath = join(projectPath, file);
-    if (existsSync(fullPath)) {
-      existingConfig = fullPath;
-      break;
-    }
-  }
-
-  if (existingConfig) {
-    // Check if already configured
-    const content = readFileSync(existingConfig, "utf-8");
-    if (
-      content.includes("uilint-eslint") ||
-      content.includes("uilint.configs")
-    ) {
-      logInfo(`${pc.dim(existingConfig)} already includes uilint-eslint`);
-      return;
-    }
-
-    if (!force) {
-      // Provide manual instructions
-      logWarning(
-        `ESLint config exists at ${pc.dim(existingConfig)}. Add manually:\\n` +
-          `  import uilint from 'uilint-eslint';\\n` +
-          `  // Add uilint.configs.recommended to your config array`
-      );
-      return;
-    }
-  }
-
-  // Create new eslint.config.js
-  const configPath = join(projectPath, "eslint.config.js");
-  writeFileSync(configPath, ESLINT_CONFIG_TEMPLATE, "utf-8");
-  logSuccess(`Created ${pc.dim("eslint.config.js")} with uilint-eslint`);
 }

@@ -63,15 +63,16 @@ uilint scan --input-file page.html --output json
 curl http://localhost:3000 | uilint scan
 ```
 
+> **Note:** The model used for LLM-based analysis defaults to the model configured in `uilint-core`. For ESLint-based semantic scanning (real-time linting), configure the model via the `uilint/semantic` rule options in your ESLint config.
+
 **Options:**
 
-| Option                    | Description                               |
-| ------------------------- | ----------------------------------------- |
-| `-f, --input-file <path>` | Path to HTML file to scan                 |
-| `-j, --input-json <json>` | JSON input with html and styles           |
-| `-s, --styleguide <path>` | Path to style guide file                  |
-| `-o, --output <format>`   | Output format: `text` or `json`           |
-| `-m, --model <name>`      | Ollama model (default: `qwen3-coder:30b`) |
+| Option                    | Description                     |
+| ------------------------- | ------------------------------- |
+| `-f, --input-file <path>` | Path to HTML file to scan       |
+| `-j, --input-json <json>` | JSON input with html and styles |
+| `-s, --styleguide <path>` | Path to style guide file        |
+| `-o, --output <format>`   | Output format: `text` or `json` |
 
 **Example output:**
 
@@ -107,11 +108,10 @@ uilint query "what colors?" --output json
 
 **Options:**
 
-| Option                    | Description                               |
-| ------------------------- | ----------------------------------------- |
-| `-s, --styleguide <path>` | Path to style guide file                  |
-| `-o, --output <format>`   | Output format: `text` or `json`           |
-| `-m, --model <name>`      | Ollama model (default: `qwen3-coder:30b`) |
+| Option                    | Description                     |
+| ------------------------- | ------------------------------- |
+| `-s, --styleguide <path>` | Path to style guide file        |
+| `-o, --output <format>`   | Output format: `text` or `json` |
 
 ### `uilint update` - Update Style Guide
 

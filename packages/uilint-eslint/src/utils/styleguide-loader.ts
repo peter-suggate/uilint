@@ -33,6 +33,22 @@ function findWorkspaceRoot(startDir: string): string {
 }
 
 /**
+ * Find the nearest package root (directory containing package.json),
+ * stopping at the workspace root.
+ */
+function findNearestPackageRoot(startDir: string, workspaceRoot: string): string {
+  let dir = startDir;
+  for (let i = 0; i < 30; i++) {
+    if (existsSync(join(dir, "package.json"))) return dir;
+    if (dir === workspaceRoot) break;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return startDir;
+}
+
+/**
  * Find the styleguide file path
  */
 export function findStyleguidePath(
@@ -41,12 +57,27 @@ export function findStyleguidePath(
 ): string | null {
   // Explicit path takes precedence
   if (explicitPath) {
-    const resolved = isAbsolute(explicitPath)
-      ? explicitPath
-      : resolve(startDir, explicitPath);
-    if (existsSync(resolved)) {
-      return resolved;
+    if (isAbsolute(explicitPath)) {
+      return existsSync(explicitPath) ? explicitPath : null;
     }
+
+    // For relative explicit paths, try:
+    // 1) relative to the file dir (back-compat)
+    // 2) relative to the nearest package root (typical "project root")
+    // 3) relative to workspace root (monorepo root)
+    const workspaceRoot = findWorkspaceRoot(startDir);
+    const packageRoot = findNearestPackageRoot(startDir, workspaceRoot);
+
+    const candidates = [
+      resolve(startDir, explicitPath),
+      resolve(packageRoot, explicitPath),
+      resolve(workspaceRoot, explicitPath),
+    ];
+
+    for (const p of candidates) {
+      if (existsSync(p)) return p;
+    }
+
     return null;
   }
 

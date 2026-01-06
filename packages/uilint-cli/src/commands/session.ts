@@ -122,8 +122,6 @@ export async function sessionTrack(filePath: string): Promise<void> {
 export interface SessionScanOptions {
   /** Output format for stop hook (outputs only followup_message JSON) */
   hookFormat?: boolean;
-  /** Ollama model to use */
-  model?: string;
 }
 
 /**
@@ -171,8 +169,8 @@ export async function sessionScan(
   }
 
   // Prep Ollama + client once (with optional Langfuse tracing)
-  await ensureOllamaReady({ model: options.model });
-  const client = await createLLMClient({ model: options.model });
+  await ensureOllamaReady();
+  const client = await createLLMClient({});
 
   const results: FileScanResult[] = [];
 

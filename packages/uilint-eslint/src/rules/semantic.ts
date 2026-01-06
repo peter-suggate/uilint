@@ -5,8 +5,9 @@
  * This is the only rule that reads .uilint/styleguide.md.
  */
 
-import { readFileSync } from "fs";
-import { dirname, relative } from "path";
+import { existsSync, readFileSync } from "fs";
+import { spawnSync } from "child_process";
+import { dirname, join, relative } from "path";
 import { createRule } from "../utils/create-rule.js";
 import {
   getCacheEntry,
@@ -15,17 +16,16 @@ import {
   type CachedIssue,
 } from "../utils/cache.js";
 import { getStyleguide } from "../utils/styleguide-loader.js";
+import { UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
+import { buildSourceScanPrompt } from "uilint-core";
 
 type MessageIds = "semanticIssue" | "styleguideNotFound" | "analysisError";
 type Options = [
   {
     model?: string;
     styleguidePath?: string;
-  },
+  }
 ];
-
-// Store for async analysis results that will be reported on next lint
-const pendingAnalysis = new Map<string, Promise<CachedIssue[]>>();
 
 export default createRule<Options, MessageIds>({
   name: "semantic",
@@ -57,7 +57,7 @@ export default createRule<Options, MessageIds>({
       },
     ],
   },
-  defaultOptions: [{ model: "qwen3:8b" }],
+  defaultOptions: [{ model: UILINT_DEFAULT_OLLAMA_MODEL }],
   create(context) {
     const options = context.options[0] || {};
     const filePath = context.filename;
@@ -71,6 +71,12 @@ export default createRule<Options, MessageIds>({
 
     // Skip if no styleguide
     if (!styleguide) {
+      console.error(
+        `[uilint] Styleguide not found (styleguidePath=${String(
+          options.styleguidePath ?? ""
+        )}, startDir=${fileDir})`
+      );
+
       return {
         Program(node) {
           context.report({
@@ -86,7 +92,16 @@ export default createRule<Options, MessageIds>({
     try {
       fileContent = readFileSync(filePath, "utf-8");
     } catch {
-      return {};
+      console.error(`[uilint] Failed to read file ${filePath}`);
+      return {
+        Program(node) {
+          context.report({
+            node,
+            messageId: "analysisError",
+            data: { error: `Failed to read source file ${filePath}` },
+          });
+        },
+      };
     }
 
     const fileHash = hashContentSync(fileContent);
@@ -102,7 +117,10 @@ export default createRule<Options, MessageIds>({
       styleguideHash
     );
 
-    if (cached) {
+    const ENABLE_CACHE = false;
+    if (ENABLE_CACHE && cached) {
+      console.error(`[uilint] Cache hit for ${filePath}`);
+
       // Report cached issues
       return {
         Program(node) {
@@ -118,36 +136,38 @@ export default createRule<Options, MessageIds>({
       };
     }
 
-    // Queue async analysis (will be picked up on next lint)
-    if (!pendingAnalysis.has(filePath)) {
-      const analysisPromise = runSemanticAnalysis(
-        fileContent,
-        styleguide,
-        options.model || "qwen3:8b"
+    // Cache miss: run sync analysis now (slow), cache, then report.
+    ENABLE_CACHE &&
+      console.error(
+        `[uilint] Cache miss for ${filePath}, running semantic analysis`
       );
 
-      pendingAnalysis.set(filePath, analysisPromise);
+    return {
+      Program(node) {
+        const issues = runSemanticAnalysisSync(
+          fileContent,
+          styleguide,
+          options.model || UILINT_DEFAULT_OLLAMA_MODEL,
+          filePath
+        );
 
-      // Store result in cache when complete
-      analysisPromise
-        .then((issues) => {
-          setCacheEntry(projectRoot, relativeFilePath, {
-            fileHash,
-            styleguideHash,
-            issues,
-            timestamp: Date.now(),
-          });
-        })
-        .catch(() => {
-          // Ignore errors - will retry on next lint
-        })
-        .finally(() => {
-          pendingAnalysis.delete(filePath);
+        setCacheEntry(projectRoot, relativeFilePath, {
+          fileHash,
+          styleguideHash,
+          issues,
+          timestamp: Date.now(),
         });
-    }
 
-    // No issues to report yet - will be cached for next run
-    return {};
+        for (const issue of issues) {
+          context.report({
+            node,
+            loc: { line: issue.line, column: issue.column || 0 },
+            messageId: "semanticIssue",
+            data: { message: issue.message },
+          });
+        }
+      },
+    };
   },
 });
 
@@ -155,9 +175,6 @@ export default createRule<Options, MessageIds>({
  * Find project root by looking for package.json
  */
 function findProjectRoot(startDir: string): string {
-  const { existsSync } = require("fs");
-  const { dirname, join } = require("path");
-
   let dir = startDir;
   for (let i = 0; i < 20; i++) {
     if (existsSync(join(dir, "package.json"))) {
@@ -171,42 +188,140 @@ function findProjectRoot(startDir: string): string {
 }
 
 /**
- * Run semantic analysis using Ollama
+ * Run semantic analysis using Ollama (synchronously).
+ *
+ * Implementation detail:
+ * - ESLint rules are synchronous.
+ * - Blocking on a Promise (sleep-loop/Atomics) would also block Node's event loop,
+ *   preventing the HTTP request to Ollama from ever completing.
+ * - To keep this simple & debuggable, we run the async LLM call in a child Node
+ *   process and synchronously wait for it to exit.
  */
-async function runSemanticAnalysis(
+function runSemanticAnalysisSync(
   sourceCode: string,
   styleguide: string,
-  model: string
-): Promise<CachedIssue[]> {
-  try {
-    // Dynamic import of uilint-core to avoid circular dependencies at load time
-    const { OllamaClient, buildSourceScanPrompt } = await import("uilint-core");
+  model: string,
+  filePath?: string
+): CachedIssue[] {
+  const startTime = Date.now();
+  const fileDisplay = filePath ? ` ${filePath}` : "";
+
+  console.error(`[uilint] Starting semantic analysis (sync)${fileDisplay}`);
+  console.error(`[uilint] Model: ${model}`);
+
+  // Build prompt in-process (pure string building).
+  const prompt = buildSourceScanPrompt(sourceCode, styleguide, {});
+
+  // Avoid `uilint-core/node` exports *and* CJS resolution:
+  // resolve the installed dependency by file URL relative to this plugin bundle.
+  // When built, `import.meta.url` points at `.../uilint-eslint/dist/index.js`,
+  // and the dependency lives at `.../uilint-eslint/node_modules/uilint-core/dist/node.js`.
+  const coreNodeUrl = new URL(
+    "../node_modules/uilint-core/dist/node.js",
+    import.meta.url
+  ).href;
+
+  const childScript = `
+    import * as coreNode from ${JSON.stringify(coreNodeUrl)};
+    const { OllamaClient, logInfo, logWarning, createProgress, pc } = coreNode;
+    const chunks = [];
+    for await (const c of process.stdin) chunks.push(c);
+    const input = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    const model = input.model;
+    const prompt = input.prompt;
 
     const client = new OllamaClient({ model });
-
-    // Check if Ollama is available
-    const available = await client.isAvailable();
-    if (!available) {
-      console.warn("[uilint-eslint] Ollama not available, skipping semantic analysis");
-      return [];
+    const ok = await client.isAvailable();
+    if (!ok) {
+      logWarning("Ollama not available, skipping semantic analysis");
+      process.stdout.write(JSON.stringify({ issues: [] }));
+      process.exit(0);
     }
 
-    const prompt = buildSourceScanPrompt(sourceCode, styleguide, {});
-    const response = await client.complete(prompt, { json: true });
+    logInfo(\`Ollama connected \${pc.dim(\`(model: \${model})\`)}\`);
+    const progress = createProgress("Analyzing with LLM...");
+    try {
+      const response = await client.complete(prompt, {
+        json: true,
+        stream: true,
+        onProgress: (latestLine) => {
+          const maxLen = 60;
+          const display =
+            latestLine.length > maxLen
+              ? latestLine.slice(0, maxLen) + "…"
+              : latestLine;
+          progress.update(\`LLM: \${pc.dim(display || "...")}\`);
+        },
+      });
+      progress.succeed("LLM complete");
+      process.stdout.write(response);
+    } catch (e) {
+      progress.fail(\`LLM failed: \${e instanceof Error ? e.message : String(e)}\`);
+      process.exit(1);
+    }
+  `;
 
-    const parsed = JSON.parse(response) as {
+  const child = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", childScript],
+    {
+      input: JSON.stringify({ model, prompt }),
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "inherit"],
+      maxBuffer: 20 * 1024 * 1024,
+    }
+  );
+
+  const elapsed = Date.now() - startTime;
+
+  if (child.error) {
+    console.error(
+      `[uilint] Semantic analysis failed after ${elapsed}ms: ${child.error.message}`
+    );
+    return [];
+  }
+
+  if (typeof child.status === "number" && child.status !== 0) {
+    console.error(
+      `[uilint] Semantic analysis failed after ${elapsed}ms: child exited ${child.status}`
+    );
+    return [];
+  }
+
+  const responseText = (child.stdout || "").trim();
+  if (!responseText) {
+    console.error(
+      `[uilint] Semantic analysis returned empty response (${elapsed}ms)`
+    );
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(responseText) as {
       issues?: Array<{ line?: number; column?: number; message?: string }>;
     };
 
-    return (parsed.issues || []).map((issue) => ({
+    const issues = (parsed.issues || []).map((issue) => ({
       line: issue.line || 1,
       column: issue.column,
       message: issue.message || "Semantic issue detected",
       ruleId: "uilint/semantic",
       severity: 1 as const,
     }));
-  } catch (error) {
-    console.error("[uilint-eslint] Semantic analysis error:", error);
+
+    if (issues.length > 0) {
+      console.error(`[uilint] Found ${issues.length} issue(s) (${elapsed}ms)`);
+    } else {
+      console.error(`[uilint] No issues found (${elapsed}ms)`);
+    }
+
+    return issues;
+  } catch (e) {
+    console.error(
+      `[uilint] Semantic analysis failed to parse response after ${elapsed}ms: ${
+        e instanceof Error ? e.message : String(e)
+      }`
+    );
     return [];
   }
 }

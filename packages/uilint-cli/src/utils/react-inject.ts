@@ -1,7 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import { ensureOllamaReady } from "uilint-core/node";
-import { createLLMClient } from "./llm-client.js";
 
 export interface InstallReactOverlayOptions {
   projectPath: string;
@@ -9,54 +7,39 @@ export interface InstallReactOverlayOptions {
    * Relative app root: "app" or "src/app"
    */
   appRoot: string;
-  model?: string;
   force?: boolean;
   confirmOverwrite?: (relPath: string) => Promise<boolean>;
   /**
-   * Always used to confirm the target file (even if there's only one candidate).
+   * If multiple candidates are found, prompt user to choose.
    */
   confirmFileChoice?: (choices: string[]) => Promise<string>;
 }
 
+/**
+ * Find top-level layout.* or page.* files in the app root.
+ * Prefer layout.* over page.* (layouts are better for providers).
+ */
 function getDefaultCandidates(projectPath: string, appRoot: string): string[] {
-  const candidates = [
+  // Check layout files first (preferred)
+  const layoutCandidates = [
     join(appRoot, "layout.tsx"),
     join(appRoot, "layout.jsx"),
     join(appRoot, "layout.ts"),
     join(appRoot, "layout.js"),
-    join(appRoot, "page.tsx"),
-    join(appRoot, "page.jsx"),
   ];
-  return candidates.filter((rel) => existsSync(join(projectPath, rel)));
-}
 
-function buildFileSelectionPrompt(
-  candidates: Array<{ path: string; preview: string }>
-): string {
-  const serialized = candidates
-    .map((c) => `### ${c.path}\n` + "```tsx\n" + c.preview + "\n```\n")
-    .join("\n");
+  const existingLayouts = layoutCandidates.filter((rel) =>
+    existsSync(join(projectPath, rel))
+  );
 
-  return `You are helping install a React dev overlay component into a Next.js App Router project.
-
-Choose the SINGLE best file to inject a <UILintProvider> wrapper into, from the list below.
-
-Rules:
-- You MUST pick exactly one of the provided file paths.
-- Prefer app/layout.* over page.*.
-- Prefer the top-level layout that wraps the whole app (the one containing {children} in the body).
-- Respond ONLY with JSON: { "targetFile": "<one-of-the-paths>", "reason": "<short>" }
-
-Candidates:
-${serialized}`;
-}
-
-function tryParseJSON<T>(text: string): T | null {
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    return null;
+  if (existingLayouts.length > 0) {
+    return existingLayouts;
   }
+
+  // Fall back to page files if no layouts found
+  const pageCandidates = [join(appRoot, "page.tsx"), join(appRoot, "page.jsx")];
+
+  return pageCandidates.filter((rel) => existsSync(join(projectPath, rel)));
 }
 
 function ensureUILintProviderImport(source: string): string {
@@ -132,7 +115,7 @@ function wrapChildrenWithUILintProvider(source: string): string {
 
 export async function installReactUILintOverlay(
   opts: InstallReactOverlayOptions
-): Promise<{ targetFile: string; usedLLM: boolean }> {
+): Promise<{ targetFile: string }> {
   const candidates = getDefaultCandidates(opts.projectPath, opts.appRoot);
   if (!candidates.length) {
     throw new Error(
@@ -140,36 +123,14 @@ export async function installReactUILintOverlay(
     );
   }
 
-  let usedLLM = false;
-  let chosen: string = candidates[0]!;
+  let chosen: string;
 
-  // Try LLM selection first.
-  try {
-    await ensureOllamaReady({ model: opts.model });
-    const client = await createLLMClient({ model: opts.model });
-
-    const promptCandidates = candidates.slice(0, 6).map((p) => {
-      const abs = join(opts.projectPath, p);
-      const content = readFileSync(abs, "utf-8");
-      const preview = content.split("\n").slice(0, 220).join("\n");
-      return { path: p, preview };
-    });
-
-    const prompt = buildFileSelectionPrompt(promptCandidates);
-    const raw = await client.complete(prompt, { json: true });
-    const parsed = tryParseJSON<{ targetFile?: string }>(raw);
-    if (parsed?.targetFile && candidates.includes(parsed.targetFile)) {
-      chosen = parsed.targetFile;
-      usedLLM = true;
-    }
-  } catch {
-    // Ignore and fall back to heuristics / user choice.
-  }
-
-  // If LLM didn't pick and there are multiple, ask user (interactive).
-  if (opts.confirmFileChoice) {
-    const orderedChoices = [chosen, ...candidates.filter((c) => c !== chosen)];
-    chosen = await opts.confirmFileChoice(orderedChoices);
+  // If there are multiple candidates, ask user to choose
+  if (candidates.length > 1 && opts.confirmFileChoice) {
+    chosen = await opts.confirmFileChoice(candidates);
+  } else {
+    // Single candidate - use it
+    chosen = candidates[0]!;
   }
 
   const absTarget = join(opts.projectPath, chosen);
@@ -181,7 +142,7 @@ export async function installReactUILintOverlay(
   ) {
     if (!opts.force) {
       const ok = await opts.confirmOverwrite?.(chosen);
-      if (!ok) return { targetFile: chosen, usedLLM };
+      if (!ok) return { targetFile: chosen };
     }
   }
 
@@ -193,5 +154,5 @@ export async function installReactUILintOverlay(
     writeFileSync(absTarget, updated, "utf-8");
   }
 
-  return { targetFile: chosen, usedLLM };
+  return { targetFile: chosen };
 }

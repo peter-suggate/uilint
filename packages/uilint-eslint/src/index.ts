@@ -156,3 +156,11 @@ export {
   type CachedIssue,
   type CacheStore,
 } from "./utils/cache.js";
+
+// Re-export rule registry for CLI tooling
+export {
+  ruleRegistry,
+  getRuleMetadata,
+  getRulesByCategory,
+  type RuleMetadata,
+} from "./rule-registry.js";

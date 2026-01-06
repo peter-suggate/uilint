@@ -3,7 +3,6 @@
  */
 
 import { Command } from "commander";
-import { UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core/node";
 import { scan } from "./commands/scan.js";
 import { analyze } from "./commands/analyze.js";
 import { consistency } from "./commands/consistency.js";
@@ -63,11 +62,6 @@ program
     []
   )
   .option("-o, --output <format>", "Output format: text or json", "text")
-  .option(
-    "-m, --model <name>",
-    "Ollama model to use",
-    UILINT_DEFAULT_OLLAMA_MODEL
-  )
   .option("--stream", "Stream progress while analyzing (text mode UI only)")
   .option("--debug", "Enable debug logging (stderr)")
   .option(
@@ -90,7 +84,6 @@ program
       includeChildren: options.includeChildren,
       dataLoc: options.dataLoc,
       output: options.output,
-      model: options.model,
       stream: options.stream,
       debug: options.debug,
       debugFull: options.debugFull,
@@ -106,11 +99,6 @@ program
   .option("-j, --input-json <json>", "JSON input with html and styles")
   .option("-s, --styleguide <path>", "Path to style guide file")
   .option("-o, --output <format>", "Output format: text or json", "text")
-  .option(
-    "-m, --model <name>",
-    "Ollama model to use",
-    UILINT_DEFAULT_OLLAMA_MODEL
-  )
   .option("--debug", "Enable debug logging (stderr)")
   .option(
     "--debug-full",
@@ -126,7 +114,6 @@ program
       inputJson: options.inputJson,
       styleguide: options.styleguide,
       output: options.output,
-      model: options.model,
       debug: options.debug,
       debugFull: options.debugFull,
       debugDump: options.debugDump,
@@ -139,16 +126,10 @@ program
   .description("Analyze grouped DOM elements for visual inconsistencies")
   .option("-j, --input-json <json>", "JSON input with GroupedSnapshot")
   .option("-o, --output <format>", "Output format: text or json", "text")
-  .option(
-    "-m, --model <name>",
-    "Ollama model to use",
-    UILINT_DEFAULT_OLLAMA_MODEL
-  )
   .action(async (options) => {
     await consistency({
       inputJson: options.inputJson,
       output: options.output,
-      model: options.model,
     });
   });
 
@@ -159,18 +140,12 @@ program
   .option("-f, --input-file <path>", "Path to HTML file to analyze")
   .option("-j, --input-json <json>", "JSON input with html and styles")
   .option("-s, --styleguide <path>", "Path to style guide file")
-  .option(
-    "-m, --model <name>",
-    "Ollama model to use",
-    UILINT_DEFAULT_OLLAMA_MODEL
-  )
   .option("--llm", "Use LLM to suggest updates")
   .action(async (options) => {
     await update({
       inputFile: options.inputFile,
       inputJson: options.inputJson,
       styleguide: options.styleguide,
-      model: options.model,
       llm: options.llm,
     });
   });
@@ -197,11 +172,6 @@ program
     "Back-compat: install Next.js overlay (routes + deps + inject)"
   )
   .option(
-    "-m, --model <name>",
-    "Ollama model to use for installer LLM steps",
-    UILINT_DEFAULT_OLLAMA_MODEL
-  )
-  .option(
     "--mode <mode>",
     "Integration mode: mcp, hooks, or both (skips interactive prompt)"
   )
@@ -216,7 +186,6 @@ program
       eslint: options.eslint,
       routes: options.routes,
       react: options.react,
-      model: options.model,
     });
   });
 
@@ -225,15 +194,9 @@ program
   .command("serve")
   .description("Start WebSocket server for real-time UI linting")
   .option("-p, --port <number>", "Port to listen on", "9234")
-  .option(
-    "-m, --model <name>",
-    "Ollama model to use",
-    UILINT_DEFAULT_OLLAMA_MODEL
-  )
   .action(async (options) => {
     await serve({
       port: parseInt(options.port, 10),
-      model: options.model,
     });
   });
 
@@ -262,13 +225,8 @@ sessionCmd
   .command("scan")
   .description("Scan all tracked markup files (called on agent stop)")
   .option("--hook", "Output in Cursor hook format (followup_message JSON only)")
-  .option(
-    "-m, --model <name>",
-    "Ollama model to use",
-    UILINT_DEFAULT_OLLAMA_MODEL
-  )
-  .action(async (options: { hook?: boolean; model?: string }) => {
-    await sessionScan({ hookFormat: options.hook, model: options.model });
+  .action(async (options: { hook?: boolean }) => {
+    await sessionScan({ hookFormat: options.hook });
   });
 
 sessionCmd

@@ -211,22 +211,20 @@ uilint scan --input-file page.html --output json
 # Scan from stdin
 curl http://localhost:3000 | uilint scan
 
-# Use a different model
-uilint scan --input-file page.html --model llama3.2
-
 # Pre-extracted styles (from browser)
 uilint scan --input-json '{"html":"<button class=\"bg-blue-500\">","styles":{"colors":{"#3B82F6":5}}}'
 ```
 
+> **Note:** The model used for analysis is configured in your project's ESLint settings via the `uilint/semantic` rule options, or defaults to `uilint-core`'s built-in model.
+
 **Options:**
 
-| Option                    | Description                               |
-| ------------------------- | ----------------------------------------- |
-| `-f, --input-file <path>` | Path to HTML file to scan                 |
-| `-j, --input-json <json>` | JSON input with html and styles           |
-| `-s, --styleguide <path>` | Path to style guide file                  |
-| `-o, --output <format>`   | Output format: `text` or `json`           |
-| `-m, --model <name>`      | Ollama model (default: `qwen3-coder:30b`) |
+| Option                    | Description                     |
+| ------------------------- | ------------------------------- |
+| `-f, --input-file <path>` | Path to HTML file to scan       |
+| `-j, --input-json <json>` | JSON input with html and styles |
+| `-s, --styleguide <path>` | Path to style guide file        |
+| `-o, --output <format>`   | Output format: `text` or `json` |
 
 **Example output:**
 
@@ -267,11 +265,10 @@ uilint query "what fonts?" --styleguide ./design/styleguide.md
 
 **Options:**
 
-| Option                    | Description                               |
-| ------------------------- | ----------------------------------------- |
-| `-s, --styleguide <path>` | Path to style guide file                  |
-| `-o, --output <format>`   | Output format: `text` or `json`           |
-| `-m, --model <name>`      | Ollama model (default: `qwen3-coder:30b`) |
+| Option                    | Description                     |
+| ------------------------- | ------------------------------- |
+| `-s, --styleguide <path>` | Path to style guide file        |
+| `-o, --output <format>`   | Output format: `text` or `json` |
 
 **Example output:**
 

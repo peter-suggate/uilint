@@ -27,7 +27,6 @@ import { resolvePathSpecifier } from "../utils/path-specifiers.js";
 import { createLLMClient, flushLangfuse } from "../utils/llm-client.js";
 import {
   intro,
-  outro,
   withSpinner,
   createSpinner,
   note,
@@ -42,7 +41,6 @@ import { printJSON } from "../utils/output.js";
 export interface ScanOptions extends InputOptions {
   styleguide?: string;
   output?: "text" | "json";
-  model?: string;
   /**
    * Enable debug logging (stderr only; never pollutes JSON stdout).
    * Can also be enabled via UILINT_DEBUG=1
@@ -145,7 +143,6 @@ export async function scan(options: ScanOptions): Promise<void> {
       inputJson: options.inputJson ? "(provided)" : undefined,
       styleguide: options.styleguide,
       output: options.output,
-      model: options.model,
     });
 
     if (snapshot.kind === "dom") {
@@ -324,14 +321,14 @@ export async function scan(options: ScanOptions): Promise<void> {
     // Prepare Ollama
     if (!isJsonOutput) {
       await withSpinner("Preparing Ollama", async () => {
-        await ensureOllamaReady({ model: options.model });
+        await ensureOllamaReady();
       });
     } else {
-      await ensureOllamaReady({ model: options.model });
+      await ensureOllamaReady();
     }
 
     // Call Ollama for analysis
-    const client = await createLLMClient({ model: options.model });
+    const client = await createLLMClient({});
     let result;
 
     // Build the exact prompt (this is what analyzeStyles() uses internally)
