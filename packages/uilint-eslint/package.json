@@ -1,12 +1,12 @@
 {
-  "name": "uilint-react",
-  "version": "0.1.32",
-  "description": "React component for AI-powered UI consistency checking",
+  "name": "uilint-eslint",
+  "version": "0.1.1",
+  "description": "ESLint plugin for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
     "type": "git",
     "url": "https://github.com/peter-suggate/uilint.git",
-    "directory": "packages/uilint-react"
+    "directory": "packages/uilint-eslint"
   },
   "homepage": "https://github.com/peter-suggate/uilint#readme",
   "bugs": {
@@ -20,10 +20,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./node": {
-      "types": "./dist/node.d.ts",
-      "import": "./dist/node.js"
     }
   },
   "files": [
@@ -41,29 +37,30 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "uilint-core": "workspace:*",
-    "zustand": "^5.0.5"
-  },
-  "peerDependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "@typescript-eslint/utils": "^8.35.1",
+    "uilint-core": "^0.1.32",
+    "xxhash-wasm": "^1.1.0"
   },
   "devDependencies": {
-    "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
+    "@types/eslint": "^9.6.1",
+    "@types/node": "^22.16.0",
+    "eslint": "^9.28.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   },
+  "peerDependencies": {
+    "eslint": ">=8.0.0"
+  },
   "keywords": [
-    "react",
+    "eslint",
+    "eslint-plugin",
     "ui",
     "lint",
     "consistency",
     "design-system",
     "ai",
-    "llm"
+    "llm",
+    "tailwind"
   ],
   "license": "MIT",
   "publishConfig": {

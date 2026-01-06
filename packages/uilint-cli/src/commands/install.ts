@@ -40,6 +40,11 @@ import { installNextUILintRoutes } from "../utils/next-routes.js";
 import { installReactUILintOverlay } from "../utils/react-inject.js";
 import { installJsxLocPlugin } from "../utils/next-config-inject.js";
 import { findWorkspaceRoot } from "uilint-core/node";
+import {
+  findPackages,
+  formatPackageOption,
+  type PackageInfo,
+} from "../utils/package-detect.js";
 
 export interface InstallOptions {
   force?: boolean;
@@ -54,11 +59,19 @@ export interface InstallOptions {
    */
   routes?: boolean;
   react?: boolean;
+  genrules?: boolean;
+  eslint?: boolean;
   model?: string;
 }
 
 type IntegrationMode = "mcp" | "hooks" | "both";
-type InstallItem = "mcp" | "hooks" | "genstyleguide" | "next";
+type InstallItem =
+  | "mcp"
+  | "hooks"
+  | "genstyleguide"
+  | "genrules"
+  | "next"
+  | "eslint";
 
 interface HooksConfig {
   version: number;
@@ -215,6 +228,109 @@ conventions:
 - **Actionable**: Every rule should be human-verifiable
 - **Omit if N/A**: Skip sections that don't apply
 - **Max 5 items** per section — highest impact only
+`;
+
+// Cursor command: /genrules - generates ESLint rules from styleguide
+const GENRULES_COMMAND_MD = `# ESLint Rule Generator
+
+Generate custom ESLint rules from your UILint styleguide (\`.uilint/styleguide.md\`).
+
+## Purpose
+
+Transform your semantic styleguide rules into concrete, enforceable ESLint rules that:
+- Run automatically during development
+- Integrate with your editor
+- Catch issues before commit
+- Provide actionable error messages
+
+## Analysis Steps
+
+### 1. Read the Styleguide
+
+Look at \`.uilint/styleguide.md\` for:
+- **Component Usage** (\`use:\` section) - which components should be used
+- **Forbidden** patterns - what to disallow
+- **Semantic Rules** - spacing, consistency, hierarchy
+- **Patterns** - form handling, conditionals, state management
+
+### 2. Identify Rule Candidates
+
+Focus on rules that can be statically analyzed:
+- Import patterns (e.g., "use Button from shadcn, not raw HTML button")
+- Forbidden patterns (e.g., "no inline style={{}}")
+- Component library mixing (e.g., "don't mix MUI and shadcn")
+- Tailwind patterns (e.g., "no arbitrary values")
+
+### 3. Generate Rule Files
+
+Create TypeScript ESLint rules in \`.uilint/rules/\`:
+
+\`\`\`typescript
+// .uilint/rules/prefer-shadcn-button.ts
+import { createRule } from 'uilint-eslint';
+
+export default createRule({
+  name: 'prefer-shadcn-button',
+  meta: {
+    type: 'problem',
+    docs: { description: 'Use Button from shadcn instead of raw <button>' },
+    messages: {
+      preferButton: 'Use <Button> from @/components/ui/button instead of raw <button>',
+    },
+    schema: [],
+  },
+  defaultOptions: [],
+  create(context) {
+    return {
+      JSXOpeningElement(node) {
+        if (node.name.type === 'JSXIdentifier' && node.name.name === 'button') {
+          context.report({ node, messageId: 'preferButton' });
+        }
+      },
+    };
+  },
+});
+\`\`\`
+
+### 4. Generate ESLint Config
+
+Create or update \`eslint.config.js\` to include the generated rules:
+
+\`\`\`javascript
+import uilint from 'uilint-eslint';
+import preferShadcnButton from './.uilint/rules/prefer-shadcn-button.js';
+
+export default [
+  uilint.configs.recommended,
+  {
+    plugins: {
+      'uilint-custom': {
+        rules: {
+          'prefer-shadcn-button': preferShadcnButton,
+        },
+      },
+    },
+    rules: {
+      'uilint-custom/prefer-shadcn-button': 'error',
+    },
+  },
+];
+\`\`\`
+
+## Output
+
+Generate in \`.uilint/rules/\`:
+- One TypeScript file per rule
+- An \`index.ts\` that exports all rules
+- Update instructions for \`eslint.config.js\`
+
+## Guidelines
+
+- **Focus on static analysis** - rules must work without runtime info
+- **Clear error messages** - tell devs exactly what to do
+- **No false positives** - better to miss issues than over-report
+- **Performance** - rules run on every file, keep them fast
+- **Minimal rules** - generate 3-5 high-impact rules, not dozens
 `;
 
 // Hook 1: beforeSubmitPrompt - clear tracked files
@@ -385,16 +501,19 @@ export async function install(options: InstallOptions): Promise<void> {
     options.mcp !== undefined ||
     options.hooks !== undefined ||
     options.genstyleguide !== undefined ||
+    options.genrules !== undefined ||
     options.routes !== undefined ||
     options.react !== undefined;
 
   let items: InstallItem[] = [];
 
-  if (hasExplicitFlags) {
+  if (hasExplicitFlags || options.eslint) {
     if (options.mcp) items.push("mcp");
     if (options.hooks) items.push("hooks");
     if (options.genstyleguide) items.push("genstyleguide");
+    if (options.genrules) items.push("genrules");
     if (options.routes || options.react) items.push("next");
+    if (options.eslint) items.push("eslint");
   } else if (options.mode) {
     const mode: IntegrationMode = options.mode;
     logInfo(`Using ${mode} mode (from --mode flag)`);
@@ -422,20 +541,32 @@ export async function install(options: InstallOptions): Promise<void> {
           hint: "Adds .cursor/commands/genstyleguide.md",
         },
         {
+          value: "genrules",
+          label: "/genrules command",
+          hint: "Adds .cursor/commands/genrules.md for ESLint rule generation",
+        },
+        {
           value: "next",
           label: "UI overlay",
           hint: "Installs routes + UILintProvider (Alt+Click to inspect)",
         },
+        {
+          value: "eslint",
+          label: "ESLint plugin",
+          hint: "Installs uilint-eslint and configures eslint.config.js",
+        },
       ],
       required: true,
-      initialValues: ["mcp", "hooks", "genstyleguide", "next"],
+      initialValues: ["mcp", "hooks", "genstyleguide", "genrules", "next"],
     });
   }
 
   const installMCP = items.includes("mcp");
   const installHooks = items.includes("hooks");
   const installGenStyleguide = items.includes("genstyleguide");
+  const installGenRules = items.includes("genrules");
   const installNextOverlay = items.includes("next");
+  const installESLint = items.includes("eslint");
 
   // Check for existing installations
   const mcpJsonPath = join(cursorDir, "mcp.json");
@@ -460,7 +591,7 @@ export async function install(options: InstallOptions): Promise<void> {
 
   // Create .cursor directory if needed
   if (
-    (installMCP || installHooks || installGenStyleguide) &&
+    (installMCP || installHooks || installGenStyleguide || installGenRules) &&
     !existsSync(cursorDir)
   ) {
     mkdirSync(cursorDir, { recursive: true });
@@ -484,6 +615,13 @@ export async function install(options: InstallOptions): Promise<void> {
   if (installGenStyleguide) {
     await withSpinner("Installing /genstyleguide command", async () => {
       await installGenStyleguideCommand(cursorDir);
+    });
+  }
+
+  // Install /genrules command
+  if (installGenRules) {
+    await withSpinner("Installing /genrules command", async () => {
+      await installGenRulesCommand(cursorDir);
     });
   }
 
@@ -599,6 +737,86 @@ export async function install(options: InstallOptions): Promise<void> {
     }
   }
 
+  // Install ESLint plugin
+  let eslintInstalledPaths: string[] = [];
+  if (installESLint) {
+    // Find all packages in the workspace
+    const workspaceRoot = findWorkspaceRoot(projectPath);
+    const packages = findPackages(workspaceRoot);
+
+    if (packages.length === 0) {
+      logWarning("No packages with package.json found");
+    } else {
+      // Let user select which packages to install ESLint plugin into
+      let selectedPaths: string[];
+
+      if (packages.length === 1) {
+        // Single package - just confirm
+        const confirmed = await confirm({
+          message: `Install ESLint plugin in ${pc.cyan(
+            packages[0].displayPath
+          )}?`,
+          initialValue: true,
+        });
+        selectedPaths = confirmed ? [packages[0].path] : [];
+      } else {
+        // Multiple packages - multiselect
+        // Pre-select frontend packages without existing ESLint config
+        const initialValues = packages
+          .filter((p) => p.isFrontend && !p.hasEslintConfig)
+          .map((p) => p.path);
+
+        selectedPaths = await multiselect<string>({
+          message: "Which packages should have ESLint plugin installed?",
+          options: packages.map(formatPackageOption),
+          required: false,
+          initialValues:
+            initialValues.length > 0 ? initialValues : [packages[0].path],
+        });
+      }
+
+      // Install to each selected package
+      for (const pkgPath of selectedPaths) {
+        const pkgInfo = packages.find((p) => p.path === pkgPath);
+        const displayName = pkgInfo?.displayPath || pkgPath;
+
+        await withSpinner(
+          `Installing ESLint plugin in ${pc.dim(displayName)}`,
+          async () => {
+            const pm = detectPackageManager(pkgPath);
+            await installDependencies(pm, pkgPath, ["uilint-eslint"]);
+          }
+        );
+
+        // Create or update eslint.config.js
+        await withSpinner(
+          `Configuring ESLint in ${pc.dim(displayName)}`,
+          async () => {
+            await installESLintConfig(pkgPath, options.force);
+          }
+        );
+
+        eslintInstalledPaths.push(displayName);
+      }
+
+      // Add .uilint/.cache to .gitignore (at workspace root)
+      const gitignorePath = join(workspaceRoot, ".gitignore");
+      const cacheIgnoreLine = ".uilint/.cache";
+
+      if (existsSync(gitignorePath)) {
+        const content = readFileSync(gitignorePath, "utf-8");
+        if (!content.includes(cacheIgnoreLine)) {
+          writeFileSync(
+            gitignorePath,
+            content + `\n# UILint cache\n${cacheIgnoreLine}\n`,
+            "utf-8"
+          );
+          logInfo("Added .uilint/.cache to .gitignore");
+        }
+      }
+    }
+  }
+
   // Show summary
   const installedItems: string[] = [];
 
@@ -619,6 +837,10 @@ export async function install(options: InstallOptions): Promise<void> {
     );
   }
 
+  if (installGenRules) {
+    installedItems.push(`${pc.cyan("Command")} → .cursor/commands/genrules.md`);
+  }
+
   if (installNextOverlay && nextApp) {
     installedItems.push(
       `${pc.cyan("Next Routes")} → ${pc.dim(
@@ -636,6 +858,27 @@ export async function install(options: InstallOptions): Promise<void> {
         "next.config wrapped with withJsxLoc"
       )}`
     );
+  }
+
+  if (installESLint && eslintInstalledPaths.length > 0) {
+    installedItems.push(
+      `${pc.cyan("ESLint Plugin")} → installed in ${
+        eslintInstalledPaths.length
+      } package(s)`
+    );
+    for (let i = 0; i < eslintInstalledPaths.length; i++) {
+      const isLast = i === eslintInstalledPaths.length - 1;
+      const prefix = isLast ? "└" : "├";
+      installedItems.push(
+        `  ${pc.dim(prefix)} ${eslintInstalledPaths[i]}/eslint.config.js`
+      );
+    }
+    installedItems.push(`${pc.cyan("Available Rules")}:`);
+    installedItems.push(`  ${pc.dim("├")} uilint/no-arbitrary-tailwind`);
+    installedItems.push(`  ${pc.dim("├")} uilint/consistent-spacing`);
+    installedItems.push(`  ${pc.dim("├")} uilint/no-direct-store-import`);
+    installedItems.push(`  ${pc.dim("├")} uilint/no-mixed-component-libraries`);
+    installedItems.push(`  ${pc.dim("└")} uilint/semantic (LLM-powered)`);
   }
 
   note(installedItems.join("\n"), "Installed");
@@ -662,6 +905,15 @@ export async function install(options: InstallOptions): Promise<void> {
   if (installNextOverlay) {
     steps.push(
       "Run your Next.js dev server - use Alt+Click on any element to inspect"
+    );
+  }
+
+  if (installESLint) {
+    steps.push(`Run ${pc.cyan("npx eslint src/")} to check for issues`);
+    steps.push(
+      `For real-time overlay integration, run ${pc.cyan(
+        "uilint serve"
+      )} alongside your dev server`
     );
   }
 
@@ -783,6 +1035,20 @@ async function installGenStyleguideCommand(cursorDir: string): Promise<void> {
 }
 
 /**
+ * Install /genrules Cursor command
+ */
+async function installGenRulesCommand(cursorDir: string): Promise<void> {
+  const commandsDir = join(cursorDir, "commands");
+  const genrulesCommandPath = join(commandsDir, "genrules.md");
+
+  if (!existsSync(commandsDir)) {
+    mkdirSync(commandsDir, { recursive: true });
+  }
+
+  writeFileSync(genrulesCommandPath, GENRULES_COMMAND_MD, "utf-8");
+}
+
+/**
  * Merge our hooks into existing config without duplicating
  * Also removes legacy UILint hooks that are no longer used
  */
@@ -821,4 +1087,79 @@ function mergeHooksConfig(
   }
 
   return result;
+}
+
+/**
+ * ESLint flat config template for uilint-eslint
+ */
+const ESLINT_CONFIG_TEMPLATE = `import uilint from 'uilint-eslint';
+
+export default [
+  // UILint recommended rules (static analysis)
+  uilint.configs.recommended,
+
+  // UILint strict rules (includes LLM-powered semantic analysis)
+  // Uncomment to enable: uilint.configs.strict,
+
+  // Override settings as needed
+  {
+    rules: {
+      // 'uilint/no-arbitrary-tailwind': 'error',
+      // 'uilint/consistent-spacing': ['warn', { scale: [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16] }],
+      // 'uilint/no-direct-store-import': ['error', { storePattern: 'use*Store' }],
+      // 'uilint/no-mixed-component-libraries': ['error', { libraries: ['shadcn', 'mui'] }],
+    },
+  },
+];
+`;
+
+/**
+ * Install ESLint configuration for uilint-eslint
+ */
+async function installESLintConfig(
+  projectPath: string,
+  force?: boolean
+): Promise<void> {
+  // Look for existing ESLint config files
+  const configFiles = [
+    "eslint.config.js",
+    "eslint.config.mjs",
+    "eslint.config.cjs",
+  ];
+
+  let existingConfig: string | null = null;
+  for (const file of configFiles) {
+    const fullPath = join(projectPath, file);
+    if (existsSync(fullPath)) {
+      existingConfig = fullPath;
+      break;
+    }
+  }
+
+  if (existingConfig) {
+    // Check if already configured
+    const content = readFileSync(existingConfig, "utf-8");
+    if (
+      content.includes("uilint-eslint") ||
+      content.includes("uilint.configs")
+    ) {
+      logInfo(`${pc.dim(existingConfig)} already includes uilint-eslint`);
+      return;
+    }
+
+    if (!force) {
+      // Provide manual instructions
+      logWarning(
+        `ESLint config exists at ${pc.dim(existingConfig)}. Add manually:\\n` +
+          `  import uilint from 'uilint-eslint';\\n` +
+          `  // Add uilint.configs.recommended to your config array`
+      );
+      return;
+    }
+  }
+
+  // Create new eslint.config.js
+  const configPath = join(projectPath, "eslint.config.js");
+  writeFileSync(configPath, ESLINT_CONFIG_TEMPLATE, "utf-8");
+  logSuccess(`Created ${pc.dim("eslint.config.js")} with uilint-eslint`);
 }

@@ -16,6 +16,7 @@ import type {
   SourceLocation,
   ComponentInfo,
   ElementIssue,
+  ESLintIssue,
 } from "./types";
 
 /**
@@ -531,41 +532,11 @@ function SourceTab({ element }: { element: InspectedElement }) {
 }
 
 /**
- * Scan section - LLM analysis with clipboard-ready fix prompt
- * Displays prominently at the top of the Info tab
+ * Scan section - Displays ESLint issues from auto-scan cache
+ * Shows issues prominently at the top of the Info tab
  */
 function ScanSection({ element }: { element: InspectedElement }) {
   const { elementIssuesCache, autoScanState } = useUILintContext();
-  const [copied, setCopied] = useState(false);
-
-  // Stable key for manual scan cache
-  const manualKey = useMemo(() => {
-    const dataLoc = element.element.getAttribute("data-loc");
-    if (dataLoc) return `dataloc:${dataLoc}`;
-    if (element.source) {
-      return `src:${element.source.fileName}:${element.source.lineNumber}:${
-        element.source.columnNumber ?? 0
-      }`;
-    }
-    // Worst-case fallback: tag+rect (not stable across layout changes, but better than nothing)
-    return `fallback:${element.element.tagName.toLowerCase()}:${Math.round(
-      element.rect.left
-    )}:${Math.round(element.rect.top)}`;
-  }, [element.element, element.source, element.rect]);
-
-  const manualScan = useUILintStore((s: UILintStore) =>
-    s.manualScanCache.get(manualKey)
-  );
-  const upsertManualScan = useUILintStore(
-    (s: UILintStore) => s.upsertManualScan
-  );
-  const clearManualScan = useUILintStore((s: UILintStore) => s.clearManualScan);
-  const includeChildren = manualScan?.includeChildren ?? false;
-
-  // Get component context for focused analysis
-  const componentName =
-    element.componentStack[0]?.name || element.element.tagName.toLowerCase();
-  const componentLine = element.source?.lineNumber;
 
   // Find cached issue for this element from auto-scan
   const cachedIssue = useMemo((): ElementIssue | null => {
@@ -596,231 +567,17 @@ function ScanSection({ element }: { element: InspectedElement }) {
     autoScanState.elements,
   ]);
 
-  // Generate fix prompt from issues array
-  const generateFixPrompt = useCallback(
-    (
-      issues: Array<{ line?: number; message: string }>,
-      relativePath: string
-    ) => {
-      if (issues.length === 0) {
-        return `No style issues found in the \`${componentName}\` component in \`${relativePath}\`. The component appears to follow the styleguide.`;
-      }
+  // Get ESLint issues for display
+  const eslintIssues = useMemo(() => {
+    return cachedIssue?.issues || [];
+  }, [cachedIssue]);
 
-      const issueList = issues
-        .map((issue) => {
-          const lineInfo = issue.line ? `Line ${issue.line}: ` : "";
-          return `- ${lineInfo}${issue.message}`;
-        })
-        .join("\n");
-
-      return `Fix the following style issues in the \`${componentName}\` component in \`${relativePath}\`:
-
-Issues found:
-${issueList}
-
-Please update this component to match our styleguide.`;
-    },
-    [componentName]
-  );
-
-  // Build fix prompt from cached results
-  const cachedFixPrompt = useMemo(() => {
-    if (!cachedIssue || cachedIssue.status !== "complete") return null;
-    const relativePath = element.source?.fileName || "unknown";
-    return generateFixPrompt(cachedIssue.issues, relativePath);
-  }, [cachedIssue, element.source, generateFixPrompt]);
-
-  const handleScan = useCallback(async () => {
-    if (!element.source) {
-      upsertManualScan(manualKey, {
-        status: "error",
-        error: "No source information available",
-      });
-      return;
-    }
-
-    const MAX_DATALOCS = 80;
-    const selectedDataLoc = element.element.getAttribute("data-loc");
-    let dataLocList: string[] = [];
-
-    if (includeChildren) {
-      // Include the selected element and all descendants with data-loc
-      const nodes: Element[] = [
-        element.element,
-        ...Array.from(element.element.querySelectorAll("[data-loc]")),
-      ];
-      for (const n of nodes) {
-        const v = n.getAttribute("data-loc");
-        if (v) dataLocList.push(v);
-      }
-    } else if (selectedDataLoc) {
-      dataLocList = [selectedDataLoc];
-    }
-
-    // Dedupe and cap to keep prompts bounded
-    dataLocList = Array.from(new Set(dataLocList)).slice(0, MAX_DATALOCS);
-
-    upsertManualScan(manualKey, {
-      status: "scanning",
-      error: undefined,
-      fixPrompt: undefined,
-      issues: [],
-      progressLine: "Preparing analysis…",
-    });
-
-    try {
-      // Fetch the source code
-      const sourceResponse = await fetch(
-        `/api/.uilint/source?path=${encodeURIComponent(
-          element.source.fileName
-        )}`
-      );
-
-      if (!sourceResponse.ok) {
-        throw new Error("Failed to fetch source code");
-      }
-
-      const sourceData = await sourceResponse.json();
-      const sourceCode = sourceData.content;
-      const relativePath = sourceData.relativePath || element.source.fileName;
-
-      // Send to analyze route with component context and dataLoc (streaming)
-      const analyzeResponse = await fetch("/api/.uilint/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceCode,
-          filePath: relativePath,
-          componentName,
-          componentLine,
-          includeChildren,
-          dataLocs: dataLocList.length > 0 ? dataLocList : undefined,
-          stream: true,
-        }),
-      });
-
-      if (!analyzeResponse.ok) {
-        throw new Error("Failed to analyze source code");
-      }
-
-      const contentType = analyzeResponse.headers.get("content-type") || "";
-      if (!contentType.includes("text/event-stream") || !analyzeResponse.body) {
-        // Fallback: non-streaming JSON
-        const result = await analyzeResponse.json();
-        const issues = result.issues || [];
-        upsertManualScan(manualKey, {
-          status: "complete",
-          issues,
-          fixPrompt: generateFixPrompt(issues, relativePath),
-          progressLine: undefined,
-        });
-        return;
-      }
-
-      // Parse SSE stream
-      const reader = analyzeResponse.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() || "";
-
-        for (const part of parts) {
-          const lines = part.split("\n");
-          let eventName = "message";
-          let dataStr = "";
-          for (const line of lines) {
-            if (line.startsWith("event:")) eventName = line.slice(6).trim();
-            if (line.startsWith("data:")) dataStr += line.slice(5).trim();
-          }
-          if (!dataStr) continue;
-          try {
-            const data = JSON.parse(dataStr);
-            if (eventName === "progress") {
-              upsertManualScan(manualKey, {
-                status: "scanning",
-                progressLine:
-                  data.latestLine || data.phase || "Running analysis…",
-              });
-            } else if (eventName === "done") {
-              const issues = data.issues || [];
-              upsertManualScan(manualKey, {
-                status: "complete",
-                issues,
-                fixPrompt: generateFixPrompt(issues, relativePath),
-                progressLine: undefined,
-              });
-            } else if (eventName === "error") {
-              upsertManualScan(manualKey, {
-                status: "error",
-                error: data.error || "Analysis failed",
-                progressLine: undefined,
-              });
-            }
-          } catch {
-            // ignore malformed event payloads
-          }
-        }
-      }
-    } catch (err) {
-      upsertManualScan(manualKey, {
-        status: "error",
-        error:
-          err instanceof Error
-            ? err.message
-            : "An error occurred during scanning",
-        progressLine: undefined,
-      });
-    }
-  }, [
-    element.source,
-    element.element,
-    element.rect,
-    componentName,
-    componentLine,
-    generateFixPrompt,
-    manualKey,
-    upsertManualScan,
-    includeChildren,
-  ]);
-
-  const handleCopy = useCallback(
-    async (text: string) => {
-      try {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch {
-        upsertManualScan(manualKey, {
-          status: "error",
-          error: "Failed to copy to clipboard",
-        });
-      }
-    },
-    [manualKey, upsertManualScan]
-  );
-
-  // Determine what to show based on cached status and local state
-  const manualStatus = manualScan?.status ?? "idle";
-  const showCachedScanning =
-    cachedIssue?.status === "scanning" && manualStatus === "idle";
-  const showCachedPending =
-    cachedIssue?.status === "pending" && manualStatus === "idle";
-  const showCachedError =
-    cachedIssue?.status === "error" && manualStatus === "idle";
-  const showCachedResult = cachedFixPrompt && manualStatus === "idle";
-  const showScanButton = !cachedIssue && manualStatus === "idle";
-  const showManualResult = manualStatus === "complete" && manualScan?.fixPrompt;
-  const scanning = manualStatus === "scanning";
-  const error = manualScan?.status === "error" ? manualScan.error : null;
-  const fixPrompt = manualScan?.fixPrompt ?? null;
-  const progressLine = manualScan?.progressLine ?? null;
-  const scopeLabel = includeChildren ? "Element + children" : "Element only";
+  // Determine what to show based on cached status
+  const showCachedScanning = cachedIssue?.status === "scanning";
+  const showCachedPending = cachedIssue?.status === "pending";
+  const showCachedError = cachedIssue?.status === "error";
+  const showCachedResult = cachedIssue?.status === "complete";
+  const showNoScan = !cachedIssue;
 
   return (
     <div
@@ -871,7 +628,6 @@ Please update this component to match our styleguide.`;
                 backgroundColor: STYLES.bg,
                 color: STYLES.textMuted,
                 fontSize: "12px",
-                marginBottom: "12px",
               }}
             >
               <div
@@ -884,90 +640,22 @@ Please update this component to match our styleguide.`;
               />
               Waiting in scan queue...
             </div>
-            <div>
-              <button
-                onClick={handleScan}
-                disabled={!element.source}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: `1px solid ${STYLES.border}`,
-                  backgroundColor: "transparent",
-                  color: element.source ? STYLES.text : STYLES.textDim,
-                  fontSize: "12px",
-                  fontWeight: 500,
-                  cursor: element.source ? "pointer" : "not-allowed",
-                  transition: "all 0.15s",
-                }}
-                onMouseEnter={(e) => {
-                  if (element.source) {
-                    e.currentTarget.style.borderColor = STYLES.accent;
-                    e.currentTarget.style.backgroundColor =
-                      "rgba(59, 130, 246, 0.1)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = STYLES.border;
-                  e.currentTarget.style.backgroundColor = "transparent";
-                }}
-              >
-                Scan Now
-              </button>
-            </div>
           </div>
         )}
 
         {/* Cached: error occurred */}
         {showCachedError && (
-          <div>
-            <div
-              style={{
-                padding: "12px",
-                backgroundColor: "rgba(239, 68, 68, 0.1)",
-                border: "1px solid rgba(239, 68, 68, 0.3)",
-                borderRadius: "8px",
-                color: "#EF4444",
-                fontSize: "12px",
-                marginBottom: "12px",
-              }}
-            >
-              Auto-scan failed for this element
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <button
-                onClick={handleScan}
-                disabled={!element.source}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 20px",
-                  borderRadius: "8px",
-                  border: "none",
-                  backgroundColor: element.source
-                    ? STYLES.success
-                    : STYLES.textDim,
-                  color: "#FFFFFF",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  cursor: element.source ? "pointer" : "not-allowed",
-                  transition: "background-color 0.15s",
-                }}
-                onMouseEnter={(e) => {
-                  if (element.source) {
-                    e.currentTarget.style.backgroundColor = "#059669";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (element.source) {
-                    e.currentTarget.style.backgroundColor = STYLES.success;
-                  }
-                }}
-              >
-                <ScanIcon />
-                Retry Scan
-              </button>
-            </div>
+          <div
+            style={{
+              padding: "12px",
+              backgroundColor: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
+              borderRadius: "8px",
+              color: "#EF4444",
+              fontSize: "12px",
+            }}
+          >
+            Auto-scan failed for this element
           </div>
         )}
 
@@ -991,354 +679,139 @@ Please update this component to match our styleguide.`;
               Scan complete
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "10px",
-              }}
-            >
+            {/* ESLint Issues Section */}
+            {eslintIssues.length > 0 && (
+              <ESLintIssuesSection issues={eslintIssues} />
+            )}
+
+            {eslintIssues.length === 0 && (
               <div
                 style={{
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  color: STYLES.text,
-                }}
-              >
-                Fix Prompt
-              </div>
-              <button
-                onClick={() => handleCopy(cachedFixPrompt)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "6px 12px",
-                  borderRadius: "6px",
-                  border: "none",
-                  backgroundColor: copied ? STYLES.success : STYLES.accent,
-                  color: "#FFFFFF",
-                  fontSize: "11px",
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-              >
-                {copied ? (
-                  <>
-                    <CheckIcon />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <CopyIcon />
-                    Copy
-                  </>
-                )}
-              </button>
-            </div>
-
-            <div
-              style={{
-                padding: "12px",
-                backgroundColor: STYLES.bg,
-                border: `1px solid ${STYLES.border}`,
-                borderRadius: "8px",
-                fontFamily: STYLES.fontMono,
-                fontSize: "11px",
-                lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
-                color: STYLES.text,
-                maxHeight: "200px",
-                overflow: "auto",
-              }}
-            >
-              {cachedFixPrompt}
-            </div>
-
-            <div style={{ textAlign: "center", marginTop: "12px" }}>
-              <button
-                onClick={() => clearManualScan(manualKey)}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: "6px",
-                  border: `1px solid ${STYLES.border}`,
-                  backgroundColor: "transparent",
+                  padding: "16px",
+                  textAlign: "center",
                   color: STYLES.textMuted,
-                  fontSize: "11px",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = STYLES.accent;
-                  e.currentTarget.style.color = STYLES.text;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = STYLES.border;
-                  e.currentTarget.style.color = STYLES.textMuted;
-                }}
-              >
-                Clear Analysis
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* No cached result - show scan button */}
-        {showScanButton && (
-          <div style={{ textAlign: "center", padding: "16px 0" }}>
-            <div style={{ marginBottom: "10px" }}>
-              <label
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
                   fontSize: "12px",
-                  color: STYLES.textMuted,
-                  cursor: "pointer",
-                  userSelect: "none",
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={includeChildren}
-                  onChange={(e) =>
-                    upsertManualScan(manualKey, {
-                      includeChildren: e.currentTarget.checked,
-                    })
-                  }
-                />
-                Include children
-              </label>
-              <div
-                style={{
-                  marginTop: "6px",
-                  fontSize: "11px",
-                  color: STYLES.textDim,
-                }}
-              >
-                Scope: {scopeLabel}
-              </div>
-            </div>
-            <button
-              onClick={handleScan}
-              disabled={!element.source}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "12px 24px",
-                borderRadius: "8px",
-                border: "none",
-                backgroundColor: element.source
-                  ? STYLES.success
-                  : STYLES.textDim,
-                color: "#FFFFFF",
-                fontSize: "14px",
-                fontWeight: 600,
-                cursor: element.source ? "pointer" : "not-allowed",
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                if (element.source) {
-                  e.currentTarget.style.backgroundColor = "#059669";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (element.source) {
-                  e.currentTarget.style.backgroundColor = STYLES.success;
-                }
-              }}
-            >
-              <ScanIcon />
-              Scan for Issues
-            </button>
-
-            <div
-              style={{
-                marginTop: "10px",
-                fontSize: "12px",
-                color: STYLES.textMuted,
-              }}
-            >
-              Analyze this component for style issues
-            </div>
-
-            {!element.source && (
-              <div
-                style={{
-                  marginTop: "8px",
-                  fontSize: "11px",
-                  color: STYLES.warning,
-                }}
-              >
-                No source information available
+                No issues found
               </div>
             )}
           </div>
         )}
 
-        {/* Manual scanning state */}
-        {scanning && (
+        {/* No scan data */}
+        {showNoScan && (
           <div
             style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "32px 24px",
-              gap: "12px",
-            }}
-          >
-            <div
-              style={{
-                width: "32px",
-                height: "32px",
-                border: `3px solid ${STYLES.border}`,
-                borderTopColor: STYLES.success,
-                borderRadius: "50%",
-                animation: "uilint-spin 1s linear infinite",
-              }}
-            />
-            <div style={{ color: STYLES.textMuted, fontSize: "13px" }}>
-              Analyzing source code...
-            </div>
-            {progressLine && (
-              <div
-                style={{
-                  color: STYLES.textDim,
-                  fontSize: "11px",
-                  fontFamily: STYLES.fontMono,
-                  maxWidth: "320px",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-                title={progressLine}
-              >
-                {progressLine}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Error state */}
-        {error && (
-          <div
-            style={{
-              padding: "12px",
-              backgroundColor: "rgba(239, 68, 68, 0.1)",
-              border: "1px solid rgba(239, 68, 68, 0.3)",
-              borderRadius: "8px",
-              color: "#EF4444",
+              padding: "16px",
+              textAlign: "center",
+              color: STYLES.textMuted,
               fontSize: "12px",
-              marginTop: "12px",
             }}
           >
-            {error}
+            Run auto-scan to analyze this element
           </div>
         )}
+      </div>
+    </div>
+  );
+}
 
-        {/* Manual scan result */}
-        {showManualResult && (
-          <div>
+/**
+ * ESLint Issues Section - displays ESLint rule violations
+ */
+function ESLintIssuesSection({ issues }: { issues: ESLintIssue[] }) {
+  if (issues.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: "16px" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          marginBottom: "8px",
+        }}
+      >
+        <ESLintIcon />
+        <span
+          style={{
+            fontSize: "12px",
+            fontWeight: 600,
+            color: STYLES.text,
+          }}
+        >
+          ESLint Issues ({issues.length})
+        </span>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+        }}
+      >
+        {issues.map((issue, index) => (
+          <div
+            key={index}
+            style={{
+              padding: "10px 12px",
+              backgroundColor: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.2)",
+              borderRadius: "6px",
+            }}
+          >
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "10px",
+                alignItems: "flex-start",
+                gap: "8px",
               }}
             >
-              <div
-                style={{
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  color: STYLES.text,
-                }}
-              >
-                Fix Prompt
+              <WarningIcon />
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: STYLES.text,
+                    lineHeight: 1.4,
+                    marginBottom: "4px",
+                  }}
+                >
+                  {issue.message}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    fontSize: "10px",
+                    color: STYLES.textDim,
+                    fontFamily: STYLES.fontMono,
+                  }}
+                >
+                  {issue.ruleId && (
+                    <span
+                      style={{
+                        padding: "2px 6px",
+                        backgroundColor: "rgba(239, 68, 68, 0.15)",
+                        borderRadius: "4px",
+                        color: "#EF4444",
+                      }}
+                    >
+                      {issue.ruleId}
+                    </span>
+                  )}
+                  <span>
+                    Line {issue.line}
+                    {issue.column ? `:${issue.column}` : ""}
+                  </span>
+                </div>
               </div>
-              <button
-                onClick={() => {
-                  if (!fixPrompt) return;
-                  handleCopy(fixPrompt);
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "6px 12px",
-                  borderRadius: "6px",
-                  border: "none",
-                  backgroundColor: copied ? STYLES.success : STYLES.accent,
-                  color: "#FFFFFF",
-                  fontSize: "11px",
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-              >
-                {copied ? (
-                  <>
-                    <CheckIcon />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <CopyIcon />
-                    Copy
-                  </>
-                )}
-              </button>
-            </div>
-
-            <div
-              style={{
-                padding: "12px",
-                backgroundColor: STYLES.bg,
-                border: `1px solid ${STYLES.border}`,
-                borderRadius: "8px",
-                fontFamily: STYLES.fontMono,
-                fontSize: "11px",
-                lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
-                color: STYLES.text,
-                maxHeight: "200px",
-                overflow: "auto",
-              }}
-            >
-              {fixPrompt}
-            </div>
-
-            <div style={{ textAlign: "center", marginTop: "12px" }}>
-              <button
-                onClick={() => clearManualScan(manualKey)}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: "6px",
-                  border: `1px solid ${STYLES.border}`,
-                  backgroundColor: "transparent",
-                  color: STYLES.textMuted,
-                  fontSize: "11px",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = STYLES.accent;
-                  e.currentTarget.style.color = STYLES.text;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = STYLES.border;
-                  e.currentTarget.style.color = STYLES.textMuted;
-                }}
-              >
-                Clear Analysis
-              </button>
             </div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );
@@ -1566,6 +1039,40 @@ function CheckIcon() {
       <path
         d="M20 6L9 17l-5-5"
         stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ESLintIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+        stroke="#EF4444"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      style={{ flexShrink: 0, marginTop: "1px" }}
+    >
+      <path
+        d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+        stroke="#EF4444"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"

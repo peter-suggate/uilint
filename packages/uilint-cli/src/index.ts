@@ -9,6 +9,7 @@ import { analyze } from "./commands/analyze.js";
 import { consistency } from "./commands/consistency.js";
 import { update } from "./commands/update.js";
 import { install } from "./commands/install.js";
+import { serve } from "./commands/serve.js";
 import {
   sessionClear,
   sessionTrack,
@@ -42,7 +43,9 @@ program
 // Analyze command
 program
   .command("analyze")
-  .description("Analyze a source file/snippet for style issues (data-loc aware)")
+  .description(
+    "Analyze a source file/snippet for style issues (data-loc aware)"
+  )
   .option("-f, --input-file <path>", "Path to a source file to analyze")
   .option("--source-code <code>", "Source code to analyze (string)")
   .option("--file-path <path>", "File path label shown in the prompt")
@@ -181,6 +184,11 @@ program
   .option("--hooks", "Install Cursor hooks integration (.cursor/hooks.json)")
   .option("--genstyleguide", "Install /genstyleguide Cursor command")
   .option(
+    "--genrules",
+    "Install /genrules Cursor command for ESLint rule generation"
+  )
+  .option("--eslint", "Install uilint-eslint plugin and configure ESLint")
+  .option(
     "--routes",
     "Back-compat: install Next.js overlay (routes + deps + inject)"
   )
@@ -204,8 +212,27 @@ program
       mcp: options.mcp,
       hooks: options.hooks,
       genstyleguide: options.genstyleguide,
+      genrules: options.genrules,
+      eslint: options.eslint,
       routes: options.routes,
       react: options.react,
+      model: options.model,
+    });
+  });
+
+// Serve command - WebSocket server for UI overlay
+program
+  .command("serve")
+  .description("Start WebSocket server for real-time UI linting")
+  .option("-p, --port <number>", "Port to listen on", "9234")
+  .option(
+    "-m, --model <name>",
+    "Ollama model to use",
+    UILINT_DEFAULT_OLLAMA_MODEL
+  )
+  .action(async (options) => {
+    await serve({
+      port: parseInt(options.port, 10),
       model: options.model,
     });
   });

@@ -61,14 +61,18 @@ export interface AutoScanState {
 }
 
 /**
- * A single issue found during scanning
+ * ESLint issue from WebSocket server (uilint serve)
  */
-export interface ScanIssue {
+export interface ESLintIssue {
   /** Line number in source file */
-  line?: number;
+  line: number;
+  /** Column number */
+  column?: number;
   /** Issue description */
   message: string;
-  /** data-loc value to match to DOM element (format: path:line:column) */
+  /** ESLint rule ID (e.g., "uilint/semantic", "uilint/no-arbitrary-tailwind") */
+  ruleId?: string;
+  /** data-loc value to match to DOM element */
   dataLoc?: string;
 }
 
@@ -77,27 +81,9 @@ export interface ScanIssue {
  */
 export interface ElementIssue {
   elementId: string;
-  issues: ScanIssue[];
+  /** ESLint rule violations from uilint-eslint (including semantic rule) */
+  issues: ESLintIssue[];
   status: "pending" | "scanning" | "complete" | "error";
-}
-
-/**
- * Manual scan state for the InspectionPanel "Scan" section.
- * Keyed by a stable element key (prefer data-loc; fallback to source location).
- */
-export interface ManualScanResult {
-  key: string;
-  status: "idle" | "scanning" | "complete" | "error";
-  issues: ScanIssue[];
-  /** If true, the scan scope includes the selected element's descendants */
-  includeChildren?: boolean;
-  /** Human-readable fix prompt generated from issues (UI convenience) */
-  fixPrompt?: string;
-  /** Optional error message when status="error" */
-  error?: string;
-  /** Subtle progress text for long-running LLM calls */
-  progressLine?: string;
-  updatedAt: number;
 }
 
 /**

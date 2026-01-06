@@ -94,9 +94,6 @@ export {
   createStyleSummary,
 } from "uilint-core";
 
-// LLM client for browser
-export { LLMClient } from "./analyzer/llm-client";
-
 // Styleguide utilities - re-export directly from core
 export { parseStyleGuide } from "uilint-core";
 export { generateStyleGuideFromStyles as generateStyleGuide } from "uilint-core";

@@ -7,6 +7,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useUILintContext } from "./UILintProvider";
+import { useUILintStore, type UILintStore } from "./store";
 
 /**
  * Design tokens
@@ -172,6 +173,17 @@ function SettingsPopover({
     stopAutoScan,
   } = useUILintContext();
 
+  const wsConnected = useUILintStore((s: UILintStore) => s.wsConnected);
+  const wsUrl = useUILintStore((s: UILintStore) => s.wsUrl);
+  const wsLastActivity = useUILintStore((s: UILintStore) => s.wsLastActivity);
+  const wsRecentResults = useUILintStore((s: UILintStore) => s.wsRecentResults);
+  const connectWebSocket = useUILintStore(
+    (s: UILintStore) => s.connectWebSocket
+  );
+  const disconnectWebSocket = useUILintStore(
+    (s: UILintStore) => s.disconnectWebSocket
+  );
+
   const isScanning = autoScanState.status === "scanning";
   const isPaused = autoScanState.status === "paused";
   const isComplete = autoScanState.status === "complete";
@@ -204,6 +216,205 @@ function SettingsPopover({
         }}
       >
         UILint Settings
+      </div>
+
+      {/* Server status */}
+      <div
+        style={{
+          padding: "10px 12px",
+          borderRadius: "10px",
+          border: `1px solid ${STYLES.border}`,
+          backgroundColor: "rgba(31, 41, 55, 0.65)",
+          marginBottom: "12px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "10px",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <div style={{ fontSize: "11px", color: STYLES.textMuted }}>
+              Server
+            </div>
+            <div
+              style={{
+                fontSize: "12px",
+                fontWeight: 600,
+                color: wsConnected ? "#10B981" : "#EF4444",
+              }}
+            >
+              {wsConnected ? "Connected" : "Disconnected"}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              onClick={() => connectWebSocket(wsUrl)}
+              style={{
+                padding: "6px 10px",
+                borderRadius: "8px",
+                border: `1px solid ${STYLES.border}`,
+                backgroundColor: "transparent",
+                color: STYLES.text,
+                fontSize: "11px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+              title="Reconnect to WebSocket server"
+            >
+              Reconnect
+            </button>
+            <button
+              onClick={() => disconnectWebSocket()}
+              style={{
+                padding: "6px 10px",
+                borderRadius: "8px",
+                border: `1px solid ${STYLES.border}`,
+                backgroundColor: "transparent",
+                color: STYLES.textMuted,
+                fontSize: "11px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+              title="Disconnect from WebSocket server"
+            >
+              Disconnect
+            </button>
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: "8px",
+            fontSize: "10px",
+            color: STYLES.textMuted,
+            fontFamily: STYLES.fontMono,
+            wordBreak: "break-all",
+          }}
+        >
+          {wsUrl}
+        </div>
+      </div>
+
+      {/* Live lint activity */}
+      <div
+        style={{
+          marginTop: "10px",
+          padding: "10px 12px",
+          borderRadius: "10px",
+          border: `1px solid ${STYLES.border}`,
+          backgroundColor: "rgba(31, 41, 55, 0.45)",
+          marginBottom: "12px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "8px",
+          }}
+        >
+          <div
+            style={{ fontSize: "11px", fontWeight: 700, color: STYLES.text }}
+          >
+            Live lint
+          </div>
+          <div style={{ fontSize: "10px", color: STYLES.textMuted }}>
+            {wsConnected ? "Streaming" : "Offline"}
+          </div>
+        </div>
+
+        {wsLastActivity ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <div style={{ fontSize: "11px", color: STYLES.textMuted }}>
+              {wsLastActivity.phase}
+            </div>
+            <div
+              style={{
+                fontSize: "11px",
+                fontFamily: STYLES.fontMono,
+                color: STYLES.text,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+              title={wsLastActivity.filePath}
+            >
+              {(wsLastActivity.filePath.split("/").pop() ||
+                wsLastActivity.filePath) ??
+                ""}
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: "11px", color: STYLES.textMuted }}>
+            No activity yet
+          </div>
+        )}
+
+        {wsRecentResults.length > 0 && (
+          <div
+            style={{
+              marginTop: "10px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+            }}
+          >
+            <div style={{ fontSize: "10px", color: STYLES.textMuted }}>
+              Recent results
+            </div>
+            {wsRecentResults.slice(0, 5).map((r) => {
+              const file = r.filePath.split("/").pop() || r.filePath;
+              const color =
+                r.issueCount === 0
+                  ? "#10B981"
+                  : r.issueCount <= 2
+                  ? "#F59E0B"
+                  : "#EF4444";
+              return (
+                <div
+                  key={r.filePath}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                    fontSize: "10px",
+                    fontFamily: STYLES.fontMono,
+                    color: STYLES.textMuted,
+                  }}
+                  title={r.filePath}
+                >
+                  <span
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      flex: 1,
+                    }}
+                  >
+                    {file}
+                  </span>
+                  <span
+                    style={{
+                      minWidth: "34px",
+                      textAlign: "right",
+                      fontWeight: 700,
+                      color,
+                    }}
+                  >
+                    {r.issueCount}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Hide node_modules toggle */}

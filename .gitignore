@@ -34,3 +34,6 @@ coverage/
 
 # Testing outputs
 /.uilint/
+
+# UILint cache
+.uilint/.cache

@@ -102,6 +102,14 @@ export function UILintProvider({
   const resumeAutoScan = useUILintStore((s: UILintStore) => s.resumeAutoScan);
   const stopAutoScan = useUILintStore((s: UILintStore) => s.stopAutoScan);
 
+  // WebSocket (ESLint server) actions
+  const connectWebSocket = useUILintStore(
+    (s: UILintStore) => s.connectWebSocket
+  );
+  const disconnectWebSocket = useUILintStore(
+    (s: UILintStore) => s.disconnectWebSocket
+  );
+
   // Get computed locator target with stack index
   const effectiveLocatorTarget = useEffectiveLocatorTarget();
 
@@ -354,6 +362,20 @@ export function UILintProvider({
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  /**
+   * Auto-connect to the UILint WebSocket server for server-side ESLint results.
+   * Connect only after hydration, and disconnect on unmount/disable.
+   */
+  useEffect(() => {
+    if (!isBrowser() || !enabled) return;
+    if (!isMounted) return;
+
+    connectWebSocket();
+    return () => {
+      disconnectWebSocket();
+    };
+  }, [enabled, isMounted, connectWebSocket, disconnectWebSocket]);
 
   /**
    * Wrap startAutoScan to pass hideNodeModules from settings

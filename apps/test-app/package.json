@@ -13,14 +13,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@next/eslint-plugin-next": "^16.1.1",
     "next": "^16.1.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "uilint-core": "workspace:*",
+    "uilint-eslint": "^0.1.1",
     "uilint-react": "workspace:*"
   },
   "devDependencies": {
-    "jsx-loc-plugin": "workspace:*",
     "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
@@ -29,9 +30,11 @@
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.23",
     "jsdom": "^27.4.0",
+    "jsx-loc-plugin": "workspace:*",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.52.0",
     "vitest": "^4.0.16"
   }
 }

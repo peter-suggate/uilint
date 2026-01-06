@@ -5,6 +5,8 @@
  *
  * Centralized state management for UILint with synchronous updates.
  * Solves the React 18 batching issue that causes scan results to chunk together.
+ *
+ * Includes WebSocket client for real-time communication with uilint serve.
  */
 
 import { create } from "zustand";
@@ -14,13 +16,71 @@ import type {
   InspectedElement,
   AutoScanState,
   ElementIssue,
-  ManualScanResult,
   ScannedElement,
   SourceFile,
-  ScanIssue,
+  ESLintIssue,
 } from "./types";
 import { DEFAULT_SETTINGS, DEFAULT_AUTO_SCAN_STATE } from "./types";
 import { scanDOMForSources, groupBySourceFile } from "./fiber-utils";
+
+/**
+ * WebSocket message types (client -> server)
+ */
+interface LintFileMessage {
+  type: "lint:file";
+  filePath: string;
+  requestId?: string;
+}
+
+interface LintElementMessage {
+  type: "lint:element";
+  filePath: string;
+  dataLoc: string;
+  requestId?: string;
+}
+
+interface SubscribeFileMessage {
+  type: "subscribe:file";
+  filePath: string;
+}
+
+interface CacheInvalidateMessage {
+  type: "cache:invalidate";
+  filePath?: string;
+}
+
+type ClientMessage =
+  | LintFileMessage
+  | LintElementMessage
+  | SubscribeFileMessage
+  | CacheInvalidateMessage;
+
+/**
+ * WebSocket message types (server -> client)
+ */
+interface LintResultMessage {
+  type: "lint:result";
+  filePath: string;
+  issues: ESLintIssue[];
+  requestId?: string;
+}
+
+interface LintProgressMessage {
+  type: "lint:progress";
+  filePath: string;
+  phase: string;
+  requestId?: string;
+}
+
+interface FileChangedMessage {
+  type: "file:changed";
+  filePath: string;
+}
+
+type ServerMessage =
+  | LintResultMessage
+  | LintProgressMessage
+  | FileChangedMessage;
 
 /**
  * UILint Store State and Actions
@@ -44,11 +104,6 @@ export interface UILintStore {
   inspectedElement: InspectedElement | null;
   setInspectedElement: (el: InspectedElement | null) => void;
 
-  // ============ Manual Scan (InspectionPanel) ============
-  manualScanCache: Map<string, ManualScanResult>;
-  upsertManualScan: (key: string, patch: Partial<ManualScanResult>) => void;
-  clearManualScan: (key: string) => void;
-
   // ============ Auto-Scan ============
   autoScanState: AutoScanState;
   elementIssuesCache: Map<string, ElementIssue>;
@@ -63,12 +118,39 @@ export interface UILintStore {
   stopAutoScan: () => void;
   updateElementIssue: (id: string, issue: ElementIssue) => void;
 
+  // ============ WebSocket ============
+  wsConnection: WebSocket | null;
+  wsConnected: boolean;
+  wsUrl: string;
+  wsReconnectAttempts: number;
+  eslintIssuesCache: Map<string, ESLintIssue[]>;
+  wsProgressPhase: Map<string, string>;
+  wsLastActivity: { filePath: string; phase: string; updatedAt: number } | null;
+  wsRecentResults: Array<{
+    filePath: string;
+    issueCount: number;
+    updatedAt: number;
+  }>;
+
+  // WebSocket actions
+  connectWebSocket: (url?: string) => void;
+  disconnectWebSocket: () => void;
+  requestFileLint: (filePath: string) => Promise<ESLintIssue[]>;
+  requestElementLint: (
+    filePath: string,
+    dataLoc: string
+  ) => Promise<ESLintIssue[]>;
+  subscribeToFile: (filePath: string) => void;
+  invalidateCache: (filePath?: string) => void;
+
   // ============ Internal ============
   _setScanState: (state: Partial<AutoScanState>) => void;
   _runScanLoop: (
     elements: ScannedElement[],
     startIndex: number
   ) => Promise<void>;
+  _handleWsMessage: (data: ServerMessage) => void;
+  _reconnectWebSocket: () => void;
 }
 
 /**
@@ -83,66 +165,45 @@ function getDataLocFromId(id: string): string | null {
 }
 
 /**
- * Scan an entire source file for issues
- * Returns issues with dataLoc values for matching to elements
+ * Scan an entire source file for issues via WebSocket
+ * Returns ESLint issues (including semantic rule) with dataLoc values
  */
 async function scanFileForIssues(
-  sourceFile: SourceFile
-): Promise<{ issues: ScanIssue[]; error?: boolean }> {
+  sourceFile: SourceFile,
+  store: UILintStore
+): Promise<{
+  issues: ESLintIssue[];
+  error?: boolean;
+}> {
   if (sourceFile.elements.length === 0) {
     return { issues: [] };
   }
 
   const filePath = sourceFile.path;
+  let issues: ESLintIssue[] = [];
 
-  try {
-    // Fetch source code once for the whole file
-    const sourceResponse = await fetch(
-      `/api/.uilint/source?path=${encodeURIComponent(filePath)}`
-    );
-
-    if (!sourceResponse.ok) {
+  // Use WebSocket for ESLint issues (includes semantic rule)
+  if (store.wsConnected && store.wsConnection) {
+    try {
+      issues = await store.requestFileLint(filePath);
+      console.log("[UILint] ESLint issues:", issues);
+    } catch (err) {
+      console.warn("[UILint] WebSocket lint failed:", err);
       return { issues: [], error: true };
     }
-
-    const sourceData = await sourceResponse.json();
-
-    // Collect all data-loc values from elements in this file
-    const dataLocs: string[] = [];
-    for (const el of sourceFile.elements) {
-      const dataLoc = getDataLocFromId(el.id);
-      if (dataLoc) {
-        dataLocs.push(dataLoc);
-      }
-    }
-
-    // Analyze with LLM - one call for the entire file
-    const analyzeResponse = await fetch("/api/.uilint/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sourceCode: sourceData.content,
-        filePath: sourceData.relativePath || filePath,
-        dataLocs,
-      }),
-    });
-
-    if (!analyzeResponse.ok) {
-      return { issues: [], error: true };
-    }
-
-    const result = await analyzeResponse.json();
-    return { issues: result.issues || [] };
-  } catch {
+  } else {
+    console.warn("[UILint] WebSocket not connected");
     return { issues: [], error: true };
   }
+
+  return { issues };
 }
 
 /**
- * Match issues to elements by dataLoc and update the cache
+ * Match ESLint issues to elements by dataLoc and update the cache
  */
 function distributeIssuesToElements(
-  issues: ScanIssue[],
+  issues: ESLintIssue[],
   elements: ScannedElement[],
   updateElementIssue: (id: string, issue: ElementIssue) => void,
   hasError: boolean
@@ -156,8 +217,8 @@ function distributeIssuesToElements(
     }
   }
 
-  // Group issues by element
-  const issuesByElement = new Map<string, ScanIssue[]>();
+  // Group ESLint issues by element
+  const issuesByElement = new Map<string, ESLintIssue[]>();
   for (const issue of issues) {
     if (issue.dataLoc) {
       const elementId = dataLocToElementId.get(issue.dataLoc);
@@ -178,6 +239,33 @@ function distributeIssuesToElements(
       status: hasError ? "error" : "complete",
     });
   }
+}
+
+/** Default WebSocket URL */
+const DEFAULT_WS_URL = "ws://localhost:9234";
+
+/** Max reconnect attempts before giving up */
+const MAX_RECONNECT_ATTEMPTS = 5;
+
+/** Reconnect delay in ms (exponential backoff) */
+const RECONNECT_BASE_DELAY = 1000;
+
+/** Pending requests waiting for WebSocket responses */
+const pendingRequests = new Map<
+  string,
+  { resolve: (issues: ESLintIssue[]) => void; reject: (error: Error) => void }
+>();
+
+function makeRequestId(): string {
+  try {
+    // Modern browsers
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const c = (globalThis as any).crypto;
+    if (c?.randomUUID) return c.randomUUID();
+  } catch {
+    // ignore
+  }
+  return `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
 /**
@@ -214,34 +302,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   // ============ Inspection ============
   inspectedElement: null,
   setInspectedElement: (el) => set({ inspectedElement: el }),
-
-  // ============ Manual Scan (InspectionPanel) ============
-  manualScanCache: new Map(),
-  upsertManualScan: (key, patch) =>
-    set((state) => {
-      const next = new Map(state.manualScanCache);
-      const existing = next.get(key);
-      const base: ManualScanResult = existing ?? {
-        key,
-        status: "idle",
-        issues: [],
-        updatedAt: Date.now(),
-      };
-      next.set(key, {
-        ...base,
-        ...patch,
-        key,
-        updatedAt: Date.now(),
-      });
-      return { manualScanCache: next };
-    }),
-  clearManualScan: (key) =>
-    set((state) => {
-      if (!state.manualScanCache.has(key)) return state;
-      const next = new Map(state.manualScanCache);
-      next.delete(key);
-      return { manualScanCache: next };
-    }),
 
   // ============ Auto-Scan ============
   autoScanState: DEFAULT_AUTO_SCAN_STATE,
@@ -390,8 +450,8 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       // Yield to browser to show "scanning" state
       await new Promise((resolve) => requestAnimationFrame(resolve));
 
-      // Scan the entire file once
-      const { issues, error } = await scanFileForIssues(sourceFile);
+      // Scan the entire file once (pass store for WebSocket access)
+      const { issues, error } = await scanFileForIssues(sourceFile, get());
 
       // Distribute issues to elements by matching dataLoc
       distributeIssuesToElements(
@@ -400,6 +460,11 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
         get().updateElementIssue,
         error ?? false
       );
+
+      // Subscribe for live updates after first scan of this file
+      if (get().wsConnected && get().wsConnection) {
+        get().subscribeToFile(sourceFile.path);
+      }
 
       processedElements += sourceFile.elements.length;
 
@@ -416,6 +481,318 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
         currentIndex: elements.length,
       },
     });
+  },
+
+  // ============ WebSocket ============
+  wsConnection: null,
+  wsConnected: false,
+  wsUrl: DEFAULT_WS_URL,
+  wsReconnectAttempts: 0,
+  eslintIssuesCache: new Map(),
+  wsProgressPhase: new Map(),
+  wsLastActivity: null,
+  wsRecentResults: [],
+
+  connectWebSocket: (url?: string) => {
+    const targetUrl = url || get().wsUrl;
+    const existing = get().wsConnection;
+
+    // Close existing connection if any
+    if (existing && existing.readyState !== WebSocket.CLOSED) {
+      existing.close();
+    }
+
+    // Check if we're in a browser environment
+    if (typeof WebSocket === "undefined") {
+      console.warn("[UILint] WebSocket not available in this environment");
+      return;
+    }
+
+    try {
+      const ws = new WebSocket(targetUrl);
+
+      ws.onopen = () => {
+        console.log("[UILint] WebSocket connected to", targetUrl);
+        set({
+          wsConnected: true,
+          wsReconnectAttempts: 0,
+          wsUrl: targetUrl,
+        });
+      };
+
+      ws.onclose = () => {
+        console.log("[UILint] WebSocket disconnected");
+        set({ wsConnected: false, wsConnection: null });
+
+        // Auto-reconnect with exponential backoff
+        const attempts = get().wsReconnectAttempts;
+        if (attempts < MAX_RECONNECT_ATTEMPTS) {
+          const delay = RECONNECT_BASE_DELAY * Math.pow(2, attempts);
+          console.log(
+            `[UILint] Reconnecting in ${delay}ms (attempt ${attempts + 1})`
+          );
+          setTimeout(() => {
+            set({ wsReconnectAttempts: attempts + 1 });
+            get()._reconnectWebSocket();
+          }, delay);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("[UILint] WebSocket error:", error);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data) as ServerMessage;
+          get()._handleWsMessage(data);
+        } catch (err) {
+          console.error("[UILint] Failed to parse WebSocket message:", err);
+        }
+      };
+
+      set({ wsConnection: ws, wsUrl: targetUrl });
+    } catch (err) {
+      console.error("[UILint] Failed to create WebSocket:", err);
+    }
+  },
+
+  disconnectWebSocket: () => {
+    const ws = get().wsConnection;
+    if (ws) {
+      ws.close();
+      set({
+        wsConnection: null,
+        wsConnected: false,
+        wsReconnectAttempts: MAX_RECONNECT_ATTEMPTS,
+      });
+    }
+  },
+
+  requestFileLint: async (filePath: string): Promise<ESLintIssue[]> => {
+    const { wsConnection, wsConnected, eslintIssuesCache } = get();
+
+    // Check cache first
+    const cached = eslintIssuesCache.get(filePath);
+    if (cached) {
+      console.log("[UILint] using cached issues for", filePath);
+      return cached;
+    }
+
+    // If not connected, try to connect and fall back to HTTP
+    if (!wsConnected || !wsConnection) {
+      console.log("[UILint] WebSocket not connected, using HTTP fallback");
+      return [];
+    }
+
+    return new Promise((resolve, reject) => {
+      const requestId = makeRequestId();
+      pendingRequests.set(requestId, { resolve, reject });
+
+      const message: LintFileMessage = {
+        type: "lint:file",
+        filePath,
+        requestId,
+      };
+      wsConnection.send(JSON.stringify(message));
+
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        if (pendingRequests.has(requestId)) {
+          pendingRequests.delete(requestId);
+          reject(new Error("Request timed out"));
+        }
+      }, 30000);
+    });
+  },
+
+  requestElementLint: async (
+    filePath: string,
+    dataLoc: string
+  ): Promise<ESLintIssue[]> => {
+    const { wsConnection, wsConnected } = get();
+
+    if (!wsConnected || !wsConnection) {
+      console.log("[UILint] WebSocket not connected, using HTTP fallback");
+      return [];
+    }
+
+    return new Promise((resolve, reject) => {
+      const requestId = makeRequestId();
+      pendingRequests.set(requestId, { resolve, reject });
+
+      const message: LintElementMessage = {
+        type: "lint:element",
+        filePath,
+        dataLoc,
+        requestId,
+      };
+      wsConnection.send(JSON.stringify(message));
+
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        if (pendingRequests.has(requestId)) {
+          pendingRequests.delete(requestId);
+          reject(new Error("Request timed out"));
+        }
+      }, 30000);
+    });
+  },
+
+  subscribeToFile: (filePath: string) => {
+    const { wsConnection, wsConnected } = get();
+    if (!wsConnected || !wsConnection) return;
+
+    const message: SubscribeFileMessage = { type: "subscribe:file", filePath };
+    wsConnection.send(JSON.stringify(message));
+  },
+
+  invalidateCache: (filePath?: string) => {
+    const { wsConnection, wsConnected } = get();
+
+    // Clear local cache
+    if (filePath) {
+      set((state) => {
+        const next = new Map(state.eslintIssuesCache);
+        next.delete(filePath);
+        return { eslintIssuesCache: next };
+      });
+    } else {
+      set({ eslintIssuesCache: new Map() });
+    }
+
+    // Send to server if connected
+    if (wsConnected && wsConnection) {
+      const message: CacheInvalidateMessage = {
+        type: "cache:invalidate",
+        filePath,
+      };
+      wsConnection.send(JSON.stringify(message));
+    }
+  },
+
+  _handleWsMessage: (data: ServerMessage) => {
+    switch (data.type) {
+      case "lint:result": {
+        const { filePath, issues, requestId } = data;
+
+        // Update cache
+        set((state) => {
+          const next = new Map(state.eslintIssuesCache);
+          next.set(filePath, issues);
+          return { eslintIssuesCache: next };
+        });
+
+        // If auto-scan is active, apply ESLint issues to elements in this file
+        const state = get();
+        if (state.autoScanState.status !== "idle") {
+          const sourceFiles = groupBySourceFile(state.autoScanState.elements);
+          const sf = sourceFiles.find((s) => s.path === filePath);
+          if (sf) {
+            distributeIssuesToElements(
+              issues,
+              sf.elements,
+              state.updateElementIssue,
+              false
+            );
+          }
+        }
+
+        // Clear progress
+        set((state) => {
+          const next = new Map(state.wsProgressPhase);
+          next.delete(filePath);
+          return { wsProgressPhase: next };
+        });
+
+        // Update recent results (for UI)
+        set((state) => {
+          const next = [
+            { filePath, issueCount: issues.length, updatedAt: Date.now() },
+            ...state.wsRecentResults.filter((r) => r.filePath !== filePath),
+          ].slice(0, 8);
+          return { wsRecentResults: next };
+        });
+
+        set({
+          wsLastActivity: {
+            filePath,
+            phase: `Done (${issues.length} issues)`,
+            updatedAt: Date.now(),
+          },
+        });
+
+        // Resolve pending request (requestId-correlated)
+        if (requestId) {
+          const pending = pendingRequests.get(requestId);
+          if (pending) {
+            pending.resolve(issues);
+            pendingRequests.delete(requestId);
+          }
+        }
+        break;
+      }
+
+      case "lint:progress": {
+        const { filePath, phase } = data;
+        set((state) => {
+          const next = new Map(state.wsProgressPhase);
+          next.set(filePath, phase);
+          return {
+            wsProgressPhase: next,
+            wsLastActivity: { filePath, phase, updatedAt: Date.now() },
+          };
+        });
+        break;
+      }
+
+      case "file:changed": {
+        const { filePath } = data;
+        // Invalidate cache for this file
+        set((state) => {
+          const next = new Map(state.eslintIssuesCache);
+          next.delete(filePath);
+          return { eslintIssuesCache: next };
+        });
+
+        // If auto-scan is active, re-lint this file
+        const state = get();
+        if (state.autoScanState.status !== "idle") {
+          const sourceFiles = groupBySourceFile(state.autoScanState.elements);
+          const sf = sourceFiles.find((s) => s.path === filePath);
+          if (sf) {
+            // Mark elements as scanning
+            for (const el of sf.elements) {
+              const existing = state.elementIssuesCache.get(el.id);
+              state.updateElementIssue(el.id, {
+                elementId: el.id,
+                issues: existing?.issues || [],
+                status: "scanning",
+              });
+            }
+
+            // Fire-and-forget re-lint; updates will land via lint:result
+            state.requestFileLint(filePath).catch(() => {
+              // Mark elements as error on failure
+              for (const el of sf.elements) {
+                const existing = state.elementIssuesCache.get(el.id);
+                state.updateElementIssue(el.id, {
+                  elementId: el.id,
+                  issues: existing?.issues || [],
+                  status: "error",
+                });
+              }
+            });
+          }
+        }
+        break;
+      }
+    }
+  },
+
+  _reconnectWebSocket: () => {
+    const { wsUrl } = get();
+    get().connectWebSocket(wsUrl);
   },
 }));
 
