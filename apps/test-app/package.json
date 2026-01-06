@@ -18,7 +18,7 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "uilint-core": "workspace:*",
-    "uilint-eslint": "^0.1.2",
+    "uilint-eslint": "workspace:*",
     "uilint-react": "workspace:*"
   },
   "devDependencies": {

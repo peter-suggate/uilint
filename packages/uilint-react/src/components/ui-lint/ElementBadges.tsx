@@ -84,6 +84,33 @@ function formatElementLabel(element: ScannedElement): string {
 const NEARBY_THRESHOLD = 30;
 
 /**
+ * Determine if a badge should be shown based on its status and alt key state
+ * - Green badges (no issues): only show when alt/option is held
+ * - Progress badges (scanning/pending): only show when alt/option is held
+ * - Issue badges (error or issues > 0): always show
+ */
+function shouldShowBadge(
+  issue: ElementIssue,
+  isAltKeyPressed: boolean
+): boolean {
+  // Always show badges with issues
+  if (issue.status === "error") return true;
+  if (issue.status === "complete" && issue.issues.length > 0) return true;
+
+  // Only show green badges (no issues) when alt/option is held
+  if (issue.status === "complete" && issue.issues.length === 0) {
+    return isAltKeyPressed;
+  }
+
+  // Only show progress badges (scanning/pending) when alt/option is held
+  if (issue.status === "scanning" || issue.status === "pending") {
+    return isAltKeyPressed;
+  }
+
+  return false;
+}
+
+/**
  * Global CSS for badge animations (injected once)
  */
 function BadgeAnimationStyles() {
@@ -106,9 +133,36 @@ export function ElementBadges() {
   const [mounted, setMounted] = useState(false);
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   const [badgePositions, setBadgePositions] = useState<BadgePosition[]>([]);
+  const [isAltKeyPressed, setIsAltKeyPressed] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Track alt/option key state
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey) {
+        setIsAltKeyPressed(true);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!e.altKey) {
+        setIsAltKeyPressed(false);
+      }
+    };
+    const handleBlur = () => {
+      // Reset alt key state when window loses focus
+      setIsAltKeyPressed(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
+    };
   }, []);
 
   // Track cursor position
@@ -188,21 +242,28 @@ export function ElementBadges() {
     [badgePositions]
   );
 
+  // Filter badges based on visibility rules (must be before conditional returns)
+  const visibleBadges = useMemo(() => {
+    return nudgedPositions.filter((pos) =>
+      shouldShowBadge(pos.issue, isAltKeyPressed)
+    );
+  }, [nudgedPositions, isAltKeyPressed]);
+
   if (!mounted) return null;
   if (autoScanState.status === "idle") return null;
 
   const content = (
     <div data-ui-lint>
       <BadgeAnimationStyles />
-      {nudgedPositions.map((nudgedPos) => {
+      {visibleBadges.map((nudgedPos) => {
         const distance = Math.hypot(
           nudgedPos.nudgedX - cursorPos.x,
           nudgedPos.nudgedY - cursorPos.y
         );
 
-        // Find nearby badges for potential dropdown grouping
+        // Find nearby badges for potential dropdown grouping (only from visible badges)
         const nearbyBadges = findNearbyBadges(
-          nudgedPositions,
+          visibleBadges,
           nudgedPos.nudgedX,
           nudgedPos.nudgedY,
           NEARBY_THRESHOLD
@@ -367,8 +428,7 @@ function NudgedBadge({
           left: nudgedX - 9,
           zIndex: isExpanded ? 99999 : 99995,
           cursor: "pointer",
-          transition:
-            "transform 0.1s ease-out, top 0.15s ease-out, left 0.15s ease-out",
+          transition: "transform 0.1s ease-out",
           transform: `scale(${scale})`,
           transformOrigin: "center center",
         }}

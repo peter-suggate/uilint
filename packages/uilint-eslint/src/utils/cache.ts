@@ -8,7 +8,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 
 // Lazy-loaded xxhash
-let xxhashInstance: Awaited<ReturnType<typeof import("xxhash-wasm")["default"]>> | null = null;
+let xxhashInstance: Awaited<
+  ReturnType<typeof import("xxhash-wasm")["default"]>
+> | null = null;
 
 async function getXxhash() {
   if (!xxhashInstance) {

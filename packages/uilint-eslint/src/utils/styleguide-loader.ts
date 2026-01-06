@@ -36,7 +36,10 @@ function findWorkspaceRoot(startDir: string): string {
  * Find the nearest package root (directory containing package.json),
  * stopping at the workspace root.
  */
-function findNearestPackageRoot(startDir: string, workspaceRoot: string): string {
+function findNearestPackageRoot(
+  startDir: string,
+  workspaceRoot: string
+): string {
   let dir = startDir;
   for (let i = 0; i < 30; i++) {
     if (existsSync(join(dir, "package.json"))) return dir;

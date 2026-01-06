@@ -74,7 +74,7 @@ function ensureUilintImport(source: string, isCommonJS: boolean): string {
   const importRegex = isCommonJS
     ? /^(?:const|var|let)\s+.*?=\s*require\([^)]+\);?\s*$/gm
     : /^import[\s\S]*?;\s*$/gm;
-  
+
   let lastImportEnd = -1;
   for (const m of header.matchAll(importRegex)) {
     lastImportEnd = (m.index ?? 0) + m[0].length;
@@ -98,22 +98,24 @@ function ensureUilintImport(source: string, isCommonJS: boolean): string {
  */
 function generateRulesConfig(selectedRules: RuleMetadata[]): string {
   const lines: string[] = [];
-  
+
   for (const rule of selectedRules) {
     const ruleKey = `"uilint/${rule.id}"`;
-    
+
     if (rule.defaultOptions && rule.defaultOptions.length > 0) {
       // Rule with options
       const optionsStr = JSON.stringify(rule.defaultOptions, null, 6)
         .split("\n")
         .join("\n      ");
-      lines.push(`      ${ruleKey}: ["${rule.defaultSeverity}", ...${optionsStr}],`);
+      lines.push(
+        `      ${ruleKey}: ["${rule.defaultSeverity}", ...${optionsStr}],`
+      );
     } else {
       // Simple rule
       lines.push(`      ${ruleKey}: "${rule.defaultSeverity}",`);
     }
   }
-  
+
   return lines.join("\n");
 }
 
@@ -151,21 +153,19 @@ ${rulesConfig}
   }
 
   const exportStart = exportMatch.index + exportMatch[0].length;
-  
+
   // Find a good insertion point - after the opening bracket
   // Look for the first existing config object or the closing bracket
   const afterExport = source.slice(exportStart);
-  
+
   // Insert at the beginning of the array (after opening bracket)
   // Add a newline if the array doesn't start on a new line
   const needsNewline = !afterExport.trimStart().startsWith("\n");
-  const insertion = needsNewline ? "\n" + configBlock + "\n" : configBlock + "\n";
-  
-  return (
-    source.slice(0, exportStart) +
-    insertion +
-    source.slice(exportStart)
-  );
+  const insertion = needsNewline
+    ? "\n" + configBlock + "\n"
+    : configBlock + "\n";
+
+  return source.slice(0, exportStart) + insertion + source.slice(exportStart);
 }
 
 /**
@@ -202,13 +202,11 @@ ${rulesConfig}
   const exportStart = exportMatch.index + exportMatch[0].length;
   const afterExport = source.slice(exportStart);
   const needsNewline = !afterExport.trimStart().startsWith("\n");
-  const insertion = needsNewline ? "\n" + configBlock + "\n" : configBlock + "\n";
-  
-  return (
-    source.slice(0, exportStart) +
-    insertion +
-    source.slice(exportStart)
-  );
+  const insertion = needsNewline
+    ? "\n" + configBlock + "\n"
+    : configBlock + "\n";
+
+  return source.slice(0, exportStart) + insertion + source.slice(exportStart);
 }
 
 /**
@@ -240,7 +238,7 @@ export async function installEslintPlugin(
   // Apply transformations
   let updated = original;
   updated = ensureUilintImport(updated, isCommonJS);
-  
+
   if (isCommonJS) {
     updated = injectUilintRulesCommonJS(updated, opts.selectedRules);
   } else {

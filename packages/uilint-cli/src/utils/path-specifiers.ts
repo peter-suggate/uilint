@@ -19,7 +19,10 @@ import { findWorkspaceRoot } from "uilint-core/node";
  * - "@<path>" is resolved relative to the workspace root (pnpm-workspace/.git).
  * - Everything else is resolved relative to cwd.
  */
-export function resolvePathSpecifier(spec: string, cwd: string = process.cwd()): string {
+export function resolvePathSpecifier(
+  spec: string,
+  cwd: string = process.cwd()
+): string {
   const raw = (spec ?? "").trim();
   if (!raw) return resolve(cwd, spec);
 

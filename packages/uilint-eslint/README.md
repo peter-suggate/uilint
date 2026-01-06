@@ -14,7 +14,7 @@ Add to your ESLint flat config:
 
 ```javascript
 // eslint.config.js
-import uilint from 'uilint-eslint';
+import uilint from "uilint-eslint";
 
 export default [
   // Use recommended preset (static rules only)
@@ -27,10 +27,16 @@ export default [
   {
     plugins: { uilint: uilint.plugin },
     rules: {
-      'uilint/no-arbitrary-tailwind': 'error',
-      'uilint/consistent-spacing': ['warn', { scale: [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16] }],
-      'uilint/no-direct-store-import': ['error', { storePattern: 'use*Store' }],
-      'uilint/no-mixed-component-libraries': ['error', { libraries: ['shadcn', 'mui'] }],
+      "uilint/no-arbitrary-tailwind": "error",
+      "uilint/consistent-spacing": [
+        "warn",
+        { scale: [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16] },
+      ],
+      "uilint/no-direct-store-import": ["error", { storePattern: "use*Store" }],
+      "uilint/no-mixed-component-libraries": [
+        "error",
+        { libraries: ["shadcn", "mui"] },
+      ],
     },
   },
 ];
@@ -40,17 +46,17 @@ export default [
 
 ### Static Rules
 
-| Rule | Description |
-|------|-------------|
-| `no-arbitrary-tailwind` | Forbid arbitrary Tailwind values like `w-[123px]` |
-| `consistent-spacing` | Enforce spacing scale (no magic numbers in gap/padding) |
-| `no-direct-store-import` | Forbid direct Zustand store imports (use hooks) |
-| `no-mixed-component-libraries` | Forbid mixing shadcn and MUI components in same file |
+| Rule                           | Description                                             |
+| ------------------------------ | ------------------------------------------------------- |
+| `no-arbitrary-tailwind`        | Forbid arbitrary Tailwind values like `w-[123px]`       |
+| `consistent-spacing`           | Enforce spacing scale (no magic numbers in gap/padding) |
+| `no-direct-store-import`       | Forbid direct Zustand store imports (use hooks)         |
+| `no-mixed-component-libraries` | Forbid mixing shadcn and MUI components in same file    |
 
 ### LLM-Powered Rules
 
-| Rule | Description |
-|------|-------------|
+| Rule       | Description                                            |
+| ---------- | ------------------------------------------------------ |
 | `semantic` | LLM-powered semantic UI analysis using your styleguide |
 
 The `semantic` rule reads `.uilint/styleguide.md` and uses Ollama to analyze your UI code for consistency violations.
@@ -73,7 +79,7 @@ No options. Reports any use of Tailwind arbitrary values like `w-[100px]`, `bg-[
 
 ```javascript
 {
-  storePattern: string  // Glob pattern for store names (default: 'use*Store')
+  storePattern: string; // Glob pattern for store names (default: 'use*Store')
 }
 ```
 
@@ -89,8 +95,8 @@ No options. Reports any use of Tailwind arbitrary values like `w-[100px]`, `bg-[
 
 ```javascript
 {
-  model: string          // Ollama model (default: 'qwen3:8b')
-  styleguidePath: string // Path to styleguide (default: '.uilint/styleguide.md')
+  model: string; // Ollama model (default: 'qwen3:8b')
+  styleguidePath: string; // Path to styleguide (default: '.uilint/styleguide.md')
 }
 ```
 
