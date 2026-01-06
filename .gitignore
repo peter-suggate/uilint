@@ -36,4 +36,4 @@ coverage/
 /.uilint/
 
 # UILint cache
-.uilint/.cache
+apps/test-app/.uilint/.cache/eslint-semantic.json
