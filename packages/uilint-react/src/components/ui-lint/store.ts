@@ -7,6 +7,8 @@
  * Solves the React 18 batching issue that causes scan results to chunk together.
  *
  * Includes WebSocket client for real-time communication with uilint serve.
+ *
+ * Uses data-loc attributes only (no React Fiber).
  */
 
 import { create } from "zustand";
@@ -21,7 +23,7 @@ import type {
   ESLintIssue,
 } from "./types";
 import { DEFAULT_SETTINGS, DEFAULT_AUTO_SCAN_STATE } from "./types";
-import { scanDOMForSources, groupBySourceFile } from "./fiber-utils";
+import { scanDOMForSources, groupBySourceFile } from "./dom-utils";
 
 /**
  * WebSocket message types (client -> server)
@@ -95,10 +97,6 @@ export interface UILintStore {
   setAltKeyHeld: (held: boolean) => void;
   locatorTarget: LocatorTarget | null;
   setLocatorTarget: (target: LocatorTarget | null) => void;
-  locatorStackIndex: number;
-  setLocatorStackIndex: (index: number) => void;
-  locatorGoUp: () => void;
-  locatorGoDown: () => void;
 
   // ============ Inspection ============
   inspectedElement: InspectedElement | null;
@@ -117,6 +115,16 @@ export interface UILintStore {
   resumeAutoScan: () => void;
   stopAutoScan: () => void;
   updateElementIssue: (id: string, issue: ElementIssue) => void;
+
+  // ============ Navigation Detection ============
+  /** Number of new elements detected since last scan */
+  pendingNewElements: number;
+  /** Set the count of pending new elements */
+  setPendingNewElements: (count: number) => void;
+  /** Clear the pending new elements count (e.g., after a new scan) */
+  clearPendingNewElements: () => void;
+  /** Remove stale scan results for elements that no longer exist */
+  removeStaleResults: (elementIds: string[]) => void;
 
   // ============ WebSocket ============
   wsConnection: WebSocket | null;
@@ -287,20 +295,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   setAltKeyHeld: (held) => set({ altKeyHeld: held }),
   locatorTarget: null,
   setLocatorTarget: (target) => set({ locatorTarget: target }),
-  locatorStackIndex: 0,
-  setLocatorStackIndex: (index) => set({ locatorStackIndex: index }),
-
-  locatorGoUp: () => {
-    const { locatorTarget, locatorStackIndex } = get();
-    if (!locatorTarget) return;
-    const maxIndex = locatorTarget.componentStack.length;
-    set({ locatorStackIndex: Math.min(locatorStackIndex + 1, maxIndex) });
-  },
-
-  locatorGoDown: () => {
-    const { locatorStackIndex } = get();
-    set({ locatorStackIndex: Math.max(locatorStackIndex - 1, 0) });
-  },
 
   // ============ Inspection ============
   inspectedElement: null,
@@ -334,14 +328,15 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       return;
     }
 
-    // Acquire lock
+    // Acquire lock and clear pending new elements
     set({
       scanLock: true,
       scanPaused: false,
       scanAborted: false,
+      pendingNewElements: 0,
     });
 
-    // Get all scannable elements
+    // Get all scannable elements using data-loc
     const elements = scanDOMForSources(document.body, hideNodeModules);
 
     // Initialize cache with pending status
@@ -395,6 +390,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       scanLock: false,
       autoScanState: DEFAULT_AUTO_SCAN_STATE,
       elementIssuesCache: new Map(),
+      pendingNewElements: 0,
     });
   },
 
@@ -485,6 +481,34 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       },
     });
   },
+
+  // ============ Navigation Detection ============
+  pendingNewElements: 0,
+
+  setPendingNewElements: (count) => set({ pendingNewElements: count }),
+
+  clearPendingNewElements: () => set({ pendingNewElements: 0 }),
+
+  removeStaleResults: (elementIds) =>
+    set((state) => {
+      const newCache = new Map(state.elementIssuesCache);
+      const newElements = state.autoScanState.elements.filter(
+        (el) => !elementIds.includes(el.id)
+      );
+
+      for (const id of elementIds) {
+        newCache.delete(id);
+      }
+
+      return {
+        elementIssuesCache: newCache,
+        autoScanState: {
+          ...state.autoScanState,
+          elements: newElements,
+          totalElements: newElements.length,
+        },
+      };
+    }),
 
   // ============ WebSocket ============
   wsConnection: null,
@@ -798,19 +822,3 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     get().connectWebSocket(wsUrl);
   },
 }));
-
-/**
- * Hook to get effective locator target with stack index applied
- */
-export function useEffectiveLocatorTarget(): LocatorTarget | null {
-  const locatorTarget = useUILintStore((s: UILintStore) => s.locatorTarget);
-  const locatorStackIndex = useUILintStore(
-    (s: UILintStore) => s.locatorStackIndex
-  );
-
-  if (!locatorTarget) return null;
-  return {
-    ...locatorTarget,
-    stackIndex: locatorStackIndex,
-  };
-}

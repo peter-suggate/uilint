@@ -7,9 +7,12 @@
  * When Alt is held and hovering, shows element info tooltip.
  * When Alt+Click, opens the InspectionPanel sidebar.
  *
+ * Uses data-loc attributes injected by the build plugin.
+ * Works uniformly for both server and client components in Next.js 15+.
+ *
  * State management is handled by Zustand store. This component provides:
  * - React Context for backwards compatibility with useUILintContext()
- * - DOM event handlers for Alt key, mouse tracking, scroll wheel navigation
+ * - DOM event handlers for Alt key, mouse tracking
  * - UI component mounting
  */
 
@@ -25,20 +28,10 @@ import type {
   UILintContextValue,
   UILintProviderProps,
   LocatorTarget,
-  ComponentInfo,
 } from "./types";
-import {
-  getFiberFromElement,
-  getDebugSource,
-  getComponentStack,
-  getSourceFromDataLoc,
-  isNodeModulesPath,
-} from "./fiber-utils";
-import {
-  useUILintStore,
-  useEffectiveLocatorTarget,
-  type UILintStore,
-} from "./store";
+import { getSourceFromDataLoc, isNodeModulesPath } from "./dom-utils";
+import { useUILintStore, type UILintStore } from "./store";
+import { useDOMObserver } from "./useDOMObserver";
 
 // Create context
 const UILintContext = createContext<UILintContextValue | null>(null);
@@ -76,17 +69,10 @@ export function UILintProvider({
   const updateSettings = useUILintStore((s: UILintStore) => s.updateSettings);
   const altKeyHeld = useUILintStore((s: UILintStore) => s.altKeyHeld);
   const setAltKeyHeld = useUILintStore((s: UILintStore) => s.setAltKeyHeld);
+  const locatorTarget = useUILintStore((s: UILintStore) => s.locatorTarget);
   const setLocatorTarget = useUILintStore(
     (s: UILintStore) => s.setLocatorTarget
   );
-  const locatorStackIndex = useUILintStore(
-    (s: UILintStore) => s.locatorStackIndex
-  );
-  const setLocatorStackIndex = useUILintStore(
-    (s: UILintStore) => s.setLocatorStackIndex
-  );
-  const locatorGoUp = useUILintStore((s: UILintStore) => s.locatorGoUp);
-  const locatorGoDown = useUILintStore((s: UILintStore) => s.locatorGoDown);
   const inspectedElement = useUILintStore(
     (s: UILintStore) => s.inspectedElement
   );
@@ -110,61 +96,33 @@ export function UILintProvider({
     (s: UILintStore) => s.disconnectWebSocket
   );
 
-  // Get computed locator target with stack index
-  const effectiveLocatorTarget = useEffectiveLocatorTarget();
+  // Mount DOM observer for navigation detection
+  useDOMObserver(enabled && isMounted);
 
   /**
    * Get element info from a DOM element for locator mode
+   * Uses data-loc attribute only (no fiber)
    */
   const getLocatorTargetFromElement = useCallback(
     (element: Element): LocatorTarget | null => {
       // Skip UILint's own UI elements
       if (element.closest("[data-ui-lint]")) return null;
 
-      // Prefer React Fiber debug info for source paths (keeps absolute paths for editor links).
-      // Fall back to data-loc if fiber info isn't available.
-      let source: ReturnType<typeof getDebugSource> | null = null;
-      let componentStack: ComponentInfo[] = [];
-
-      const fiber = getFiberFromElement(element);
-      if (fiber) {
-        source = getDebugSource(fiber);
-        if (!source && fiber._debugOwner) {
-          source = getDebugSource(fiber._debugOwner);
-        }
-        componentStack = getComponentStack(fiber);
-      }
-
-      // Fallback to data-loc (injected by build transform) if we couldn't get fiber source
-      if (!source) {
-        source = getSourceFromDataLoc(element);
-      }
+      // Get source from data-loc attribute
+      const source = getSourceFromDataLoc(element);
 
       // Skip if no source found
-      if (!source && componentStack.length === 0) return null;
+      if (!source) return null;
 
       // Skip node_modules if enabled
-      if (
-        settings.hideNodeModules &&
-        source &&
-        isNodeModulesPath(source.fileName)
-      ) {
-        const appSource = componentStack.find(
-          (c) => c.source && !isNodeModulesPath(c.source.fileName)
-        );
-        if (appSource?.source) {
-          source = appSource.source;
-        } else if (componentStack.length === 0) {
-          return null;
-        }
+      if (settings.hideNodeModules && isNodeModulesPath(source.fileName)) {
+        return null;
       }
 
       return {
         element,
         source,
-        componentStack,
         rect: element.getBoundingClientRect(),
-        stackIndex: 0,
       };
     },
     [settings.hideNodeModules]
@@ -184,7 +142,7 @@ export function UILintProvider({
         return;
       }
 
-      // Find the nearest element with source info
+      // Find the nearest element with source info (walking up the tree)
       let current: Element | null = elementAtPoint;
       while (current) {
         const target = getLocatorTargetFromElement(current);
@@ -206,13 +164,12 @@ export function UILintProvider({
   );
 
   /**
-   * Handle click in locator mode - open sidebar instead of editor
+   * Handle click in locator mode - open sidebar
    */
   const handleLocatorClick = useCallback(
     (e: MouseEvent) => {
-      // Allow click-to-select when Alt is held OR when inspector is already open.
-      // (When inspector is open we want plain click to select without requiring Alt.)
-      if ((!altKeyHeld && !inspectedElement) || !effectiveLocatorTarget) return;
+      // Allow click-to-select when Alt is held OR when inspector is already open
+      if ((!altKeyHeld && !inspectedElement) || !locatorTarget) return;
 
       // Ignore clicks on UILint UI
       const targetEl = e.target as Element | null;
@@ -221,39 +178,22 @@ export function UILintProvider({
       e.preventDefault();
       e.stopPropagation();
 
-      // Determine which source to use based on stack index
-      let source = effectiveLocatorTarget.source;
-      if (
-        locatorStackIndex > 0 &&
-        effectiveLocatorTarget.componentStack.length > 0
-      ) {
-        const stackItem =
-          effectiveLocatorTarget.componentStack[locatorStackIndex - 1];
-        if (stackItem?.source) {
-          source = stackItem.source;
-        }
-      }
-
       // Open the inspection panel sidebar
       setInspectedElement({
-        element: effectiveLocatorTarget.element,
-        source,
-        componentStack: effectiveLocatorTarget.componentStack,
-        rect: effectiveLocatorTarget.rect,
+        element: locatorTarget.element,
+        source: locatorTarget.source,
+        rect: locatorTarget.rect,
       });
 
-      // Reset locator state (but do not reset altKeyHeld - user may still be holding Alt)
+      // Reset locator state
       setLocatorTarget(null);
-      setLocatorStackIndex(0);
     },
     [
       altKeyHeld,
-      effectiveLocatorTarget,
+      locatorTarget,
       inspectedElement,
-      locatorStackIndex,
       setInspectedElement,
       setLocatorTarget,
-      setLocatorStackIndex,
     ]
   );
 
@@ -266,7 +206,6 @@ export function UILintProvider({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Alt") {
         setAltKeyHeld(true);
-        setLocatorStackIndex(0);
       }
     };
 
@@ -274,7 +213,6 @@ export function UILintProvider({
       if (e.key === "Alt") {
         setAltKeyHeld(false);
         setLocatorTarget(null);
-        setLocatorStackIndex(0);
       }
     };
 
@@ -282,7 +220,6 @@ export function UILintProvider({
     const handleBlur = () => {
       setAltKeyHeld(false);
       setLocatorTarget(null);
-      setLocatorStackIndex(0);
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -294,7 +231,7 @@ export function UILintProvider({
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [enabled, setAltKeyHeld, setLocatorTarget, setLocatorStackIndex]);
+  }, [enabled, setAltKeyHeld, setLocatorTarget]);
 
   /**
    * Mouse tracking for locator mode
@@ -319,26 +256,6 @@ export function UILintProvider({
     handleMouseMove,
     handleLocatorClick,
   ]);
-
-  /**
-   * Scroll wheel for parent navigation in locator mode
-   */
-  useEffect(() => {
-    if (!isBrowser() || !enabled || !altKeyHeld) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (!effectiveLocatorTarget) return;
-      e.preventDefault();
-      if (e.deltaY > 0) {
-        locatorGoUp();
-      } else {
-        locatorGoDown();
-      }
-    };
-
-    window.addEventListener("wheel", handleWheel, { passive: false });
-    return () => window.removeEventListener("wheel", handleWheel);
-  }, [enabled, altKeyHeld, effectiveLocatorTarget, locatorGoUp, locatorGoDown]);
 
   /**
    * Escape key to close sidebar
@@ -392,9 +309,7 @@ export function UILintProvider({
       settings,
       updateSettings,
       altKeyHeld,
-      locatorTarget: effectiveLocatorTarget,
-      locatorGoUp,
-      locatorGoDown,
+      locatorTarget,
       inspectedElement,
       setInspectedElement,
       autoScanState,
@@ -408,9 +323,7 @@ export function UILintProvider({
       settings,
       updateSettings,
       altKeyHeld,
-      effectiveLocatorTarget,
-      locatorGoUp,
-      locatorGoDown,
+      locatorTarget,
       inspectedElement,
       setInspectedElement,
       autoScanState,

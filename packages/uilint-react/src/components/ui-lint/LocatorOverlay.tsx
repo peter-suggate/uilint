@@ -3,12 +3,13 @@
 /**
  * Locator Overlay - Shows element info when Alt/Option key is held
  * Inspired by LocatorJS for a quick "hover to find source" experience
+ *
+ * Uses data-loc attributes only (no React Fiber).
  */
 
 import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUILintContext } from "./UILintProvider";
-import { buildEditorUrl } from "./fiber-utils";
 import type { SourceLocation } from "./types";
 
 /**
@@ -46,32 +47,22 @@ export function LocatorOverlay() {
     setMounted(true);
   }, []);
 
-  // Determine the current source based on stack index
-  // Hooks must be called unconditionally
+  // Get the source from locator target
   const currentSource = useMemo<SourceLocation | null>(() => {
     if (!locatorTarget) return null;
-    if (locatorTarget.stackIndex === 0) {
-      return locatorTarget.source;
-    }
-    const stackItem = locatorTarget.componentStack[locatorTarget.stackIndex - 1];
-    return stackItem?.source || null;
+    return locatorTarget.source;
   }, [locatorTarget]);
 
-  // Current component name
+  // Current element name (tag name)
   const currentName = useMemo(() => {
     if (!locatorTarget) return "";
-    if (locatorTarget.stackIndex === 0) {
-      return locatorTarget.element.tagName.toLowerCase();
-    }
-    const stackItem = locatorTarget.componentStack[locatorTarget.stackIndex - 1];
-    return stackItem?.name || "Unknown";
+    return locatorTarget.element.tagName.toLowerCase();
   }, [locatorTarget]);
 
   // Early return after all hooks
   if (!mounted || !locatorTarget) return null;
 
   const { rect } = locatorTarget;
-  const hasParents = locatorTarget.componentStack.length > 0;
 
   const content = (
     <div data-ui-lint style={{ pointerEvents: "none" }}>
@@ -107,9 +98,6 @@ export function LocatorOverlay() {
         rect={rect}
         source={currentSource}
         componentName={currentName}
-        stackIndex={locatorTarget.stackIndex}
-        stackLength={locatorTarget.componentStack.length}
-        hasParents={hasParents}
       />
     </div>
   );
@@ -118,25 +106,15 @@ export function LocatorOverlay() {
 }
 
 /**
- * Info tooltip showing component name and file location
+ * Info tooltip showing element name and file location
  */
 interface InfoTooltipProps {
   rect: DOMRect;
   source: SourceLocation | null;
   componentName: string;
-  stackIndex: number;
-  stackLength: number;
-  hasParents: boolean;
 }
 
-function InfoTooltip({
-  rect,
-  source,
-  componentName,
-  stackIndex,
-  stackLength,
-  hasParents,
-}: InfoTooltipProps) {
+function InfoTooltip({ rect, source, componentName }: InfoTooltipProps) {
   // Position the tooltip above or below the element
   const viewportHeight = window.innerHeight;
   const spaceAbove = rect.top;
@@ -175,7 +153,7 @@ function InfoTooltip({
         pointerEvents: "auto",
       }}
     >
-      {/* Component name and stack indicator */}
+      {/* Element name */}
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
         <span
           style={{
@@ -184,21 +162,10 @@ function InfoTooltip({
             color: STYLES.accent,
           }}
         >
-          {"<"}{componentName}{" />"}
+          {"<"}
+          {componentName}
+          {" />"}
         </span>
-        {hasParents && (
-          <span
-            style={{
-              fontSize: "10px",
-              color: STYLES.textMuted,
-              padding: "2px 6px",
-              backgroundColor: "rgba(59, 130, 246, 0.15)",
-              borderRadius: "4px",
-            }}
-          >
-            {stackIndex === 0 ? "element" : `parent ${stackIndex}/${stackLength}`}
-          </span>
-        )}
       </div>
 
       {/* File path and line number */}
@@ -219,7 +186,7 @@ function InfoTooltip({
         </div>
       )}
 
-      {/* Navigation hint */}
+      {/* Click hint */}
       <div
         style={{
           display: "flex",
@@ -232,13 +199,7 @@ function InfoTooltip({
           marginTop: "2px",
         }}
       >
-        <span>Click to open</span>
-        {hasParents && (
-          <>
-            <span style={{ opacity: 0.5 }}>•</span>
-            <span>Scroll to navigate parents</span>
-          </>
-        )}
+        <span>Click to inspect</span>
       </div>
     </div>
   );

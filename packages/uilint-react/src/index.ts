@@ -5,11 +5,7 @@ export {
   UILintToolbar,
   InspectionPanel,
   LocatorOverlay,
-  // Fiber utilities
-  getFiberFromElement,
-  getDebugSource,
-  getDebugOwner,
-  getComponentStack,
+  // DOM utilities (data-loc based)
   scanDOMForSources,
   groupBySourceFile,
   cleanupDataAttributes,
@@ -18,6 +14,7 @@ export {
   buildEditorUrl,
   isNodeModulesPath,
   getDisplayName,
+  getSourceFromDataLoc,
   // Source fetching
   fetchSource,
   fetchSourceWithContext,
@@ -31,7 +28,6 @@ export {
 } from "./components/ui-lint";
 export type {
   SourceLocation,
-  ComponentInfo,
   ScannedElement,
   SourceFile,
   UILintSettings,

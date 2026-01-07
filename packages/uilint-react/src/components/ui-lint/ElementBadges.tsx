@@ -74,8 +74,7 @@ function formatElementLabel(element: ScannedElement): string {
     return `${tag} > ${fileName}`;
   }
 
-  const componentName = element.componentStack[0]?.name;
-  return componentName ? `${tag} > ${componentName}` : tag;
+  return tag;
 }
 
 /**
@@ -246,7 +245,6 @@ export function ElementBadges() {
       const inspected: InspectedElement = {
         element: element.element,
         source: element.source,
-        componentStack: element.componentStack,
         rect: element.element.getBoundingClientRect(),
         scannedElementId: element.id,
       };

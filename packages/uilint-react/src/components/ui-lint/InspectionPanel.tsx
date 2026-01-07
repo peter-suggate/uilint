@@ -10,11 +10,10 @@ import { createPortal } from "react-dom";
 import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import { fetchSourceWithContext } from "./source-fetcher";
-import { buildEditorUrl } from "./fiber-utils";
+import { buildEditorUrl } from "./dom-utils";
 import type {
   InspectedElement,
   SourceLocation,
-  ComponentInfo,
   ElementIssue,
   ESLintIssue,
 } from "./types";
@@ -142,8 +141,7 @@ function PanelHeader({
   element: InspectedElement;
   onClose: () => void;
 }) {
-  const componentName =
-    element.componentStack[0]?.name || element.element.tagName.toLowerCase();
+  const tagName = element.element.tagName.toLowerCase();
 
   const handleOpenInCursor = useCallback(() => {
     if (element.source) {
@@ -164,10 +162,15 @@ function PanelHeader({
       }}
     >
       <div>
-        <div style={{ fontSize: "14px", fontWeight: 600 }}>{componentName}</div>
-        <div style={{ fontSize: "11px", color: STYLES.textMuted }}>
-          &lt;{element.element.tagName.toLowerCase()}&gt;
+        <div style={{ fontSize: "14px", fontWeight: 600 }}>
+          &lt;{tagName}&gt;
         </div>
+        {element.source && (
+          <div style={{ fontSize: "11px", color: STYLES.textMuted }}>
+            {element.source.fileName.split("/").pop()}:
+            {element.source.lineNumber}
+          </div>
+        )}
       </div>
 
       <div style={{ display: "flex", gap: "8px" }}>
@@ -320,35 +323,6 @@ function InfoTab({ element }: { element: InspectedElement }) {
               }}
             >
               {element.source.fileName}
-            </div>
-          </Section>
-        )}
-
-        {/* Component stack */}
-        {element.componentStack.length > 0 && (
-          <Section title="Component Stack">
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "4px" }}
-            >
-              {element.componentStack.slice(0, 10).map((comp, index) => (
-                <ComponentStackItem
-                  key={index}
-                  component={comp}
-                  index={index}
-                  isFirst={index === 0}
-                />
-              ))}
-              {element.componentStack.length > 10 && (
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: STYLES.textDim,
-                    marginTop: "4px",
-                  }}
-                >
-                  ...and {element.componentStack.length - 10} more
-                </div>
-              )}
             </div>
           </Section>
         )}
@@ -801,23 +775,6 @@ function ESLintIssuesSection({ issues }: { issues: ESLintIssue[] }) {
 }
 
 /**
- * Small check icon for inline use
- */
-function CheckIconSmall() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M20 6L9 17l-5-5"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-/**
  * Section wrapper
  */
 function Section({
@@ -884,74 +841,6 @@ function InfoRow({
   );
 }
 
-/**
- * Component stack item
- */
-function ComponentStackItem({
-  component,
-  index,
-  isFirst,
-}: {
-  component: ComponentInfo;
-  index: number;
-  isFirst: boolean;
-}) {
-  const handleClick = useCallback(() => {
-    if (component.source) {
-      const url = buildEditorUrl(component.source, "cursor");
-      window.open(url, "_blank");
-    }
-  }, [component.source]);
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-        padding: "6px 8px",
-        marginLeft: index * 8,
-        backgroundColor: isFirst ? "rgba(59, 130, 246, 0.1)" : "transparent",
-        borderRadius: "4px",
-        cursor: component.source ? "pointer" : "default",
-        transition: "background-color 0.15s",
-      }}
-      onClick={handleClick}
-      onMouseEnter={(e) => {
-        if (component.source) {
-          e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.15)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = isFirst
-          ? "rgba(59, 130, 246, 0.1)"
-          : "transparent";
-      }}
-    >
-      <span
-        style={{
-          fontSize: "12px",
-          fontWeight: isFirst ? 600 : 400,
-          color: isFirst ? STYLES.accent : STYLES.textMuted,
-        }}
-      >
-        {component.name}
-      </span>
-      {component.source && (
-        <span
-          style={{
-            fontSize: "10px",
-            color: STYLES.textDim,
-            fontFamily: STYLES.fontMono,
-          }}
-        >
-          :{component.source.lineNumber}
-        </span>
-      )}
-    </div>
-  );
-}
-
 // Icons
 
 function CursorIcon() {
@@ -973,54 +862,6 @@ function CloseIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
       <path
         d="M18 6L6 18M6 6l12 12"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ScanIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function CopyIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-      <rect
-        x="9"
-        y="9"
-        width="13"
-        height="13"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-      <path
-        d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M20 6L9 17l-5-5"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"

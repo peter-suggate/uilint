@@ -9,7 +9,7 @@
 export { UILintProvider, useUILintContext } from "./UILintProvider";
 
 // Zustand store for direct access
-export { useUILintStore, useEffectiveLocatorTarget } from "./store";
+export { useUILintStore } from "./store";
 export type { UILintStore } from "./store";
 
 // UI components
@@ -17,12 +17,8 @@ export { UILintToolbar } from "./UILintToolbar";
 export { InspectionPanel } from "./InspectionPanel";
 export { LocatorOverlay } from "./LocatorOverlay";
 
-// Fiber utilities
+// DOM utilities (data-loc based)
 export {
-  getFiberFromElement,
-  getDebugSource,
-  getDebugOwner,
-  getComponentStack,
   scanDOMForSources,
   groupBySourceFile,
   cleanupDataAttributes,
@@ -31,7 +27,11 @@ export {
   buildEditorUrl,
   isNodeModulesPath,
   getDisplayName,
-} from "./fiber-utils";
+  getSourceFromDataLoc,
+} from "./dom-utils";
+
+// DOM observation hook (for navigation detection)
+export { useDOMObserver, getDataLocElementCount } from "./useDOMObserver";
 
 // Source fetching
 export {
@@ -45,7 +45,6 @@ export {
 // Types
 export type {
   SourceLocation,
-  ComponentInfo,
   ScannedElement,
   SourceFile,
   UILintSettings,

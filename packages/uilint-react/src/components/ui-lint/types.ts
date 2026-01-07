@@ -3,7 +3,7 @@
  */
 
 /**
- * Source location from React Fiber _debugSource
+ * Source location from data-loc attribute
  */
 export interface SourceLocation {
   fileName: string;
@@ -12,23 +12,17 @@ export interface SourceLocation {
 }
 
 /**
- * Component information extracted from React Fiber
- */
-export interface ComponentInfo {
-  name: string;
-  source: SourceLocation | null;
-}
-
-/**
- * A scanned DOM element with its React source information
+ * A scanned DOM element with its source information
+ * Source is always present from data-loc attribute
  */
 export interface ScannedElement {
+  /** Unique ID from data-loc value (format: "loc:path:line:column") */
   id: string;
   element: Element;
   tagName: string;
   className: string;
-  source: SourceLocation | null;
-  componentStack: ComponentInfo[];
+  /** Source location (always present from data-loc) */
+  source: SourceLocation;
   rect: DOMRect;
 }
 
@@ -91,11 +85,8 @@ export interface ElementIssue {
  */
 export interface LocatorTarget {
   element: Element;
-  source: SourceLocation | null;
-  componentStack: ComponentInfo[];
+  source: SourceLocation;
   rect: DOMRect;
-  /** Index in the component stack (0 = current element, higher = parent) */
-  stackIndex: number;
 }
 
 /**
@@ -103,8 +94,7 @@ export interface LocatorTarget {
  */
 export interface InspectedElement {
   element: Element;
-  source: SourceLocation | null;
-  componentStack: ComponentInfo[];
+  source: SourceLocation;
   rect: DOMRect;
   /** Optional ID from auto-scan to link to cached results */
   scannedElementId?: string;
@@ -120,10 +110,6 @@ export interface UILintContextValue {
   altKeyHeld: boolean;
   /** Current element under cursor when Alt is held */
   locatorTarget: LocatorTarget | null;
-  /** Navigate to parent component in locator mode */
-  locatorGoUp: () => void;
-  /** Navigate to child component in locator mode */
-  locatorGoDown: () => void;
   /** Element currently being inspected in sidebar */
   inspectedElement: InspectedElement | null;
   /** Set the element to inspect (opens sidebar) */
