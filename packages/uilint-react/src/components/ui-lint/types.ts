@@ -16,7 +16,10 @@ export interface SourceLocation {
  * Source is always present from data-loc attribute
  */
 export interface ScannedElement {
-  /** Unique ID from data-loc value (format: "loc:path:line:column") */
+  /**
+   * Unique per-instance ID derived from data-loc.
+   * Format: "loc:path:line:column#occurrence"
+   */
   id: string;
   element: Element;
   tagName: string;
@@ -114,18 +117,16 @@ export interface UILintContextValue {
   inspectedElement: InspectedElement | null;
   /** Set the element to inspect (opens sidebar) */
   setInspectedElement: (element: InspectedElement | null) => void;
-  /** Auto-scan state */
+  /** Whether live scanning is enabled */
+  liveScanEnabled: boolean;
+  /** Auto-scan state (for progress tracking) */
   autoScanState: AutoScanState;
-  /** Cache of element issues from auto-scan */
+  /** Cache of element issues from scanning */
   elementIssuesCache: Map<string, ElementIssue>;
-  /** Start auto-scanning all page elements */
-  startAutoScan: () => void;
-  /** Pause the auto-scan */
-  pauseAutoScan: () => void;
-  /** Resume the auto-scan */
-  resumeAutoScan: () => void;
-  /** Stop and reset the auto-scan */
-  stopAutoScan: () => void;
+  /** Enable live scanning */
+  enableLiveScan: () => void;
+  /** Disable live scanning */
+  disableLiveScan: () => void;
 }
 
 /**

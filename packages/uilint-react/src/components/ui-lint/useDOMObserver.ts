@@ -1,27 +1,26 @@
 "use client";
 
 /**
- * DOM Observer Hook for Navigation Detection
+ * DOM Observer Hook for Live Scanning
  *
  * Watches the DOM for data-loc element additions/removals using MutationObserver.
- * This is useful for detecting page navigations in Next.js 15+ App Router apps
- * where server and client components may mount/unmount during navigation.
+ * When live scanning is enabled:
+ * - New elements are automatically scanned
+ * - Removed elements are cleared from the cache
  *
- * Responsibilities:
- * 1. Watch DOM for data-loc element additions/removals
- * 2. Maintain registry of current elements
- * 3. Notify store of changes (debounced)
- * 4. Clean up on unmount
+ * This enables continuous scanning without manual rescan.
  */
 
 import { useEffect, useRef, useCallback } from "react";
 import { useUILintStore, type UILintStore } from "./store";
+import { scanDOMForSources } from "./dom-utils";
+import type { ScannedElement } from "./types";
 
 /** Debounce delay for reconciliation (handles streaming/suspense) */
 const RECONCILE_DEBOUNCE_MS = 100;
 
 /**
- * Hook to observe DOM changes and detect new/removed data-loc elements
+ * Hook to observe DOM changes and auto-scan new data-loc elements
  *
  * @param enabled - Whether observation is active
  */
@@ -30,70 +29,76 @@ export function useDOMObserver(enabled: boolean = true): void {
   const reconcileTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
-  const lastScanElementIdsRef = useRef<Set<string>>(new Set());
+  const knownElementIdsRef = useRef<Set<string>>(new Set());
 
-  // Get store actions
-  const setPendingNewElements = useUILintStore(
-    (s: UILintStore) => s.setPendingNewElements
-  );
+  // Get store state and actions
+  const liveScanEnabled = useUILintStore((s: UILintStore) => s.liveScanEnabled);
+  const settings = useUILintStore((s: UILintStore) => s.settings);
+  const autoScanState = useUILintStore((s: UILintStore) => s.autoScanState);
   const removeStaleResults = useUILintStore(
     (s: UILintStore) => s.removeStaleResults
   );
-  const autoScanState = useUILintStore((s: UILintStore) => s.autoScanState);
+  const scanNewElements = useUILintStore((s: UILintStore) => s.scanNewElements);
 
-  // Update lastScanElementIds when a scan completes
+  // Update known element IDs when autoScanState changes
   useEffect(() => {
-    if (autoScanState.status === "complete") {
+    if (autoScanState.elements.length > 0) {
       const ids = new Set(autoScanState.elements.map((el) => el.id));
-      lastScanElementIdsRef.current = ids;
+      knownElementIdsRef.current = ids;
     }
-  }, [autoScanState.status, autoScanState.elements]);
+  }, [autoScanState.elements]);
 
   /**
-   * Reconcile current DOM state with last scan results
+   * Reconcile current DOM state with known elements
+   * - Scan new elements if live mode is enabled
+   * - Remove stale results for elements no longer in DOM
    */
   const reconcileElements = useCallback(() => {
+    // Don't reconcile if live scanning is not enabled
+    if (!liveScanEnabled) return;
+
     // Get all current data-loc elements
-    const currentElements = document.querySelectorAll("[data-loc]");
-    const currentIds = new Set<string>();
+    const currentElements = scanDOMForSources(
+      document.body,
+      settings.hideNodeModules
+    );
+    const currentIds = new Set(currentElements.map((el) => el.id));
+    const knownIds = knownElementIdsRef.current;
 
+    // Find new elements (in DOM but not known)
+    const newElements: ScannedElement[] = [];
     for (const el of currentElements) {
-      const dataLoc = el.getAttribute("data-loc");
-      if (dataLoc) {
-        currentIds.add(`loc:${dataLoc}`);
+      if (!knownIds.has(el.id)) {
+        newElements.push(el);
       }
     }
 
-    const lastScanIds = lastScanElementIdsRef.current;
-
-    // If no previous scan, nothing to compare
-    if (lastScanIds.size === 0) return;
-
-    // Find new elements (in DOM but not in last scan)
-    const newElementIds: string[] = [];
-    for (const id of currentIds) {
-      if (!lastScanIds.has(id)) {
-        newElementIds.push(id);
-      }
-    }
-
-    // Find removed elements (in last scan but not in DOM)
+    // Find removed elements (known but not in DOM)
     const removedElementIds: string[] = [];
-    for (const id of lastScanIds) {
+    for (const id of knownIds) {
       if (!currentIds.has(id)) {
         removedElementIds.push(id);
       }
     }
 
-    // Update store with changes
-    if (newElementIds.length > 0) {
-      setPendingNewElements(newElementIds.length);
+    // Update known IDs
+    knownElementIdsRef.current = currentIds;
+
+    // Scan new elements
+    if (newElements.length > 0) {
+      scanNewElements(newElements);
     }
 
+    // Remove stale results
     if (removedElementIds.length > 0) {
       removeStaleResults(removedElementIds);
     }
-  }, [setPendingNewElements, removeStaleResults]);
+  }, [
+    liveScanEnabled,
+    settings.hideNodeModules,
+    scanNewElements,
+    removeStaleResults,
+  ]);
 
   /**
    * Debounced reconciliation to handle rapid DOM updates

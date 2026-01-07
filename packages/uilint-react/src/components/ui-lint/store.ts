@@ -102,29 +102,41 @@ export interface UILintStore {
   inspectedElement: InspectedElement | null;
   setInspectedElement: (el: InspectedElement | null) => void;
 
-  // ============ Auto-Scan ============
+  // ============ Live Scanning ============
+  /** Whether live scanning mode is enabled */
+  liveScanEnabled: boolean;
+  /** Enable live scanning and run initial scan */
+  enableLiveScan: (hideNodeModules: boolean) => Promise<void>;
+  /** Disable live scanning and clear all results */
+  disableLiveScan: () => void;
+  /** Scan newly-detected elements (called by DOM observer) */
+  scanNewElements: (elements: ScannedElement[]) => Promise<void>;
+
+  // ============ Auto-Scan State (internal) ============
   autoScanState: AutoScanState;
   elementIssuesCache: Map<string, ElementIssue>;
   scanLock: boolean;
-  scanPaused: boolean;
-  scanAborted: boolean;
 
-  // Scan actions
-  startAutoScan: (hideNodeModules: boolean) => Promise<void>;
-  pauseAutoScan: () => void;
-  resumeAutoScan: () => void;
-  stopAutoScan: () => void;
+  // Internal scan actions
   updateElementIssue: (id: string, issue: ElementIssue) => void;
 
-  // ============ Navigation Detection ============
-  /** Number of new elements detected since last scan */
-  pendingNewElements: number;
-  /** Set the count of pending new elements */
-  setPendingNewElements: (count: number) => void;
-  /** Clear the pending new elements count (e.g., after a new scan) */
-  clearPendingNewElements: () => void;
-  /** Remove stale scan results for elements that no longer exist */
+  // ============ DOM Observer ============
+  /** Remove scan results for elements that no longer exist in DOM */
   removeStaleResults: (elementIds: string[]) => void;
+
+  // ============ File/Element Selection ============
+  /** Currently hovered file path in scan results */
+  hoveredFilePath: string | null;
+  /** Currently selected file path in scan results */
+  selectedFilePath: string | null;
+  /** Currently selected element ID in elements panel */
+  selectedElementId: string | null;
+  /** Currently hovered element ID in scan results (for overlay highlighting) */
+  hoveredElementId: string | null;
+  setHoveredFilePath: (path: string | null) => void;
+  setSelectedFilePath: (path: string | null) => void;
+  setSelectedElementId: (id: string | null) => void;
+  setHoveredElementId: (id: string | null) => void;
 
   // ============ WebSocket ============
   wsConnection: WebSocket | null;
@@ -153,10 +165,7 @@ export interface UILintStore {
 
   // ============ Internal ============
   _setScanState: (state: Partial<AutoScanState>) => void;
-  _runScanLoop: (
-    elements: ScannedElement[],
-    startIndex: number
-  ) => Promise<void>;
+  _runScanLoop: (elements: ScannedElement[]) => Promise<void>;
   _handleWsMessage: (data: ServerMessage) => void;
   _reconnectWebSocket: () => void;
 }
@@ -167,7 +176,11 @@ export interface UILintStore {
  */
 function getDataLocFromId(id: string): string | null {
   if (id.startsWith("loc:")) {
-    return id.slice(4); // Remove "loc:" prefix
+    // Format:
+    // - old: "loc:path:line:column"
+    // - new: "loc:path:line:column#occurrence"
+    const raw = id.slice(4); // Remove "loc:" prefix
+    return raw.split("#")[0] || null;
   }
   return null;
 }
@@ -216,12 +229,16 @@ function distributeIssuesToElements(
   updateElementIssue: (id: string, issue: ElementIssue) => void,
   hasError: boolean
 ): void {
-  // Create a map from dataLoc to element ID for quick lookup
-  const dataLocToElementId = new Map<string, string>();
+  // Create a map from dataLoc to element IDs.
+  // Multiple DOM elements can share the same dataLoc (e.g. list rendering),
+  // so we must apply ESLint issues to all matching instances.
+  const dataLocToElementIds = new Map<string, string[]>();
   for (const el of elements) {
     const dataLoc = getDataLocFromId(el.id);
     if (dataLoc) {
-      dataLocToElementId.set(dataLoc, el.id);
+      const existing = dataLocToElementIds.get(dataLoc);
+      if (existing) existing.push(el.id);
+      else dataLocToElementIds.set(dataLoc, [el.id]);
     }
   }
 
@@ -229,11 +246,13 @@ function distributeIssuesToElements(
   const issuesByElement = new Map<string, ESLintIssue[]>();
   for (const issue of issues) {
     if (issue.dataLoc) {
-      const elementId = dataLocToElementId.get(issue.dataLoc);
-      if (elementId) {
-        const existing = issuesByElement.get(elementId) || [];
-        existing.push(issue);
-        issuesByElement.set(elementId, existing);
+      const elementIds = dataLocToElementIds.get(issue.dataLoc);
+      if (elementIds) {
+        for (const elementId of elementIds) {
+          const existing = issuesByElement.get(elementId) || [];
+          existing.push(issue);
+          issuesByElement.set(elementId, existing);
+        }
       }
     }
   }
@@ -300,12 +319,11 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   inspectedElement: null,
   setInspectedElement: (el) => set({ inspectedElement: el }),
 
-  // ============ Auto-Scan ============
+  // ============ Live Scanning ============
+  liveScanEnabled: false,
   autoScanState: DEFAULT_AUTO_SCAN_STATE,
   elementIssuesCache: new Map(),
   scanLock: false,
-  scanPaused: false,
-  scanAborted: false,
 
   _setScanState: (partial) =>
     set((state) => ({
@@ -319,7 +337,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       return { elementIssuesCache: newCache };
     }),
 
-  startAutoScan: async (hideNodeModules) => {
+  enableLiveScan: async (hideNodeModules) => {
     const state = get();
 
     // Prevent concurrent scans
@@ -328,12 +346,10 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       return;
     }
 
-    // Acquire lock and clear pending new elements
+    // Enable live scanning and acquire lock
     set({
+      liveScanEnabled: true,
       scanLock: true,
-      scanPaused: false,
-      scanAborted: false,
-      pendingNewElements: 0,
     });
 
     // Get all scannable elements using data-loc
@@ -360,78 +376,100 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       },
     });
 
-    // Start the scan loop
-    await get()._runScanLoop(elements, 0);
+    // Run the scan
+    await get()._runScanLoop(elements);
   },
 
-  pauseAutoScan: () => {
-    set({ scanPaused: true });
-    get()._setScanState({ status: "paused" });
-  },
-
-  resumeAutoScan: () => {
-    const state = get();
-    if (state.autoScanState.status !== "paused") return;
-
-    set({ scanPaused: false });
-    get()._setScanState({ status: "scanning" });
-
-    // Resume from current index
-    get()._runScanLoop(
-      state.autoScanState.elements,
-      state.autoScanState.currentIndex
-    );
-  },
-
-  stopAutoScan: () => {
+  disableLiveScan: () => {
     set({
-      scanAborted: true,
-      scanPaused: false,
+      liveScanEnabled: false,
       scanLock: false,
       autoScanState: DEFAULT_AUTO_SCAN_STATE,
       elementIssuesCache: new Map(),
-      pendingNewElements: 0,
     });
   },
 
-  _runScanLoop: async (elements, startIndex) => {
+  scanNewElements: async (newElements) => {
+    const state = get();
+
+    // Only scan if live mode is enabled
+    if (!state.liveScanEnabled) return;
+
+    // Skip if no new elements
+    if (newElements.length === 0) return;
+
+    // Add new elements to cache with pending status
+    set((s) => {
+      const newCache = new Map(s.elementIssuesCache);
+      for (const el of newElements) {
+        newCache.set(el.id, {
+          elementId: el.id,
+          issues: [],
+          status: "pending",
+        });
+      }
+      return {
+        elementIssuesCache: newCache,
+        autoScanState: {
+          ...s.autoScanState,
+          elements: [...s.autoScanState.elements, ...newElements],
+          totalElements: s.autoScanState.totalElements + newElements.length,
+        },
+      };
+    });
+
+    // Scan the new elements (grouped by file)
+    const sourceFiles = groupBySourceFile(newElements);
+
+    for (const sourceFile of sourceFiles) {
+      // Mark elements as scanning
+      for (const el of sourceFile.elements) {
+        get().updateElementIssue(el.id, {
+          elementId: el.id,
+          issues: [],
+          status: "scanning",
+        });
+      }
+
+      // Yield to browser
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      // Scan the file
+      const { issues, error } = await scanFileForIssues(sourceFile, get());
+
+      // Distribute issues to elements
+      distributeIssuesToElements(
+        issues,
+        sourceFile.elements,
+        get().updateElementIssue,
+        error ?? false
+      );
+
+      // Subscribe for live updates
+      if (get().wsConnected && get().wsConnection) {
+        get().subscribeToFile(sourceFile.path);
+      }
+
+      // Yield to browser
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+  },
+
+  _runScanLoop: async (elements) => {
     // Group elements by source file for per-file scanning
     const sourceFiles = groupBySourceFile(elements);
 
-    // Track progress - we scan files, but show element progress
+    // Track progress
     let processedElements = 0;
 
-    // Skip to the file containing startIndex element (for resume)
-    let skipElements = startIndex;
-
     for (const sourceFile of sourceFiles) {
-      // Skip files if resuming
-      if (skipElements >= sourceFile.elements.length) {
-        skipElements -= sourceFile.elements.length;
-        processedElements += sourceFile.elements.length;
-        continue;
-      }
-      skipElements = 0;
-
-      // Check abort - use get() for fresh state
-      if (get().scanAborted) {
+      // Check if live scan was disabled
+      if (!get().liveScanEnabled) {
         set({
           scanLock: false,
-          autoScanState: { ...get().autoScanState, status: "idle" },
+          autoScanState: DEFAULT_AUTO_SCAN_STATE,
         });
         return;
-      }
-
-      // Check pause - use get() for fresh state
-      while (get().scanPaused) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        if (get().scanAborted) {
-          set({
-            scanLock: false,
-            autoScanState: { ...get().autoScanState, status: "idle" },
-          });
-          return;
-        }
       }
 
       // Update progress
@@ -471,7 +509,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       await new Promise((resolve) => requestAnimationFrame(resolve));
     }
 
-    // Complete - release lock
+    // Complete - release lock but keep live scan enabled
     set({
       scanLock: false,
       autoScanState: {
@@ -482,13 +520,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     });
   },
 
-  // ============ Navigation Detection ============
-  pendingNewElements: 0,
-
-  setPendingNewElements: (count) => set({ pendingNewElements: count }),
-
-  clearPendingNewElements: () => set({ pendingNewElements: 0 }),
-
+  // ============ DOM Observer ============
   removeStaleResults: (elementIds) =>
     set((state) => {
       const newCache = new Map(state.elementIssuesCache);
@@ -509,6 +541,17 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
         },
       };
     }),
+
+  // ============ File/Element Selection ============
+  hoveredFilePath: null,
+  selectedFilePath: null,
+  selectedElementId: null,
+  hoveredElementId: null,
+
+  setHoveredFilePath: (path) => set({ hoveredFilePath: path }),
+  setSelectedFilePath: (path) => set({ selectedFilePath: path }),
+  setSelectedElementId: (id) => set({ selectedElementId: id }),
+  setHoveredElementId: (id) => set({ hoveredElementId: id }),
 
   // ============ WebSocket ============
   wsConnection: null,
@@ -710,9 +753,9 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
           return { eslintIssuesCache: next };
         });
 
-        // If auto-scan is active, apply ESLint issues to elements in this file
+        // If live scan is active, apply ESLint issues to elements in this file
         const state = get();
-        if (state.autoScanState.status !== "idle") {
+        if (state.liveScanEnabled) {
           const sourceFiles = groupBySourceFile(state.autoScanState.elements);
           const sf = sourceFiles.find((s) => s.path === filePath);
           if (sf) {
@@ -782,9 +825,9 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
           return { eslintIssuesCache: next };
         });
 
-        // If auto-scan is active, re-lint this file
+        // If live scan is active, re-lint this file
         const state = get();
-        if (state.autoScanState.status !== "idle") {
+        if (state.liveScanEnabled) {
           const sourceFiles = groupBySourceFile(state.autoScanState.elements);
           const sf = sourceFiles.find((s) => s.path === filePath);
           if (sf) {

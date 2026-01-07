@@ -1,79 +1,141 @@
 "use client";
 
 /**
- * Scan Results Popover - Shows file-grouped scan results
+ * Scan Results Popover - Shows file-grouped scan results with expandable sections
  *
  * Design:
  * ┌──────────────────────────────────────┐
- * │  12 files · 5 issues                 │
+ * │  3 files with issues                 │
  * ├──────────────────────────────────────┤
- * │  buttons.tsx                    ●3   │
- * │  cards.tsx                      ●2   │
- * │  layout.tsx                     ○0   │
- * │  ...                                 │
+ * │  ▼ buttons.tsx                  ●3   │
+ * │     <button> :12                ●2   │
+ * │     <div> :45                   ●1   │
+ * │  ▶ todos/page.tsx               ●2   │
+ * │  ▶ profile/page.tsx             ●1   │
  * └──────────────────────────────────────┘
+ *
+ * - Only files WITH issues are shown
+ * - Files are expandable in-place to show elements with issues
+ * - Hovering an element highlights it in the DOM
+ * - Clicking an element scrolls to it and adds persistent highlight
  */
 
-import React from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import { STYLES, getStatusColor } from "./toolbar-styles";
 import { groupBySourceFile } from "./dom-utils";
-import { PauseIcon, PlayIcon, StopIcon } from "./toolbar-icons";
+import { StopIcon, ChevronIcon } from "./toolbar-icons";
+import type { ScannedElement, LocatorTarget } from "./types";
 
-interface FileResult {
+interface FileWithIssues {
   path: string;
   displayName: string;
+  disambiguatedName: string;
   issueCount: number;
-  elementCount: number;
+  elementsWithIssues: ElementWithIssues[];
+}
+
+interface ElementWithIssues {
+  element: ScannedElement;
+  issueCount: number;
+}
+
+/**
+ * Get a disambiguated display name for files with duplicate names
+ * Shows "parentDir/fileName" for disambiguation
+ */
+function getDisambiguatedName(path: string, allPaths: string[]): string {
+  const parts = path.split("/");
+  const fileName = parts[parts.length - 1] || path;
+
+  // Check if any other file has the same name
+  const duplicates = allPaths.filter((p) => {
+    const pParts = p.split("/");
+    return pParts[pParts.length - 1] === fileName && p !== path;
+  });
+
+  if (duplicates.length === 0) {
+    return fileName;
+  }
+
+  // Include parent directory for disambiguation
+  if (parts.length >= 2) {
+    return `${parts[parts.length - 2]}/${fileName}`;
+  }
+
+  return fileName;
 }
 
 export function ScanResultsPopover() {
-  const {
-    autoScanState,
-    pauseAutoScan,
-    resumeAutoScan,
-    stopAutoScan,
-  } = useUILintContext();
+  const { autoScanState, liveScanEnabled, disableLiveScan } =
+    useUILintContext();
 
   const elementIssuesCache = useUILintStore(
     (s: UILintStore) => s.elementIssuesCache
   );
 
+  const setLocatorTarget = useUILintStore(
+    (s: UILintStore) => s.setLocatorTarget
+  );
+
+  const setInspectedElement = useUILintStore(
+    (s: UILintStore) => s.setInspectedElement
+  );
+
+  // Track which files are expanded
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+
   const isScanning = autoScanState.status === "scanning";
-  const isPaused = autoScanState.status === "paused";
   const isComplete = autoScanState.status === "complete";
 
-  // Group elements by source file and calculate issues
-  const sourceFiles = groupBySourceFile(autoScanState.elements);
+  // Group elements by source file and filter to only those with issues
+  const filesWithIssues = useMemo<FileWithIssues[]>(() => {
+    const sourceFiles = groupBySourceFile(autoScanState.elements);
+    const allPaths = sourceFiles.map((sf) => sf.path);
 
-  const fileResults: FileResult[] = sourceFiles.map((sf) => {
-    let issueCount = 0;
-    for (const el of sf.elements) {
-      const cached = elementIssuesCache.get(el.id);
-      if (cached) {
-        issueCount += cached.issues.length;
+    const result: FileWithIssues[] = [];
+
+    for (const sf of sourceFiles) {
+      const elementsWithIssues: ElementWithIssues[] = [];
+
+      for (const el of sf.elements) {
+        const cached = elementIssuesCache.get(el.id);
+        const issueCount = cached?.issues.length || 0;
+        if (issueCount > 0) {
+          elementsWithIssues.push({ element: el, issueCount });
+        }
+      }
+
+      // Only include files that have elements with issues
+      if (elementsWithIssues.length > 0) {
+        // Sort elements by line number
+        elementsWithIssues.sort(
+          (a, b) => a.element.source.lineNumber - b.element.source.lineNumber
+        );
+
+        const totalIssues = elementsWithIssues.reduce(
+          (sum, e) => sum + e.issueCount,
+          0
+        );
+
+        result.push({
+          path: sf.path,
+          displayName: sf.displayName,
+          disambiguatedName: getDisambiguatedName(sf.path, allPaths),
+          issueCount: totalIssues,
+          elementsWithIssues,
+        });
       }
     }
-    return {
-      path: sf.path,
-      displayName: sf.displayName,
-      issueCount,
-      elementCount: sf.elements.length,
-    };
-  });
 
-  // Sort by issue count (highest first), then by name
-  fileResults.sort((a, b) => {
-    if (b.issueCount !== a.issueCount) {
-      return b.issueCount - a.issueCount;
-    }
-    return a.displayName.localeCompare(b.displayName);
-  });
+    // Sort by issue count (highest first)
+    result.sort((a, b) => b.issueCount - a.issueCount);
 
-  const totalFiles = fileResults.length;
-  const totalIssues = fileResults.reduce((sum, f) => sum + f.issueCount, 0);
-  const filesWithIssues = fileResults.filter((f) => f.issueCount > 0).length;
+    return result;
+  }, [autoScanState.elements, elementIssuesCache]);
+
+  const totalIssues = filesWithIssues.reduce((sum, f) => sum + f.issueCount, 0);
 
   // Progress calculation
   const progress =
@@ -81,15 +143,70 @@ export function ScanResultsPopover() {
       ? (autoScanState.currentIndex / autoScanState.totalElements) * 100
       : 0;
 
+  // Toggle file expansion
+  const toggleFile = useCallback((path: string) => {
+    setExpandedFiles((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  }, []);
+
+  // Handle element hover - show locator overlay
+  const handleElementHover = useCallback(
+    (element: ScannedElement | null) => {
+      if (!element) {
+        setLocatorTarget(null);
+        return;
+      }
+
+      const target: LocatorTarget = {
+        element: element.element,
+        source: element.source,
+        rect: element.element.getBoundingClientRect(),
+      };
+      setLocatorTarget(target);
+    },
+    [setLocatorTarget]
+  );
+
+  // Handle element click - scroll to element and set persistent highlight
+  const handleElementClick = useCallback(
+    (element: ScannedElement) => {
+      // Scroll to the element
+      element.element.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      // Set inspected element for persistent highlight
+      setInspectedElement({
+        element: element.element,
+        source: element.source,
+        rect: element.element.getBoundingClientRect(),
+        scannedElementId: element.id,
+      });
+
+      // Clear the hover target
+      setLocatorTarget(null);
+    },
+    [setInspectedElement, setLocatorTarget]
+  );
+
   return (
     <div
+      data-ui-lint
       style={{
         position: "absolute",
         bottom: "100%",
-        right: 0,
+        left: 0,
         marginBottom: "8px",
-        width: "280px",
-        maxHeight: "400px",
+        width: "320px",
+        maxHeight: "450px",
         borderRadius: STYLES.popoverRadius,
         border: `1px solid ${STYLES.border}`,
         backgroundColor: STYLES.bgPopover,
@@ -123,100 +240,41 @@ export function ScanResultsPopover() {
               color: STYLES.text,
             }}
           >
-            {totalFiles} files · {totalIssues} issues
+            {filesWithIssues.length === 0
+              ? "No issues found"
+              : `${filesWithIssues.length} ${
+                  filesWithIssues.length === 1 ? "file" : "files"
+                } with ${totalIssues} ${
+                  totalIssues === 1 ? "issue" : "issues"
+                }`}
           </div>
 
-          {/* Controls for scanning/paused state */}
-          {(isScanning || isPaused) && (
-            <div style={{ display: "flex", gap: "4px" }}>
-              {isScanning && (
-                <button
-                  onClick={pauseAutoScan}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: "24px",
-                    height: "24px",
-                    borderRadius: "6px",
-                    border: `1px solid ${STYLES.border}`,
-                    backgroundColor: "transparent",
-                    color: STYLES.textMuted,
-                    cursor: "pointer",
-                    transition: STYLES.transitionFast,
-                  }}
-                  title="Pause scan"
-                >
-                  <PauseIcon />
-                </button>
-              )}
-              {isPaused && (
-                <button
-                  onClick={resumeAutoScan}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: "24px",
-                    height: "24px",
-                    borderRadius: "6px",
-                    border: "none",
-                    backgroundColor: STYLES.accent,
-                    color: "#FFFFFF",
-                    cursor: "pointer",
-                    transition: STYLES.transitionFast,
-                  }}
-                  title="Resume scan"
-                >
-                  <PlayIcon />
-                </button>
-              )}
-              <button
-                onClick={stopAutoScan}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: "24px",
-                  height: "24px",
-                  borderRadius: "6px",
-                  border: `1px solid ${STYLES.border}`,
-                  backgroundColor: "transparent",
-                  color: STYLES.textMuted,
-                  cursor: "pointer",
-                  transition: STYLES.transitionFast,
-                }}
-                title="Stop scan"
-              >
-                <StopIcon />
-              </button>
-            </div>
-          )}
-
-          {/* Clear button for complete state */}
-          {isComplete && (
+          {/* Stop/Disable button */}
+          {liveScanEnabled && (
             <button
-              onClick={stopAutoScan}
+              onClick={disableLiveScan}
               style={{
-                padding: "4px 8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "24px",
+                height: "24px",
                 borderRadius: "6px",
                 border: `1px solid ${STYLES.border}`,
                 backgroundColor: "transparent",
                 color: STYLES.textMuted,
-                fontSize: "10px",
-                fontWeight: 500,
                 cursor: "pointer",
                 transition: STYLES.transitionFast,
               }}
-              title="Clear results"
+              title="Disable live scanning"
             >
-              Clear
+              <StopIcon />
             </button>
           )}
         </div>
 
-        {/* Progress bar (only when scanning or paused) */}
-        {(isScanning || isPaused) && (
+        {/* Progress bar (only when scanning) */}
+        {isScanning && (
           <div style={{ marginTop: "10px" }}>
             <div
               style={{
@@ -227,7 +285,7 @@ export function ScanResultsPopover() {
                 marginBottom: "4px",
               }}
             >
-              <span>{isPaused ? "Paused" : "Scanning..."}</span>
+              <span>Scanning...</span>
               <span>
                 {autoScanState.currentIndex} / {autoScanState.totalElements}
               </span>
@@ -244,7 +302,7 @@ export function ScanResultsPopover() {
                 style={{
                   height: "100%",
                   width: `${progress}%`,
-                  backgroundColor: isPaused ? STYLES.warning : STYLES.accent,
+                  backgroundColor: STYLES.accent,
                   transition: "width 0.2s ease-out",
                 }}
               />
@@ -258,97 +316,243 @@ export function ScanResultsPopover() {
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: "6px 0",
+          padding: "4px 0",
         }}
+        onMouseLeave={() => handleElementHover(null)}
       >
-        {fileResults.length === 0 ? (
+        {filesWithIssues.length === 0 ? (
           <div
             style={{
-              padding: "20px 14px",
+              padding: "24px 14px",
               textAlign: "center",
               fontSize: "11px",
               color: STYLES.textMuted,
             }}
           >
-            {isScanning ? "Scanning page elements..." : "No files scanned"}
+            {isScanning ? (
+              "Scanning page elements..."
+            ) : isComplete ? (
+              <span style={{ color: STYLES.success }}>✓ No issues found</span>
+            ) : (
+              "No files scanned"
+            )}
           </div>
         ) : (
-          fileResults.map((file) => (
-            <div
+          filesWithIssues.map((file) => (
+            <FileRow
               key={file.path}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "8px 14px",
-                cursor: "default",
-                transition: STYLES.transitionFast,
-              }}
-              title={file.path}
-            >
-              {/* File name */}
-              <span
-                style={{
-                  fontSize: "12px",
-                  fontFamily: STYLES.fontMono,
-                  color: STYLES.text,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  flex: 1,
-                  marginRight: "12px",
-                }}
-              >
-                {file.displayName}
-              </span>
-
-              {/* Issue badge */}
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minWidth: "24px",
-                  height: "20px",
-                  padding: "0 6px",
-                  borderRadius: "10px",
-                  backgroundColor:
-                    file.issueCount > 0
-                      ? getStatusColor(file.issueCount)
-                      : "rgba(75, 85, 99, 0.4)",
-                  color: file.issueCount > 0 ? "#FFFFFF" : STYLES.textMuted,
-                  fontSize: "10px",
-                  fontWeight: 700,
-                }}
-              >
-                {file.issueCount}
-              </span>
-            </div>
+              file={file}
+              isExpanded={expandedFiles.has(file.path)}
+              onToggle={() => toggleFile(file.path)}
+              onElementHover={handleElementHover}
+              onElementClick={handleElementClick}
+            />
           ))
         )}
       </div>
+    </div>
+  );
+}
 
-      {/* Summary footer */}
-      {isComplete && totalFiles > 0 && (
-        <div
+/**
+ * Expandable file row with nested element list
+ */
+interface FileRowProps {
+  file: FileWithIssues;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onElementHover: (element: ScannedElement | null) => void;
+  onElementClick: (element: ScannedElement) => void;
+}
+
+function FileRow({
+  file,
+  isExpanded,
+  onToggle,
+  onElementHover,
+  onElementClick,
+}: FileRowProps) {
+  return (
+    <div>
+      {/* File header row */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          padding: "8px 12px",
+          cursor: "pointer",
+          transition: STYLES.transitionFast,
+          backgroundColor: isExpanded
+            ? "rgba(59, 130, 246, 0.08)"
+            : "transparent",
+        }}
+        title={file.path}
+        onClick={onToggle}
+        onMouseEnter={(e) => {
+          if (!isExpanded) {
+            e.currentTarget.style.backgroundColor = "rgba(55, 65, 81, 0.5)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = isExpanded
+            ? "rgba(59, 130, 246, 0.08)"
+            : "transparent";
+        }}
+      >
+        {/* Expand/collapse chevron */}
+        <span
           style={{
-            padding: "10px 14px",
-            borderTop: `1px solid ${STYLES.border}`,
-            fontSize: "10px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "16px",
+            height: "16px",
+            marginRight: "6px",
             color: STYLES.textMuted,
+            transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+            transition: "transform 0.15s ease-out",
           }}
         >
-          {totalIssues === 0 ? (
-            <span style={{ color: STYLES.success }}>
-              ✓ No issues found across {totalFiles} files
-            </span>
-          ) : (
-            <span>
-              {filesWithIssues} of {totalFiles} files have issues
-            </span>
-          )}
+          <ChevronIcon />
+        </span>
+
+        {/* File name */}
+        <span
+          style={{
+            fontSize: "12px",
+            fontFamily: STYLES.fontMono,
+            color: STYLES.text,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            flex: 1,
+            marginRight: "12px",
+          }}
+        >
+          {file.disambiguatedName}
+        </span>
+
+        {/* Issue badge */}
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minWidth: "22px",
+            height: "18px",
+            padding: "0 6px",
+            borderRadius: "9px",
+            backgroundColor: getStatusColor(file.issueCount),
+            color: "#FFFFFF",
+            fontSize: "10px",
+            fontWeight: 700,
+          }}
+        >
+          {file.issueCount}
+        </span>
+      </div>
+
+      {/* Expanded element list */}
+      {isExpanded && (
+        <div
+          style={{
+            backgroundColor: "rgba(17, 24, 39, 0.4)",
+            borderTop: `1px solid ${STYLES.border}`,
+            borderBottom: `1px solid ${STYLES.border}`,
+          }}
+        >
+          {file.elementsWithIssues.map((item) => (
+            <ElementRow
+              key={item.element.id}
+              item={item}
+              onHover={onElementHover}
+              onClick={onElementClick}
+            />
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Element row within an expanded file
+ */
+interface ElementRowProps {
+  item: ElementWithIssues;
+  onHover: (element: ScannedElement | null) => void;
+  onClick: (element: ScannedElement) => void;
+}
+
+function ElementRow({ item, onHover, onClick }: ElementRowProps) {
+  const { element, issueCount } = item;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        padding: "6px 12px 6px 34px",
+        cursor: "pointer",
+        transition: STYLES.transitionFast,
+        backgroundColor: "transparent",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.15)";
+        onHover(element);
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = "transparent";
+      }}
+      onClick={() => onClick(element)}
+    >
+      {/* Element tag and line number */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+          flex: 1,
+          marginRight: "12px",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "11px",
+            fontFamily: STYLES.fontMono,
+            color: STYLES.accent,
+          }}
+        >
+          &lt;{element.tagName}&gt;
+        </span>
+        <span
+          style={{
+            fontSize: "10px",
+            color: STYLES.textDim,
+          }}
+        >
+          :{element.source.lineNumber}
+        </span>
+      </div>
+
+      {/* Issue count badge */}
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minWidth: "18px",
+          height: "16px",
+          padding: "0 5px",
+          borderRadius: "8px",
+          backgroundColor: getStatusColor(issueCount),
+          color: "#FFFFFF",
+          fontSize: "9px",
+          fontWeight: 700,
+        }}
+      >
+        {issueCount}
+      </span>
     </div>
   );
 }

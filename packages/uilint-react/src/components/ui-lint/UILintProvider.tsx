@@ -79,14 +79,15 @@ export function UILintProvider({
   const setInspectedElement = useUILintStore(
     (s: UILintStore) => s.setInspectedElement
   );
+  const liveScanEnabled = useUILintStore((s: UILintStore) => s.liveScanEnabled);
   const autoScanState = useUILintStore((s: UILintStore) => s.autoScanState);
   const elementIssuesCache = useUILintStore(
     (s: UILintStore) => s.elementIssuesCache
   );
-  const startAutoScan = useUILintStore((s: UILintStore) => s.startAutoScan);
-  const pauseAutoScan = useUILintStore((s: UILintStore) => s.pauseAutoScan);
-  const resumeAutoScan = useUILintStore((s: UILintStore) => s.resumeAutoScan);
-  const stopAutoScan = useUILintStore((s: UILintStore) => s.stopAutoScan);
+  const storeEnableLiveScan = useUILintStore(
+    (s: UILintStore) => s.enableLiveScan
+  );
+  const disableLiveScan = useUILintStore((s: UILintStore) => s.disableLiveScan);
 
   // WebSocket (ESLint server) actions
   const connectWebSocket = useUILintStore(
@@ -295,11 +296,11 @@ export function UILintProvider({
   }, [enabled, isMounted, connectWebSocket, disconnectWebSocket]);
 
   /**
-   * Wrap startAutoScan to pass hideNodeModules from settings
+   * Wrap enableLiveScan to pass hideNodeModules from settings
    */
-  const wrappedStartAutoScan = useCallback(() => {
-    startAutoScan(settings.hideNodeModules);
-  }, [startAutoScan, settings.hideNodeModules]);
+  const enableLiveScan = useCallback(() => {
+    storeEnableLiveScan(settings.hideNodeModules);
+  }, [storeEnableLiveScan, settings.hideNodeModules]);
 
   /**
    * Context value - provides backwards compatibility with useUILintContext
@@ -312,12 +313,11 @@ export function UILintProvider({
       locatorTarget,
       inspectedElement,
       setInspectedElement,
+      liveScanEnabled,
       autoScanState,
       elementIssuesCache,
-      startAutoScan: wrappedStartAutoScan,
-      pauseAutoScan,
-      resumeAutoScan,
-      stopAutoScan,
+      enableLiveScan,
+      disableLiveScan,
     }),
     [
       settings,
@@ -326,12 +326,11 @@ export function UILintProvider({
       locatorTarget,
       inspectedElement,
       setInspectedElement,
+      liveScanEnabled,
       autoScanState,
       elementIssuesCache,
-      wrappedStartAutoScan,
-      pauseAutoScan,
-      resumeAutoScan,
-      stopAutoScan,
+      enableLiveScan,
+      disableLiveScan,
     ]
   );
 
@@ -350,7 +349,7 @@ export function UILintProvider({
  * UI components rendered when UILint is active
  */
 function UILintUI() {
-  const { altKeyHeld, inspectedElement, autoScanState } = useUILintContext();
+  const { altKeyHeld, inspectedElement, liveScanEnabled } = useUILintContext();
 
   // Dynamically import components to avoid circular dependencies
   const [components, setComponents] = useState<{
@@ -384,13 +383,11 @@ function UILintUI() {
   const { Toolbar, Panel, LocatorOverlay, InspectedHighlight, ElementBadges } =
     components;
 
-  const showBadges = autoScanState.status !== "idle";
-
   return (
     <>
       <Toolbar />
       {(altKeyHeld || inspectedElement) && <LocatorOverlay />}
-      {showBadges && <ElementBadges />}
+      {liveScanEnabled && <ElementBadges />}
       {inspectedElement && (
         <>
           <InspectedHighlight />

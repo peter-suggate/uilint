@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUILintContext } from "./UILintProvider";
+import { useUILintStore, type UILintStore } from "./store";
 import type { ScannedElement, ElementIssue, InspectedElement } from "./types";
 import {
   BadgeLayoutBuilder,
@@ -58,8 +59,7 @@ function getScaleFromDistance(distance: number): number {
  */
 function getBadgeColor(issueCount: number): string {
   if (issueCount === 0) return STYLES.success;
-  if (issueCount <= 2) return STYLES.warning;
-  return STYLES.error;
+  return STYLES.warning; // Amber for all issues
 }
 
 /**
@@ -158,6 +158,12 @@ export function ElementBadges() {
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   const [badgePositions, setBadgePositions] = useState<BadgePosition[]>([]);
   const [isAltKeyPressed, setIsAltKeyPressed] = useState(false);
+
+  // Get file filtering state from store
+  const hoveredFilePath = useUILintStore((s: UILintStore) => s.hoveredFilePath);
+  const selectedFilePath = useUILintStore(
+    (s: UILintStore) => s.selectedFilePath
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -267,10 +273,20 @@ export function ElementBadges() {
 
   // Filter badges based on visibility rules (must be before conditional returns)
   const visibleBadges = useMemo(() => {
-    return nudgedPositions.filter((pos) =>
+    let filtered = nudgedPositions.filter((pos) =>
       shouldShowBadge(pos.issue, isAltKeyPressed)
     );
-  }, [nudgedPositions, isAltKeyPressed]);
+
+    // Filter by file if hovering or selecting a file
+    const activeFilePath = selectedFilePath || hoveredFilePath;
+    if (activeFilePath) {
+      filtered = filtered.filter(
+        (pos) => pos.element.source.fileName === activeFilePath
+      );
+    }
+
+    return filtered;
+  }, [nudgedPositions, isAltKeyPressed, selectedFilePath, hoveredFilePath]);
 
   if (!mounted) return null;
   if (autoScanState.status === "idle") return null;
@@ -278,31 +294,38 @@ export function ElementBadges() {
   const content = (
     <div data-ui-lint>
       <BadgeAnimationStyles />
-      {visibleBadges.map((nudgedPos) => {
-        const distance = Math.hypot(
-          nudgedPos.nudgedX - cursorPos.x,
-          nudgedPos.nudgedY - cursorPos.y
-        );
+      {visibleBadges
+        // Defensive: in case upstream ever returns duplicate IDs, avoid
+        // React duplicate-key warnings and layout duplication.
+        .filter((pos, idx, arr) => {
+          const id = pos.element.id;
+          return arr.findIndex((p) => p.element.id === id) === idx;
+        })
+        .map((nudgedPos) => {
+          const distance = Math.hypot(
+            nudgedPos.nudgedX - cursorPos.x,
+            nudgedPos.nudgedY - cursorPos.y
+          );
 
-        // Find nearby badges for potential dropdown grouping (only from visible badges)
-        const nearbyBadges = findNearbyBadges(
-          visibleBadges,
-          nudgedPos.nudgedX,
-          nudgedPos.nudgedY,
-          NEARBY_THRESHOLD
-        );
+          // Find nearby badges for potential dropdown grouping (only from visible badges)
+          const nearbyBadges = findNearbyBadges(
+            visibleBadges,
+            nudgedPos.nudgedX,
+            nudgedPos.nudgedY,
+            NEARBY_THRESHOLD
+          );
 
-        return (
-          <NudgedBadge
-            key={nudgedPos.element.id}
-            position={nudgedPos}
-            distance={distance}
-            nearbyBadges={nearbyBadges}
-            cursorPos={cursorPos}
-            onSelect={handleSelect}
-          />
-        );
-      })}
+          return (
+            <NudgedBadge
+              key={nudgedPos.element.id}
+              position={nudgedPos}
+              distance={distance}
+              nearbyBadges={nearbyBadges}
+              cursorPos={cursorPos}
+              onSelect={handleSelect}
+            />
+          );
+        })}
     </div>
   );
 

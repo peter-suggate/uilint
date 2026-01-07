@@ -136,6 +136,11 @@ export function scanDOMForSources(
   // Reset counter
   elementCounter = 0;
 
+  // data-loc values are not guaranteed to be unique across the DOM (e.g. the same
+  // component line rendered in a list). Track occurrences so we can produce a
+  // stable, unique per-instance id.
+  const occurrenceByDataLoc = new Map<string, number>();
+
   // Clean up previous scan
   cleanupDataAttributes();
 
@@ -154,7 +159,9 @@ export function scanDOMForSources(
     }
 
     const dataLoc = el.getAttribute("data-loc")!;
-    const id = `loc:${dataLoc}`;
+    const occurrence = (occurrenceByDataLoc.get(dataLoc) ?? 0) + 1;
+    occurrenceByDataLoc.set(dataLoc, occurrence);
+    const id = `loc:${dataLoc}#${occurrence}`;
 
     el.setAttribute(DATA_ATTR, id);
 

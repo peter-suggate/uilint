@@ -1,13 +1,18 @@
 "use client";
 
 /**
- * UILint Toolbar - Segmented pill with Scan button and settings
+ * UILint Toolbar - Three-segment pill for live scanning
  *
  * Design:
- * ┌─────────────────────────────────────┐
- * │  [🔍 Scan]  │  [...]               │
- * └─────────────────────────────────────┘
- *        ⌥+Click to inspect
+ * ┌────────────────────────────────────────┐
+ * │  [👁 Toggle]  │  [Issues]  │  [...]   │
+ * └────────────────────────────────────────┘
+ *              ⌥+Click to inspect
+ *
+ * Segments:
+ * 1. Toggle: Enable/disable live scanning mode
+ * 2. Issues: Show issue count, opens results panel
+ * 3. Settings: Ellipsis for settings popover
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
@@ -16,22 +21,29 @@ import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import { STYLES } from "./toolbar-styles";
 import {
-  MagnifyingGlassIcon,
+  EyeIcon,
+  EyeOffIcon,
   EllipsisIcon,
   SpinnerIcon,
+  WarningIcon,
   CheckCircleIcon,
 } from "./toolbar-icons";
 import { SettingsPopover } from "./SettingsPopover";
-import { ScanResultsPopover } from "./ScanResultsPopover";
-import { groupBySourceFile } from "./dom-utils";
-import type { SourceFile, ScannedElement } from "./types";
+import { ScanPanelStack } from "./ScanPanelStack";
 
 /**
- * Main Toolbar Component - Segmented pill with Scan + Settings
+ * Main Toolbar Component - Three-segment pill
  */
 export function UILintToolbar() {
-  const { settings, inspectedElement, autoScanState, startAutoScan } =
-    useUILintContext();
+  const {
+    settings,
+    inspectedElement,
+    liveScanEnabled,
+    autoScanState,
+    enableLiveScan,
+    disableLiveScan,
+  } = useUILintContext();
+
   const elementIssuesCache = useUILintStore(
     (s: UILintStore) => s.elementIssuesCache
   );
@@ -42,7 +54,6 @@ export function UILintToolbar() {
 
   const toolbarRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
-  const resultsRef = useRef<HTMLDivElement>(null);
 
   // Mount state for portal
   useEffect(() => {
@@ -62,35 +73,32 @@ export function UILintToolbar() {
           setShowSettings(false);
         }
       }
-
-      if (showResults && resultsRef.current) {
-        if (
-          !resultsRef.current.contains(target) &&
-          !toolbarRef.current?.contains(target)
-        ) {
-          setShowResults(false);
-        }
-      }
     };
 
-    if (showSettings || showResults) {
+    if (showSettings) {
       document.addEventListener("mousedown", handleClickOutside);
       return () =>
         document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [showSettings, showResults]);
+  }, [showSettings]);
 
-  // Handle scan button click
-  const handleScanClick = useCallback(() => {
-    if (autoScanState.status === "idle") {
-      startAutoScan();
-      setShowResults(true);
+  // Handle toggle button click
+  const handleToggleClick = useCallback(() => {
+    if (liveScanEnabled) {
+      disableLiveScan();
+      setShowResults(false);
     } else {
-      // Toggle results popover
-      setShowResults(!showResults);
+      enableLiveScan();
     }
     setShowSettings(false);
-  }, [autoScanState.status, startAutoScan, showResults]);
+  }, [liveScanEnabled, enableLiveScan, disableLiveScan]);
+
+  // Handle issues button click
+  const handleIssuesClick = useCallback(() => {
+    if (!liveScanEnabled) return;
+    setShowResults(!showResults);
+    setShowSettings(false);
+  }, [liveScanEnabled, showResults]);
 
   // Handle settings button click
   const handleSettingsClick = useCallback(() => {
@@ -100,14 +108,9 @@ export function UILintToolbar() {
 
   if (!mounted) return null;
 
-  // Hide toolbar when inspection panel is open
-  if (inspectedElement) return null;
-
   // Calculate scan status
   const isScanning = autoScanState.status === "scanning";
-  const isPaused = autoScanState.status === "paused";
   const isComplete = autoScanState.status === "complete";
-  const hasResults = autoScanState.status !== "idle";
 
   // Calculate total issues
   let totalIssues = 0;
@@ -115,54 +118,40 @@ export function UILintToolbar() {
     totalIssues += el.issues.length;
   });
 
-  // Calculate files with issues
-  const sourceFiles: SourceFile[] = hasResults
-    ? groupBySourceFile(autoScanState.elements)
-    : [];
-  const filesWithIssues = sourceFiles.filter((sf: SourceFile) => {
-    const issues = sf.elements.reduce((sum: number, el: ScannedElement) => {
-      const cached = elementIssuesCache.get(el.id);
-      return sum + (cached?.issues.length || 0);
-    }, 0);
-    return issues > 0;
-  }).length;
+  const hasIssues = totalIssues > 0;
 
-  // Get scan button content
-  const getScanButtonContent = () => {
+  // Get toggle button content
+  const getToggleContent = () => {
     if (isScanning) {
+      return <SpinnerIcon />;
+    }
+    if (liveScanEnabled) {
+      return <EyeIcon />;
+    }
+    return <EyeOffIcon />;
+  };
+
+  // Get issues button content
+  const getIssuesContent = () => {
+    if (!liveScanEnabled) {
+      return <span style={{ opacity: 0.5 }}>--</span>;
+    }
+    if (isScanning) {
+      return <span style={{ opacity: 0.7 }}>...</span>;
+    }
+    if (hasIssues) {
       return (
-        <>
-          <SpinnerIcon />
-          <span>Scanning...</span>
-        </>
+        <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          <WarningIcon />
+          <span>{totalIssues}</span>
+        </span>
       );
     }
-
-    if (isPaused) {
-      return (
-        <>
-          <MagnifyingGlassIcon />
-          <span>Paused</span>
-        </>
-      );
-    }
-
-    if (isComplete) {
-      return (
-        <>
-          <CheckCircleIcon />
-          <span>
-            {totalIssues === 0 ? "All clear" : `${totalIssues} issues`}
-          </span>
-        </>
-      );
-    }
-
     return (
-      <>
-        <MagnifyingGlassIcon />
-        <span>Scan</span>
-      </>
+      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+        <CheckCircleIcon />
+        <span>0</span>
+      </span>
     );
   };
 
@@ -171,8 +160,8 @@ export function UILintToolbar() {
       data-ui-lint
       style={{
         position: "fixed",
-        bottom: "24px",
-        right: "24px",
+        bottom: "70px",
+        left: "20px",
         zIndex: 99999,
         fontFamily: STYLES.font,
       }}
@@ -218,67 +207,98 @@ export function UILintToolbar() {
           overflow: "hidden",
         }}
       >
-        {/* Scan button segment */}
+        {/* Toggle button segment */}
         <button
-          onClick={handleScanClick}
+          onClick={handleToggleClick}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "6px",
+            justifyContent: "center",
             height: "100%",
-            padding: "0 16px",
+            width: "40px",
             border: "none",
-            backgroundColor:
-              showResults || hasResults ? STYLES.bgSegmentHover : "transparent",
-            color: hasResults
-              ? totalIssues > 0
-                ? STYLES.warning
-                : STYLES.success
-              : STYLES.text,
-            fontSize: "13px",
-            fontWeight: 500,
-            fontFamily: STYLES.font,
+            backgroundColor: liveScanEnabled
+              ? STYLES.bgSegmentHover
+              : "transparent",
+            color: liveScanEnabled ? STYLES.accent : STYLES.textMuted,
             cursor: "pointer",
             transition: STYLES.transition,
           }}
           onMouseEnter={(e) => {
-            if (!showResults && !hasResults) {
+            if (!liveScanEnabled) {
+              e.currentTarget.style.backgroundColor = STYLES.bgSegmentHover;
+              e.currentTarget.style.color = STYLES.text;
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!liveScanEnabled) {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = STYLES.textMuted;
+            }
+          }}
+          title={
+            liveScanEnabled ? "Disable live scanning" : "Enable live scanning"
+          }
+        >
+          {getToggleContent()}
+        </button>
+
+        {/* Divider */}
+        <div
+          style={{
+            width: "1px",
+            height: "20px",
+            backgroundColor: STYLES.divider,
+          }}
+        />
+
+        {/* Issues button segment */}
+        <button
+          onClick={handleIssuesClick}
+          disabled={!liveScanEnabled}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "4px",
+            height: "100%",
+            padding: "0 12px",
+            border: "none",
+            backgroundColor:
+              showResults && liveScanEnabled
+                ? STYLES.bgSegmentHover
+                : "transparent",
+            color: !liveScanEnabled
+              ? STYLES.textDim
+              : hasIssues
+              ? STYLES.warning
+              : isComplete
+              ? STYLES.success
+              : STYLES.text,
+            fontSize: "13px",
+            fontWeight: 500,
+            fontFamily: STYLES.font,
+            cursor: liveScanEnabled ? "pointer" : "default",
+            transition: STYLES.transition,
+            opacity: liveScanEnabled ? 1 : 0.6,
+          }}
+          onMouseEnter={(e) => {
+            if (liveScanEnabled && !showResults) {
               e.currentTarget.style.backgroundColor = STYLES.bgSegmentHover;
             }
           }}
           onMouseLeave={(e) => {
-            if (!showResults && !hasResults) {
+            if (liveScanEnabled && !showResults) {
               e.currentTarget.style.backgroundColor = "transparent";
             }
           }}
           title={
-            hasResults
-              ? `${sourceFiles.length} files scanned, ${totalIssues} issues found`
-              : "Scan page for style issues"
+            liveScanEnabled
+              ? `${totalIssues} issues found`
+              : "Enable scanning to see issues"
           }
         >
-          {getScanButtonContent()}
-
-          {/* Badge for files with issues */}
-          {isComplete && filesWithIssues > 0 && (
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minWidth: "18px",
-                height: "18px",
-                padding: "0 5px",
-                borderRadius: "9px",
-                backgroundColor: STYLES.error,
-                color: STYLES.badgeText,
-                fontSize: "10px",
-                fontWeight: 700,
-              }}
-            >
-              {filesWithIssues}
-            </span>
-          )}
+          {getIssuesContent()}
         </button>
 
         {/* Divider */}
@@ -332,12 +352,11 @@ export function UILintToolbar() {
         </div>
       )}
 
-      {/* Results popover */}
-      {showResults && hasResults && (
-        <div ref={resultsRef}>
-          <ScanResultsPopover />
-        </div>
-      )}
+      {/* Scan results panel stack */}
+      <ScanPanelStack
+        show={showResults && liveScanEnabled}
+        onClose={() => setShowResults(false)}
+      />
     </div>
   );
 

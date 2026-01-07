@@ -31,7 +31,7 @@ export function SettingsPopover({ settings }: SettingsPopoverProps) {
       style={{
         position: "absolute",
         bottom: "100%",
-        right: 0,
+        left: 0,
         marginBottom: "8px",
         width: "260px",
         padding: "14px",

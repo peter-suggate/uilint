@@ -62,8 +62,7 @@ export const STYLES = {
  */
 export function getStatusColor(issueCount: number): string {
   if (issueCount === 0) return STYLES.success;
-  if (issueCount <= 2) return STYLES.warning;
-  return STYLES.error;
+  return STYLES.warning; // Amber for all issues
 }
 
 /**
@@ -71,6 +70,5 @@ export function getStatusColor(issueCount: number): string {
  */
 export function getStatusBgColor(issueCount: number): string {
   if (issueCount === 0) return STYLES.successLight;
-  if (issueCount <= 2) return STYLES.warningLight;
-  return STYLES.errorLight;
+  return STYLES.warningLight; // Amber for all issues
 }
