@@ -812,9 +812,47 @@ export async function install(options: InstallOptions): Promise<void> {
           if (selectedRuleIds.length === 0) {
             logWarning("No rules selected - skipping ESLint configuration");
           } else {
-            const selectedRules = ruleRegistry.filter((r: RuleMetadata) =>
+            let selectedRules = ruleRegistry.filter((r: RuleMetadata) =>
               selectedRuleIds.includes(r.id)
             );
+
+            // Check if no-mixed-component-libraries is selected and prompt for preferred library
+            const mixedLibrariesRule = selectedRules.find(
+              (r) => r.id === "no-mixed-component-libraries"
+            );
+            if (mixedLibrariesRule) {
+              const setPreferred = await confirm({
+                message:
+                  "Set a preferred component library? (If set, the rule will warn when non-preferred libraries are used)",
+                initialValue: false,
+              });
+
+              if (setPreferred) {
+                const preferredLib = await select<"shadcn" | "mui">({
+                  message: "Which library should be preferred?",
+                  options: [
+                    { value: "shadcn", label: "shadcn/ui" },
+                    { value: "mui", label: "MUI (Material-UI)" },
+                  ],
+                });
+
+                // Update the rule's defaultOptions to include preferred
+                selectedRules = selectedRules.map((rule) => {
+                  if (rule.id === "no-mixed-component-libraries") {
+                    return {
+                      ...rule,
+                      defaultOptions: [
+                        {
+                          libraries: ["shadcn", "mui"],
+                          preferred: preferredLib,
+                        },
+                      ],
+                    };
+                  }
+                  return rule;
+                });
+              }
+            }
 
             // Install to each selected package
             for (const pkgPath of selectedPaths) {

@@ -93,6 +93,11 @@ function checkClassString(
   const matches = classString.matchAll(ARBITRARY_VALUE_REGEX);
 
   for (const match of matches) {
+    // Ignore data attributes (e.g., data-[value], data-test-[something])
+    if (match[0].startsWith("data-")) {
+      continue;
+    }
+
     context.report({
       node,
       messageId: "noArbitraryValue",

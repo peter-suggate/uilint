@@ -662,23 +662,6 @@ function ScanSection({ element }: { element: InspectedElement }) {
         {/* Cached: show results from auto-scan */}
         {showCachedResult && (
           <div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                marginBottom: "12px",
-                padding: "8px 12px",
-                backgroundColor: "rgba(16, 185, 129, 0.1)",
-                borderRadius: "6px",
-                fontSize: "11px",
-                color: STYLES.success,
-              }}
-            >
-              <CheckIconSmall />
-              Scan complete
-            </div>
-
             {/* ESLint Issues Section */}
             {eslintIssues.length > 0 && (
               <ESLintIssuesSection issues={eslintIssues} />

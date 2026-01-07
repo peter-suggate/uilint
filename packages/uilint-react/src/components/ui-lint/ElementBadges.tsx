@@ -84,6 +84,31 @@ function formatElementLabel(element: ScannedElement): string {
 const NEARBY_THRESHOLD = 30;
 
 /**
+ * Minimum distance from window edge before snapping badge to be fully visible
+ */
+const WINDOW_EDGE_THRESHOLD = 20;
+
+/**
+ * Badge size for collision detection with window bounds
+ */
+const BADGE_SIZE = 18;
+
+/**
+ * Snap badge position to be fully visible within window bounds
+ */
+function snapToWindowBounds(x: number, y: number): { x: number; y: number } {
+  const minX = WINDOW_EDGE_THRESHOLD;
+  const maxX = window.innerWidth - BADGE_SIZE - WINDOW_EDGE_THRESHOLD;
+  const minY = WINDOW_EDGE_THRESHOLD;
+  const maxY = window.innerHeight - BADGE_SIZE - WINDOW_EDGE_THRESHOLD;
+
+  return {
+    x: Math.max(minX, Math.min(maxX, x)),
+    y: Math.max(minY, Math.min(maxY, y)),
+  };
+}
+
+/**
  * Determine if a badge should be shown based on its status and alt key state
  * - Green badges (no issues): only show when alt/option is held
  * - Progress badges (scanning/pending): only show when alt/option is held
@@ -311,6 +336,12 @@ function NudgedBadge({
   const { element, issue, rect, nudgedX, nudgedY } = position;
   const hasNearbyBadges = nearbyBadges.length > 1;
 
+  // Snap badge position to stay within window bounds
+  const snappedPosition = useMemo(
+    () => snapToWindowBounds(nudgedX, nudgedY),
+    [nudgedX, nudgedY]
+  );
+
   // Calculate badge color based on issue status
   const badgeColor = useMemo(() => {
     if (issue.status === "error") return STYLES.error;
@@ -354,15 +385,19 @@ function NudgedBadge({
 
   // Position dropdown to avoid going off-screen
   const dropdownStyle = useMemo((): React.CSSProperties => {
-    const preferRight = nudgedX < window.innerWidth - 220;
-    const preferBelow = nudgedY < window.innerHeight - 200;
+    const preferRight = snappedPosition.x < window.innerWidth - 220;
+    const preferBelow = snappedPosition.y < window.innerHeight - 200;
 
     return {
       position: "fixed",
-      top: preferBelow ? nudgedY + 12 : undefined,
-      bottom: preferBelow ? undefined : window.innerHeight - nudgedY + 12,
-      left: preferRight ? nudgedX - 8 : undefined,
-      right: preferRight ? undefined : window.innerWidth - nudgedX - 8,
+      top: preferBelow ? snappedPosition.y + 12 : undefined,
+      bottom: preferBelow
+        ? undefined
+        : window.innerHeight - snappedPosition.y + 12,
+      left: preferRight ? snappedPosition.x - 8 : undefined,
+      right: preferRight
+        ? undefined
+        : window.innerWidth - snappedPosition.x - 8,
       zIndex: 100000,
       backgroundColor: STYLES.bg,
       borderRadius: "8px",
@@ -372,7 +407,7 @@ function NudgedBadge({
       minWidth: "200px",
       fontFamily: STYLES.font,
     };
-  }, [nudgedX, nudgedY]);
+  }, [snappedPosition]);
 
   // Calculate scale based on distance (hover overrides to full scale)
   const scale = isExpanded ? 1.1 : getScaleFromDistance(distance);
@@ -424,8 +459,8 @@ function NudgedBadge({
       <div
         style={{
           position: "fixed",
-          top: nudgedY - 9,
-          left: nudgedX - 9,
+          top: snappedPosition.y - 0,
+          left: snappedPosition.x - 0,
           zIndex: isExpanded ? 99999 : 99995,
           cursor: "pointer",
           transition: "transform 0.1s ease-out",

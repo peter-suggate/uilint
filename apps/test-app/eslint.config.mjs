@@ -4,6 +4,9 @@ import tseslint from "typescript-eslint";
 
 export default [
   {
+    ignores: [".next/**", "node_modules/**", "out/**", "dist/**"],
+  },
+  {
     files: [
       "src/**/*.{js,jsx,ts,tsx}",
       "app/**/*.{js,jsx,ts,tsx}",
@@ -49,10 +52,10 @@ export default [
         "error",
         { libraries: ["shadcn", "mui"] },
       ],
-      "uilint/semantic": [
-        "warn",
-        { model: "qwen3-coder:30b", styleguidePath: ".uilint/styleguide.md" },
-      ],
+      // "uilint/semantic": [
+      //   "warn",
+      //   { model: "qwen3-coder:30b", styleguidePath: ".uilint/styleguide.md" },
+      // ],
     },
   },
 ];
