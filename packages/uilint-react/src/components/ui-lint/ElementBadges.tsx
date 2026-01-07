@@ -232,18 +232,40 @@ export function ElementBadges() {
       setBadgePositions(positions);
     };
 
-    updatePositions();
-
-    // Update on animation frame for smooth tracking
-    let rafId: number;
-    const loop = () => {
-      updatePositions();
-      rafId = requestAnimationFrame(loop);
+    let rafId: number | null = null;
+    const scheduleUpdate = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        updatePositions();
+      });
     };
-    rafId = requestAnimationFrame(loop);
 
-    return () => cancelAnimationFrame(rafId);
-  }, [autoScanState, elementIssuesCache]);
+    // Initial position calculation
+    scheduleUpdate();
+
+    // Recalculate on common viewport changes rather than every frame
+    const handleScroll = () => scheduleUpdate();
+    const handleResize = () => scheduleUpdate();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        scheduleUpdate();
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleResize);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleResize);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [autoScanState.status, autoScanState.elements, elementIssuesCache]);
 
   // Handle badge selection
   const handleSelect = useCallback(

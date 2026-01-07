@@ -180,7 +180,8 @@ export function ScanResultsPopover() {
       // Scroll to the element
       element.element.scrollIntoView({
         behavior: "smooth",
-        block: "center",
+        inline: "nearest",
+        block: "nearest",
       });
 
       // Set inspected element for persistent highlight
