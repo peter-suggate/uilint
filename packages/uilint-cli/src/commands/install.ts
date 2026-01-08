@@ -737,7 +737,8 @@ export async function install(options: InstallOptions): Promise<void> {
   }
 
   // Install ESLint plugin
-  let eslintInstalledPaths: string[] = [];
+  let eslintInstalledTargets: { displayName: string; configFile: string }[] =
+    [];
   if (installESLint) {
     // Find all packages in the workspace
     const workspaceRoot = findWorkspaceRoot(projectPath);
@@ -924,7 +925,12 @@ export async function install(options: InstallOptions): Promise<void> {
                 logWarning(`No eslint.config found in ${pc.dim(displayName)}`);
               }
 
-              eslintInstalledPaths.push(displayName);
+              if (result.configFile) {
+                eslintInstalledTargets.push({
+                  displayName,
+                  configFile: result.configFile,
+                });
+              }
             }
           }
         }
@@ -991,25 +997,32 @@ export async function install(options: InstallOptions): Promise<void> {
     );
   }
 
-  if (installESLint && eslintInstalledPaths.length > 0) {
+  if (installESLint && eslintInstalledTargets.length > 0) {
     installedItems.push(
       `${pc.cyan("ESLint Plugin")} → installed in ${
-        eslintInstalledPaths.length
+        eslintInstalledTargets.length
       } package(s)`
     );
-    for (let i = 0; i < eslintInstalledPaths.length; i++) {
-      const isLast = i === eslintInstalledPaths.length - 1;
+    for (let i = 0; i < eslintInstalledTargets.length; i++) {
+      const isLast = i === eslintInstalledTargets.length - 1;
       const prefix = isLast ? "└" : "├";
       installedItems.push(
-        `  ${pc.dim(prefix)} ${eslintInstalledPaths[i]}/eslint.config.js`
+        `  ${pc.dim(prefix)} ${eslintInstalledTargets[i].displayName}/${
+          eslintInstalledTargets[i].configFile
+        }`
       );
     }
     installedItems.push(`${pc.cyan("Available Rules")}:`);
-    installedItems.push(`  ${pc.dim("├")} uilint/no-arbitrary-tailwind`);
-    installedItems.push(`  ${pc.dim("├")} uilint/consistent-spacing`);
-    installedItems.push(`  ${pc.dim("├")} uilint/no-direct-store-import`);
-    installedItems.push(`  ${pc.dim("├")} uilint/no-mixed-component-libraries`);
-    installedItems.push(`  ${pc.dim("└")} uilint/semantic (LLM-powered)`);
+    for (let i = 0; i < ruleRegistry.length; i++) {
+      const isLast = i === ruleRegistry.length - 1;
+      const prefix = isLast ? "└" : "├";
+      const rule = ruleRegistry[i];
+      const suffix =
+        rule.id === "semantic" ? ` ${pc.dim("(LLM-powered)")}` : "";
+      installedItems.push(
+        `  ${pc.dim(prefix)} ${pc.cyan(`uilint/${rule.id}`)}${suffix}`
+      );
+    }
   }
 
   note(installedItems.join("\n"), "Installed");
