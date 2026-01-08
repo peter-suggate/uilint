@@ -874,6 +874,18 @@ export async function install(options: InstallOptions): Promise<void> {
                 projectPath: pkgPath,
                 selectedRules,
                 force: options.force,
+                confirmAddMissingRules: async (path, missingRules) =>
+                  confirm({
+                    message:
+                      `${pc.dim(path)} is missing ${pc.cyan(
+                        String(missingRules.length)
+                      )} UILint rule(s):\n` +
+                      missingRules
+                        .map((r) => `  ${pc.dim("•")} uilint/${r.id}`)
+                        .join("\n") +
+                      `\n\nAdd the missing rules now?`,
+                    initialValue: true,
+                  }),
                 confirmOverwrite: async (path) =>
                   confirm({
                     message: `${pc.dim(
@@ -888,6 +900,19 @@ export async function install(options: InstallOptions): Promise<void> {
                   `Configured ${pc.dim(result.configFile)} in ${pc.dim(
                     displayName
                   )}`
+                );
+              } else if (
+                result.configFile &&
+                result.missingRuleIds.length > 0
+              ) {
+                logWarning(
+                  `${pc.dim(result.configFile)} in ${pc.dim(
+                    displayName
+                  )} is missing ${pc.cyan(
+                    String(result.missingRuleIds.length)
+                  )} UILint rule(s): ${result.missingRuleIds
+                    .map((id) => pc.cyan(`uilint/${id}`))
+                    .join(", ")}`
                 );
               } else if (result.configFile) {
                 logInfo(

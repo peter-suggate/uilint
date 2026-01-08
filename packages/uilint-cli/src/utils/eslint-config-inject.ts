@@ -13,6 +13,10 @@ export interface InstallEslintPluginOptions {
   selectedRules: RuleMetadata[];
   force?: boolean;
   confirmOverwrite?: (relPath: string) => Promise<boolean>;
+  confirmAddMissingRules?: (
+    relPath: string,
+    missingRules: RuleMetadata[]
+  ) => Promise<boolean>;
 }
 
 const CONFIG_EXTENSIONS = [".mjs", ".js", ".cjs"];
@@ -55,6 +59,33 @@ function hasUilintImport(source: string): boolean {
  */
 function hasUilintRules(source: string): boolean {
   return source.includes('"uilint/') || source.includes("'uilint/");
+}
+
+function hasUilintConfigsUsage(source: string): boolean {
+  // e.g. export default [uilint.configs.recommended]
+  // This implies the rule set will evolve with the installed uilint-eslint version,
+  // so we should not inject/patch per-rule keys.
+  return /\builint\s*\.\s*configs\s*\./.test(source);
+}
+
+/**
+ * Extract configured uilint rule IDs from source.
+ * Matches keys like: "uilint/no-arbitrary-tailwind": "error"
+ */
+function extractConfiguredUilintRuleIds(source: string): Set<string> {
+  const ids = new Set<string>();
+  const re = /["']uilint\/([^"']+)["']\s*:/g;
+  for (const m of source.matchAll(re)) {
+    if (m[1]) ids.add(m[1]);
+  }
+  return ids;
+}
+
+function getMissingSelectedRules(
+  selectedRules: RuleMetadata[],
+  configuredIds: Set<string>
+): RuleMetadata[] {
+  return selectedRules.filter((r) => !configuredIds.has(r.id));
 }
 
 /**
@@ -117,6 +148,78 @@ function generateRulesConfig(selectedRules: RuleMetadata[]): string {
   }
 
   return lines.join("\n");
+}
+
+function detectIndent(source: string, index: number): string {
+  const lineStart = source.lastIndexOf("\n", index);
+  const start = lineStart === -1 ? 0 : lineStart + 1;
+  const line = source.slice(start, index);
+  const m = line.match(/^\s*/);
+  return m?.[0] ?? "";
+}
+
+/**
+ * Insert missing uilint rule keys into an existing `rules: { ... }` object
+ * that already contains at least one "uilint/" key.
+ *
+ * This is intentionally a best-effort string transform (no JS AST dependency).
+ */
+function insertMissingRulesIntoExistingRulesObject(
+  source: string,
+  missingRules: RuleMetadata[]
+): string {
+  if (missingRules.length === 0) return source;
+
+  // Anchor on an existing uilint rule key, then look backwards for the
+  // nearest `rules:` preceding it.
+  const uilintKeyMatch = source.match(/["']uilint\/[^"']+["']\s*:/);
+  if (!uilintKeyMatch || uilintKeyMatch.index === undefined) return source;
+
+  const uilintKeyIndex = uilintKeyMatch.index;
+  const searchStart = Math.max(0, uilintKeyIndex - 4000);
+  const before = source.slice(searchStart, uilintKeyIndex);
+  const rulesKwIndexRel = before.lastIndexOf("rules");
+  if (rulesKwIndexRel === -1) return source;
+
+  const rulesKwIndex = searchStart + rulesKwIndexRel;
+  const braceOpenIndex = source.indexOf("{", rulesKwIndex);
+  if (braceOpenIndex === -1 || braceOpenIndex > uilintKeyIndex) return source;
+
+  // Find the matching closing brace for the rules object.
+  let depth = 0;
+  let braceCloseIndex = -1;
+  for (let i = braceOpenIndex; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        braceCloseIndex = i;
+        break;
+      }
+    }
+  }
+  if (braceCloseIndex === -1) return source;
+
+  const rulesIndent = detectIndent(source, braceOpenIndex);
+  const entryIndent = rulesIndent + "  ";
+  const entryTextRaw = generateRulesConfig(missingRules);
+  const entryText = entryTextRaw
+    .split("\n")
+    .map((l) => (l.trim().length === 0 ? l : entryIndent + l.trimStart()))
+    .join("\n");
+
+  const insertion =
+    (source.slice(braceOpenIndex + 1, braceCloseIndex).trim().length === 0
+      ? "\n"
+      : "\n") +
+    entryText +
+    "\n" +
+    rulesIndent;
+
+  return (
+    source.slice(0, braceCloseIndex) + insertion + source.slice(braceCloseIndex)
+  );
 }
 
 /**
@@ -214,41 +317,91 @@ ${rulesConfig}
  */
 export async function installEslintPlugin(
   opts: InstallEslintPluginOptions
-): Promise<{ configFile: string | null; modified: boolean }> {
+): Promise<{
+  configFile: string | null;
+  modified: boolean;
+  missingRuleIds: string[];
+}> {
   const configPath = findEslintConfigFile(opts.projectPath);
 
   if (!configPath) {
-    return { configFile: null, modified: false };
+    return { configFile: null, modified: false, missingRuleIds: [] };
   }
 
   const configFilename = getEslintConfigFilename(configPath);
   const original = readFileSync(configPath, "utf-8");
   const isCommonJS = configPath.endsWith(".cjs");
 
-  // Check if already configured
-  if (hasUilintRules(original)) {
-    if (!opts.force) {
-      const ok = await opts.confirmOverwrite?.(configFilename);
-      if (!ok) {
-        return { configFile: configFilename, modified: false };
-      }
-    }
-  }
+  const configuredIds = extractConfiguredUilintRuleIds(original);
+  const usesUilintConfigs = hasUilintConfigsUsage(original);
+  const hasAnyUilint =
+    usesUilintConfigs || hasUilintRules(original) || configuredIds.size > 0;
+  const missingRules = usesUilintConfigs
+    ? []
+    : getMissingSelectedRules(opts.selectedRules, configuredIds);
 
   // Apply transformations
   let updated = original;
   updated = ensureUilintImport(updated, isCommonJS);
+  const afterImport = updated;
 
-  if (isCommonJS) {
-    updated = injectUilintRulesCommonJS(updated, opts.selectedRules);
+  if (hasAnyUilint) {
+    // Already configured: optionally add only missing rules.
+    if (missingRules.length > 0) {
+      if (!opts.force) {
+        const ok = await opts.confirmAddMissingRules?.(
+          configFilename,
+          missingRules
+        );
+        if (!ok) {
+          return {
+            configFile: configFilename,
+            modified: false,
+            missingRuleIds: missingRules.map((r) => r.id),
+          };
+        }
+      }
+      const beforeInsert = updated;
+      updated = insertMissingRulesIntoExistingRulesObject(
+        updated,
+        missingRules
+      );
+      const inserted = updated !== beforeInsert;
+
+      // If we couldn't safely update in-place, fall back to the previous behavior:
+      // ask to inject a new block (may duplicate). This is opt-in via confirmOverwrite.
+      if (!inserted) {
+        const ok = await opts.confirmOverwrite?.(configFilename);
+        if (ok) {
+          if (isCommonJS) {
+            updated = injectUilintRulesCommonJS(updated, opts.selectedRules);
+          } else {
+            updated = injectUilintRules(updated, opts.selectedRules);
+          }
+        }
+      }
+    }
   } else {
-    updated = injectUilintRules(updated, opts.selectedRules);
+    // Not configured: inject a fresh block.
+    if (isCommonJS) {
+      updated = injectUilintRulesCommonJS(updated, opts.selectedRules);
+    } else {
+      updated = injectUilintRules(updated, opts.selectedRules);
+    }
   }
 
   if (updated !== original) {
     writeFileSync(configPath, updated, "utf-8");
-    return { configFile: configFilename, modified: true };
+    return {
+      configFile: configFilename,
+      modified: true,
+      missingRuleIds: missingRules.map((r) => r.id),
+    };
   }
 
-  return { configFile: configFilename, modified: false };
+  return {
+    configFile: configFilename,
+    modified: false,
+    missingRuleIds: missingRules.map((r) => r.id),
+  };
 }
