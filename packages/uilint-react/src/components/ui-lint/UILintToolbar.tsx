@@ -299,6 +299,50 @@ const globalStyles = `
   .uilint-popover--closing {
     animation: uilint-fade-out ${TOKENS.transitionBase} forwards;
   }
+  
+  /* Custom scrollbar styling for dark mode - scoped to uilint components */
+  [data-ui-lint] *,
+  [data-ui-lint] {
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) rgba(15, 15, 15, 0.3);
+  }
+  
+  /* WebKit browsers (Chrome, Safari, Edge) */
+  [data-ui-lint] *::-webkit-scrollbar,
+  [data-ui-lint]::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  [data-ui-lint] *::-webkit-scrollbar-track,
+  [data-ui-lint]::-webkit-scrollbar-track {
+    background: rgba(15, 15, 15, 0.3);
+    border-radius: 4px;
+  }
+  
+  [data-ui-lint] *::-webkit-scrollbar-thumb,
+  [data-ui-lint]::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    border: 1px solid rgba(15, 15, 15, 0.2);
+    transition: background ${TOKENS.transitionFast};
+  }
+  
+  [data-ui-lint] *::-webkit-scrollbar-thumb:hover,
+  [data-ui-lint]::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
+  
+  [data-ui-lint] *::-webkit-scrollbar-thumb:active,
+  [data-ui-lint]::-webkit-scrollbar-thumb:active {
+    background: rgba(255, 255, 255, 0.35);
+  }
+  
+  [data-ui-lint] *::-webkit-scrollbar-corner,
+  [data-ui-lint]::-webkit-scrollbar-corner {
+    background: rgba(15, 15, 15, 0.3);
+  }
 `;
 
 // ============================================================================
