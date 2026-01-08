@@ -15,6 +15,7 @@ import {
   chmodSync,
 } from "fs";
 import { join } from "path";
+import { createRequire } from "module";
 import {
   intro,
   outro,
@@ -50,6 +51,32 @@ import {
   type PackageInfo,
 } from "../utils/package-detect.js";
 import { ruleRegistry, type RuleMetadata } from "uilint-eslint";
+
+const require = createRequire(import.meta.url);
+
+function getSelfDependencyVersionRange(pkgName: string): string | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const pkgJson = require("uilint-cli/package.json") as any;
+    const v =
+      pkgJson?.dependencies?.[pkgName] ??
+      pkgJson?.optionalDependencies?.[pkgName] ??
+      pkgJson?.peerDependencies?.[pkgName];
+    return typeof v === "string" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function toInstallSpecifier(pkgName: string): string {
+  const range = getSelfDependencyVersionRange(pkgName);
+  // Avoid passing workspace/file specifiers to external package managers.
+  if (!range) return pkgName;
+  if (range.startsWith("workspace:")) return pkgName;
+  if (range.startsWith("file:")) return pkgName;
+  if (range.startsWith("link:")) return pkgName;
+  return `${pkgName}@${range}`;
+}
 
 export interface InstallOptions {
   force?: boolean;
@@ -866,7 +893,9 @@ export async function install(options: InstallOptions): Promise<void> {
                 `Installing ESLint plugin in ${pc.dim(displayName)}`,
                 async () => {
                   const pm = detectPackageManager(pkgPath);
-                  await installDependencies(pm, pkgPath, ["uilint-eslint"]);
+                  await installDependencies(pm, pkgPath, [
+                    toInstallSpecifier("uilint-eslint"),
+                  ]);
                 }
               );
 

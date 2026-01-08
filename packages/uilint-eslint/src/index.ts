@@ -1,20 +1,18 @@
 /**
  * UILint ESLint Plugin
  *
- * Provides ESLint rules for UI consistency checking:
- * - Static rules for common patterns (arbitrary values, spacing, component libraries)
- * - LLM-powered semantic rule that reads your styleguide
+ * THIS FILE IS AUTO-GENERATED from src/rule-registry.ts.
+ * Do not edit by hand. Run: pnpm -C packages/uilint-eslint generate:index
  */
 
 import type { Linter } from "eslint";
 import noArbitraryTailwind from "./rules/no-arbitrary-tailwind.js";
 import consistentSpacing from "./rules/consistent-spacing.js";
+import consistentDarkMode from "./rules/consistent-dark-mode.js";
 import noDirectStoreImport from "./rules/no-direct-store-import.js";
+import preferZustandStateManagement from "./rules/prefer-zustand-state-management.js";
 import noMixedComponentLibraries from "./rules/no-mixed-component-libraries.js";
 import semantic from "./rules/semantic.js";
-
-// Package version (injected at build time or fallback)
-const version = "0.1.0";
 
 /**
  * All available rules
@@ -22,10 +20,15 @@ const version = "0.1.0";
 const rules = {
   "no-arbitrary-tailwind": noArbitraryTailwind,
   "consistent-spacing": consistentSpacing,
+  "consistent-dark-mode": consistentDarkMode,
   "no-direct-store-import": noDirectStoreImport,
+  "prefer-zustand-state-management": preferZustandStateManagement,
   "no-mixed-component-libraries": noMixedComponentLibraries,
-  semantic: semantic,
+  "semantic": semantic,
 };
+
+// Package version (injected at build time or fallback)
+const version = "0.1.0";
 
 /**
  * Plugin metadata
@@ -72,14 +75,54 @@ const recommendedConfig: Linter.Config = {
   languageOptions: jsxLanguageOptions,
   rules: {
     "uilint/no-arbitrary-tailwind": "error",
-    "uilint/consistent-spacing": "warn",
-    "uilint/no-direct-store-import": "warn",
-    "uilint/no-mixed-component-libraries": "error",
+    "uilint/consistent-spacing": ["warn", ...[
+        {
+          "scale": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            8,
+            10,
+            12,
+            16
+          ]
+        }
+      ]],
+    "uilint/consistent-dark-mode": ["error", ...[
+        {
+          "warnOnMissingDarkMode": true
+        }
+      ]],
+    "uilint/no-direct-store-import": ["warn", ...[
+        {
+          "storePattern": "use*Store"
+        }
+      ]],
+    "uilint/prefer-zustand-state-management": ["warn", ...[
+        {
+          "maxStateHooks": 3,
+          "countUseState": true,
+          "countUseReducer": true,
+          "countUseContext": true
+        }
+      ]],
+    "uilint/no-mixed-component-libraries": ["error", ...[
+        {
+          "libraries": [
+            "shadcn",
+            "mui"
+          ]
+        }
+      ]],
   },
 };
 
 /**
- * Strict config - static rules + LLM semantic rule
+ * Strict config - static rules + semantic rules
  *
  * Usage:
  * ```js
@@ -96,10 +139,55 @@ const strictConfig: Linter.Config = {
   languageOptions: jsxLanguageOptions,
   rules: {
     "uilint/no-arbitrary-tailwind": "error",
-    "uilint/consistent-spacing": "warn",
-    "uilint/no-direct-store-import": "error",
-    "uilint/no-mixed-component-libraries": "error",
-    "uilint/semantic": "warn",
+    "uilint/consistent-spacing": ["warn", ...[
+        {
+          "scale": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            8,
+            10,
+            12,
+            16
+          ]
+        }
+      ]],
+    "uilint/consistent-dark-mode": ["error", ...[
+        {
+          "warnOnMissingDarkMode": true
+        }
+      ]],
+    "uilint/no-direct-store-import": ["warn", ...[
+        {
+          "storePattern": "use*Store"
+        }
+      ]],
+    "uilint/prefer-zustand-state-management": ["warn", ...[
+        {
+          "maxStateHooks": 3,
+          "countUseState": true,
+          "countUseReducer": true,
+          "countUseContext": true
+        }
+      ]],
+    "uilint/no-mixed-component-libraries": ["error", ...[
+        {
+          "libraries": [
+            "shadcn",
+            "mui"
+          ]
+        }
+      ]],
+    "uilint/semantic": ["warn", ...[
+        {
+          "model": "qwen3-coder:30b",
+          "styleguidePath": ".uilint/styleguide.md"
+        }
+      ]],
   },
 };
 

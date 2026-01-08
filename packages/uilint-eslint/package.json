@@ -1,6 +1,6 @@
 {
   "name": "uilint-eslint",
-  "version": "0.1.11",
+  "version": "0.1.13",
   "description": "ESLint plugin for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -27,7 +27,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
+    "generate:index": "node --import tsx scripts/generate-index.ts",
+    "build": "pnpm run generate:index && tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
@@ -40,7 +41,7 @@
   },
   "dependencies": {
     "@typescript-eslint/utils": "^8.35.1",
-    "uilint-core": "^0.1.42",
+    "uilint-core": "^0.1.43",
     "xxhash-wasm": "^1.1.0"
   },
   "devDependencies": {
@@ -48,6 +49,7 @@
     "@types/node": "^22.16.0",
     "@typescript-eslint/rule-tester": "^8.35.1",
     "eslint": "^9.28.0",
+    "tsx": "^4.21.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.16"
