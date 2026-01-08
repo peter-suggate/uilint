@@ -60,6 +60,10 @@ function intersectionArea(
  * - Evaluate 4 placements (right/left/bottom/top)
  * - Clamp each candidate into the viewport (with padding)
  * - Pick the candidate with the lowest overflow; tie-break by closeness to badge
+ *
+ * Note: The popover is constrained to the browser viewport, NOT to modal boundaries.
+ * If an element is inside a modal, the popover can extend beyond the modal's edges
+ * as long as it stays within the viewport.
  */
 export function computeInspectionPanelPosition(params: {
   rect: RectLike;

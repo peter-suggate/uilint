@@ -50,7 +50,7 @@ const STYLES = {
   fontMono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
 };
 
-const POPOVER_WIDTH = 380;
+const POPOVER_WIDTH = 450;
 const POPOVER_MAX_HEIGHT = 450;
 
 /**
@@ -96,13 +96,14 @@ export function InspectionPanel() {
     };
 
     // Delay adding listener to avoid immediate close from the badge click
+    // Use capture phase to check before app handlers, but still allow app to see the event
     const timer = setTimeout(() => {
-      document.addEventListener("click", handleClickOutside);
+      document.addEventListener("click", handleClickOutside, true);
     }, 50);
 
     return () => {
       clearTimeout(timer);
-      document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("click", handleClickOutside, true);
     };
   }, [inspectedElement, setInspectedElement]);
 
@@ -331,13 +332,23 @@ export function InspectionPanel() {
     window.open(url, "_blank");
   }, [inspectedElement, editorBaseDir]);
 
+  // Event handlers to prevent UILint interactions from propagating to the app
+  const handleUILintInteraction = useCallback(
+    (e: React.MouseEvent | React.KeyboardEvent) => {
+      e.stopPropagation();
+    },
+    []
+  );
+
   if (!mounted || !inspectedElement) return null;
 
   const content = (
     <div
       ref={popoverRef}
       data-ui-lint
-      onClick={(e) => e.stopPropagation()}
+      onMouseDown={handleUILintInteraction}
+      onClick={handleUILintInteraction}
+      onKeyDown={handleUILintInteraction}
       style={{
         position: "fixed",
         top: position.top,
@@ -355,6 +366,7 @@ export function InspectionPanel() {
         overflow: "hidden",
         zIndex: 99998,
         animation: "uilint-popover-appear 0.15s ease-out",
+        pointerEvents: "auto", // Ensure panel is interactive
       }}
     >
       <style>{`

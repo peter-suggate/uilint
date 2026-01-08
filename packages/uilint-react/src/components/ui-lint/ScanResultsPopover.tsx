@@ -20,13 +20,14 @@
  * - Clicking an element scrolls to it and adds persistent highlight
  */
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import { STYLES, getStatusColor } from "./toolbar-styles";
 import { groupBySourceFile } from "./dom-utils";
 import { ChevronIcon } from "./toolbar-icons";
 import { Badge } from "./Badge";
+import { getCachedSource, fetchSource } from "./source-fetcher";
 import type {
   ScannedElement,
   LocatorTarget,
@@ -760,6 +761,57 @@ function ElementRow({ item, onHover, onClick }: ElementRowProps) {
 }
 
 /**
+ * Extract JSX/HTML tag name from a line of code
+ * Preserves the original case of the tag name
+ */
+function extractTagName(line: string, column?: number): string | null {
+  if (!line) return null;
+
+  // Try to find tag using column position first (more accurate)
+  if (column !== undefined) {
+    // Search around the column position for an opening tag
+    // Look backwards and forwards a bit to handle cases where column points
+    // to somewhere within the tag (e.g., inside attributes)
+    const searchStart = Math.max(0, column - 50);
+    const searchEnd = Math.min(line.length, column + 20);
+    const searchSlice = line.substring(searchStart, searchEnd);
+
+    // Find all potential tag matches in this slice
+    const tagMatches = [
+      ...searchSlice.matchAll(/<([a-zA-Z][a-zA-Z0-9.-]*|Fragment)\b/g),
+    ];
+
+    // Find the tag closest to the column position
+    for (const match of tagMatches) {
+      const tagStart = searchStart + match.index!;
+      const tagEnd = tagStart + match[0].length;
+      // Check if column is within or close to this tag
+      if (column >= tagStart && column <= tagEnd + 30) {
+        // Preserve original case
+        return match[1];
+      }
+    }
+  }
+
+  // Fallback: look for first JSX opening tag in the line
+  // Remove leading whitespace for simpler matching
+  const trimmed = line.trim();
+
+  // Look for JSX opening tag patterns:
+  // - <ComponentName
+  // - <div
+  // - <span
+  // Also handle self-closing tags and fragments
+  const jsxTagMatch = trimmed.match(/^<([a-zA-Z][a-zA-Z0-9.-]*|Fragment)\b/);
+  if (jsxTagMatch) {
+    // Preserve original case
+    return jsxTagMatch[1];
+  }
+
+  return null;
+}
+
+/**
  * File-level issue row (no associated DOM element)
  */
 interface FileLevelIssueRowProps {
@@ -774,6 +826,40 @@ function FileLevelIssueRow({
   onClick,
 }: FileLevelIssueRowProps) {
   const fileName = filePath.split("/").pop() || filePath;
+  const [tagName, setTagName] = useState<string | null>(null);
+
+  // Extract tag name from source code
+  useEffect(() => {
+    // First try cached source
+    const cached = getCachedSource(filePath);
+    if (cached) {
+      const lines = cached.content.split("\n");
+      const lineIndex = issue.line - 1; // 0-indexed
+      if (lineIndex >= 0 && lineIndex < lines.length) {
+        const line = lines[lineIndex];
+        const tag = extractTagName(line, issue.column);
+        if (tag) {
+          setTagName(tag);
+          return;
+        }
+      }
+    }
+
+    // If not in cache or no tag found, try fetching (but don't block UI)
+    fetchSource(filePath).then((result) => {
+      if (result) {
+        const lines = result.content.split("\n");
+        const lineIndex = issue.line - 1; // 0-indexed
+        if (lineIndex >= 0 && lineIndex < lines.length) {
+          const line = lines[lineIndex];
+          const tag = extractTagName(line, issue.column);
+          if (tag) {
+            setTagName(tag);
+          }
+        }
+      }
+    });
+  }, [filePath, issue.line, issue.column]);
 
   return (
     <div
@@ -793,7 +879,7 @@ function FileLevelIssueRow({
       }}
       onClick={onClick}
     >
-      {/* File name and line number */}
+      {/* Element tag (if found), file name and line number */}
       <div
         style={{
           display: "flex",
@@ -803,15 +889,28 @@ function FileLevelIssueRow({
           marginRight: "12px",
         }}
       >
-        <span
-          style={{
-            fontSize: "11px",
-            fontFamily: STYLES.fontMono,
-            color: STYLES.textMuted,
-          }}
-        >
-          {fileName}
-        </span>
+        {tagName && (
+          <span
+            style={{
+              fontSize: "11px",
+              fontFamily: STYLES.fontMono,
+              color: STYLES.accent,
+            }}
+          >
+            &lt;{tagName}&gt;
+          </span>
+        )}
+        {!tagName && (
+          <span
+            style={{
+              fontSize: "11px",
+              fontFamily: STYLES.fontMono,
+              color: STYLES.textMuted,
+            }}
+          >
+            {fileName}
+          </span>
+        )}
         <span
           style={{
             fontSize: "10px",

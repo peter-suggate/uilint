@@ -18,6 +18,7 @@ import {
   type BadgePosition,
   type NudgedBadgePosition,
 } from "./badge-layout";
+import { isElementCoveredByOverlay } from "./visibility-utils";
 
 /**
  * Design tokens
@@ -227,6 +228,12 @@ export function ElementBadges() {
         if (rect.top < -50 || rect.top > window.innerHeight + 50) continue;
         if (rect.left < -50 || rect.left > window.innerWidth + 50) continue;
 
+        // Check if element is covered by an overlay (modal, popover, etc.)
+        // Only check if the element is potentially visible (not off-screen)
+        if (isElementCoveredByOverlay(element.element, x, y)) {
+          continue;
+        }
+
         positions.push({ element, issue, x, y, rect });
       }
       setBadgePositions(positions);
@@ -310,11 +317,25 @@ export function ElementBadges() {
     return filtered;
   }, [nudgedPositions, isAltKeyPressed, selectedFilePath, hoveredFilePath]);
 
+  // Event handlers to prevent UILint interactions from propagating to the app
+  const handleUILintInteraction = useCallback(
+    (e: React.MouseEvent | React.KeyboardEvent) => {
+      e.stopPropagation();
+    },
+    []
+  );
+
   if (!mounted) return null;
   if (autoScanState.status === "idle") return null;
 
   const content = (
-    <div data-ui-lint>
+    <div
+      data-ui-lint
+      onMouseDown={handleUILintInteraction}
+      onClick={handleUILintInteraction}
+      onKeyDown={handleUILintInteraction}
+      style={{ pointerEvents: "none" }}
+    >
       <BadgeAnimationStyles />
       {visibleBadges
         // Defensive: in case upstream ever returns duplicate IDs, avoid
@@ -449,6 +470,7 @@ function NudgedBadge({
       padding: "4px 0",
       minWidth: "200px",
       fontFamily: STYLES.font,
+      pointerEvents: "auto", // Re-enable pointer events for interactive dropdown
     };
   }, [snappedPosition]);
 
@@ -509,6 +531,7 @@ function NudgedBadge({
           transition: "transform 0.1s ease-out",
           transform: `scale(${scale})`,
           transformOrigin: "center center",
+          pointerEvents: "auto", // Re-enable pointer events for interactive badge
         }}
         data-ui-lint
         onMouseEnter={handleMouseEnter}

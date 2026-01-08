@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   PrimaryButton,
@@ -30,9 +31,12 @@ import {
   Zap,
   Target,
   TrendingUp,
+  X,
 } from "lucide-react";
 
 export default function Home() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-purple-50">
       {/* Hero Section with deliberate inconsistencies */}
@@ -69,6 +73,12 @@ export default function Home() {
                 Configure Settings
               </button>
             </Link>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold text-base shadow-[0_4px_14px_0_rgba(147,51,234,0.39)]"
+            >
+              Open Modal
+            </button>
           </div>
 
           <div className="flex justify-center gap-3">
@@ -357,6 +367,95 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Modal with inconsistent dark mode theming */}
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div
+            className="relative w-[90%] max-w-[600px] bg-white rounded-2xl shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)] p-[32px] dark:bg-gray-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button - missing dark mode */}
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-[16px] right-[16px] w-[40px] h-[40px] flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header - has dark mode for text but not background */}
+            <div className="mb-6">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                Modal Title
+              </h2>
+              <p className="text-gray-600 dark:text-gray-300">
+                This modal has inconsistent dark mode theming
+              </p>
+            </div>
+
+            {/* Content section - missing dark mode entirely */}
+            <div className="space-y-4 mb-6">
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                  Section One
+                </h3>
+                <p className="text-gray-700 text-sm">
+                  This section has no dark mode classes at all
+                </p>
+              </div>
+
+              {/* This section has some dark mode but incomplete */}
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-5 rounded-xl border-2 border-purple-200 dark:from-purple-900/20 dark:to-pink-900/20">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-purple-100 mb-2">
+                  Section Two
+                </h3>
+                <p className="text-gray-700 dark:text-gray-200 text-sm">
+                  This section has partial dark mode - background but missing
+                  text color for some elements
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <span className="px-3 py-1 bg-purple-600 text-white rounded-full text-xs font-medium">
+                    Tag 1
+                  </span>
+                  <span className="px-3 py-1 bg-pink-500 text-white rounded-full text-xs font-medium dark:bg-pink-600">
+                    Tag 2
+                  </span>
+                </div>
+              </div>
+
+              {/* Mixed styling with arbitrary values */}
+              <div className="p-[18px] rounded-[12px] bg-white border border-gray-200 shadow-[0_1px_3px_0_rgba(0,0,0,0.1)]">
+                <h3 className="text-base font-bold text-gray-900 mb-[10px]">
+                  Section Three
+                </h3>
+                <p className="text-[14px] text-gray-600 leading-[1.6]">
+                  This uses arbitrary Tailwind values like p-[18px] and
+                  rounded-[12px]
+                </p>
+              </div>
+            </div>
+
+            {/* Footer buttons - inconsistent dark mode */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-5 py-2.5 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition-colors dark:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold shadow-lg transition-colors dark:bg-blue-500"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

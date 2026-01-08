@@ -611,12 +611,17 @@ export function UILintToolbar() {
   // Close settings when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
+      const target = e.target as Element | null;
+
+      // Don't close if clicking on any UILint element (prevents dismissing app popovers)
+      if (target?.closest?.("[data-ui-lint]")) {
+        return;
+      }
 
       if (showSettings && settingsRef.current && toolbarRef.current) {
         if (
-          !settingsRef.current.contains(target) &&
-          !toolbarRef.current.contains(target)
+          !settingsRef.current.contains(target as Node) &&
+          !toolbarRef.current.contains(target as Node)
         ) {
           handleCloseSettings();
         }
@@ -624,17 +629,20 @@ export function UILintToolbar() {
     };
 
     const handleEscape = (e: KeyboardEvent) => {
+      // Don't handle Escape if it's being used by app (e.g., closing app modal)
+      // Only handle if UILint UI is actually open
       if (e.key === "Escape") {
         if (showSettings) handleCloseSettings();
         if (showResults) setShowResults(false);
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    // Use capture phase to check before app handlers, but still allow app to see the event
+    document.addEventListener("mousedown", handleClickOutside, true);
     document.addEventListener("keydown", handleEscape);
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside, true);
       document.removeEventListener("keydown", handleEscape);
     };
   }, [showSettings, showResults]);
@@ -676,6 +684,14 @@ export function UILintToolbar() {
     }, 150);
   }, []);
 
+  // Event handlers to prevent UILint interactions from propagating to the app
+  const handleUILintInteraction = useCallback(
+    (e: React.MouseEvent | React.KeyboardEvent) => {
+      e.stopPropagation();
+    },
+    []
+  );
+
   if (!mounted) return null;
 
   // Determine button variants
@@ -693,6 +709,9 @@ export function UILintToolbar() {
   const content = (
     <div
       data-ui-lint
+      onMouseDown={handleUILintInteraction}
+      onClick={handleUILintInteraction}
+      onKeyDown={handleUILintInteraction}
       style={{
         position: "fixed",
         bottom: bottomPosition,
@@ -700,6 +719,7 @@ export function UILintToolbar() {
         zIndex: 99999,
         fontFamily: TOKENS.fontFamily,
         transition: `bottom ${TOKENS.transitionSlow}`,
+        pointerEvents: "none", // Allow clicks to pass through empty space
       }}
     >
       <style>{globalStyles}</style>
@@ -715,6 +735,7 @@ export function UILintToolbar() {
           fontSize: "11px",
           color: TOKENS.textMuted,
           letterSpacing: "0.02em",
+          pointerEvents: "auto", // Re-enable pointer events for hint
         }}
         aria-hidden={!liveScanEnabled}
       >
@@ -759,6 +780,7 @@ export function UILintToolbar() {
               : TOKENS.shadowMd,
           overflow: "hidden",
           transition: `box-shadow ${TOKENS.transitionBase}`,
+          pointerEvents: "auto", // Re-enable pointer events for interactive toolbar
         }}
       >
         {/* Toggle button - Primary action */}
@@ -828,6 +850,7 @@ export function UILintToolbar() {
             bottom: "100%",
             left: 0,
             marginBottom: "8px",
+            pointerEvents: "auto", // Re-enable pointer events for popover
           }}
         >
           <SettingsPopover settings={settings} />
