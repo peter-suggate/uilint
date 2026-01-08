@@ -39,6 +39,7 @@ interface FileWithIssues {
 interface ElementWithIssues {
   element: ScannedElement;
   issueCount: number;
+  ruleIds: string[];
 }
 
 /**
@@ -86,11 +87,14 @@ export function ScanResultsPopover() {
   // Track which files are expanded
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
 
+  // Search filter state
+  const [searchQuery, setSearchQuery] = useState("");
+
   const isScanning = autoScanState.status === "scanning";
   const isComplete = autoScanState.status === "complete";
 
   // Group elements by source file and filter to only those with issues
-  const filesWithIssues = useMemo<FileWithIssues[]>(() => {
+  const allFilesWithIssues = useMemo<FileWithIssues[]>(() => {
     const sourceFiles = groupBySourceFile(autoScanState.elements);
     const allPaths = sourceFiles.map((sf) => sf.path);
 
@@ -103,7 +107,14 @@ export function ScanResultsPopover() {
         const cached = elementIssuesCache.get(el.id);
         const issueCount = cached?.issues.length || 0;
         if (issueCount > 0) {
-          elementsWithIssues.push({ element: el, issueCount });
+          const ruleIds = Array.from(
+            new Set(
+              (cached?.issues || [])
+                .map((i) => i.ruleId)
+                .filter((r): r is string => typeof r === "string")
+            )
+          );
+          elementsWithIssues.push({ element: el, issueCount, ruleIds });
         }
       }
 
@@ -135,7 +146,64 @@ export function ScanResultsPopover() {
     return result;
   }, [autoScanState.elements, elementIssuesCache]);
 
+  // Apply search filter
+  const filesWithIssues = useMemo<FileWithIssues[]>(() => {
+    if (!searchQuery.trim()) {
+      return allFilesWithIssues;
+    }
+
+    const raw = searchQuery.toLowerCase().trim();
+    // Support queries like "<div>" by stripping angle brackets.
+    const tagQuery = raw.replace(/[<>]/g, "").replace("/", "").trim();
+    const query = raw;
+
+    return allFilesWithIssues
+      .map((file) => {
+        // Check if file path/name matches
+        const fileMatches =
+          file.path.toLowerCase().includes(query) ||
+          file.displayName.toLowerCase().includes(query) ||
+          file.disambiguatedName.toLowerCase().includes(query);
+
+        // Filter elements that match by tag name (<div>) or ruleId substring (consistent-spacing)
+        const matchingElements = file.elementsWithIssues.filter((item) => {
+          const tagMatches = item.element.tagName
+            .toLowerCase()
+            .includes(tagQuery);
+          const ruleMatches = item.ruleIds.some((r) =>
+            r.toLowerCase().includes(query)
+          );
+          return tagMatches || ruleMatches;
+        });
+
+        // If file matches, include all its elements
+        if (fileMatches) {
+          return file;
+        }
+
+        // If some elements match, return file with only matching elements
+        if (matchingElements.length > 0) {
+          const filteredIssueCount = matchingElements.reduce(
+            (sum, e) => sum + e.issueCount,
+            0
+          );
+          return {
+            ...file,
+            elementsWithIssues: matchingElements,
+            issueCount: filteredIssueCount,
+          };
+        }
+
+        return null;
+      })
+      .filter((file): file is FileWithIssues => file !== null);
+  }, [allFilesWithIssues, searchQuery]);
+
   const totalIssues = filesWithIssues.reduce((sum, f) => sum + f.issueCount, 0);
+  const totalAllIssues = allFilesWithIssues.reduce(
+    (sum, f) => sum + f.issueCount,
+    0
+  );
 
   // Progress calculation
   const progress =
@@ -241,12 +309,14 @@ export function ScanResultsPopover() {
               color: STYLES.text,
             }}
           >
-            {filesWithIssues.length === 0
+            {allFilesWithIssues.length === 0
               ? "No issues found"
+              : searchQuery
+              ? `${filesWithIssues.length} of ${allFilesWithIssues.length} files`
               : `${filesWithIssues.length} ${
                   filesWithIssues.length === 1 ? "file" : "files"
-                } with ${totalIssues} ${
-                  totalIssues === 1 ? "issue" : "issues"
+                } with ${totalAllIssues} ${
+                  totalAllIssues === 1 ? "issue" : "issues"
                 }`}
           </div>
 
@@ -273,6 +343,61 @@ export function ScanResultsPopover() {
             </button>
           )}
         </div>
+
+        {/* Search input */}
+        {allFilesWithIssues.length > 0 && (
+          <div style={{ marginTop: "10px" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "6px 10px",
+                backgroundColor: "rgba(17, 24, 39, 0.6)",
+                borderRadius: "6px",
+                border: `1px solid ${STYLES.border}`,
+              }}
+            >
+              <SearchIcon />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter by file or tag..."
+                style={{
+                  flex: 1,
+                  border: "none",
+                  backgroundColor: "transparent",
+                  color: STYLES.text,
+                  fontSize: "11px",
+                  fontFamily: STYLES.font,
+                  outline: "none",
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "16px",
+                    height: "16px",
+                    borderRadius: "50%",
+                    border: "none",
+                    backgroundColor: "rgba(75, 85, 99, 0.5)",
+                    color: STYLES.textMuted,
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                  title="Clear search"
+                >
+                  <ClearIcon />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Progress bar (only when scanning) */}
         {isScanning && (
@@ -332,6 +457,8 @@ export function ScanResultsPopover() {
           >
             {isScanning ? (
               "Scanning page elements..."
+            ) : searchQuery && allFilesWithIssues.length > 0 ? (
+              <span>No matches for "{searchQuery}"</span>
             ) : isComplete ? (
               <span style={{ color: STYLES.success }}>✓ No issues found</span>
             ) : (
@@ -555,5 +682,52 @@ function ElementRow({ item, onHover, onClick }: ElementRowProps) {
         {issueCount}
       </span>
     </div>
+  );
+}
+
+/**
+ * Search icon for filter input
+ */
+function SearchIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      style={{ flexShrink: 0 }}
+    >
+      <circle
+        cx="11"
+        cy="11"
+        r="7"
+        stroke={STYLES.textMuted}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M21 21l-4.35-4.35"
+        stroke={STYLES.textMuted}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Clear icon for search input
+ */
+function ClearIcon() {
+  return (
+    <svg width="8" height="8" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M18 6L6 18M6 6l12 12"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

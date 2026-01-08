@@ -131,11 +131,11 @@ export function UILintProvider({
 
   /**
    * Handle mouse move for locator mode
-   * When inspecting, allow hover without Alt key
+   * Only active when Alt key is held down
    */
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (!altKeyHeld && !inspectedElement) return;
+      if (!altKeyHeld) return;
 
       const elementAtPoint = document.elementFromPoint(e.clientX, e.clientY);
       if (!elementAtPoint) {
@@ -156,21 +156,17 @@ export function UILintProvider({
 
       setLocatorTarget(null);
     },
-    [
-      altKeyHeld,
-      inspectedElement,
-      getLocatorTargetFromElement,
-      setLocatorTarget,
-    ]
+    [altKeyHeld, getLocatorTargetFromElement, setLocatorTarget]
   );
 
   /**
    * Handle click in locator mode - open sidebar
+   * Only active when Alt key is held down
    */
   const handleLocatorClick = useCallback(
     (e: MouseEvent) => {
-      // Allow click-to-select when Alt is held OR when inspector is already open
-      if ((!altKeyHeld && !inspectedElement) || !locatorTarget) return;
+      // Only allow click-to-select when Alt is held
+      if (!altKeyHeld || !locatorTarget) return;
 
       // Ignore clicks on UILint UI
       const targetEl = e.target as Element | null;
@@ -189,13 +185,7 @@ export function UILintProvider({
       // Reset locator state
       setLocatorTarget(null);
     },
-    [
-      altKeyHeld,
-      locatorTarget,
-      inspectedElement,
-      setInspectedElement,
-      setLocatorTarget,
-    ]
+    [altKeyHeld, locatorTarget, setInspectedElement, setLocatorTarget]
   );
 
   /**
@@ -236,27 +226,21 @@ export function UILintProvider({
 
   /**
    * Mouse tracking for locator mode
-   * Active when Alt is held OR when inspecting an element
+   * Only active when Alt key is held down
    */
   useEffect(() => {
     if (!isBrowser() || !enabled) return;
-    if (!altKeyHeld && !inspectedElement) return;
+    if (!altKeyHeld) return;
 
     window.addEventListener("mousemove", handleMouseMove);
-    // Add click handler when Alt is held OR inspector is open (click-to-select)
+    // Add click handler when Alt is held (click-to-select)
     window.addEventListener("click", handleLocatorClick, true);
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("click", handleLocatorClick, true);
     };
-  }, [
-    enabled,
-    altKeyHeld,
-    inspectedElement,
-    handleMouseMove,
-    handleLocatorClick,
-  ]);
+  }, [enabled, altKeyHeld, handleMouseMove, handleLocatorClick]);
 
   /**
    * Escape key to close sidebar

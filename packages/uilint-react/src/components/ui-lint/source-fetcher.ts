@@ -84,6 +84,38 @@ export async function fetchSourceWithContext(
 }
 
 /**
+ * Fetch source and extract an asymmetric window around a specific location.
+ * This supports expanding above/below independently in the UI.
+ */
+export async function fetchSourceWithWindow(
+  source: SourceLocation,
+  window: { linesAbove: number; linesBelow: number }
+): Promise<{
+  lines: string[];
+  startLine: number;
+  highlightLine: number;
+  relativePath: string;
+} | null> {
+  const result = await fetchSource(source.fileName);
+  if (!result) return null;
+
+  const allLines = result.content.split("\n");
+  const targetLine = source.lineNumber - 1; // 0-indexed
+  const startLine = Math.max(0, targetLine - Math.max(0, window.linesAbove));
+  const endLine = Math.min(
+    allLines.length,
+    targetLine + Math.max(0, window.linesBelow) + 1
+  );
+
+  return {
+    lines: allLines.slice(startLine, endLine),
+    startLine: startLine + 1, // Back to 1-indexed
+    highlightLine: source.lineNumber,
+    relativePath: result.relativePath,
+  };
+}
+
+/**
  * Clear the source cache
  */
 export function clearSourceCache(): void {

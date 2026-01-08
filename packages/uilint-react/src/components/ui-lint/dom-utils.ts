@@ -242,21 +242,35 @@ export function updateElementRects(
 
 /**
  * Build an "Open in Editor" URL
+ * @param source - The source location (fileName may be relative or absolute)
+ * @param editor - The editor to open in (cursor or vscode)
+ * @param workspaceRoot - Optional workspace root to prepend for relative paths
  */
 export function buildEditorUrl(
   source: SourceLocation,
-  editor: "cursor" | "vscode" = "cursor"
+  editor: "cursor" | "vscode" = "cursor",
+  workspaceRoot?: string | null
 ): string {
   const { fileName, lineNumber, columnNumber } = source;
   const column = columnNumber ?? 1;
 
+  // Build absolute file path
+  let absolutePath = fileName;
+  if (workspaceRoot && !fileName.startsWith("/")) {
+    // Ensure workspace root ends without slash for clean concatenation
+    const root = workspaceRoot.endsWith("/")
+      ? workspaceRoot.slice(0, -1)
+      : workspaceRoot;
+    absolutePath = `${root}/${fileName}`;
+  }
+
   if (editor === "cursor") {
     return `cursor://file/${encodeURIComponent(
-      fileName
+      absolutePath
     )}:${lineNumber}:${column}`;
   }
 
   return `vscode://file/${encodeURIComponent(
-    fileName
+    absolutePath
   )}:${lineNumber}:${column}`;
 }

@@ -66,6 +66,22 @@ export const ruleRegistry: RuleMetadata[] = [
     category: "static",
   },
   {
+    id: "prefer-zustand-state-management",
+    name: "Prefer Zustand State Management",
+    description:
+      "Detect excessive useState/useReducer/useContext; suggest Zustand",
+    defaultSeverity: "warn",
+    defaultOptions: [
+      {
+        maxStateHooks: 3,
+        countUseState: true,
+        countUseReducer: true,
+        countUseContext: true,
+      },
+    ],
+    category: "static",
+  },
+  {
     id: "no-mixed-component-libraries",
     name: "No Mixed Component Libraries",
     description: "Forbid mixing component libraries (e.g., shadcn + MUI)",

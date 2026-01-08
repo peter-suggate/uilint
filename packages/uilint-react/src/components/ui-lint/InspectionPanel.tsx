@@ -1,15 +1,23 @@
 "use client";
 
 /**
- * Inspection Panel - Slide-out sidebar showing element details, source preview,
- * and LLM analysis with clipboard-ready fix prompts
+ * Inspection Panel - Lightweight floating popover showing element issues
+ * with inline code previews and "Open in Cursor" actions
+ *
+ * Positions near the clicked badge, avoiding overlap with the element itself.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { createPortal } from "react-dom";
 import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
-import { fetchSourceWithContext } from "./source-fetcher";
+import { fetchSourceWithWindow } from "./source-fetcher";
 import { buildEditorUrl } from "./dom-utils";
 import type {
   InspectedElement,
@@ -22,9 +30,9 @@ import type {
  * Design tokens
  */
 const STYLES = {
-  bg: "rgba(17, 24, 39, 0.95)",
-  bgSurface: "rgba(31, 41, 55, 0.9)",
-  border: "rgba(75, 85, 99, 0.5)",
+  bg: "rgba(17, 24, 39, 0.98)",
+  bgSurface: "rgba(31, 41, 55, 0.95)",
+  border: "rgba(75, 85, 99, 0.6)",
   text: "#F9FAFB",
   textMuted: "#9CA3AF",
   textDim: "#6B7280",
@@ -32,53 +40,156 @@ const STYLES = {
   accentHover: "#2563EB",
   success: "#10B981",
   warning: "#F59E0B",
-  shadow: "0 -8px 32px rgba(0, 0, 0, 0.4)",
-  blur: "blur(16px)",
+  error: "#EF4444",
+  shadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
+  blur: "blur(12px)",
   font: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   fontMono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
 };
 
-const PANEL_WIDTH = 420;
+const POPOVER_WIDTH = 380;
+const POPOVER_MAX_HEIGHT = 450;
 
 /**
- * Main Inspection Panel Component
+ * Main Inspection Panel Component - Floating Popover
  */
 export function InspectionPanel() {
-  const { inspectedElement, setInspectedElement } = useUILintContext();
+  const {
+    inspectedElement,
+    setInspectedElement,
+    elementIssuesCache,
+    autoScanState,
+  } = useUILintContext();
+  const appRoot = useUILintStore((s: UILintStore) => s.appRoot);
+  const workspaceRoot = useUILintStore((s: UILintStore) => s.workspaceRoot);
+  const editorBaseDir = appRoot || workspaceRoot;
 
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"info" | "source">("info");
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Handle click outside to close
+  useEffect(() => {
+    if (!inspectedElement) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      // Ignore clicks on UILint UI elements
+      if (target?.closest?.("[data-ui-lint]")) return;
+      setInspectedElement(null);
+    };
+
+    // Delay adding listener to avoid immediate close from the badge click
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [inspectedElement, setInspectedElement]);
+
+  // Find cached issue for this element from auto-scan
+  const cachedIssue = useMemo((): ElementIssue | null => {
+    if (!inspectedElement) return null;
+
+    // First try to match by scannedElementId if available
+    if (inspectedElement.scannedElementId) {
+      const cached = elementIssuesCache.get(inspectedElement.scannedElementId);
+      if (cached) return cached;
+    }
+
+    // Fallback: match by source file path
+    if (inspectedElement.source) {
+      for (const [, issue] of elementIssuesCache) {
+        const scannedElement = autoScanState.elements.find(
+          (el) => el.id === issue.elementId
+        );
+        if (
+          scannedElement?.source?.fileName === inspectedElement.source.fileName
+        ) {
+          return issue;
+        }
+      }
+    }
+
+    return null;
+  }, [inspectedElement, elementIssuesCache, autoScanState.elements]);
+
+  const eslintIssues = useMemo(() => cachedIssue?.issues || [], [cachedIssue]);
+
+  // Calculate popover position
+  const position = useMemo(() => {
+    if (!inspectedElement) return { top: 0, left: 0 };
+
+    const { rect } = inspectedElement;
+    const padding = 12;
+
+    // Badge is at top-right of element
+    // Popover appears to the RIGHT of the badge by default
+    let left = rect.right + padding;
+    let top = rect.top;
+
+    // If popover would go off right edge, position to the left of the element
+    if (left + POPOVER_WIDTH > window.innerWidth - padding) {
+      left = rect.left - POPOVER_WIDTH - padding;
+    }
+
+    // If that would go off left edge, position below the element
+    if (left < padding) {
+      left = Math.max(padding, rect.left);
+      top = rect.bottom + padding;
+    }
+
+    // Ensure popover stays within viewport vertically
+    if (top + POPOVER_MAX_HEIGHT > window.innerHeight - padding) {
+      top = Math.max(
+        padding,
+        window.innerHeight - POPOVER_MAX_HEIGHT - padding
+      );
+    }
+
+    if (top < padding) {
+      top = padding;
+    }
+
+    return { top, left };
+  }, [inspectedElement]);
+
   if (!mounted || !inspectedElement) return null;
 
   const content = (
     <div
+      ref={popoverRef}
       data-ui-lint
+      onClick={(e) => e.stopPropagation()}
       style={{
         position: "fixed",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        width: PANEL_WIDTH,
+        top: position.top,
+        left: position.left,
+        width: POPOVER_WIDTH,
+        maxHeight: POPOVER_MAX_HEIGHT,
         backgroundColor: STYLES.bg,
         backdropFilter: STYLES.blur,
         WebkitBackdropFilter: STYLES.blur,
-        borderLeft: `1px solid ${STYLES.border}`,
+        border: `1px solid ${STYLES.border}`,
+        borderRadius: "12px",
         boxShadow: STYLES.shadow,
         fontFamily: STYLES.font,
         color: STYLES.text,
         overflow: "hidden",
         zIndex: 99998,
+        animation: "uilint-popover-appear 0.15s ease-out",
       }}
     >
       <style>{`
-        @keyframes uilint-panel-slide-in {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
+        @keyframes uilint-popover-appear {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
         }
         @keyframes uilint-spin {
           from { transform: rotate(0deg); }
@@ -86,44 +197,101 @@ export function InspectionPanel() {
         }
       `}</style>
 
+      {/* Header */}
+      <PopoverHeader
+        element={inspectedElement}
+        issueCount={eslintIssues.length}
+        workspaceRoot={editorBaseDir}
+        onClose={() => setInspectedElement(null)}
+      />
+
+      {/* Content */}
       <div
         style={{
-          display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          animation: "uilint-panel-slide-in 0.2s ease-out",
+          maxHeight: POPOVER_MAX_HEIGHT - 60,
+          overflowY: "auto",
         }}
       >
-        {/* Header */}
-        <PanelHeader
-          element={inspectedElement}
-          onClose={() => setInspectedElement(null)}
-        />
+        {cachedIssue?.status === "scanning" && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "32px",
+              gap: "12px",
+            }}
+          >
+            <div
+              style={{
+                width: "20px",
+                height: "20px",
+                border: `2px solid ${STYLES.border}`,
+                borderTopColor: STYLES.accent,
+                borderRadius: "50%",
+                animation: "uilint-spin 0.8s linear infinite",
+              }}
+            />
+            <span style={{ color: STYLES.textMuted, fontSize: "13px" }}>
+              Scanning...
+            </span>
+          </div>
+        )}
 
-        {/* Tabs */}
-        <div
-          style={{
-            display: "flex",
-            borderBottom: `1px solid ${STYLES.border}`,
-          }}
-        >
-          <TabButton
-            label="Inspect"
-            active={activeTab === "info"}
-            onClick={() => setActiveTab("info")}
-          />
-          <TabButton
-            label="Source"
-            active={activeTab === "source"}
-            onClick={() => setActiveTab("source")}
-          />
-        </div>
+        {cachedIssue?.status === "error" && (
+          <div
+            style={{
+              padding: "16px",
+              margin: "12px",
+              backgroundColor: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
+              borderRadius: "8px",
+              color: STYLES.error,
+              fontSize: "12px",
+              textAlign: "center",
+            }}
+          >
+            Failed to analyze this element
+          </div>
+        )}
 
-        {/* Content */}
-        <div style={{ flex: 1, overflow: "auto" }}>
-          {activeTab === "info" && <InfoTab element={inspectedElement} />}
-          {activeTab === "source" && <SourceTab element={inspectedElement} />}
-        </div>
+        {cachedIssue?.status === "complete" && eslintIssues.length === 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "32px",
+              gap: "8px",
+              color: STYLES.success,
+              fontSize: "13px",
+            }}
+          >
+            <CheckIcon />
+            No issues found
+          </div>
+        )}
+
+        {cachedIssue?.status === "complete" && eslintIssues.length > 0 && (
+          <IssuesList
+            issues={eslintIssues}
+            source={inspectedElement.source}
+            workspaceRoot={editorBaseDir}
+          />
+        )}
+
+        {!cachedIssue && (
+          <div
+            style={{
+              padding: "24px 16px",
+              textAlign: "center",
+              color: STYLES.textMuted,
+              fontSize: "12px",
+            }}
+          >
+            Enable live scanning to analyze this element
+          </div>
+        )}
       </div>
     </div>
   );
@@ -132,23 +300,26 @@ export function InspectionPanel() {
 }
 
 /**
- * Panel header with element name and actions
+ * Popover header with file name, issue count, and close button
  */
-function PanelHeader({
+function PopoverHeader({
   element,
+  issueCount,
+  workspaceRoot,
   onClose,
 }: {
   element: InspectedElement;
+  issueCount: number;
+  workspaceRoot: string | null;
   onClose: () => void;
 }) {
-  const tagName = element.element.tagName.toLowerCase();
+  const fileName = element.source.fileName.split("/").pop() || "Unknown";
+  const lineNumber = element.source.lineNumber;
 
   const handleOpenInCursor = useCallback(() => {
-    if (element.source) {
-      const url = buildEditorUrl(element.source, "cursor");
-      window.open(url, "_blank");
-    }
-  }, [element.source]);
+    const url = buildEditorUrl(element.source, "cursor", workspaceRoot);
+    window.open(url, "_blank");
+  }, [element.source, workspaceRoot]);
 
   return (
     <div
@@ -156,53 +327,77 @@ function PanelHeader({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "12px 16px",
+        padding: "12px 14px",
         borderBottom: `1px solid ${STYLES.border}`,
         backgroundColor: STYLES.bgSurface,
       }}
     >
-      <div>
-        <div style={{ fontSize: "14px", fontWeight: 600 }}>
-          &lt;{tagName}&gt;
-        </div>
-        {element.source && (
-          <div style={{ fontSize: "11px", color: STYLES.textMuted }}>
-            {element.source.fileName.split("/").pop()}:
-            {element.source.lineNumber}
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: "flex", gap: "8px" }}>
-        {element.source && (
-          <button
-            onClick={handleOpenInCursor}
+      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div>
+          <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "4px",
-              padding: "6px 10px",
-              borderRadius: "6px",
-              border: "none",
-              backgroundColor: STYLES.accent,
+              gap: "6px",
+              fontSize: "13px",
+              fontWeight: 600,
+            }}
+          >
+            <span style={{ fontFamily: STYLES.fontMono }}>{fileName}</span>
+            <span style={{ color: STYLES.textDim, fontWeight: 400 }}>
+              :{lineNumber}
+            </span>
+          </div>
+        </div>
+        {issueCount > 0 && (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minWidth: "20px",
+              height: "20px",
+              padding: "0 6px",
+              borderRadius: "10px",
+              backgroundColor: STYLES.warning,
               color: "#FFFFFF",
               fontSize: "11px",
-              fontWeight: 500,
-              cursor: "pointer",
-              transition: "background-color 0.15s",
+              fontWeight: 700,
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = STYLES.accentHover;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = STYLES.accent;
-            }}
-            title="Open in Cursor"
           >
-            <CursorIcon />
-            Open in Cursor
-          </button>
+            {issueCount}
+          </span>
         )}
+      </div>
+
+      <div style={{ display: "flex", gap: "6px" }}>
+        <button
+          onClick={handleOpenInCursor}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            padding: "5px 8px",
+            borderRadius: "6px",
+            border: "none",
+            backgroundColor: STYLES.accent,
+            color: "#FFFFFF",
+            fontSize: "11px",
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "background-color 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = STYLES.accentHover;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = STYLES.accent;
+          }}
+          title="Open in Cursor"
+        >
+          <ExternalLinkIcon />
+          Open in Cursor
+        </button>
 
         <button
           onClick={onClose}
@@ -210,8 +405,8 @@ function PanelHeader({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: "28px",
-            height: "28px",
+            width: "26px",
+            height: "26px",
             borderRadius: "6px",
             border: "none",
             backgroundColor: "transparent",
@@ -236,616 +431,387 @@ function PanelHeader({
 }
 
 /**
- * Tab button
+ * Issues list with expandable code previews
  */
-function TabButton({
-  label,
-  active,
-  onClick,
+function IssuesList({
+  issues,
+  source,
+  workspaceRoot,
 }: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
+  issues: ESLintIssue[];
+  source: SourceLocation;
+  workspaceRoot: string | null;
 }) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        flex: 1,
-        padding: "10px 16px",
-        border: "none",
-        backgroundColor: "transparent",
-        color: active ? STYLES.accent : STYLES.textMuted,
-        fontSize: "12px",
-        fontWeight: 500,
-        cursor: "pointer",
-        borderBottom: active
-          ? `2px solid ${STYLES.accent}`
-          : "2px solid transparent",
-        marginBottom: "-1px",
-        transition: "all 0.15s",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-/**
- * Info tab content - includes scan UI and element details
- */
-function InfoTab({ element }: { element: InspectedElement }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* Scan Section - prominent at the top */}
-      <ScanSection element={element} />
-
-      {/* Element Details - scrollable below */}
-      <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
-        {/* Element details */}
-        <Section title="Element">
-          <InfoRow
-            label="Tag"
-            value={`<${element.element.tagName.toLowerCase()}>`}
-          />
-          {element.element.className && (
-            <InfoRow
-              label="Classes"
-              value={
-                typeof element.element.className === "string"
-                  ? element.element.className
-                  : ""
-              }
-              mono
-            />
-          )}
-          {element.source && (
-            <InfoRow
-              label="Location"
-              value={`Line ${element.source.lineNumber}${
-                element.source.columnNumber
-                  ? `, Col ${element.source.columnNumber}`
-                  : ""
-              }`}
-            />
-          )}
-        </Section>
-
-        {/* File info */}
-        {element.source && (
-          <Section title="Source File">
-            <div
-              style={{
-                fontSize: "11px",
-                color: STYLES.textDim,
-                fontFamily: STYLES.fontMono,
-                wordBreak: "break-all",
-              }}
-            >
-              {element.source.fileName}
-            </div>
-          </Section>
-        )}
-
-        {/* Dimensions */}
-        <Section title="Dimensions">
-          <InfoRow
-            label="Size"
-            value={`${Math.round(element.rect.width)} × ${Math.round(
-              element.rect.height
-            )}px`}
-          />
-          <InfoRow
-            label="Position"
-            value={`(${Math.round(element.rect.left)}, ${Math.round(
-              element.rect.top
-            )})`}
-          />
-        </Section>
-      </div>
+    <div style={{ padding: "8px" }}>
+      {issues.map((issue, index) => (
+        <IssueCard
+          key={index}
+          issue={issue}
+          source={source}
+          workspaceRoot={workspaceRoot}
+          isLast={index === issues.length - 1}
+        />
+      ))}
     </div>
   );
 }
 
 /**
- * Source tab content with code preview
+ * Single issue card with code preview
  */
-function SourceTab({ element }: { element: InspectedElement }) {
-  const [sourceData, setSourceData] = useState<{
+function IssueCard({
+  issue,
+  source,
+  workspaceRoot,
+  isLast,
+}: {
+  issue: ESLintIssue;
+  source: SourceLocation;
+  workspaceRoot: string | null;
+  isLast: boolean;
+}) {
+  const [linesAbove, setLinesAbove] = useState(1);
+  const [linesBelow, setLinesBelow] = useState(1);
+  const [codeData, setCodeData] = useState<{
     lines: string[];
     startLine: number;
     highlightLine: number;
-    relativePath: string;
   } | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
+  // Fetch source code for this issue
   useEffect(() => {
-    if (!element.source) {
-      setError("No source information available");
-      return;
-    }
+    const issueSource: SourceLocation = {
+      fileName: source.fileName,
+      lineNumber: issue.line,
+      columnNumber: issue.column,
+    };
 
     setLoading(true);
-    setError(null);
-
-    fetchSourceWithContext(element.source, 8)
+    fetchSourceWithWindow(issueSource, { linesAbove, linesBelow })
       .then((data) => {
         if (data) {
-          setSourceData(data);
-        } else {
-          setError("Failed to load source file");
+          setCodeData({
+            lines: data.lines,
+            startLine: data.startLine,
+            highlightLine: data.highlightLine,
+          });
         }
-      })
-      .catch(() => {
-        setError("Failed to load source file");
       })
       .finally(() => {
         setLoading(false);
       });
-  }, [element.source]);
+  }, [source.fileName, issue.line, issue.column, linesAbove, linesBelow]);
 
-  if (loading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "48px",
-          color: STYLES.textMuted,
-          fontSize: "13px",
-        }}
-      >
-        Loading source...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "48px",
-          color: STYLES.textMuted,
-          fontSize: "13px",
-        }}
-      >
-        {error}
-      </div>
-    );
-  }
-
-  if (!sourceData) return null;
+  const handleOpenInCursor = useCallback(() => {
+    const issueSource: SourceLocation = {
+      fileName: source.fileName,
+      lineNumber: issue.line,
+      columnNumber: issue.column,
+    };
+    const url = buildEditorUrl(issueSource, "cursor", workspaceRoot);
+    window.open(url, "_blank");
+  }, [source.fileName, issue.line, issue.column, workspaceRoot]);
 
   return (
-    <div style={{ padding: "12px" }}>
-      {/* File path */}
+    <div
+      style={{
+        padding: "10px",
+        marginBottom: isLast ? 0 : "8px",
+        backgroundColor: STYLES.bgSurface,
+        borderRadius: "8px",
+        border: `1px solid ${STYLES.border}`,
+      }}
+    >
+      {/* Issue message */}
       <div
         style={{
-          padding: "8px 12px",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "8px",
           marginBottom: "8px",
-          backgroundColor: STYLES.bgSurface,
-          borderRadius: "6px",
-          fontSize: "11px",
-          fontFamily: STYLES.fontMono,
-          color: STYLES.textMuted,
-          wordBreak: "break-all",
         }}
       >
-        {sourceData.relativePath}
+        <WarningIcon />
+        <div style={{ flex: 1 }}>
+          <div
+            style={{
+              fontSize: "12px",
+              color: STYLES.text,
+              lineHeight: 1.4,
+              marginBottom: "4px",
+            }}
+          >
+            {issue.message}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              fontSize: "10px",
+              color: STYLES.textDim,
+            }}
+          >
+            {issue.ruleId && (
+              <span
+                style={{
+                  padding: "2px 5px",
+                  backgroundColor: "rgba(239, 68, 68, 0.15)",
+                  borderRadius: "4px",
+                  color: STYLES.error,
+                  fontFamily: STYLES.fontMono,
+                }}
+              >
+                {issue.ruleId}
+              </span>
+            )}
+            <span style={{ fontFamily: STYLES.fontMono }}>
+              Line {issue.line}
+              {issue.column ? `:${issue.column}` : ""}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Code preview */}
       <div
         style={{
-          backgroundColor: STYLES.bgSurface,
-          borderRadius: "8px",
+          backgroundColor: STYLES.bg,
+          borderRadius: "6px",
           overflow: "hidden",
           border: `1px solid ${STYLES.border}`,
         }}
       >
-        <pre
+        {/* Expand above */}
+        <div
           style={{
-            margin: 0,
-            padding: "12px 0",
-            overflow: "auto",
-            fontSize: "12px",
-            lineHeight: "1.6",
-            fontFamily: STYLES.fontMono,
+            display: "flex",
+            justifyContent: "center",
+            padding: "6px",
+            borderBottom: `1px solid ${STYLES.border}`,
+            backgroundColor: "rgba(17, 24, 39, 0.35)",
           }}
         >
-          {sourceData.lines.map((line, index) => {
-            const lineNumber = sourceData.startLine + index;
-            const isHighlight = lineNumber === sourceData.highlightLine;
-
-            return (
-              <div
-                key={lineNumber}
-                style={{
-                  display: "flex",
-                  backgroundColor: isHighlight
-                    ? "rgba(59, 130, 246, 0.2)"
-                    : "transparent",
-                  borderLeft: isHighlight
-                    ? `3px solid ${STYLES.accent}`
-                    : "3px solid transparent",
-                }}
-              >
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: "48px",
-                    paddingRight: "12px",
-                    textAlign: "right",
-                    color: isHighlight ? STYLES.accent : STYLES.textDim,
-                    userSelect: "none",
-                    flexShrink: 0,
-                  }}
-                >
-                  {lineNumber}
-                </span>
-                <code
-                  style={{
-                    color: isHighlight ? STYLES.text : STYLES.textMuted,
-                    whiteSpace: "pre",
-                  }}
-                >
-                  {line || " "}
-                </code>
-              </div>
-            );
-          })}
-        </pre>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Scan section - Displays ESLint issues from auto-scan cache
- * Shows issues prominently at the top of the Info tab
- */
-function ScanSection({ element }: { element: InspectedElement }) {
-  const { elementIssuesCache, autoScanState } = useUILintContext();
-
-  // Find cached issue for this element from auto-scan
-  const cachedIssue = useMemo((): ElementIssue | null => {
-    // First try to match by scannedElementId if available
-    if (element.scannedElementId) {
-      const cached = elementIssuesCache.get(element.scannedElementId);
-      if (cached) return cached;
-    }
-
-    // Fallback: match by source file path
-    if (element.source) {
-      for (const [, issue] of elementIssuesCache) {
-        // Find elements with matching source file
-        const scannedElement = autoScanState.elements.find(
-          (el) => el.id === issue.elementId
-        );
-        if (scannedElement?.source?.fileName === element.source.fileName) {
-          return issue;
-        }
-      }
-    }
-
-    return null;
-  }, [
-    element.scannedElementId,
-    element.source,
-    elementIssuesCache,
-    autoScanState.elements,
-  ]);
-
-  // Get ESLint issues for display
-  const eslintIssues = useMemo(() => {
-    return cachedIssue?.issues || [];
-  }, [cachedIssue]);
-
-  // Determine what to show based on cached status
-  const showCachedScanning = cachedIssue?.status === "scanning";
-  const showCachedPending = cachedIssue?.status === "pending";
-  const showCachedError = cachedIssue?.status === "error";
-  const showCachedResult = cachedIssue?.status === "complete";
-  const showNoScan = !cachedIssue;
-
-  return (
-    <div
-      style={{
-        borderBottom: `1px solid ${STYLES.border}`,
-        backgroundColor: STYLES.bgSurface,
-      }}
-    >
-      <div style={{ padding: "16px" }}>
-        {/* Cached: scanning in progress */}
-        {showCachedScanning && (
-          <div
+          <button
+            onClick={() => setLinesAbove((n) => n + 3)}
             style={{
               display: "flex",
-              flexDirection: "column",
               alignItems: "center",
-              justifyContent: "center",
-              padding: "32px 24px",
-              gap: "12px",
+              gap: "4px",
+              padding: "3px 8px",
+              borderRadius: "999px",
+              border: `1px solid ${STYLES.border}`,
+              backgroundColor: "transparent",
+              color: STYLES.textMuted,
+              fontSize: "10px",
+              cursor: "pointer",
             }}
+            title="Show more lines above"
           >
-            <div
-              style={{
-                width: "32px",
-                height: "32px",
-                border: `3px solid ${STYLES.border}`,
-                borderTopColor: STYLES.success,
-                borderRadius: "50%",
-                animation: "uilint-spin 1s linear infinite",
-              }}
-            />
-            <div style={{ color: STYLES.textMuted, fontSize: "13px" }}>
-              Auto-scan in progress...
-            </div>
-          </div>
-        )}
+            <ChevronUpIcon />
+            +3 above
+          </button>
+        </div>
 
-        {/* Cached: pending in queue */}
-        {showCachedPending && (
-          <div style={{ textAlign: "center", padding: "16px 0" }}>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "10px 20px",
-                borderRadius: "8px",
-                backgroundColor: STYLES.bg,
-                color: STYLES.textMuted,
-                fontSize: "12px",
-              }}
-            >
-              <div
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  borderRadius: "50%",
-                  backgroundColor: "rgba(156, 163, 175, 0.5)",
-                }}
-              />
-              Waiting in scan queue...
-            </div>
-          </div>
-        )}
-
-        {/* Cached: error occurred */}
-        {showCachedError && (
+        {loading ? (
           <div
             style={{
               padding: "12px",
-              backgroundColor: "rgba(239, 68, 68, 0.1)",
-              border: "1px solid rgba(239, 68, 68, 0.3)",
-              borderRadius: "8px",
-              color: "#EF4444",
-              fontSize: "12px",
+              textAlign: "center",
+              color: STYLES.textDim,
+              fontSize: "11px",
             }}
           >
-            Auto-scan failed for this element
+            Loading...
           </div>
-        )}
+        ) : codeData ? (
+          <pre
+            style={{
+              margin: 0,
+              padding: "8px 0",
+              overflow: "auto",
+              fontSize: "11px",
+              lineHeight: "1.5",
+              fontFamily: STYLES.fontMono,
+            }}
+          >
+            {codeData.lines.map((line, index) => {
+              const lineNumber = codeData.startLine + index;
+              const isHighlight = lineNumber === codeData.highlightLine;
 
-        {/* Cached: show results from auto-scan */}
-        {showCachedResult && (
-          <div>
-            {/* ESLint Issues Section */}
-            {eslintIssues.length > 0 && (
-              <ESLintIssuesSection issues={eslintIssues} />
-            )}
-
-            {eslintIssues.length === 0 && (
-              <div
-                style={{
-                  padding: "16px",
-                  textAlign: "center",
-                  color: STYLES.textMuted,
-                  fontSize: "12px",
-                }}
-              >
-                No issues found
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* No scan data */}
-        {showNoScan && (
+              return (
+                <div
+                  key={lineNumber}
+                  style={{
+                    display: "flex",
+                    backgroundColor: isHighlight
+                      ? "rgba(239, 68, 68, 0.15)"
+                      : "transparent",
+                    borderLeft: isHighlight
+                      ? `2px solid ${STYLES.error}`
+                      : "2px solid transparent",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: "36px",
+                      paddingRight: "8px",
+                      paddingLeft: "8px",
+                      textAlign: "right",
+                      color: isHighlight ? STYLES.error : STYLES.textDim,
+                      userSelect: "none",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {lineNumber}
+                  </span>
+                  <code
+                    style={{
+                      color: isHighlight ? STYLES.text : STYLES.textMuted,
+                      whiteSpace: "pre",
+                      paddingRight: "8px",
+                    }}
+                  >
+                    {line || " "}
+                  </code>
+                </div>
+              );
+            })}
+          </pre>
+        ) : (
           <div
             style={{
-              padding: "16px",
+              padding: "12px",
               textAlign: "center",
-              color: STYLES.textMuted,
-              fontSize: "12px",
+              color: STYLES.textDim,
+              fontSize: "11px",
             }}
           >
-            Run auto-scan to analyze this element
+            Could not load source
           </div>
         )}
+
+        {/* Expand below */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            padding: "6px",
+            borderTop: `1px solid ${STYLES.border}`,
+            backgroundColor: "rgba(17, 24, 39, 0.35)",
+          }}
+        >
+          <button
+            onClick={() => setLinesBelow((n) => n + 3)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "3px 8px",
+              borderRadius: "999px",
+              border: `1px solid ${STYLES.border}`,
+              backgroundColor: "transparent",
+              color: STYLES.textMuted,
+              fontSize: "10px",
+              cursor: "pointer",
+            }}
+            title="Show more lines below"
+          >
+            +3 below
+            <ChevronDownIcon />
+          </button>
+        </div>
       </div>
-    </div>
-  );
-}
 
-/**
- * ESLint Issues Section - displays ESLint rule violations
- */
-function ESLintIssuesSection({ issues }: { issues: ESLintIssue[] }) {
-  if (issues.length === 0) return null;
-
-  return (
-    <div style={{ marginBottom: "16px" }}>
+      {/* Actions */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "8px",
-          marginBottom: "8px",
+          justifyContent: "space-between",
+          marginTop: "8px",
         }}
       >
-        <ESLintIcon />
-        <span
+        <button
+          onClick={() => {
+            setLinesAbove(1);
+            setLinesBelow(1);
+          }}
           style={{
-            fontSize: "12px",
-            fontWeight: 600,
-            color: STYLES.text,
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            padding: "4px 8px",
+            borderRadius: "4px",
+            border: "none",
+            backgroundColor: "transparent",
+            color: STYLES.textMuted,
+            fontSize: "10px",
+            cursor: "pointer",
+            transition: "color 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = STYLES.text;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = STYLES.textMuted;
           }}
         >
-          ESLint Issues ({issues.length})
-        </span>
-      </div>
+          Reset context
+        </button>
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "6px",
-        }}
-      >
-        {issues.map((issue, index) => (
-          <div
-            key={index}
-            style={{
-              padding: "10px 12px",
-              backgroundColor: "rgba(239, 68, 68, 0.1)",
-              border: "1px solid rgba(239, 68, 68, 0.2)",
-              borderRadius: "6px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "8px",
-              }}
-            >
-              <WarningIcon />
-              <div style={{ flex: 1 }}>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: STYLES.text,
-                    lineHeight: 1.4,
-                    marginBottom: "4px",
-                  }}
-                >
-                  {issue.message}
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    fontSize: "10px",
-                    color: STYLES.textDim,
-                    fontFamily: STYLES.fontMono,
-                  }}
-                >
-                  {issue.ruleId && (
-                    <span
-                      style={{
-                        padding: "2px 6px",
-                        backgroundColor: "rgba(239, 68, 68, 0.15)",
-                        borderRadius: "4px",
-                        color: "#EF4444",
-                      }}
-                    >
-                      {issue.ruleId}
-                    </span>
-                  )}
-                  <span>
-                    Line {issue.line}
-                    {issue.column ? `:${issue.column}` : ""}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
+        <button
+          onClick={handleOpenInCursor}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            padding: "4px 8px",
+            borderRadius: "4px",
+            border: "none",
+            backgroundColor: "transparent",
+            color: STYLES.accent,
+            fontSize: "10px",
+            cursor: "pointer",
+            transition: "opacity 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = "0.8";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = "1";
+          }}
+        >
+          <ExternalLinkIcon />
+          Open in Cursor
+        </button>
       </div>
-    </div>
-  );
-}
-
-/**
- * Section wrapper
- */
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div style={{ marginBottom: "20px" }}>
-      <div
-        style={{
-          fontSize: "11px",
-          fontWeight: 600,
-          color: STYLES.textDim,
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
-          marginBottom: "8px",
-        }}
-      >
-        {title}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-/**
- * Info row
- */
-function InfoRow({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        fontSize: "12px",
-        marginBottom: "4px",
-      }}
-    >
-      <span style={{ color: STYLES.textMuted }}>{label}</span>
-      <span
-        style={{
-          color: STYLES.text,
-          fontFamily: mono ? STYLES.fontMono : undefined,
-          textAlign: "right",
-          maxWidth: "200px",
-          wordBreak: "break-word",
-        }}
-      >
-        {value}
-      </span>
     </div>
   );
 }
 
 // Icons
 
-function CursorIcon() {
+function CheckIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M20 6L9 17l-5-5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
       <path
         d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"
         stroke="currentColor"
@@ -871,20 +837,6 @@ function CloseIcon() {
   );
 }
 
-function ESLintIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-        stroke="#EF4444"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function WarningIcon() {
   return (
     <svg
@@ -896,7 +848,35 @@ function WarningIcon() {
     >
       <path
         d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-        stroke="#EF4444"
+        stroke={STYLES.warning}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M6 9l6 6 6-6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ChevronUpIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M18 15l-6-6-6 6"
+        stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"

@@ -79,10 +79,18 @@ interface FileChangedMessage {
   filePath: string;
 }
 
+interface WorkspaceInfoMessage {
+  type: "workspace:info";
+  appRoot: string;
+  workspaceRoot: string;
+  serverCwd: string;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
-  | FileChangedMessage;
+  | FileChangedMessage
+  | WorkspaceInfoMessage;
 
 /**
  * UILint Store State and Actions
@@ -151,6 +159,12 @@ export interface UILintStore {
     issueCount: number;
     updatedAt: number;
   }>;
+  /** Workspace root path from the server (for building absolute file paths) */
+  workspaceRoot: string | null;
+  /** Next.js app root path from the server (preferred for building absolute file paths) */
+  appRoot: string | null;
+  /** Server working directory from the server */
+  serverCwd: string | null;
 
   // WebSocket actions
   connectWebSocket: (url?: string) => void;
@@ -562,6 +576,9 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   wsProgressPhase: new Map(),
   wsLastActivity: null,
   wsRecentResults: [],
+  workspaceRoot: null,
+  appRoot: null,
+  serverCwd: null,
 
   connectWebSocket: (url?: string) => {
     const targetUrl = url || get().wsUrl;
@@ -855,6 +872,17 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
             });
           }
         }
+        break;
+      }
+
+      case "workspace:info": {
+        const { appRoot, workspaceRoot, serverCwd } = data;
+        console.log("[UILint] Received workspace info:", {
+          appRoot,
+          workspaceRoot,
+          serverCwd,
+        });
+        set({ appRoot, workspaceRoot, serverCwd });
         break;
       }
     }

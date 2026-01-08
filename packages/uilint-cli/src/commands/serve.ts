@@ -20,6 +20,10 @@ import { WebSocketServer, WebSocket } from "ws";
 import { watch, type FSWatcher } from "chokidar";
 import { findWorkspaceRoot } from "uilint-core/node";
 import {
+  detectNextAppRouter,
+  findNextAppRouterProjects,
+} from "../utils/next-detect.js";
+import {
   logInfo,
   logSuccess,
   logWarning,
@@ -88,10 +92,43 @@ interface FileChangedMessage {
   filePath: string;
 }
 
+interface WorkspaceInfoMessage {
+  type: "workspace:info";
+  /**
+   * Absolute path to the Next.js app project root (dir containing app/ or src/app/).
+   * This is the base dir we should use to resolve `data-loc` relative file paths.
+   */
+  appRoot: string;
+  workspaceRoot: string;
+  serverCwd: string;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
-  | FileChangedMessage;
+  | FileChangedMessage
+  | WorkspaceInfoMessage;
+
+function pickAppRoot(params: { cwd: string; workspaceRoot: string }): string {
+  const { cwd, workspaceRoot } = params;
+
+  // If started from a Next.js app root (app/ or src/app/ exists), use cwd.
+  if (detectNextAppRouter(cwd)) return cwd;
+
+  // Otherwise, try to discover Next apps from the workspace root.
+  const matches = findNextAppRouterProjects(workspaceRoot, { maxDepth: 5 });
+  if (matches.length === 0) return cwd;
+  if (matches.length === 1) return matches[0]!.projectPath;
+
+  // Prefer a project that contains the current cwd (common in monorepos).
+  const containing = matches.find(
+    (m) => cwd === m.projectPath || cwd.startsWith(m.projectPath + "/")
+  );
+  if (containing) return containing.projectPath;
+
+  // Fallback: pick the first match deterministically.
+  return matches[0]!.projectPath;
+}
 
 // Simple in-memory cache
 interface CacheEntry {
@@ -668,7 +705,9 @@ export async function serve(options: ServeOptions): Promise<void> {
 
   const cwd = process.cwd();
   const wsRoot = findWorkspaceRoot(cwd);
+  const appRoot = pickAppRoot({ cwd, workspaceRoot: wsRoot });
   logInfo(`Workspace root: ${pc.dim(wsRoot)}`);
+  logInfo(`App root:        ${pc.dim(appRoot)}`);
   logInfo(`Server cwd:     ${pc.dim(cwd)}`);
 
   // Create file watcher
@@ -687,6 +726,14 @@ export async function serve(options: ServeOptions): Promise<void> {
   wss.on("connection", (ws) => {
     connectedClients += 1;
     logInfo(`Client connected (${connectedClients} total)`);
+
+    // Send workspace info to client on connect
+    sendMessage(ws, {
+      type: "workspace:info",
+      appRoot,
+      workspaceRoot: wsRoot,
+      serverCwd: cwd,
+    });
 
     ws.on("message", (data) => {
       handleMessage(ws, data.toString());
