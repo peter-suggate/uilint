@@ -49,6 +49,15 @@ export const ruleRegistry: RuleMetadata[] = [
     category: "static",
   },
   {
+    id: "consistent-dark-mode",
+    name: "Consistent Dark Mode",
+    description:
+      "Ensure consistent dark: theming (error on mix, warn on missing)",
+    defaultSeverity: "error",
+    defaultOptions: [{ warnOnMissingDarkMode: true }],
+    category: "static",
+  },
+  {
     id: "no-direct-store-import",
     name: "No Direct Store Import",
     description: "Forbid direct Zustand store imports (use context hooks)",
@@ -69,7 +78,9 @@ export const ruleRegistry: RuleMetadata[] = [
     name: "Semantic Analysis",
     description: "LLM-powered semantic UI analysis using your styleguide",
     defaultSeverity: "warn",
-    defaultOptions: [{ model: "qwen3-coder:30b", styleguidePath: ".uilint/styleguide.md" }],
+    defaultOptions: [
+      { model: "qwen3-coder:30b", styleguidePath: ".uilint/styleguide.md" },
+    ],
     requiresStyleguide: true,
     category: "semantic",
   },

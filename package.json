@@ -1,6 +1,6 @@
 {
   "name": "uilint",
-  "version": "0.1.38",
+  "version": "0.1.39",
   "private": false,
   "description": "AI-powered UI consistency checker for Next.js applications",
   "author": "Peter Suggate",
@@ -17,7 +17,7 @@
     "dev": "pnpm --filter test-app dev",
     "build": "pnpm -r build",
     "build:packages": "pnpm --filter uilint-core build && pnpm --filter uilint-react build && pnpm --filter uilint-cli build && pnpm --filter uilint-eslint build && pnpm --filter uilint-mcp build && pnpm --filter jsx-loc-plugin build",
-    "test": "pnpm --filter test-app test",
+    "test": "pnpm --filter uilint-eslint test",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "uilint-cli": "node packages/uilint-cli/dist/index.js",
