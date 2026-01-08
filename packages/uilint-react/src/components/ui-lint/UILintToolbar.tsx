@@ -689,12 +689,6 @@ export function UILintToolbar() {
           fontSize: "11px",
           color: TOKENS.textMuted,
           letterSpacing: "0.02em",
-          // Subtle dark halo for readability on any background
-          textShadow: `
-            0 0 4px rgba(0, 0, 0, 0.8),
-            0 0 8px rgba(0, 0, 0, 0.5),
-            0 1px 2px rgba(0, 0, 0, 0.9)
-          `,
         }}
         aria-hidden={!liveScanEnabled}
       >
@@ -712,9 +706,8 @@ export function UILintToolbar() {
             boxShadow: `0 1px 3px rgba(0, 0, 0, 0.5)`,
           }}
         >
-          ⌥
+          ⌥ + Click to inspect element
         </kbd>
-        <span>+ Click to inspect element</span>
       </div>
 
       {/* Main toolbar pill */}

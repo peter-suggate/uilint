@@ -56,6 +56,20 @@ export default [
       //   "warn",
       //   { model: "qwen3-coder:30b", styleguidePath: ".uilint/styleguide.md" },
       // ],
+    
+      "uilint/consistent-dark-mode": ["error", ...[
+      {
+      "warnOnMissingDarkMode": true
+      }
+      ]],
+      "uilint/prefer-zustand-state-management": ["warn", ...[
+      {
+      "maxStateHooks": 3,
+      "countUseState": true,
+      "countUseReducer": true,
+      "countUseContext": true
+      }
+      ]],
     },
   },
 ];

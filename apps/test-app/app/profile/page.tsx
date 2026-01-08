@@ -50,8 +50,12 @@ export default function ProfilePage() {
     achievements: ["Early Adopter", "Task Master", "Team Player"],
   });
 
+  const [theme, setTheme] = useState("light");
+  const [darkMode, setDarkMode] = useState(false);
+  const [colorMode, setColorMode] = useState("light");
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8 px-4 dark:bg-gray-900">
       <div className="max-w-6xl mx-auto">
         {/* Profile Header with inconsistent card styles */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-gray-100">

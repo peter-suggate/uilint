@@ -19,6 +19,8 @@ import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import { fetchSourceWithWindow } from "./source-fetcher";
 import { buildEditorUrl } from "./dom-utils";
+import { dedentLines } from "./code-formatting";
+import { computeInspectionPanelPosition } from "./inspection-panel-positioning";
 import type {
   InspectedElement,
   SourceLocation,
@@ -65,7 +67,9 @@ export function InspectionPanel() {
   const editorBaseDir = appRoot || workspaceRoot;
 
   const [mounted, setMounted] = useState(false);
+  const [showFullContext, setShowFullContext] = useState(true);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
     setMounted(true);
@@ -122,43 +126,76 @@ export function InspectionPanel() {
 
   const eslintIssues = useMemo(() => cachedIssue?.issues || [], [cachedIssue]);
 
-  // Calculate popover position
-  const position = useMemo(() => {
-    if (!inspectedElement) return { top: 0, left: 0 };
-
-    const { rect } = inspectedElement;
-    const padding = 12;
-
-    // Badge is at top-right of element
-    // Popover appears to the RIGHT of the badge by default
-    let left = rect.right + padding;
-    let top = rect.top;
-
-    // If popover would go off right edge, position to the left of the element
-    if (left + POPOVER_WIDTH > window.innerWidth - padding) {
-      left = rect.left - POPOVER_WIDTH - padding;
+  // Get line range for header display
+  const lineRange = useMemo(() => {
+    if (!eslintIssues.length) {
+      return inspectedElement?.source.lineNumber.toString() || "0";
     }
+    const lines = eslintIssues.map((i) => i.line).sort((a, b) => a - b);
+    const min = lines[0];
+    const max = lines[lines.length - 1];
+    return min === max ? min.toString() : `${min}-${max}`;
+  }, [eslintIssues, inspectedElement]);
 
-    // If that would go off left edge, position below the element
-    if (left < padding) {
-      left = Math.max(padding, rect.left);
-      top = rect.bottom + padding;
-    }
+  // Keep the popover positioned near the inspected element, updating on scroll/resize.
+  useEffect(() => {
+    if (!inspectedElement) return;
 
-    // Ensure popover stays within viewport vertically
-    if (top + POPOVER_MAX_HEIGHT > window.innerHeight - padding) {
-      top = Math.max(
-        padding,
-        window.innerHeight - POPOVER_MAX_HEIGHT - padding
-      );
-    }
+    let rafId: number | null = null;
 
-    if (top < padding) {
-      top = padding;
-    }
+    const update = () => {
+      rafId = null;
+      const rect = inspectedElement.element.getBoundingClientRect();
 
-    return { top, left };
-  }, [inspectedElement]);
+      const measured = popoverRef.current
+        ? {
+            width: popoverRef.current.offsetWidth,
+            height: popoverRef.current.offsetHeight,
+          }
+        : null;
+
+      const popoverSize = measured ?? {
+        width: POPOVER_WIDTH,
+        height: POPOVER_MAX_HEIGHT,
+      };
+
+      const next = computeInspectionPanelPosition({
+        rect,
+        popover: popoverSize,
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        padding: 12,
+      });
+
+      setPosition({ top: next.top, left: next.left });
+    };
+
+    const schedule = () => {
+      if (rafId != null) return;
+      rafId = window.requestAnimationFrame(update);
+    };
+
+    // Initial + whenever content changes (e.g. showFullContext)
+    schedule();
+
+    window.addEventListener("scroll", schedule, true);
+    window.addEventListener("resize", schedule);
+
+    return () => {
+      if (rafId != null) window.cancelAnimationFrame(rafId);
+      window.removeEventListener("scroll", schedule, true);
+      window.removeEventListener("resize", schedule);
+    };
+  }, [inspectedElement, showFullContext]);
+
+  const handleOpenInCursor = useCallback(() => {
+    if (!inspectedElement) return;
+    const url = buildEditorUrl(
+      inspectedElement.source,
+      "cursor",
+      editorBaseDir
+    );
+    window.open(url, "_blank");
+  }, [inspectedElement, editorBaseDir]);
 
   if (!mounted || !inspectedElement) return null;
 
@@ -201,14 +238,14 @@ export function InspectionPanel() {
       <PopoverHeader
         element={inspectedElement}
         issueCount={eslintIssues.length}
-        workspaceRoot={editorBaseDir}
+        lineRange={lineRange}
         onClose={() => setInspectedElement(null)}
       />
 
       {/* Content */}
       <div
         style={{
-          maxHeight: POPOVER_MAX_HEIGHT - 60,
+          maxHeight: POPOVER_MAX_HEIGHT - 120,
           overflowY: "auto",
         }}
       >
@@ -238,23 +275,6 @@ export function InspectionPanel() {
           </div>
         )}
 
-        {cachedIssue?.status === "error" && (
-          <div
-            style={{
-              padding: "16px",
-              margin: "12px",
-              backgroundColor: "rgba(239, 68, 68, 0.1)",
-              border: "1px solid rgba(239, 68, 68, 0.3)",
-              borderRadius: "8px",
-              color: STYLES.error,
-              fontSize: "12px",
-              textAlign: "center",
-            }}
-          >
-            Failed to analyze this element
-          </div>
-        )}
-
         {cachedIssue?.status === "complete" && eslintIssues.length === 0 && (
           <div
             style={{
@@ -276,7 +296,7 @@ export function InspectionPanel() {
           <IssuesList
             issues={eslintIssues}
             source={inspectedElement.source}
-            workspaceRoot={editorBaseDir}
+            showFullContext={showFullContext}
           />
         )}
 
@@ -293,6 +313,77 @@ export function InspectionPanel() {
           </div>
         )}
       </div>
+
+      {/* Footer */}
+      {cachedIssue?.status === "complete" && eslintIssues.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "10px 14px",
+            borderTop: `1px solid ${STYLES.border}`,
+            backgroundColor: STYLES.bgSurface,
+          }}
+        >
+          <button
+            onClick={() => setShowFullContext(!showFullContext)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "5px 10px",
+              borderRadius: "6px",
+              border: `1px solid ${STYLES.border}`,
+              backgroundColor: "transparent",
+              color: STYLES.textMuted,
+              fontSize: "11px",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = STYLES.bg;
+              e.currentTarget.style.color = STYLES.text;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = STYLES.textMuted;
+            }}
+          >
+            {showFullContext ? <CollapseIcon /> : <ExpandIcon />}
+            {showFullContext ? "Hide context" : "Show full context"}
+          </button>
+
+          <button
+            onClick={handleOpenInCursor}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "5px 10px",
+              borderRadius: "6px",
+              border: "none",
+              backgroundColor: STYLES.accent,
+              color: "#FFFFFF",
+              fontSize: "11px",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "background-color 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = STYLES.accentHover;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = STYLES.accent;
+            }}
+            title="Open in Cursor"
+          >
+            <ExternalLinkIcon />
+            Open in Cursor
+          </button>
+        </div>
+      )}
     </div>
   );
 
@@ -300,26 +391,20 @@ export function InspectionPanel() {
 }
 
 /**
- * Popover header with file name, issue count, and close button
+ * Popover header with file name:line range, issue count, and close button
  */
 function PopoverHeader({
   element,
   issueCount,
-  workspaceRoot,
+  lineRange,
   onClose,
 }: {
   element: InspectedElement;
   issueCount: number;
-  workspaceRoot: string | null;
+  lineRange: string;
   onClose: () => void;
 }) {
   const fileName = element.source.fileName.split("/").pop() || "Unknown";
-  const lineNumber = element.source.lineNumber;
-
-  const handleOpenInCursor = useCallback(() => {
-    const url = buildEditorUrl(element.source, "cursor", workspaceRoot);
-    window.open(url, "_blank");
-  }, [element.source, workspaceRoot]);
 
   return (
     <div
@@ -333,21 +418,19 @@ function PopoverHeader({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-        <div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "13px",
-              fontWeight: 600,
-            }}
-          >
-            <span style={{ fontFamily: STYLES.fontMono }}>{fileName}</span>
-            <span style={{ color: STYLES.textDim, fontWeight: 400 }}>
-              :{lineNumber}
-            </span>
-          </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            fontSize: "13px",
+            fontWeight: 600,
+          }}
+        >
+          <span style={{ fontFamily: STYLES.fontMono }}>{fileName}</span>
+          <span style={{ color: STYLES.textDim, fontWeight: 400 }}>
+            :{lineRange}
+          </span>
         </div>
         {issueCount > 0 && (
           <span
@@ -359,7 +442,7 @@ function PopoverHeader({
               height: "20px",
               padding: "0 6px",
               borderRadius: "10px",
-              backgroundColor: STYLES.warning,
+              backgroundColor: STYLES.error,
               color: "#FFFFFF",
               fontSize: "11px",
               fontWeight: 700,
@@ -370,87 +453,74 @@ function PopoverHeader({
         )}
       </div>
 
-      <div style={{ display: "flex", gap: "6px" }}>
-        <button
-          onClick={handleOpenInCursor}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-            padding: "5px 8px",
-            borderRadius: "6px",
-            border: "none",
-            backgroundColor: STYLES.accent,
-            color: "#FFFFFF",
-            fontSize: "11px",
-            fontWeight: 500,
-            cursor: "pointer",
-            transition: "background-color 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = STYLES.accentHover;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = STYLES.accent;
-          }}
-          title="Open in Cursor"
-        >
-          <ExternalLinkIcon />
-          Open in Cursor
-        </button>
-
-        <button
-          onClick={onClose}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "26px",
-            height: "26px",
-            borderRadius: "6px",
-            border: "none",
-            backgroundColor: "transparent",
-            color: STYLES.textMuted,
-            cursor: "pointer",
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = STYLES.bgSurface;
-            e.currentTarget.style.color = STYLES.text;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "transparent";
-            e.currentTarget.style.color = STYLES.textMuted;
-          }}
-        >
-          <CloseIcon />
-        </button>
-      </div>
+      <button
+        onClick={onClose}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "26px",
+          height: "26px",
+          borderRadius: "6px",
+          border: "none",
+          backgroundColor: "transparent",
+          color: STYLES.textMuted,
+          cursor: "pointer",
+          transition: "all 0.15s",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = STYLES.bg;
+          e.currentTarget.style.color = STYLES.text;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = "transparent";
+          e.currentTarget.style.color = STYLES.textMuted;
+        }}
+      >
+        <CloseIcon />
+      </button>
     </div>
   );
 }
 
 /**
- * Issues list with expandable code previews
+ * Issues list with inline annotations
  */
 function IssuesList({
   issues,
   source,
-  workspaceRoot,
+  showFullContext,
 }: {
   issues: ESLintIssue[];
   source: SourceLocation;
-  workspaceRoot: string | null;
+  showFullContext: boolean;
 }) {
+  // Group issues by line number
+  const issuesByLine = useMemo(() => {
+    const map = new Map<number, ESLintIssue[]>();
+    issues.forEach((issue) => {
+      const existing = map.get(issue.line) || [];
+      existing.push(issue);
+      map.set(issue.line, existing);
+    });
+    return map;
+  }, [issues]);
+
+  const sortedLines = useMemo(
+    () => Array.from(issuesByLine.keys()).sort((a, b) => a - b),
+    [issuesByLine]
+  );
+
   return (
-    <div style={{ padding: "8px" }}>
-      {issues.map((issue, index) => (
-        <IssueCard
-          key={index}
-          issue={issue}
+    <div style={{ padding: "12px" }}>
+      {sortedLines.map((lineNumber, index) => (
+        <CodeBlockWithAnnotations
+          key={lineNumber}
+          lineNumber={lineNumber}
+          issues={issuesByLine.get(lineNumber)!}
           source={source}
-          workspaceRoot={workspaceRoot}
-          isLast={index === issues.length - 1}
+          showFullContext={showFullContext}
+          isLast={index === sortedLines.length - 1}
         />
       ))}
     </div>
@@ -458,21 +528,21 @@ function IssuesList({
 }
 
 /**
- * Single issue card with code preview
+ * Code block with inline annotations (VS Code style)
  */
-function IssueCard({
-  issue,
+function CodeBlockWithAnnotations({
+  lineNumber,
+  issues,
   source,
-  workspaceRoot,
+  showFullContext,
   isLast,
 }: {
-  issue: ESLintIssue;
+  lineNumber: number;
+  issues: ESLintIssue[];
   source: SourceLocation;
-  workspaceRoot: string | null;
+  showFullContext: boolean;
   isLast: boolean;
 }) {
-  const [linesAbove, setLinesAbove] = useState(1);
-  const [linesBelow, setLinesBelow] = useState(1);
   const [codeData, setCodeData] = useState<{
     lines: string[];
     startLine: number;
@@ -480,16 +550,21 @@ function IssueCard({
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch source code for this issue
+  const contextLines = showFullContext ? 5 : 0;
+
+  // Fetch source code
   useEffect(() => {
     const issueSource: SourceLocation = {
       fileName: source.fileName,
-      lineNumber: issue.line,
-      columnNumber: issue.column,
+      lineNumber: lineNumber,
+      columnNumber: issues[0]?.column || 0,
     };
 
     setLoading(true);
-    fetchSourceWithWindow(issueSource, { linesAbove, linesBelow })
+    fetchSourceWithWindow(issueSource, {
+      linesAbove: contextLines,
+      linesBelow: contextLines,
+    })
       .then((data) => {
         if (data) {
           setCodeData({
@@ -502,131 +577,31 @@ function IssueCard({
       .finally(() => {
         setLoading(false);
       });
-  }, [source.fileName, issue.line, issue.column, linesAbove, linesBelow]);
-
-  const handleOpenInCursor = useCallback(() => {
-    const issueSource: SourceLocation = {
-      fileName: source.fileName,
-      lineNumber: issue.line,
-      columnNumber: issue.column,
-    };
-    const url = buildEditorUrl(issueSource, "cursor", workspaceRoot);
-    window.open(url, "_blank");
-  }, [source.fileName, issue.line, issue.column, workspaceRoot]);
+  }, [source.fileName, lineNumber, issues, contextLines]);
 
   return (
     <div
       style={{
-        padding: "10px",
-        marginBottom: isLast ? 0 : "8px",
-        backgroundColor: STYLES.bgSurface,
+        marginBottom: isLast ? 0 : "12px",
+        backgroundColor: STYLES.bg,
         borderRadius: "8px",
+        overflow: "hidden",
         border: `1px solid ${STYLES.border}`,
       }}
     >
-      {/* Issue message */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          gap: "8px",
-          marginBottom: "8px",
-        }}
-      >
-        <WarningIcon />
-        <div style={{ flex: 1 }}>
-          <div
-            style={{
-              fontSize: "12px",
-              color: STYLES.text,
-              lineHeight: 1.4,
-              marginBottom: "4px",
-            }}
-          >
-            {issue.message}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              fontSize: "10px",
-              color: STYLES.textDim,
-            }}
-          >
-            {issue.ruleId && (
-              <span
-                style={{
-                  padding: "2px 5px",
-                  backgroundColor: "rgba(239, 68, 68, 0.15)",
-                  borderRadius: "4px",
-                  color: STYLES.error,
-                  fontFamily: STYLES.fontMono,
-                }}
-              >
-                {issue.ruleId}
-              </span>
-            )}
-            <span style={{ fontFamily: STYLES.fontMono }}>
-              Line {issue.line}
-              {issue.column ? `:${issue.column}` : ""}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Code preview */}
-      <div
-        style={{
-          backgroundColor: STYLES.bg,
-          borderRadius: "6px",
-          overflow: "hidden",
-          border: `1px solid ${STYLES.border}`,
-        }}
-      >
-        {/* Expand above */}
+      {loading ? (
         <div
           style={{
-            display: "flex",
-            justifyContent: "center",
-            padding: "6px",
-            borderBottom: `1px solid ${STYLES.border}`,
-            backgroundColor: "rgba(17, 24, 39, 0.35)",
+            padding: "12px",
+            textAlign: "center",
+            color: STYLES.textDim,
+            fontSize: "11px",
           }}
         >
-          <button
-            onClick={() => setLinesAbove((n) => n + 3)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              padding: "3px 8px",
-              borderRadius: "999px",
-              border: `1px solid ${STYLES.border}`,
-              backgroundColor: "transparent",
-              color: STYLES.textMuted,
-              fontSize: "10px",
-              cursor: "pointer",
-            }}
-            title="Show more lines above"
-          >
-            <ChevronUpIcon />
-            +3 above
-          </button>
+          Loading...
         </div>
-
-        {loading ? (
-          <div
-            style={{
-              padding: "12px",
-              textAlign: "center",
-              color: STYLES.textDim,
-              fontSize: "11px",
-            }}
-          >
-            Loading...
-          </div>
-        ) : codeData ? (
+      ) : codeData ? (
+        <div>
           <pre
             style={{
               margin: 0,
@@ -637,157 +612,121 @@ function IssueCard({
               fontFamily: STYLES.fontMono,
             }}
           >
-            {codeData.lines.map((line, index) => {
-              const lineNumber = codeData.startLine + index;
-              const isHighlight = lineNumber === codeData.highlightLine;
+            {dedentLines(codeData.lines).lines.map((line, index) => {
+              const currentLineNumber = codeData.startLine + index;
+              const isHighlight = currentLineNumber === codeData.highlightLine;
 
               return (
-                <div
-                  key={lineNumber}
-                  style={{
-                    display: "flex",
-                    backgroundColor: isHighlight
-                      ? "rgba(239, 68, 68, 0.15)"
-                      : "transparent",
-                    borderLeft: isHighlight
-                      ? `2px solid ${STYLES.error}`
-                      : "2px solid transparent",
-                  }}
-                >
-                  <span
+                <React.Fragment key={currentLineNumber}>
+                  <div
                     style={{
-                      display: "inline-block",
-                      width: "36px",
-                      paddingRight: "8px",
-                      paddingLeft: "8px",
-                      textAlign: "right",
-                      color: isHighlight ? STYLES.error : STYLES.textDim,
-                      userSelect: "none",
-                      flexShrink: 0,
+                      display: "flex",
+                      backgroundColor: isHighlight
+                        ? "rgba(239, 68, 68, 0.1)"
+                        : "transparent",
+                      borderLeft: isHighlight
+                        ? `2px solid ${STYLES.error}`
+                        : "2px solid transparent",
                     }}
                   >
-                    {lineNumber}
-                  </span>
-                  <code
-                    style={{
-                      color: isHighlight ? STYLES.text : STYLES.textMuted,
-                      whiteSpace: "pre",
-                      paddingRight: "8px",
-                    }}
-                  >
-                    {line || " "}
-                  </code>
-                </div>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        width: "36px",
+                        paddingRight: "8px",
+                        paddingLeft: "8px",
+                        textAlign: "right",
+                        color: isHighlight ? STYLES.error : STYLES.textDim,
+                        userSelect: "none",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {currentLineNumber}
+                    </span>
+                    <code
+                      style={{
+                        color: isHighlight ? STYLES.text : STYLES.textMuted,
+                        whiteSpace: "pre",
+                        paddingRight: "8px",
+                      }}
+                    >
+                      {line || " "}
+                    </code>
+                  </div>
+                  {isHighlight &&
+                    issues.map((issue, issueIndex) => (
+                      <InlineAnnotation key={issueIndex} issue={issue} />
+                    ))}
+                </React.Fragment>
               );
             })}
           </pre>
-        ) : (
-          <div
-            style={{
-              padding: "12px",
-              textAlign: "center",
-              color: STYLES.textDim,
-              fontSize: "11px",
-            }}
-          >
-            Could not load source
-          </div>
-        )}
-
-        {/* Expand below */}
+        </div>
+      ) : (
         <div
           style={{
-            display: "flex",
-            justifyContent: "center",
-            padding: "6px",
-            borderTop: `1px solid ${STYLES.border}`,
-            backgroundColor: "rgba(17, 24, 39, 0.35)",
+            padding: "12px",
+            textAlign: "center",
+            color: STYLES.textDim,
+            fontSize: "11px",
           }}
         >
-          <button
-            onClick={() => setLinesBelow((n) => n + 3)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              padding: "3px 8px",
-              borderRadius: "999px",
-              border: `1px solid ${STYLES.border}`,
-              backgroundColor: "transparent",
-              color: STYLES.textMuted,
-              fontSize: "10px",
-              cursor: "pointer",
-            }}
-            title="Show more lines below"
-          >
-            +3 below
-            <ChevronDownIcon />
-          </button>
+          Could not load source
         </div>
-      </div>
+      )}
+    </div>
+  );
+}
 
-      {/* Actions */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginTop: "8px",
-        }}
-      >
-        <button
-          onClick={() => {
-            setLinesAbove(1);
-            setLinesBelow(1);
-          }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-            padding: "4px 8px",
-            borderRadius: "4px",
-            border: "none",
-            backgroundColor: "transparent",
-            color: STYLES.textMuted,
-            fontSize: "10px",
-            cursor: "pointer",
-            transition: "color 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = STYLES.text;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = STYLES.textMuted;
-          }}
-        >
-          Reset context
-        </button>
+/**
+ * Inline annotation (VS Code style)
+ */
+function InlineAnnotation({ issue }: { issue: ESLintIssue }) {
+  const ruleUrl = issue.ruleId
+    ? `https://github.com/peter-suggate/uilint/blob/main/packages/uilint-eslint/src/rules/${issue.ruleId
+        .split("/")
+        .pop()}.ts`
+    : null;
 
-        <button
-          onClick={handleOpenInCursor}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-            padding: "4px 8px",
-            borderRadius: "4px",
-            border: "none",
-            backgroundColor: "transparent",
-            color: STYLES.accent,
-            fontSize: "10px",
-            cursor: "pointer",
-            transition: "opacity 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.opacity = "0.8";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.opacity = "1";
-          }}
-        >
-          <ExternalLinkIcon />
-          Open in Cursor
-        </button>
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "8px",
+        padding: "6px 8px 6px 46px",
+        backgroundColor: "rgba(239, 68, 68, 0.08)",
+        borderLeft: `2px solid ${STYLES.error}`,
+      }}
+    >
+      <ErrorSquiggleIcon />
+      <div style={{ flex: 1, fontSize: "11px", lineHeight: "1.4" }}>
+        <span style={{ color: STYLES.text }}>{issue.message}</span>
+        {issue.ruleId && (
+          <>
+            {" "}
+            <a
+              href={ruleUrl || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: STYLES.textDim,
+                textDecoration: "none",
+                fontFamily: STYLES.fontMono,
+                fontSize: "10px",
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = STYLES.accent;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = STYLES.textDim;
+              }}
+            >
+              ({issue.ruleId})
+            </a>
+          </>
+        )}
       </div>
     </div>
   );
@@ -837,7 +776,7 @@ function CloseIcon() {
   );
 }
 
-function WarningIcon() {
+function ErrorSquiggleIcon() {
   return (
     <svg
       width="14"
@@ -848,7 +787,7 @@ function WarningIcon() {
     >
       <path
         d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-        stroke={STYLES.warning}
+        stroke={STYLES.error}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -857,11 +796,11 @@ function WarningIcon() {
   );
 }
 
-function ChevronDownIcon() {
+function ExpandIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
       <path
-        d="M6 9l6 6 6-6"
+        d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
@@ -871,11 +810,11 @@ function ChevronDownIcon() {
   );
 }
 
-function ChevronUpIcon() {
+function CollapseIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
       <path
-        d="M18 15l-6-6-6 6"
+        d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
