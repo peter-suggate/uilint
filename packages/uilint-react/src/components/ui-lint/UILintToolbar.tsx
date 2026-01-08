@@ -21,6 +21,7 @@ import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import { SettingsPopover } from "./SettingsPopover";
 import { ScanPanelStack } from "./ScanPanelStack";
+import { Badge, BADGE_COLORS } from "./Badge";
 
 // ============================================================================
 // Design Tokens - Cohesive dark glass aesthetic
@@ -41,8 +42,8 @@ const TOKENS = {
   textDisabled: "rgba(255, 255, 255, 0.25)",
 
   accent: "#63b3ed", // Calm blue
-  success: "#68d391", // Soft green
-  warning: "#f6ad55", // Warm orange
+  success: BADGE_COLORS.success, // Soft green (shared with Badge)
+  warning: BADGE_COLORS.warning, // Warm orange (shared with Badge)
 
   // Typography
   fontFamily: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
@@ -270,20 +271,6 @@ const globalStyles = `
     transform: translateY(0);
   }
   
-  .uilint-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 6px;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: 600;
-    font-family: ${TOKENS.fontMono};
-    letter-spacing: -0.02em;
-  }
-  
   .uilint-scanning-indicator {
     position: relative;
     overflow: hidden;
@@ -481,15 +468,7 @@ function ScanStatus({ status, issueCount, enabled }: ScanStatusProps) {
       >
         <Icons.AlertTriangle />
       </span>
-      <span
-        className="uilint-badge"
-        style={{
-          backgroundColor: `${TOKENS.warning}20`,
-          color: TOKENS.warning,
-        }}
-      >
-        {issueCount}
-      </span>
+      <Badge count={issueCount} />
     </span>
   );
 }
@@ -509,6 +488,8 @@ export function UILintToolbar() {
   const elementIssuesCache = useUILintStore(
     (s: UILintStore) => s.elementIssuesCache
   );
+
+  const fileIssuesCache = useUILintStore((s: UILintStore) => s.fileIssuesCache);
 
   // Local state
   const [showSettings, setShowSettings] = useState(false);
@@ -563,11 +544,19 @@ export function UILintToolbar() {
   const isScanning = autoScanState.status === "scanning";
   const isComplete = autoScanState.status === "complete";
 
-  let totalIssues = 0;
+  // Count element-level issues
+  let elementIssues = 0;
   elementIssuesCache.forEach((el) => {
-    totalIssues += el.issues.length;
+    elementIssues += el.issues.length;
   });
 
+  // Count file-level issues
+  let fileLevelIssues = 0;
+  fileIssuesCache.forEach((issues) => {
+    fileLevelIssues += issues.length;
+  });
+
+  const totalIssues = elementIssues + fileLevelIssues;
   const hasIssues = totalIssues > 0;
 
   // Mount state for portal
@@ -605,13 +594,6 @@ export function UILintToolbar() {
       document.removeEventListener("keydown", handleEscape);
     };
   }, [showSettings, showResults]);
-
-  // Auto-open results when issues are found (if not already viewing something)
-  useEffect(() => {
-    if (hasIssues && liveScanEnabled && isComplete && !showSettings) {
-      setShowResults(true);
-    }
-  }, [hasIssues, liveScanEnabled, isComplete, showSettings]);
 
   // Handlers
   const handleToggleClick = useCallback(() => {

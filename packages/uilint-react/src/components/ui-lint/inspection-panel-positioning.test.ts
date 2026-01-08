@@ -16,7 +16,12 @@ describe("computeInspectionPanelPosition", () => {
       height: 100,
     };
 
-    const pos = computeInspectionPanelPosition({ rect, popover, viewport, padding });
+    const pos = computeInspectionPanelPosition({
+      rect,
+      popover,
+      viewport,
+      padding,
+    });
     expect(pos.placement).toBe("right");
     expect(pos.left).toBe(rect.right + padding);
   });
@@ -31,13 +36,22 @@ describe("computeInspectionPanelPosition", () => {
       height: 100,
     };
 
-    const pos = computeInspectionPanelPosition({ rect, popover, viewport, padding });
+    const pos = computeInspectionPanelPosition({
+      rect,
+      popover,
+      viewport,
+      padding,
+    });
     expect(pos.placement).not.toBe("right");
     // still clamped in-bounds
     expect(pos.left).toBeGreaterThanOrEqual(padding);
     expect(pos.top).toBeGreaterThanOrEqual(padding);
-    expect(pos.left + popover.width).toBeLessThanOrEqual(viewport.width - padding);
-    expect(pos.top + popover.height).toBeLessThanOrEqual(viewport.height - padding);
+    expect(pos.left + popover.width).toBeLessThanOrEqual(
+      viewport.width - padding
+    );
+    expect(pos.top + popover.height).toBeLessThanOrEqual(
+      viewport.height - padding
+    );
   });
 
   it("clamps within viewport when element is near the top", () => {
@@ -50,7 +64,12 @@ describe("computeInspectionPanelPosition", () => {
       height: 20,
     };
 
-    const pos = computeInspectionPanelPosition({ rect, popover, viewport, padding });
+    const pos = computeInspectionPanelPosition({
+      rect,
+      popover,
+      viewport,
+      padding,
+    });
     expect(pos.top).toBe(padding);
   });
 

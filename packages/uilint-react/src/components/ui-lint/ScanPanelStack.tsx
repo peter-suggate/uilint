@@ -63,8 +63,16 @@ export function ScanPanelStack({ show, onClose }: ScanPanelStackProps) {
   if (!show) return null;
 
   return (
-    <div ref={containerRef} style={{ position: "relative" }}>
-      <ScanResultsPopover />
+    <div
+      ref={containerRef}
+      style={{
+        position: "absolute",
+        bottom: "100%",
+        left: 0,
+        marginBottom: "8px",
+      }}
+    >
+      <ScanResultsPopover onClose={onClose} />
     </div>
   );
 }

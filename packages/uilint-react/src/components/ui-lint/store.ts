@@ -123,10 +123,13 @@ export interface UILintStore {
   // ============ Auto-Scan State (internal) ============
   autoScanState: AutoScanState;
   elementIssuesCache: Map<string, ElementIssue>;
+  /** File-level issues (not mapped to specific DOM elements) */
+  fileIssuesCache: Map<string, ESLintIssue[]>;
   scanLock: boolean;
 
   // Internal scan actions
   updateElementIssue: (id: string, issue: ElementIssue) => void;
+  updateFileIssues: (filePath: string, issues: ESLintIssue[]) => void;
 
   // ============ DOM Observer ============
   /** Remove scan results for elements that no longer exist in DOM */
@@ -236,11 +239,14 @@ async function scanFileForIssues(
 
 /**
  * Match ESLint issues to elements by dataLoc and update the cache
+ * Returns unmapped issues (those without dataLoc or with dataLoc that don't match any element)
  */
 function distributeIssuesToElements(
   issues: ESLintIssue[],
   elements: ScannedElement[],
+  filePath: string,
   updateElementIssue: (id: string, issue: ElementIssue) => void,
+  updateFileIssues: (filePath: string, issues: ESLintIssue[]) => void,
   hasError: boolean
 ): void {
   // Create a map from dataLoc to element IDs.
@@ -258,16 +264,25 @@ function distributeIssuesToElements(
 
   // Group ESLint issues by element
   const issuesByElement = new Map<string, ESLintIssue[]>();
+  const unmappedIssues: ESLintIssue[] = [];
+
   for (const issue of issues) {
     if (issue.dataLoc) {
       const elementIds = dataLocToElementIds.get(issue.dataLoc);
-      if (elementIds) {
+      if (elementIds && elementIds.length > 0) {
+        // Issue maps to one or more elements
         for (const elementId of elementIds) {
           const existing = issuesByElement.get(elementId) || [];
           existing.push(issue);
           issuesByElement.set(elementId, existing);
         }
+      } else {
+        // Issue has dataLoc but doesn't match any scanned element
+        unmappedIssues.push(issue);
       }
+    } else {
+      // Issue has no dataLoc (file-level or component-level issue)
+      unmappedIssues.push(issue);
     }
   }
 
@@ -279,6 +294,14 @@ function distributeIssuesToElements(
       issues: elementIssues,
       status: hasError ? "error" : "complete",
     });
+  }
+
+  // Store unmapped issues for file-level display
+  if (unmappedIssues.length > 0) {
+    updateFileIssues(filePath, unmappedIssues);
+  } else {
+    // Clear file issues if there are none
+    updateFileIssues(filePath, []);
   }
 }
 
@@ -337,6 +360,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   liveScanEnabled: false,
   autoScanState: DEFAULT_AUTO_SCAN_STATE,
   elementIssuesCache: new Map(),
+  fileIssuesCache: new Map(),
   scanLock: false,
 
   _setScanState: (partial) =>
@@ -349,6 +373,17 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       const newCache = new Map(state.elementIssuesCache);
       newCache.set(id, issue);
       return { elementIssuesCache: newCache };
+    }),
+
+  updateFileIssues: (filePath, issues) =>
+    set((state) => {
+      const newCache = new Map(state.fileIssuesCache);
+      if (issues.length > 0) {
+        newCache.set(filePath, issues);
+      } else {
+        newCache.delete(filePath);
+      }
+      return { fileIssuesCache: newCache };
     }),
 
   enableLiveScan: async (hideNodeModules) => {
@@ -400,6 +435,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       scanLock: false,
       autoScanState: DEFAULT_AUTO_SCAN_STATE,
       elementIssuesCache: new Map(),
+      fileIssuesCache: new Map(),
     });
   },
 
@@ -455,7 +491,9 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       distributeIssuesToElements(
         issues,
         sourceFile.elements,
+        sourceFile.path,
         get().updateElementIssue,
+        get().updateFileIssues,
         error ?? false
       );
 
@@ -508,7 +546,9 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       distributeIssuesToElements(
         issues,
         sourceFile.elements,
+        sourceFile.path,
         get().updateElementIssue,
+        get().updateFileIssues,
         error ?? false
       );
 
@@ -779,9 +819,18 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
             distributeIssuesToElements(
               issues,
               sf.elements,
+              filePath,
               state.updateElementIssue,
+              state.updateFileIssues,
               false
             );
+          } else {
+            // File has no scanned elements, but may have file-level issues
+            // Store them directly
+            const unmappedIssues = issues.filter((i) => !i.dataLoc);
+            if (unmappedIssues.length > 0) {
+              state.updateFileIssues(filePath, unmappedIssues);
+            }
           }
         }
 

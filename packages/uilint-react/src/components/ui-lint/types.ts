@@ -104,6 +104,14 @@ export interface InspectedElement {
 }
 
 /**
+ * File-level issue (not mapped to a specific DOM element)
+ */
+export interface FileIssue {
+  filePath: string;
+  issues: ESLintIssue[];
+}
+
+/**
  * Context value provided by UILintProvider
  */
 export interface UILintContextValue {

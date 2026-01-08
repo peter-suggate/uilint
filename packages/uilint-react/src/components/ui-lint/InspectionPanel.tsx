@@ -21,6 +21,7 @@ import { fetchSourceWithWindow } from "./source-fetcher";
 import { buildEditorUrl } from "./dom-utils";
 import { dedentLines } from "./code-formatting";
 import { computeInspectionPanelPosition } from "./inspection-panel-positioning";
+import { Badge } from "./Badge";
 import type {
   InspectedElement,
   SourceLocation,
@@ -62,6 +63,7 @@ export function InspectionPanel() {
     elementIssuesCache,
     autoScanState,
   } = useUILintContext();
+  const fileIssuesCache = useUILintStore((s: UILintStore) => s.fileIssuesCache);
   const appRoot = useUILintStore((s: UILintStore) => s.appRoot);
   const workspaceRoot = useUILintStore((s: UILintStore) => s.workspaceRoot);
   const editorBaseDir = appRoot || workspaceRoot;
@@ -75,7 +77,7 @@ export function InspectionPanel() {
     setMounted(true);
   }, []);
 
-  // Handle click outside to close
+  // Handle click outside to close and cleanup dummy elements
   useEffect(() => {
     if (!inspectedElement) return;
 
@@ -83,6 +85,13 @@ export function InspectionPanel() {
       const target = e.target as Element | null;
       // Ignore clicks on UILint UI elements
       if (target?.closest?.("[data-ui-lint]")) return;
+
+      // Clean up dummy element if it's off-screen (file-level issue)
+      const rect = inspectedElement.element.getBoundingClientRect();
+      if (rect.top < -1000 || rect.left < -1000) {
+        inspectedElement.element.remove();
+      }
+
       setInspectedElement(null);
     };
 
@@ -97,9 +106,42 @@ export function InspectionPanel() {
     };
   }, [inspectedElement, setInspectedElement]);
 
-  // Find cached issue for this element from auto-scan
+  // Check if this is a file-level issue (dummy element off-screen)
+  const isFileLevelIssue = useMemo(() => {
+    if (!inspectedElement) return false;
+    const rect = inspectedElement.element.getBoundingClientRect();
+    return rect.top < -1000 || rect.left < -1000;
+  }, [inspectedElement]);
+
+  // Find cached issue for this element from auto-scan, or file-level issues
   const cachedIssue = useMemo((): ElementIssue | null => {
     if (!inspectedElement) return null;
+
+    // For file-level issues, check fileIssuesCache
+    if (isFileLevelIssue && inspectedElement.source) {
+      const fileIssues = fileIssuesCache.get(inspectedElement.source.fileName);
+      if (fileIssues && fileIssues.length > 0) {
+        // Filter to issues matching the line/column if specified
+        const matchingIssues = fileIssues.filter((issue) => {
+          if (issue.line !== inspectedElement.source.lineNumber) return false;
+          if (
+            inspectedElement.source.columnNumber &&
+            issue.column !== inspectedElement.source.columnNumber
+          ) {
+            return false;
+          }
+          return true;
+        });
+
+        // Return a synthetic ElementIssue for file-level issues
+        return {
+          elementId: `file:${inspectedElement.source.fileName}`,
+          issues: matchingIssues.length > 0 ? matchingIssues : fileIssues,
+          status: "complete",
+        };
+      }
+      return null;
+    }
 
     // First try to match by scannedElementId if available
     if (inspectedElement.scannedElementId) {
@@ -122,7 +164,13 @@ export function InspectionPanel() {
     }
 
     return null;
-  }, [inspectedElement, elementIssuesCache, autoScanState.elements]);
+  }, [
+    inspectedElement,
+    elementIssuesCache,
+    fileIssuesCache,
+    autoScanState.elements,
+    isFileLevelIssue,
+  ]);
 
   const eslintIssues = useMemo(() => cachedIssue?.issues || [], [cachedIssue]);
 
@@ -145,6 +193,82 @@ export function InspectionPanel() {
 
     const update = () => {
       rafId = null;
+
+      // For file-level issues, position to the right of the scan results popover
+      if (isFileLevelIssue) {
+        const measured = popoverRef.current
+          ? {
+              width: popoverRef.current.offsetWidth,
+              height: popoverRef.current.offsetHeight,
+            }
+          : null;
+
+        const popoverSize = measured ?? {
+          width: POPOVER_WIDTH,
+          height: POPOVER_MAX_HEIGHT,
+        };
+
+        // Find the scan results popover element
+        // The ScanResultsPopover has data-ui-lint, width 320px, and position relative
+        // Exclude this InspectionPanel itself (which is fixed)
+        const allUILintElements = document.querySelectorAll("[data-ui-lint]");
+        let scanResultsPopover: HTMLElement | null = null;
+
+        for (const el of allUILintElements) {
+          const htmlEl = el as HTMLElement;
+          // Skip this InspectionPanel itself
+          if (htmlEl === popoverRef.current) continue;
+
+          const style = window.getComputedStyle(htmlEl);
+          // ScanResultsPopover has width 320px (or close to it accounting for borders)
+          const width = htmlEl.offsetWidth;
+          const isRightWidth = width >= 310 && width <= 330;
+
+          // It should be positioned relative (ScanResultsPopover) or absolute (container)
+          // But NOT fixed (which is InspectionPanel)
+          const isRightPosition =
+            style.position === "relative" || style.position === "absolute";
+
+          // Check if it's visible (has non-zero dimensions)
+          const rect = htmlEl.getBoundingClientRect();
+          const isVisible = rect.width > 0 && rect.height > 0;
+
+          if (isRightWidth && isRightPosition && isVisible) {
+            scanResultsPopover = htmlEl;
+            break;
+          }
+        }
+
+        const gap = 12;
+        const padding = 12;
+
+        if (scanResultsPopover) {
+          const scanRect = scanResultsPopover.getBoundingClientRect();
+          // Position to the right of scan results popover, top-aligned
+          const left = scanRect.right + gap;
+          const top = scanRect.top;
+
+          // Ensure it doesn't go off the right edge
+          const maxLeft = window.innerWidth - popoverSize.width - padding;
+          const adjustedLeft = Math.min(left, maxLeft);
+
+          // Ensure it doesn't go off the top edge
+          const adjustedTop = Math.max(padding, top);
+
+          setPosition({ top: adjustedTop, left: adjustedLeft });
+        } else {
+          // Fallback: position to the right side of viewport, top-aligned
+          // This happens if scan results popover isn't found or isn't visible yet
+          const top = padding;
+          const left = Math.max(
+            padding,
+            window.innerWidth - popoverSize.width - padding
+          );
+          setPosition({ top, left });
+        }
+        return;
+      }
+
       const rect = inspectedElement.element.getBoundingClientRect();
 
       const measured = popoverRef.current
@@ -177,15 +301,25 @@ export function InspectionPanel() {
     // Initial + whenever content changes (e.g. showFullContext)
     schedule();
 
-    window.addEventListener("scroll", schedule, true);
-    window.addEventListener("resize", schedule);
+    // For file-level issues, also update on resize (in case scan results popover moves)
+    // But don't listen to scroll since the popover is fixed relative to toolbar
+    if (isFileLevelIssue) {
+      window.addEventListener("resize", schedule);
+    } else {
+      window.addEventListener("scroll", schedule, true);
+      window.addEventListener("resize", schedule);
+    }
 
     return () => {
       if (rafId != null) window.cancelAnimationFrame(rafId);
-      window.removeEventListener("scroll", schedule, true);
-      window.removeEventListener("resize", schedule);
+      if (isFileLevelIssue) {
+        window.removeEventListener("resize", schedule);
+      } else {
+        window.removeEventListener("scroll", schedule, true);
+        window.removeEventListener("resize", schedule);
+      }
     };
-  }, [inspectedElement, showFullContext]);
+  }, [inspectedElement, showFullContext, isFileLevelIssue]);
 
   const handleOpenInCursor = useCallback(() => {
     if (!inspectedElement) return;
@@ -433,23 +567,7 @@ function PopoverHeader({
           </span>
         </div>
         {issueCount > 0 && (
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              minWidth: "20px",
-              height: "20px",
-              padding: "0 6px",
-              borderRadius: "10px",
-              backgroundColor: STYLES.error,
-              color: "#FFFFFF",
-              fontSize: "11px",
-              fontWeight: 700,
-            }}
-          >
-            {issueCount}
-          </span>
+          <Badge count={issueCount} backgroundColor={STYLES.error} />
         )}
       </div>
 

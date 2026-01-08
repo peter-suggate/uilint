@@ -25,8 +25,14 @@ import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import { STYLES, getStatusColor } from "./toolbar-styles";
 import { groupBySourceFile } from "./dom-utils";
-import { StopIcon, ChevronIcon } from "./toolbar-icons";
-import type { ScannedElement, LocatorTarget } from "./types";
+import { ChevronIcon } from "./toolbar-icons";
+import { Badge } from "./Badge";
+import type {
+  ScannedElement,
+  LocatorTarget,
+  ESLintIssue,
+  SourceLocation,
+} from "./types";
 
 interface FileWithIssues {
   path: string;
@@ -34,6 +40,7 @@ interface FileWithIssues {
   disambiguatedName: string;
   issueCount: number;
   elementsWithIssues: ElementWithIssues[];
+  fileLevelIssues: ESLintIssue[];
 }
 
 interface ElementWithIssues {
@@ -68,13 +75,18 @@ function getDisambiguatedName(path: string, allPaths: string[]): string {
   return fileName;
 }
 
-export function ScanResultsPopover() {
-  const { autoScanState, liveScanEnabled, disableLiveScan } =
-    useUILintContext();
+interface ScanResultsPopoverProps {
+  onClose: () => void;
+}
+
+export function ScanResultsPopover({ onClose }: ScanResultsPopoverProps) {
+  const { autoScanState, liveScanEnabled } = useUILintContext();
 
   const elementIssuesCache = useUILintStore(
     (s: UILintStore) => s.elementIssuesCache
   );
+
+  const fileIssuesCache = useUILintStore((s: UILintStore) => s.fileIssuesCache);
 
   const setLocatorTarget = useUILintStore(
     (s: UILintStore) => s.setLocatorTarget
@@ -97,9 +109,11 @@ export function ScanResultsPopover() {
   const allFilesWithIssues = useMemo<FileWithIssues[]>(() => {
     const sourceFiles = groupBySourceFile(autoScanState.elements);
     const allPaths = sourceFiles.map((sf) => sf.path);
+    const filePathsSet = new Set(sourceFiles.map((sf) => sf.path));
 
     const result: FileWithIssues[] = [];
 
+    // Process files with scanned elements
     for (const sf of sourceFiles) {
       const elementsWithIssues: ElementWithIssues[] = [];
 
@@ -118,16 +132,18 @@ export function ScanResultsPopover() {
         }
       }
 
-      // Only include files that have elements with issues
-      if (elementsWithIssues.length > 0) {
+      const fileLevelIssues = fileIssuesCache.get(sf.path) || [];
+      const elementIssueCount = elementsWithIssues.reduce(
+        (sum, e) => sum + e.issueCount,
+        0
+      );
+      const totalIssues = elementIssueCount + fileLevelIssues.length;
+
+      // Include files that have either element issues or file-level issues
+      if (totalIssues > 0) {
         // Sort elements by line number
         elementsWithIssues.sort(
           (a, b) => a.element.source.lineNumber - b.element.source.lineNumber
-        );
-
-        const totalIssues = elementsWithIssues.reduce(
-          (sum, e) => sum + e.issueCount,
-          0
         );
 
         result.push({
@@ -136,6 +152,26 @@ export function ScanResultsPopover() {
           disambiguatedName: getDisambiguatedName(sf.path, allPaths),
           issueCount: totalIssues,
           elementsWithIssues,
+          fileLevelIssues,
+        });
+      }
+    }
+
+    // Also include files that only have file-level issues (no scanned elements)
+    for (const [filePath, fileLevelIssues] of fileIssuesCache.entries()) {
+      if (!filePathsSet.has(filePath) && fileLevelIssues.length > 0) {
+        // Extract display name from path
+        const parts = filePath.split("/");
+        const displayName = parts[parts.length - 1] || filePath;
+        const allPaths = Array.from(filePathsSet).concat([filePath]);
+
+        result.push({
+          path: filePath,
+          displayName,
+          disambiguatedName: getDisambiguatedName(filePath, allPaths),
+          issueCount: fileLevelIssues.length,
+          elementsWithIssues: [],
+          fileLevelIssues,
         });
       }
     }
@@ -144,7 +180,7 @@ export function ScanResultsPopover() {
     result.sort((a, b) => b.issueCount - a.issueCount);
 
     return result;
-  }, [autoScanState.elements, elementIssuesCache]);
+  }, [autoScanState.elements, elementIssuesCache, fileIssuesCache]);
 
   // Apply search filter
   const filesWithIssues = useMemo<FileWithIssues[]>(() => {
@@ -266,14 +302,40 @@ export function ScanResultsPopover() {
     [setInspectedElement, setLocatorTarget]
   );
 
+  // Handle file-level issue click - open inspection panel
+  const handleFileLevelIssueClick = useCallback(
+    (filePath: string, issue: ESLintIssue) => {
+      // Create a synthetic element for file-level issues
+      // We'll use a dummy element positioned off-screen
+      const dummyElement = document.createElement("div");
+      dummyElement.style.position = "fixed";
+      dummyElement.style.top = "-9999px";
+      dummyElement.style.left = "-9999px";
+      document.body.appendChild(dummyElement);
+
+      const source: SourceLocation = {
+        fileName: filePath,
+        lineNumber: issue.line,
+        columnNumber: issue.column,
+      };
+
+      setInspectedElement({
+        element: dummyElement,
+        source,
+        rect: new DOMRect(0, 0, 0, 0),
+      });
+
+      // Clean up dummy element when inspection closes
+      // (handled by InspectionPanel when it closes)
+    },
+    [setInspectedElement]
+  );
+
   return (
     <div
       data-ui-lint
       style={{
-        position: "absolute",
-        bottom: "100%",
-        left: 0,
-        marginBottom: "8px",
+        position: "relative",
         width: "320px",
         maxHeight: "450px",
         borderRadius: STYLES.popoverRadius,
@@ -320,28 +382,34 @@ export function ScanResultsPopover() {
                 }`}
           </div>
 
-          {/* Stop/Disable button */}
-          {liveScanEnabled && (
-            <button
-              onClick={disableLiveScan}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "24px",
-                height: "24px",
-                borderRadius: "6px",
-                border: `1px solid ${STYLES.border}`,
-                backgroundColor: "transparent",
-                color: STYLES.textMuted,
-                cursor: "pointer",
-                transition: STYLES.transitionFast,
-              }}
-              title="Disable live scanning"
-            >
-              <StopIcon />
-            </button>
-          )}
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "26px",
+              height: "26px",
+              borderRadius: "6px",
+              border: "none",
+              backgroundColor: "transparent",
+              color: STYLES.textMuted,
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "rgba(55, 65, 81, 0.5)";
+              e.currentTarget.style.color = STYLES.text;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = STYLES.textMuted;
+            }}
+            title="Close"
+          >
+            <CloseIcon />
+          </button>
         </div>
 
         {/* Search input */}
@@ -474,6 +542,7 @@ export function ScanResultsPopover() {
               onToggle={() => toggleFile(file.path)}
               onElementHover={handleElementHover}
               onElementClick={handleElementClick}
+              onFileLevelIssueClick={handleFileLevelIssueClick}
             />
           ))
         )}
@@ -491,6 +560,7 @@ interface FileRowProps {
   onToggle: () => void;
   onElementHover: (element: ScannedElement | null) => void;
   onElementClick: (element: ScannedElement) => void;
+  onFileLevelIssueClick: (filePath: string, issue: ESLintIssue) => void;
 }
 
 function FileRow({
@@ -499,6 +569,7 @@ function FileRow({
   onToggle,
   onElementHover,
   onElementClick,
+  onFileLevelIssueClick,
 }: FileRowProps) {
   return (
     <div>
@@ -561,23 +632,7 @@ function FileRow({
         </span>
 
         {/* Issue badge */}
-        <span
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minWidth: "22px",
-            height: "18px",
-            padding: "0 6px",
-            borderRadius: "9px",
-            backgroundColor: getStatusColor(file.issueCount),
-            color: "#FFFFFF",
-            fontSize: "10px",
-            fontWeight: 700,
-          }}
-        >
-          {file.issueCount}
-        </span>
+        <Badge count={file.issueCount} size="medium" />
       </div>
 
       {/* Expanded element list */}
@@ -589,6 +644,41 @@ function FileRow({
             borderBottom: `1px solid ${STYLES.border}`,
           }}
         >
+          {/* File-level issues section */}
+          {file.fileLevelIssues.length > 0 && (
+            <>
+              <div
+                style={{
+                  padding: "6px 12px 4px 34px",
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  color: STYLES.textMuted,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                File-level issues
+              </div>
+              {file.fileLevelIssues.map((issue, index) => (
+                <FileLevelIssueRow
+                  key={`${issue.line}-${issue.column}-${index}`}
+                  filePath={file.path}
+                  issue={issue}
+                  onClick={() => onFileLevelIssueClick(file.path, issue)}
+                />
+              ))}
+              {file.elementsWithIssues.length > 0 && (
+                <div
+                  style={{
+                    height: "1px",
+                    backgroundColor: STYLES.border,
+                    margin: "4px 12px",
+                  }}
+                />
+              )}
+            </>
+          )}
+          {/* Element-level issues */}
           {file.elementsWithIssues.map((item) => (
             <ElementRow
               key={item.element.id}
@@ -664,23 +754,77 @@ function ElementRow({ item, onHover, onClick }: ElementRowProps) {
       </div>
 
       {/* Issue count badge */}
-      <span
+      <Badge count={issueCount} size="small" />
+    </div>
+  );
+}
+
+/**
+ * File-level issue row (no associated DOM element)
+ */
+interface FileLevelIssueRowProps {
+  filePath: string;
+  issue: ESLintIssue;
+  onClick: () => void;
+}
+
+function FileLevelIssueRow({
+  filePath,
+  issue,
+  onClick,
+}: FileLevelIssueRowProps) {
+  const fileName = filePath.split("/").pop() || filePath;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        padding: "6px 12px 6px 34px",
+        cursor: "pointer",
+        transition: STYLES.transitionFast,
+        backgroundColor: "transparent",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.15)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = "transparent";
+      }}
+      onClick={onClick}
+    >
+      {/* File name and line number */}
+      <div
         style={{
-          display: "inline-flex",
+          display: "flex",
           alignItems: "center",
-          justifyContent: "center",
-          minWidth: "18px",
-          height: "16px",
-          padding: "0 5px",
-          borderRadius: "8px",
-          backgroundColor: getStatusColor(issueCount),
-          color: "#FFFFFF",
-          fontSize: "9px",
-          fontWeight: 700,
+          gap: "4px",
+          flex: 1,
+          marginRight: "12px",
         }}
       >
-        {issueCount}
-      </span>
+        <span
+          style={{
+            fontSize: "11px",
+            fontFamily: STYLES.fontMono,
+            color: STYLES.textMuted,
+          }}
+        >
+          {fileName}
+        </span>
+        <span
+          style={{
+            fontSize: "10px",
+            color: STYLES.textDim,
+          }}
+        >
+          :{issue.line}
+          {issue.column ? `:${issue.column}` : ""}
+        </span>
+      </div>
+
+      {/* Issue count badge (always 1 for file-level issues) */}
+      <Badge count={1} size="small" />
     </div>
   );
 }
@@ -725,6 +869,23 @@ function ClearIcon() {
         d="M18 6L6 18M6 6l12 12"
         stroke="currentColor"
         strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Close icon for popover header
+ */
+function CloseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M18 6L6 18M6 6l12 12"
+        stroke="currentColor"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

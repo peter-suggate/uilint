@@ -39,7 +39,10 @@ function overflowScore(
   return oLeft * 2 + oRight * 2 + oTop + oBottom;
 }
 
-function intersectionArea(a: { left: number; top: number; right: number; bottom: number }, b: RectLike): number {
+function intersectionArea(
+  a: { left: number; top: number; right: number; bottom: number },
+  b: RectLike
+): number {
   const x1 = Math.max(a.left, b.left);
   const y1 = Math.max(a.top, b.top);
   const x2 = Math.min(a.right, b.right);
@@ -115,8 +118,15 @@ export function computeInspectionPanelPosition(params: {
   };
 
   const score = (raw: PopoverPosition, pos: PopoverPosition) => {
-    const overflow = overflowScore(pos.left, pos.top, popover, viewport, padding);
-    const clampDelta = Math.abs(raw.left - pos.left) + Math.abs(raw.top - pos.top);
+    const overflow = overflowScore(
+      pos.left,
+      pos.top,
+      popover,
+      viewport,
+      padding
+    );
+    const clampDelta =
+      Math.abs(raw.left - pos.left) + Math.abs(raw.top - pos.top);
     const box = {
       left: pos.left,
       top: pos.top,
