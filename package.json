@@ -1,6 +1,6 @@
 {
   "name": "uilint",
-  "version": "0.1.51",
+  "version": "0.1.52",
   "private": false,
   "description": "AI-powered UI consistency checker for Next.js applications",
   "author": "Peter Suggate",

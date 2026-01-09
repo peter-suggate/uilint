@@ -130,7 +130,10 @@ function analyzeComponentLibraries(
   }
 
   const internalLibraries = new Set<LibraryName>();
-  const libraryEvidence: Array<{ componentName: string; library: LibraryName }> = [];
+  const libraryEvidence: Array<{
+    componentName: string;
+    library: LibraryName;
+  }> = [];
 
   // Check direct library usage within this component
   if (styleInfo.directLibrary) {
@@ -150,7 +153,10 @@ function analyzeComponentLibraries(
       });
     } else {
       // It's a local component - recurse into it
-      const resolvedPath = resolveImportPath(usedComponent.importSource, filePath);
+      const resolvedPath = resolveImportPath(
+        usedComponent.importSource,
+        filePath
+      );
 
       if (resolvedPath) {
         const cacheKey = `${resolvedPath}::${usedComponent.name}`;
@@ -165,9 +171,13 @@ function analyzeComponentLibraries(
             nestedInfo = componentLibraryCache.get(cacheKey)!;
           } else {
             // Resolve re-exports
-            const resolvedExport = resolveExport(usedComponent.name, resolvedPath);
+            const resolvedExport = resolveExport(
+              usedComponent.name,
+              resolvedPath
+            );
             const actualFilePath = resolvedExport?.filePath ?? resolvedPath;
-            const actualComponentName = resolvedExport?.localName ?? usedComponent.name;
+            const actualComponentName =
+              resolvedExport?.localName ?? usedComponent.name;
 
             nestedInfo = analyzeComponentLibraries(
               actualFilePath,

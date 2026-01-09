@@ -1,6 +1,6 @@
 {
   "name": "uilint-cli",
-  "version": "0.1.51",
+  "version": "0.1.52",
   "description": "CLI for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -34,6 +34,9 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
+    "test": "vitest",
+    "test:unit": "vitest run test/unit",
+    "test:integration": "vitest run test/integration",
     "prepublishOnly": "npm run build"
   },
   "engines": {
@@ -47,8 +50,8 @@
     "chalk": "^5.6.2",
     "dotenv": "^16.4.7",
     "picocolors": "^1.1.1",
-    "uilint-core": "^0.1.51",
-    "uilint-eslint": "^0.1.21",
+    "uilint-core": "^0.1.52",
+    "uilint-eslint": "^0.1.22",
     "ws": "^8.18.0"
   },
   "optionalDependencies": {
@@ -58,9 +61,11 @@
     "@opentelemetry/sdk-node": "^0.208.0"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
     "@types/ws": "^8.18.1",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.0.0"
   },
   "keywords": [
     "cli",

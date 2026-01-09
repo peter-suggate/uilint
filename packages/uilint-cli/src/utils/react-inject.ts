@@ -115,7 +115,7 @@ function wrapChildrenWithUILintProvider(source: string): string {
 
 export async function installReactUILintOverlay(
   opts: InstallReactOverlayOptions
-): Promise<{ targetFile: string }> {
+): Promise<{ targetFile: string; modified: boolean }> {
   const candidates = getDefaultCandidates(opts.projectPath, opts.appRoot);
   if (!candidates.length) {
     throw new Error(
@@ -142,7 +142,7 @@ export async function installReactUILintOverlay(
   ) {
     if (!opts.force) {
       const ok = await opts.confirmOverwrite?.(chosen);
-      if (!ok) return { targetFile: chosen };
+      if (!ok) return { targetFile: chosen, modified: false };
     }
   }
 
@@ -150,9 +150,10 @@ export async function installReactUILintOverlay(
   updated = ensureUILintProviderImport(updated);
   updated = wrapChildrenWithUILintProvider(updated);
 
-  if (updated !== original) {
+  const modified = updated !== original;
+  if (modified) {
     writeFileSync(absTarget, updated, "utf-8");
   }
 
-  return { targetFile: chosen };
+  return { targetFile: chosen, modified };
 }

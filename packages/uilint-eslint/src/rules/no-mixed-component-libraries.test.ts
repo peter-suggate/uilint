@@ -249,7 +249,11 @@ ruleTester.run("no-mixed-component-libraries", rule, {
         },
         {
           messageId: "nonPreferredLibrary",
-          data: { component: "Typography", library: "mui", preferred: "shadcn" },
+          data: {
+            component: "Typography",
+            library: "mui",
+            preferred: "shadcn",
+          },
         },
         {
           messageId: "nonPreferredLibrary",
@@ -367,7 +371,11 @@ ruleTester.run("no-mixed-component-libraries", rule, {
       errors: [
         {
           messageId: "nonPreferredLibrary",
-          data: { component: "PlusOutlined", library: "antd", preferred: "shadcn" },
+          data: {
+            component: "PlusOutlined",
+            library: "antd",
+            preferred: "shadcn",
+          },
         },
       ],
     },
