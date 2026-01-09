@@ -22,6 +22,9 @@ import {
   Card as MuiCard,
   CardContent as MuiCardContent,
   Typography,
+  Modal,
+  Box,
+  IconButton,
 } from "@mui/material";
 import {
   CheckSquare,
@@ -36,9 +39,10 @@ import {
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMuiModalOpen, setIsMuiModalOpen] = useState(false);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-purple-50">
+    <main className="min-h-screen bg-linear-to-br from-white via-blue-50 to-purple-50">
       {/* Hero Section with deliberate inconsistencies */}
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto text-center">
@@ -79,6 +83,15 @@ export default function Home() {
             >
               Open Modal
             </button>
+            <MuiButton
+              variant="contained"
+              size="large"
+              color="primary"
+              onClick={() => setIsMuiModalOpen(true)}
+              sx={{ textTransform: "none", fontSize: "16px" }}
+            >
+              Open MUI Modal
+            </MuiButton>
           </div>
 
           <div className="flex justify-center gap-3">
@@ -456,6 +469,195 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* MUI Modal with same content */}
+      <Modal
+        open={isMuiModalOpen}
+        onClose={() => setIsMuiModalOpen(false)}
+        aria-labelledby="mui-modal-title"
+        aria-describedby="mui-modal-description"
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 600 },
+            maxWidth: 600,
+            bgcolor: "background.paper",
+            borderRadius: 3,
+            boxShadow: 24,
+            p: 4,
+            maxHeight: "90vh",
+            overflow: "auto",
+          }}
+        >
+          {/* Close button */}
+          <IconButton
+            onClick={() => setIsMuiModalOpen(false)}
+            sx={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              bgcolor: "grey.100",
+              "&:hover": { bgcolor: "grey.200" },
+            }}
+          >
+            <X className="w-5 h-5" />
+          </IconButton>
+
+          {/* Header */}
+          <Box sx={{ mb: 3 }}>
+            <Typography
+              id="mui-modal-title"
+              variant="h4"
+              component="h2"
+              sx={{ fontWeight: "bold", mb: 1 }}
+            >
+              Modal Title
+            </Typography>
+            <Typography
+              id="mui-modal-description"
+              variant="body1"
+              color="text.secondary"
+            >
+              This modal has inconsistent dark mode theming
+            </Typography>
+          </Box>
+
+          {/* Content section */}
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 3 }}>
+            {/* Section One */}
+            <Box
+              sx={{
+                bgcolor: "blue.50",
+                p: 2,
+                borderRadius: 2,
+                border: "1px solid",
+                borderColor: "blue.200",
+              }}
+            >
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                Section One
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                This section has no dark mode classes at all
+              </Typography>
+            </Box>
+
+            {/* Section Two */}
+            <Box
+              sx={{
+                background: "linear-gradient(to right, #f3e8ff, #fce7f3)",
+                p: 2.5,
+                borderRadius: 3,
+                border: "2px solid",
+                borderColor: "purple.200",
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 600, mb: 1, color: "text.primary" }}
+              >
+                Section Two
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mb: 1.5 }}
+              >
+                This section has partial dark mode - background but missing text
+                color for some elements
+              </Typography>
+              <Box sx={{ display: "flex", gap: 1, mt: 1.5 }}>
+                <Box
+                  component="span"
+                  sx={{
+                    px: 1.5,
+                    py: 0.5,
+                    bgcolor: "purple.600",
+                    color: "white",
+                    borderRadius: "999px",
+                    fontSize: "0.75rem",
+                    fontWeight: 500,
+                  }}
+                >
+                  Tag 1
+                </Box>
+                <Box
+                  component="span"
+                  sx={{
+                    px: 1.5,
+                    py: 0.5,
+                    bgcolor: "pink.500",
+                    color: "white",
+                    borderRadius: "999px",
+                    fontSize: "0.75rem",
+                    fontWeight: 500,
+                  }}
+                >
+                  Tag 2
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Section Three */}
+            <Box
+              sx={{
+                p: 2.25,
+                borderRadius: 2,
+                bgcolor: "background.paper",
+                border: "1px solid",
+                borderColor: "grey.200",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              }}
+            >
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: "bold", mb: 1.25 }}
+              >
+                Section Three
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: "0.875rem", lineHeight: 1.6 }}
+              >
+                This uses arbitrary Tailwind values like p-[18px] and
+                rounded-[12px]
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Footer buttons */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 1.5,
+              pt: 2,
+              borderTop: "1px solid",
+              borderColor: "divider",
+            }}
+          >
+            <MuiButton
+              variant="outlined"
+              onClick={() => setIsMuiModalOpen(false)}
+              sx={{ textTransform: "none" }}
+            >
+              Cancel
+            </MuiButton>
+            <MuiButton
+              variant="contained"
+              onClick={() => setIsMuiModalOpen(false)}
+              sx={{ textTransform: "none" }}
+            >
+              Confirm
+            </MuiButton>
+          </Box>
+        </Box>
+      </Modal>
     </main>
   );
 }
