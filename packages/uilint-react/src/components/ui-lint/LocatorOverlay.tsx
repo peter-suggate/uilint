@@ -42,6 +42,11 @@ function getFileName(path: string): string {
 export function LocatorOverlay() {
   const { locatorTarget } = useUILintContext();
   const [mounted, setMounted] = useState(false);
+  const handleUILintInteraction = (
+    e: React.MouseEvent | React.KeyboardEvent | React.PointerEvent
+  ) => {
+    e.stopPropagation();
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -65,7 +70,14 @@ export function LocatorOverlay() {
   const { rect } = locatorTarget;
 
   const content = (
-    <div data-ui-lint style={{ pointerEvents: "none" }}>
+    <div
+      data-ui-lint
+      onMouseDown={handleUILintInteraction}
+      onPointerDown={handleUILintInteraction}
+      onClick={handleUILintInteraction}
+      onKeyDown={handleUILintInteraction}
+      style={{ pointerEvents: "none" }}
+    >
       <style>{`
         @keyframes uilint-locator-fade-in {
           from { opacity: 0; }
@@ -212,6 +224,11 @@ export function InspectedElementHighlight() {
   const { inspectedElement } = useUILintContext();
   const [mounted, setMounted] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const handleUILintInteraction = (
+    e: React.MouseEvent | React.KeyboardEvent | React.PointerEvent
+  ) => {
+    e.stopPropagation();
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -242,7 +259,14 @@ export function InspectedElementHighlight() {
   if (!mounted || !inspectedElement || !rect) return null;
 
   const content = (
-    <div data-ui-lint style={{ pointerEvents: "none" }}>
+    <div
+      data-ui-lint
+      onMouseDown={handleUILintInteraction}
+      onPointerDown={handleUILintInteraction}
+      onClick={handleUILintInteraction}
+      onKeyDown={handleUILintInteraction}
+      style={{ pointerEvents: "none" }}
+    >
       <style>{`
         @keyframes uilint-inspected-pulse {
           0%, 100% { box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.6), 0 0 8px rgba(16, 185, 129, 0.3); }

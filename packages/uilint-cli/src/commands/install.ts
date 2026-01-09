@@ -895,6 +895,7 @@ export async function install(options: InstallOptions): Promise<void> {
                   const pm = detectPackageManager(pkgPath);
                   await installDependencies(pm, pkgPath, [
                     toInstallSpecifier("uilint-eslint"),
+                    "typescript-eslint",
                   ]);
                 }
               );

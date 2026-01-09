@@ -757,7 +757,7 @@ export function UILintToolbar() {
 
   // Prevent event propagation
   const handleUILintInteraction = useCallback(
-    (e: React.MouseEvent | React.KeyboardEvent) => {
+    (e: React.MouseEvent | React.KeyboardEvent | React.PointerEvent) => {
       e.stopPropagation();
     },
     []
@@ -803,6 +803,7 @@ export function UILintToolbar() {
     <div
       data-ui-lint
       onMouseDown={handleUILintInteraction}
+      onPointerDown={handleUILintInteraction}
       onClick={handleUILintInteraction}
       onKeyDown={handleUILintInteraction}
       style={{

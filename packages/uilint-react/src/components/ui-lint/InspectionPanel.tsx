@@ -334,7 +334,7 @@ export function InspectionPanel() {
 
   // Event handlers to prevent UILint interactions from propagating to the app
   const handleUILintInteraction = useCallback(
-    (e: React.MouseEvent | React.KeyboardEvent) => {
+    (e: React.MouseEvent | React.KeyboardEvent | React.PointerEvent) => {
       e.stopPropagation();
     },
     []
@@ -347,6 +347,7 @@ export function InspectionPanel() {
       ref={popoverRef}
       data-ui-lint
       onMouseDown={handleUILintInteraction}
+      onPointerDown={handleUILintInteraction}
       onClick={handleUILintInteraction}
       onKeyDown={handleUILintInteraction}
       style={{

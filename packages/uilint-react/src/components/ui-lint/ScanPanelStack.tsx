@@ -67,7 +67,7 @@ export function ScanPanelStack({ show, onClose }: ScanPanelStackProps) {
 
   // Event handlers to prevent UILint interactions from propagating to the app
   const handleUILintInteraction = (
-    e: React.MouseEvent | React.KeyboardEvent
+    e: React.MouseEvent | React.KeyboardEvent | React.PointerEvent
   ) => {
     e.stopPropagation();
   };
@@ -79,6 +79,7 @@ export function ScanPanelStack({ show, onClose }: ScanPanelStackProps) {
       ref={containerRef}
       data-ui-lint
       onMouseDown={handleUILintInteraction}
+      onPointerDown={handleUILintInteraction}
       onClick={handleUILintInteraction}
       onKeyDown={handleUILintInteraction}
       style={{
