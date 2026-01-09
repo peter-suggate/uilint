@@ -251,4 +251,6 @@ export {
   getRuleMetadata,
   getRulesByCategory,
   type RuleMetadata,
+  type OptionFieldSchema,
+  type RuleOptionSchema,
 } from "./rule-registry.js";

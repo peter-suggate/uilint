@@ -8,11 +8,11 @@
 import type { RuleMetadata } from "uilint-eslint";
 import { ruleRegistry } from "uilint-eslint";
 import type {
-  Prompter,
   InstallItem,
   NextAppInfo,
   EslintPackageInfo,
 } from "../../src/commands/install/types.js";
+import type { Prompter } from "../../src/commands/install/prompter.js";
 
 export interface MockPrompterOptions {
   /** Items to select for installation */
@@ -27,10 +27,12 @@ export interface MockPrompterOptions {
   eslintPackagePaths?: string[];
   /** Rule IDs to select for ESLint */
   eslintRuleIds?: string[];
-  /** Whether to set preferred component library */
-  setPreferredLibrary?: boolean;
-  /** Preferred library to select */
-  preferredLibrary?: "shadcn" | "mui";
+  /** Severity choice for selected rules */
+  eslintRuleSeverity?: "warn" | "error" | "defaults";
+  /** Whether to customize individual rule options (default: false - use defaults) */
+  customizeRuleOptions?: boolean;
+  /** Custom rule options by rule ID */
+  ruleOptions?: Record<string, Record<string, unknown>>;
 }
 
 /**
@@ -47,8 +49,9 @@ export function mockPrompter(options: MockPrompterOptions = {}): Prompter {
     nextAppIndex = 0,
     eslintPackagePaths,
     eslintRuleIds,
-    setPreferredLibrary = false,
-    preferredLibrary = "shadcn",
+    eslintRuleSeverity = "warn",
+    customizeRuleOptions = false,
+    ruleOptions = {},
   } = options;
 
   return {
@@ -68,7 +71,9 @@ export function mockPrompter(options: MockPrompterOptions = {}): Prompter {
       return apps[nextAppIndex] || apps[0];
     },
 
-    async selectEslintPackages(packages: EslintPackageInfo[]): Promise<string[]> {
+    async selectEslintPackages(
+      packages: EslintPackageInfo[]
+    ): Promise<string[]> {
       if (eslintPackagePaths) {
         return eslintPackagePaths;
       }
@@ -86,12 +91,26 @@ export function mockPrompter(options: MockPrompterOptions = {}): Prompter {
       return ruleRegistry.filter((r) => r.category === "static");
     },
 
-    async confirmSetPreferredLibrary(): Promise<boolean> {
-      return setPreferredLibrary;
+    async selectEslintRuleSeverity(): Promise<"warn" | "error" | "defaults"> {
+      return eslintRuleSeverity;
     },
 
-    async selectPreferredLibrary(): Promise<"shadcn" | "mui"> {
-      return preferredLibrary;
+    async confirmCustomizeRuleOptions(): Promise<boolean> {
+      return customizeRuleOptions;
+    },
+
+    async configureRuleOptions(
+      rule: RuleMetadata
+    ): Promise<Record<string, unknown> | undefined> {
+      // Return custom options if provided, otherwise use defaults from registry
+      if (ruleOptions[rule.id]) {
+        return ruleOptions[rule.id];
+      }
+      // If no custom options and rule has schema, return undefined to use defaults
+      if (rule.optionSchema && rule.optionSchema.fields.length > 0) {
+        return undefined;
+      }
+      return undefined;
     },
   };
 }
@@ -112,8 +131,9 @@ export function noopPrompter(): Prompter {
     selectNextApp: throwError,
     selectEslintPackages: throwError,
     selectEslintRules: throwError,
-    confirmSetPreferredLibrary: throwError,
-    selectPreferredLibrary: throwError,
+    selectEslintRuleSeverity: throwError,
+    confirmCustomizeRuleOptions: throwError,
+    configureRuleOptions: throwError,
   };
 }
 
@@ -125,6 +145,6 @@ export function acceptAllPrompter(): Prompter {
     installItems: ["mcp", "hooks", "genstyleguide", "genrules", "eslint"],
     mcpMerge: true,
     hooksMerge: true,
-    setPreferredLibrary: false,
+    customizeRuleOptions: false,
   });
 }
