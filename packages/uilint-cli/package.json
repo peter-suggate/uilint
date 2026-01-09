@@ -1,6 +1,6 @@
 {
   "name": "uilint-cli",
-  "version": "0.1.52",
+  "version": "0.1.54",
   "description": "CLI for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -50,8 +50,8 @@
     "chalk": "^5.6.2",
     "dotenv": "^16.4.7",
     "picocolors": "^1.1.1",
-    "uilint-core": "^0.1.52",
-    "uilint-eslint": "^0.1.22",
+    "uilint-core": "^0.1.54",
+    "uilint-eslint": "^0.1.24",
     "ws": "^8.18.0"
   },
   "optionalDependencies": {

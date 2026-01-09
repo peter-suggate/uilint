@@ -76,6 +76,21 @@ export const cliPrompter: Prompter = {
       message: "What would you like to install?",
       options: [
         {
+          value: "eslint",
+          label: "ESLint plugin",
+          hint: "Installs uilint-eslint and configures eslint.config.js",
+        },
+        {
+          value: "next",
+          label: "UI overlay",
+          hint: "Installs routes + UILintProvider (Alt+Click to inspect)",
+        },
+        {
+          value: "genstyleguide",
+          label: "/genstyleguide command",
+          hint: "Adds .cursor/commands/genstyleguide.md",
+        },
+        {
           value: "mcp",
           label: "MCP Server",
           hint: "Recommended - works with any MCP-compatible agent",
@@ -86,28 +101,13 @@ export const cliPrompter: Prompter = {
           hint: "Auto-validates UI files when the agent stops",
         },
         {
-          value: "genstyleguide",
-          label: "/genstyleguide command",
-          hint: "Adds .cursor/commands/genstyleguide.md",
-        },
-        {
           value: "genrules",
           label: "/genrules command",
           hint: "Adds .cursor/commands/genrules.md for ESLint rule generation",
         },
-        {
-          value: "next",
-          label: "UI overlay",
-          hint: "Installs routes + UILintProvider (Alt+Click to inspect)",
-        },
-        {
-          value: "eslint",
-          label: "ESLint plugin",
-          hint: "Installs uilint-eslint and configures eslint.config.js",
-        },
       ],
       required: true,
-      initialValues: ["mcp", "hooks", "genstyleguide", "genrules", "next"],
+      initialValues: ["eslint", "next", "genstyleguide"],
     });
   },
 

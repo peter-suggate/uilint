@@ -79,6 +79,40 @@ describe("ESLint installation - fresh config", () => {
     expect(updatedConfig).toContain("plugins: { uilint: uilint }");
   });
 
+  it("injects uilint block into defineConfig([...]) flat config (FlatCompat)", async () => {
+    fixture = useFixture("has-eslint-flat-define-config");
+
+    const initialConfig = fixture.readFile("eslint.config.mjs");
+    expect(initialConfig).toContain("export default defineConfig");
+    expect(initialConfig).not.toContain("uilint/no-arbitrary-tailwind");
+
+    const state = await analyze(fixture.path);
+    const pkg = state.packages.find((p) => p.eslintConfigPath !== null);
+    expect(pkg).toBeDefined();
+    expect(pkg?.hasUilintRules).toBe(false);
+
+    const prompter = mockPrompter({
+      installItems: ["eslint"],
+      eslintPackagePaths: [pkg!.path],
+      eslintRuleIds: ["no-arbitrary-tailwind", "consistent-spacing"],
+    });
+
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+    const result = await execute(plan, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+
+    expect(result.success).toBe(true);
+
+    const updatedConfig = fixture.readFile("eslint.config.mjs");
+    expect(updatedConfig).toContain('import uilint from "uilint-eslint"');
+    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
+    expect(updatedConfig).toContain("uilint/consistent-spacing");
+    expect(updatedConfig).toContain("plugins: { uilint: uilint }");
+  });
+
   it("respects selected rules only", async () => {
     fixture = useFixture("has-eslint-flat");
 

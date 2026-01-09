@@ -42,6 +42,10 @@ export function getEslintConfigFilename(configPath: string): string {
   return parts[parts.length - 1] || "eslint.config.mjs";
 }
 
+function isUilintConfigured(source: string): boolean {
+  return hasUilintConfigsUsage(source) || hasUilintRules(source);
+}
+
 /**
  * Check if the source already has uilint imported
  */
@@ -66,6 +70,42 @@ function hasUilintConfigsUsage(source: string): boolean {
   // This implies the rule set will evolve with the installed uilint-eslint version,
   // so we should not inject/patch per-rule keys.
   return /\builint\s*\.\s*configs\s*\./.test(source);
+}
+
+function findEsmExportedConfigArrayStartIndex(source: string): number | null {
+  // Supported:
+  // - export default [ ... ]
+  // - export default defineConfig([ ... ])
+  const patterns: RegExp[] = [
+    /export\s+default\s+\[/,
+    /export\s+default\s+defineConfig\s*\(\s*\[/,
+  ];
+
+  for (const re of patterns) {
+    const m = source.match(re);
+    if (!m || m.index === undefined) continue;
+    return m.index + m[0].length;
+  }
+
+  return null;
+}
+
+function findCommonJsExportedConfigArrayStartIndex(source: string): number | null {
+  // Supported:
+  // - module.exports = [ ... ]
+  // - module.exports = defineConfig([ ... ])  (best-effort)
+  const patterns: RegExp[] = [
+    /module\.exports\s*=\s*\[/,
+    /module\.exports\s*=\s*defineConfig\s*\(\s*\[/,
+  ];
+
+  for (const re of patterns) {
+    const m = source.match(re);
+    if (!m || m.index === undefined) continue;
+    return m.index + m[0].length;
+  }
+
+  return null;
 }
 
 /**
@@ -228,10 +268,10 @@ function insertMissingRulesIntoExistingRulesObject(
 function injectUilintRules(
   source: string,
   selectedRules: RuleMetadata[]
-): string {
+): { source: string; injected: boolean } {
   if (hasUilintRules(source)) {
     // Already has uilint rules - don't inject again
-    return source;
+    return { source, injected: false };
   }
 
   const rulesConfig = generateRulesConfig(selectedRules);
@@ -248,18 +288,12 @@ ${rulesConfig}
     },
   },`;
 
-  // Find the export default array
-  const exportMatch = source.match(/export\s+default\s+\[/);
-  if (!exportMatch || exportMatch.index === undefined) {
-    // No export default array found - can't inject
-    return source;
+  const arrayStart = findEsmExportedConfigArrayStartIndex(source);
+  if (arrayStart === null) {
+    return { source, injected: false };
   }
 
-  const exportStart = exportMatch.index + exportMatch[0].length;
-
-  // Find a good insertion point - after the opening bracket
-  // Look for the first existing config object or the closing bracket
-  const afterExport = source.slice(exportStart);
+  const afterExport = source.slice(arrayStart);
 
   // Insert at the beginning of the array (after opening bracket)
   // Add a newline if the array doesn't start on a new line
@@ -268,7 +302,10 @@ ${rulesConfig}
     ? "\n" + configBlock + "\n"
     : configBlock + "\n";
 
-  return source.slice(0, exportStart) + insertion + source.slice(exportStart);
+  return {
+    source: source.slice(0, arrayStart) + insertion + source.slice(arrayStart),
+    injected: true,
+  };
 }
 
 /**
@@ -277,9 +314,9 @@ ${rulesConfig}
 function injectUilintRulesCommonJS(
   source: string,
   selectedRules: RuleMetadata[]
-): string {
+): { source: string; injected: boolean } {
   if (hasUilintRules(source)) {
-    return source;
+    return { source, injected: false };
   }
 
   const rulesConfig = generateRulesConfig(selectedRules);
@@ -296,20 +333,21 @@ ${rulesConfig}
     },
   },`;
 
-  // Find module.exports = [ pattern
-  const exportMatch = source.match(/module\.exports\s*=\s*\[/);
-  if (!exportMatch || exportMatch.index === undefined) {
-    return source;
+  const arrayStart = findCommonJsExportedConfigArrayStartIndex(source);
+  if (arrayStart === null) {
+    return { source, injected: false };
   }
 
-  const exportStart = exportMatch.index + exportMatch[0].length;
-  const afterExport = source.slice(exportStart);
+  const afterExport = source.slice(arrayStart);
   const needsNewline = !afterExport.trimStart().startsWith("\n");
   const insertion = needsNewline
     ? "\n" + configBlock + "\n"
     : configBlock + "\n";
 
-  return source.slice(0, exportStart) + insertion + source.slice(exportStart);
+  return {
+    source: source.slice(0, arrayStart) + insertion + source.slice(arrayStart),
+    injected: true,
+  };
 }
 
 /**
@@ -321,11 +359,18 @@ export async function installEslintPlugin(
   configFile: string | null;
   modified: boolean;
   missingRuleIds: string[];
+  configured: boolean;
+  error?: string;
 }> {
   const configPath = findEslintConfigFile(opts.projectPath);
 
   if (!configPath) {
-    return { configFile: null, modified: false, missingRuleIds: [] };
+    return {
+      configFile: null,
+      modified: false,
+      missingRuleIds: [],
+      configured: false,
+    };
   }
 
   const configFilename = getEslintConfigFilename(configPath);
@@ -342,8 +387,6 @@ export async function installEslintPlugin(
 
   // Apply transformations
   let updated = original;
-  updated = ensureUilintImport(updated, isCommonJS);
-  const afterImport = updated;
 
   if (hasAnyUilint) {
     // Already configured: optionally add only missing rules.
@@ -358,6 +401,7 @@ export async function installEslintPlugin(
             configFile: configFilename,
             modified: false,
             missingRuleIds: missingRules.map((r) => r.id),
+            configured: true,
           };
         }
       }
@@ -374,20 +418,51 @@ export async function installEslintPlugin(
         const ok = await opts.confirmOverwrite?.(configFilename);
         if (ok) {
           if (isCommonJS) {
-            updated = injectUilintRulesCommonJS(updated, opts.selectedRules);
+            updated = injectUilintRulesCommonJS(updated, opts.selectedRules).source;
           } else {
-            updated = injectUilintRules(updated, opts.selectedRules);
+            updated = injectUilintRules(updated, opts.selectedRules).source;
           }
         }
       }
     }
+
+    // Best-effort: if the config appears to use uilint rules/configs but is missing
+    // the uilint import, add it.
+    if (isUilintConfigured(updated) && !hasUilintImport(updated)) {
+      updated = ensureUilintImport(updated, isCommonJS);
+    }
   } else {
     // Not configured: inject a fresh block.
     if (isCommonJS) {
-      updated = injectUilintRulesCommonJS(updated, opts.selectedRules);
+      const injected = injectUilintRulesCommonJS(updated, opts.selectedRules);
+      if (!injected.injected) {
+        return {
+          configFile: configFilename,
+          modified: false,
+          missingRuleIds: [],
+          configured: false,
+          error:
+            "Could not locate a CommonJS exported config array to inject into.",
+        };
+      }
+      updated = injected.source;
     } else {
-      updated = injectUilintRules(updated, opts.selectedRules);
+      const injected = injectUilintRules(updated, opts.selectedRules);
+      if (!injected.injected) {
+        return {
+          configFile: configFilename,
+          modified: false,
+          missingRuleIds: [],
+          configured: false,
+          error:
+            "Could not locate an exported config array to inject into (expected `export default [` or `export default defineConfig([`).",
+        };
+      }
+      updated = injected.source;
     }
+
+    // Only add import when we successfully injected the block (avoid import-only edits).
+    updated = ensureUilintImport(updated, isCommonJS);
   }
 
   if (updated !== original) {
@@ -396,6 +471,7 @@ export async function installEslintPlugin(
       configFile: configFilename,
       modified: true,
       missingRuleIds: missingRules.map((r) => r.id),
+      configured: isUilintConfigured(updated),
     };
   }
 
@@ -403,5 +479,6 @@ export async function installEslintPlugin(
     configFile: configFilename,
     modified: false,
     missingRuleIds: missingRules.map((r) => r.id),
+    configured: isUilintConfigured(updated),
   };
 }

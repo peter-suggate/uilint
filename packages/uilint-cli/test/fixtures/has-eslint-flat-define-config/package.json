@@ -1,0 +1,17 @@
+{
+  "name": "has-eslint-flat-define-config",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "typescript-eslint": "^8.0.0",
+    "@next/eslint-plugin-next": "^14.0.0",
+    "@eslint/js": "^9.0.0",
+    "@eslint/eslintrc": "^3.0.0"
+  }
+}

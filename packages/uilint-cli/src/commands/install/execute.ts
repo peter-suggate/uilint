@@ -207,8 +207,13 @@ async function executeInjectEslint(
 
   return {
     action,
-    success: result.modified || result.configFile !== null,
-    error: result.configFile === null ? "No ESLint config found" : undefined,
+    success: result.configFile !== null && result.configured,
+    error:
+      result.configFile === null
+        ? "No ESLint config found"
+        : result.configured
+        ? undefined
+        : result.error ?? "Failed to configure uilint in ESLint config",
   };
 }
 

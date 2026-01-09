@@ -19,6 +19,23 @@ import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
+function assertNodeVersion(minMajor: number): void {
+  const ver = process.versions.node || "";
+  const majorStr = ver.split(".")[0] || "";
+  const major = Number.parseInt(majorStr, 10);
+
+  if (!Number.isFinite(major) || major < minMajor) {
+    // Keep this dependency-free and stdout/stderr friendly.
+    // eslint-disable-next-line no-console
+    console.error(
+      `uilint requires Node.js >= ${minMajor}. You are running Node.js ${ver}.`
+    );
+    process.exit(1);
+  }
+}
+
+assertNodeVersion(20);
+
 const program = new Command();
 
 function getCLIVersion(): string {
