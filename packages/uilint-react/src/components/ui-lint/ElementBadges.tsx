@@ -110,7 +110,7 @@ function snapToWindowBounds(x: number, y: number): { x: number; y: number } {
 
 /**
  * Determine if a badge should be shown based on its status and alt key state
- * - Green badges (no issues): only show when alt/option is held
+ * - Green badges (no issues): never show (optimization: skip rendering entirely)
  * - Progress badges (scanning/pending): only show when alt/option is held
  * - Issue badges (error or issues > 0): always show
  */
@@ -118,14 +118,14 @@ function shouldShowBadge(
   issue: ElementIssue,
   isAltKeyPressed: boolean
 ): boolean {
+  // Never show green badges (no issues) - optimization to skip rendering
+  if (issue.status === "complete" && issue.issues.length === 0) {
+    return false;
+  }
+
   // Always show badges with issues
   if (issue.status === "error") return true;
   if (issue.status === "complete" && issue.issues.length > 0) return true;
-
-  // Only show green badges (no issues) when alt/option is held
-  if (issue.status === "complete" && issue.issues.length === 0) {
-    return isAltKeyPressed;
-  }
 
   // Only show progress badges (scanning/pending) when alt/option is held
   if (issue.status === "scanning" || issue.status === "pending") {

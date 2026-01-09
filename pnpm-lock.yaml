@@ -152,11 +152,11 @@ importers:
         specifier: ^1.1.1
         version: 1.1.1
       uilint-core:
-        specifier: ^0.1.46
-        version: 0.1.46
+        specifier: ^0.1.47
+        version: 0.1.47
       uilint-eslint:
-        specifier: ^0.1.16
-        version: 0.1.16(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+        specifier: ^0.1.17
+        version: 0.1.17(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
       ws:
         specifier: ^8.18.0
         version: 8.19.0
@@ -221,8 +221,8 @@ importers:
         specifier: ^11.0.0
         version: 11.16.2
       uilint-core:
-        specifier: ^0.1.46
-        version: 0.1.46
+        specifier: ^0.1.47
+        version: 0.1.47
       xxhash-wasm:
         specifier: ^1.1.0
         version: 1.1.0
@@ -258,8 +258,8 @@ importers:
         specifier: ^1.25.1
         version: 1.25.1(hono@4.11.3)(zod@4.3.5)
       uilint-core:
-        specifier: ^0.1.46
-        version: 0.1.46
+        specifier: ^0.1.47
+        version: 0.1.47
     devDependencies:
       tsup:
         specifier: ^8.5.1
@@ -271,8 +271,8 @@ importers:
   packages/uilint-react:
     dependencies:
       uilint-core:
-        specifier: ^0.1.46
-        version: 0.1.46
+        specifier: ^0.1.47
+        version: 0.1.47
       zustand:
         specifier: ^5.0.5
         version: 5.0.9(@types/react@19.2.7)(react@19.2.3)
@@ -3121,12 +3121,12 @@ packages:
   ufo@1.6.1:
     resolution: {integrity: sha512-9a4/uxlTWJ4+a5i0ooc1rU7C7YOw3wT+UGqdeNNHWnOF9qcMBgLRS+4IYUqbczewFx4mLEig6gawh7X6mFlEkA==}
 
-  uilint-core@0.1.46:
-    resolution: {integrity: sha512-ICRD21SFF0IuF0l4OC0EvzZfVXyQitV4lgU5vtjgiO1h1+FDXlAK4zx/GJvm5hoheB5eFMY07DMa2lrMCFvKAA==}
+  uilint-core@0.1.47:
+    resolution: {integrity: sha512-IGYpmmrLYjuWRwMBXS7KqEME5ABg/tfmnN3DcVJ8eqw7Ec3/MjQbiyy0Txr9apMjf/cLzaaGQ+nt4BG94Irokg==}
     engines: {node: '>=20.0.0'}
 
-  uilint-eslint@0.1.16:
-    resolution: {integrity: sha512-aB6enoN6VPamTBpcyj9FOab90q2fmZ/KAwL2uH1Bp2xTi3cO7W/7WWP8pNeh0kRkQshAfEexnmvGcDwJQAhfAw==}
+  uilint-eslint@0.1.17:
+    resolution: {integrity: sha512-S0IsB8rKsC1DJ5H4WsYWZxE0CIRnXzBnGb5yO70LkITsqqP26gSeF3XHxlKu2p5T6kLhENj4aCi4onUp10gRqg==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       eslint: '>=8.0.0'
@@ -6198,7 +6198,7 @@ snapshots:
 
   ufo@1.6.1: {}
 
-  uilint-core@0.1.46:
+  uilint-core@0.1.47:
     dependencies:
       jiti: 2.6.1
       jsdom: 27.4.0
@@ -6211,11 +6211,13 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  uilint-eslint@0.1.16(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3):
+  uilint-eslint@0.1.17(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3):
     dependencies:
+      '@typescript-eslint/typescript-estree': 8.52.0(typescript@5.9.3)
       '@typescript-eslint/utils': 8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
       eslint: 9.39.2(jiti@2.6.1)
-      uilint-core: 0.1.46
+      oxc-resolver: 11.16.2
+      uilint-core: 0.1.47
       xxhash-wasm: 1.1.0
     transitivePeerDependencies:
       - '@exodus/crypto'

@@ -42,34 +42,40 @@ export default [
     ],
     plugins: { uilint: uilint },
     rules: {
-      "uilint/no-arbitrary-tailwind": "error",
-      "uilint/consistent-spacing": [
-        "warn",
-        { scale: [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16] },
-      ],
+      // "uilint/no-arbitrary-tailwind": "error",
+      // "uilint/consistent-spacing": [
+      //   "warn",
+      //   { scale: [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16] },
+      // ],
       "uilint/no-direct-store-import": ["error", { storePattern: "use*Store" }],
       "uilint/no-mixed-component-libraries": [
         "error",
-        { libraries: ["shadcn", "mui"] },
+        { preferred: "shadcn", libraries: ["shadcn", "mui"] },
       ],
       // "uilint/semantic": [
       //   "warn",
       //   { model: "qwen3-coder:30b", styleguidePath: ".uilint/styleguide.md" },
       // ],
-    
-      "uilint/consistent-dark-mode": ["error", ...[
-      {
-      "warnOnMissingDarkMode": true
-      }
-      ]],
-      "uilint/prefer-zustand-state-management": ["warn", ...[
-      {
-      "maxStateHooks": 3,
-      "countUseState": true,
-      "countUseReducer": true,
-      "countUseContext": true
-      }
-      ]],
+
+      "uilint/consistent-dark-mode": [
+        "error",
+        ...[
+          {
+            warnOnMissingDarkMode: true,
+          },
+        ],
+      ],
+      "uilint/prefer-zustand-state-management": [
+        "warn",
+        ...[
+          {
+            maxStateHooks: 3,
+            countUseState: true,
+            countUseReducer: true,
+            countUseContext: true,
+          },
+        ],
+      ],
     },
   },
 ];

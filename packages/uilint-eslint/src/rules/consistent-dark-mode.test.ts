@@ -237,6 +237,99 @@ ruleTester.run("consistent-dark-mode", rule, {
     },
 
     // ============================================
+    // SEMANTIC/THEMED COLORS (shadcn, etc.) - EXEMPT
+    // These tests REQUIRE the semantic color exemption.
+    // Without it, these would trigger "missingDarkMode" errors
+    // because the new aggressive detection treats unknown values as colors.
+    // ============================================
+    {
+      name: "shadcn background/foreground semantic colors",
+      code: `<div className="bg-background text-foreground" />`,
+    },
+    {
+      name: "shadcn card semantic colors",
+      code: `<div className="bg-card text-card-foreground" />`,
+    },
+    {
+      name: "shadcn popover semantic colors",
+      code: `<div className="bg-popover text-popover-foreground" />`,
+    },
+    {
+      name: "shadcn primary semantic colors",
+      code: `<button className="bg-primary text-primary-foreground" />`,
+    },
+    {
+      name: "shadcn secondary semantic colors",
+      code: `<button className="bg-secondary text-secondary-foreground" />`,
+    },
+    {
+      name: "shadcn muted semantic colors",
+      code: `<div className="bg-muted text-muted-foreground" />`,
+    },
+    {
+      name: "shadcn accent semantic colors",
+      code: `<div className="bg-accent text-accent-foreground" />`,
+    },
+    {
+      name: "shadcn destructive semantic colors",
+      code: `<button className="bg-destructive text-destructive-foreground" />`,
+    },
+    {
+      name: "shadcn border semantic color",
+      code: `<div className="border-border" />`,
+    },
+    {
+      name: "shadcn input semantic color",
+      code: `<input className="border-input" />`,
+    },
+    {
+      name: "shadcn ring semantic color",
+      code: `<button className="ring-ring" />`,
+    },
+    {
+      name: "shadcn sidebar semantic colors",
+      code: `<div className="bg-sidebar text-sidebar-foreground border-sidebar-border" />`,
+    },
+    {
+      name: "mixed semantic and properly themed hard-coded colors",
+      code: `<div className="bg-background text-foreground border-blue-500 dark:border-blue-400" />`,
+    },
+    {
+      name: "cn() with semantic colors only",
+      code: `cn("bg-background text-foreground border-border")`,
+    },
+    {
+      name: "semantic colors with dark variant (redundant but valid)",
+      code: `<div className="bg-background dark:bg-background text-foreground" />`,
+    },
+    {
+      name: "chart semantic colors",
+      code: `<div className="bg-chart-1 text-chart-2 border-chart-3" />`,
+    },
+    {
+      name: "all semantic color types in one element",
+      code: `<div className="bg-background text-foreground border-border ring-ring" />`,
+    },
+
+    // ============================================
+    // CUSTOM COLORS (detected by aggressive detection, need dark variants)
+    // These would NOT have been detected by the old allowlist-based approach
+    // but ARE detected by the new exclusion-based approach.
+    // ============================================
+    {
+      name: "custom color with dark variant - brand",
+      code: `<div className="bg-brand dark:bg-brand-dark" />`,
+    },
+    {
+      name: "custom color with dark variant - custom name",
+      code: `<div className="text-company-blue dark:text-company-blue-light" />`,
+    },
+    {
+      name: "custom gradient colors with dark variants",
+      code: `<div className="from-brand-start dark:from-brand-start-dark to-brand-end dark:to-brand-end-dark" />`,
+    },
+
+    // ============================================
     // warnOnMissingDarkMode: false (file-level warning disabled)
     // ============================================
     {
@@ -675,6 +768,63 @@ ruleTester.run("consistent-dark-mode", rule, {
         {
           messageId: "inconsistentDarkMode",
           data: { unthemed: "outline-blue-500" },
+        },
+      ],
+    },
+
+    // ============================================
+    // SEMANTIC MIXED WITH HARD-CODED - INCONSISTENT
+    // ============================================
+    {
+      name: "semantic bg but hard-coded text without dark variant when other hard-coded has dark",
+      code: `<div className="bg-background border-blue-500 dark:border-blue-400 text-gray-900" />`,
+      errors: [
+        {
+          messageId: "inconsistentDarkMode",
+          data: { unthemed: "text-gray-900" },
+        },
+      ],
+    },
+
+    // ============================================
+    // CUSTOM COLORS WITHOUT DARK MODE
+    // These tests verify the aggressive detection catches custom colors.
+    // The old allowlist approach would NOT have caught these.
+    // ============================================
+    {
+      name: "custom color without dark mode - brand",
+      code: `<div className="bg-brand text-brand-foreground" />`,
+      errors: [
+        {
+          messageId: "missingDarkMode",
+        },
+      ],
+    },
+    {
+      name: "custom color without dark mode - company colors",
+      code: `<div className="bg-company-primary text-company-secondary" />`,
+      errors: [
+        {
+          messageId: "missingDarkMode",
+        },
+      ],
+    },
+    {
+      name: "custom color inconsistent - one themed one not",
+      code: `<div className="bg-brand dark:bg-brand-dark text-brand-accent" />`,
+      errors: [
+        {
+          messageId: "inconsistentDarkMode",
+          data: { unthemed: "text-brand-accent" },
+        },
+      ],
+    },
+    {
+      name: "custom gradient colors without dark mode",
+      code: `<div className="from-brand-start to-brand-end" />`,
+      errors: [
+        {
+          messageId: "missingDarkMode",
         },
       ],
     },

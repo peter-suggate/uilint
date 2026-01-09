@@ -47,42 +47,136 @@ const COLOR_PREFIXES = [
 // Values that don't need dark variants (colorless or inherited)
 const EXEMPT_SUFFIXES = ["transparent", "inherit", "current", "auto", "none"];
 
-// Known Tailwind color names (not exhaustive, but covers common cases)
-// This helps distinguish color classes from non-color classes like text-lg
-const COLOR_NAMES = new Set([
-  // Grayscale
-  "slate",
-  "gray",
-  "zinc",
-  "neutral",
-  "stone",
-  // Colors
-  "red",
-  "orange",
-  "amber",
-  "yellow",
-  "lime",
-  "green",
-  "emerald",
-  "teal",
-  "cyan",
-  "sky",
-  "blue",
-  "indigo",
-  "violet",
-  "purple",
-  "fuchsia",
-  "pink",
-  "rose",
-  // Special
-  "black",
-  "white",
+// Known non-color utilities that use color prefixes
+// These are utilities like text-lg (font size), text-center (alignment), etc.
+const NON_COLOR_UTILITIES = new Set([
+  // Exempt values (colorless or inherited) - don't need dark variants
+  "transparent",
+  "inherit",
+  "current",
+  "auto",
+  "none",
+  // text- utilities that aren't colors
+  "xs",
+  "sm",
+  "base",
+  "lg",
+  "xl",
+  "2xl",
+  "3xl",
+  "4xl",
+  "5xl",
+  "6xl",
+  "7xl",
+  "8xl",
+  "9xl",
+  "left",
+  "center",
+  "right",
+  "justify",
+  "start",
+  "end",
+  "wrap",
+  "nowrap",
+  "balance",
+  "pretty",
+  "ellipsis",
+  "clip",
+  // border- utilities that aren't colors
+  "0",
+  "2",
+  "4",
+  "8",
+  "solid",
+  "dashed",
+  "dotted",
+  "double",
+  "hidden",
+  "collapse",
+  "separate",
+  // shadow- utilities that aren't colors
+  // Note: "sm", "lg", "xl", "2xl" already included above
+  "md",
+  "inner",
+  // ring- utilities that aren't colors
+  // Note: "0", "2", "4", "8" already included above
+  "1",
+  "inset",
+  // outline- utilities that aren't colors
+  // Note: numeric values already included
+  "offset-0",
+  "offset-1",
+  "offset-2",
+  "offset-4",
+  "offset-8",
+  // decoration- utilities that aren't colors
+  // Note: "solid", "double", "dotted", "dashed" already included
+  "wavy",
+  "from-font",
+  "clone",
+  "slice",
+  // divide- utilities that aren't colors
+  "x",
+  "y",
+  "x-0",
+  "x-2",
+  "x-4",
+  "x-8",
+  "y-0",
+  "y-2",
+  "y-4",
+  "y-8",
+  "x-reverse",
+  "y-reverse",
+  // gradient direction utilities (from-, via-, to- prefixes)
+  "t",
+  "tr",
+  "r",
+  "br",
+  "b",
+  "bl",
+  "l",
+  "tl",
 ]);
 
-// Patterns that indicate a color value (after the prefix)
-// e.g., "blue-500", "white", "black", "[#fff]", "slate-900/50"
-const COLOR_VALUE_PATTERN =
-  /^(?:(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{1,3}(?:\/\d+)?|black|white|inherit|current|transparent|\[.+\])$/;
+// Semantic color names used by theming systems like shadcn
+// These are CSS variable-based colors that handle dark mode automatically
+const SEMANTIC_COLOR_NAMES = new Set([
+  // Core shadcn colors
+  "background",
+  "foreground",
+  // Component colors
+  "card",
+  "card-foreground",
+  "popover",
+  "popover-foreground",
+  "primary",
+  "primary-foreground",
+  "secondary",
+  "secondary-foreground",
+  "muted",
+  "muted-foreground",
+  "accent",
+  "accent-foreground",
+  "destructive",
+  "destructive-foreground",
+  // Form/UI colors
+  "border",
+  "input",
+  "ring",
+  // Sidebar colors (shadcn sidebar component)
+  "sidebar",
+  "sidebar-foreground",
+  "sidebar-border",
+  "sidebar-primary",
+  "sidebar-primary-foreground",
+  "sidebar-accent",
+  "sidebar-accent-foreground",
+  "sidebar-ring",
+]);
+
+// Pattern for semantic chart colors (chart-1, chart-2, etc.)
+const CHART_COLOR_PATTERN = /^chart-\d+$/;
 
 /**
  * Check if a class has 'dark' in its variant chain
@@ -115,29 +209,53 @@ function getColorPrefix(baseClass: string): string | null {
 }
 
 /**
- * Check if the value after the prefix looks like a color value
- * This helps avoid false positives like text-lg (font size) or text-center (alignment)
+ * Check if the value is a semantic/themed color (e.g., shadcn)
+ * These colors use CSS variables that automatically handle dark mode
  */
-function isColorValue(baseClass: string, prefix: string): boolean {
-  const value = baseClass.slice(prefix.length);
-
-  // Check for explicit color patterns
-  if (COLOR_VALUE_PATTERN.test(value)) {
+function isSemanticColor(value: string): boolean {
+  // Check for exact semantic color names
+  if (SEMANTIC_COLOR_NAMES.has(value)) {
     return true;
   }
 
-  // Check if it starts with a known color name (handles shades like blue-500)
-  const firstPart = value.split("-")[0];
-  if (COLOR_NAMES.has(firstPart)) {
-    return true;
-  }
-
-  // Check for arbitrary values that might be colors
-  if (value.startsWith("[") && value.endsWith("]")) {
+  // Check for chart colors (chart-1, chart-2, etc.)
+  if (CHART_COLOR_PATTERN.test(value)) {
     return true;
   }
 
   return false;
+}
+
+/**
+ * Check if the value after the prefix looks like a color value
+ * Uses an exclusion-based approach: anything that's not a known non-color utility
+ * and not a semantic color is treated as a potential color.
+ */
+function isColorValue(baseClass: string, prefix: string): boolean {
+  const value = baseClass.slice(prefix.length);
+
+  // Empty value is not a color
+  if (!value) {
+    return false;
+  }
+
+  // Check if it's a semantic/themed color (exempt from dark mode requirements)
+  if (isSemanticColor(value)) {
+    return false;
+  }
+
+  // Check if it's a known non-color utility
+  if (NON_COLOR_UTILITIES.has(value)) {
+    return false;
+  }
+
+  // Treat everything else as a potential color
+  // This catches:
+  // - Standard Tailwind colors: blue-500, slate-900, white, black
+  // - Custom colors defined in tailwind.config: brand, primary (non-shadcn), custom-blue
+  // - Arbitrary values: [#fff], [rgb(255,0,0)], [var(--my-color)]
+  // - Opacity modifiers: blue-500/50, white/80
+  return true;
 }
 
 /**
