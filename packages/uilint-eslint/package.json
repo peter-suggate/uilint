@@ -1,6 +1,6 @@
 {
   "name": "uilint-eslint",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "description": "ESLint plugin for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -44,7 +44,7 @@
     "@typescript-eslint/typescript-estree": "^8.35.1",
     "@typescript-eslint/utils": "^8.35.1",
     "oxc-resolver": "^11.0.0",
-    "uilint-core": "^0.1.48",
+    "uilint-core": "^0.1.49",
     "xxhash-wasm": "^1.1.0"
   },
   "devDependencies": {

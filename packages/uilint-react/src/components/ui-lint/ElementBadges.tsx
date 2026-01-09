@@ -18,7 +18,10 @@ import {
   type BadgePosition,
   type NudgedBadgePosition,
 } from "./badge-layout";
-import { isElementCoveredByOverlay } from "./visibility-utils";
+import {
+  getElementVisibleRect,
+  isElementCoveredByOverlay,
+} from "./visibility-utils";
 
 /**
  * Design tokens
@@ -220,21 +223,35 @@ export function ElementBadges() {
         if (!element.element || !document.contains(element.element)) continue;
 
         const rect = element.element.getBoundingClientRect();
-        // Badge is positioned at top-right corner
-        const x = rect.right - 8;
-        const y = rect.top - 8;
+        const visible = getElementVisibleRect(element.element);
+        if (!visible) continue;
 
-        // Skip if off-screen
-        if (rect.top < -50 || rect.top > window.innerHeight + 50) continue;
-        if (rect.left < -50 || rect.left > window.innerWidth + 50) continue;
+        // Badge is positioned near the top-right corner, but clamped to stay
+        // within the visible (non-clipped) portion of the element.
+        const desiredX = rect.right - 8;
+        const desiredY = rect.top - 8;
+        const x = Math.min(desiredX, visible.right - 8);
+        const y = Math.max(visible.top + 2, desiredY);
 
         // Check if element is covered by an overlay (modal, popover, etc.)
-        // Only check if the element is potentially visible (not off-screen)
-        if (isElementCoveredByOverlay(element.element, x, y)) {
+        // Use a point INSIDE the visible portion of the element to avoid
+        // false positives from backdrops behind modal containers.
+        const testX = visible.left + Math.min(8, visible.width / 2);
+        const testY = visible.top + Math.min(8, visible.height / 2);
+        if (isElementCoveredByOverlay(element.element, testX, testY)) {
           continue;
         }
 
-        positions.push({ element, issue, x, y, rect });
+        // Use the visible rect for drawing/hover highlight so it matches what the
+        // user can actually see when the element is clipped by overflow containers.
+        const visibleRect = DOMRect.fromRect({
+          x: visible.left,
+          y: visible.top,
+          width: visible.width,
+          height: visible.height,
+        });
+
+        positions.push({ element, issue, x, y, rect: visibleRect });
       }
       setBadgePositions(positions);
     };
