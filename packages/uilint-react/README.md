@@ -15,7 +15,7 @@ npm install uilint-react uilint-core
 Or use the CLI to install everything automatically:
 
 ```bash
-npx uilint-cli install
+npx uilint install
 ```
 
 ## Usage in a Running App
@@ -157,7 +157,7 @@ ollama pull qwen3-coder:30b
 ## Related Packages
 
 - [`uilint-core`](https://www.npmjs.com/package/uilint-core) - Core library
-- [`uilint-cli`](https://www.npmjs.com/package/uilint-cli) - Command-line interface
+- [`uilint`](https://www.npmjs.com/package/uilint) - Command-line interface
 - [`uilint-mcp`](https://www.npmjs.com/package/uilint-mcp) - MCP server
 
 ## Documentation

@@ -39,12 +39,12 @@ interface CLIScanResult {
  */
 function resolveCLIPath(): string {
   const __dirname = dirname(fileURLToPath(import.meta.url));
-  // In the monorepo: ../uilint-cli/dist/index.js
+  // In the monorepo: ../uilint/dist/index.js
   const monorepoPath = join(
     __dirname,
     "..",
     "..",
-    "uilint-cli",
+    "uilint",
     "dist",
     "index.js"
   );
@@ -53,7 +53,7 @@ function resolveCLIPath(): string {
   }
 
   // Fallback: run via `npx` so we don't depend on PATH having `uilint`.
-  // NOTE: `runCLI` will inject `--yes uilint-cli ...` to keep it non-interactive.
+  // NOTE: `runCLI` will inject `--yes uilint ...` to keep it non-interactive.
   return "npx";
 }
 
@@ -70,7 +70,7 @@ async function runCLI(args: string[], cwd?: string): Promise<CLIScanResult> {
     const spawnArgs = isDirectPath
       ? [cliPath, ...args]
       : isNPX
-      ? ["--yes", "uilint-cli", ...args]
+      ? ["--yes", "uilint", ...args]
       : args;
 
     const child = spawn(command, spawnArgs, {

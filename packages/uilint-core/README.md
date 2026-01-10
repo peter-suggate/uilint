@@ -12,7 +12,7 @@ Core library for UILint - AI-powered UI consistency checking for React and Next.
 - **Tailwind support** - Extract and validate Tailwind CSS class usage
 - **Validation** - Core validation logic for detecting UI inconsistencies
 
-This package is typically used as a dependency by `uilint-cli`, `uilint-react`, or `uilint-mcp`.
+This package is typically used as a dependency by `uilint`, `uilint-react`, or `uilint-mcp`.
 
 ## Installation
 
@@ -130,7 +130,7 @@ ollama pull qwen3-coder:30b
 
 ## Related Packages
 
-- [`uilint-cli`](https://www.npmjs.com/package/uilint-cli) - Command-line interface
+- [`uilint`](https://www.npmjs.com/package/uilint) - Command-line interface
 - [`uilint-react`](https://www.npmjs.com/package/uilint-react) - React component for runtime analysis
 - [`uilint-mcp`](https://www.npmjs.com/package/uilint-mcp) - MCP server for editor integration
 

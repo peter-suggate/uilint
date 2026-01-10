@@ -142,7 +142,7 @@ export async function initializeLangfuseIfEnabled(): Promise<void> {
               input: { operation: name },
               metadata: {
                 ...metadata,
-                source: "uilint-cli",
+                source: "uilint",
               },
             });
 
@@ -155,7 +155,7 @@ export async function initializeLangfuseIfEnabled(): Promise<void> {
                 input: prompt,
                 metadata: {
                   ...metadata,
-                  source: "uilint-cli",
+                  source: "uilint",
                 },
               },
               { asType: "generation" }

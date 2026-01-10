@@ -128,7 +128,7 @@ importers:
         specifier: ^5.0.0
         version: 5.9.3
 
-  packages/uilint-cli:
+  packages/uilint:
     dependencies:
       '@clack/prompts':
         specifier: ^0.10.0

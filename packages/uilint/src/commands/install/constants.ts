@@ -54,10 +54,10 @@ echo "[UILint] Session start - clearing tracked files" >&2
 # Prefer local monorepo build when developing UILint itself.
 # Fall back to npx for normal consumers.
 uilint() {
-  if [ -f "packages/uilint-cli/dist/index.js" ]; then
-    node "packages/uilint-cli/dist/index.js" "$@"
+  if [ -f "packages/uilint/dist/index.js" ]; then
+    node "packages/uilint/dist/index.js" "$@"
   else
-    npx uilint-cli "$@"
+    npx uilint "$@"
   fi
 }
 
@@ -97,10 +97,10 @@ echo "[UILint] afterFileEdit hook triggered" >&2
 # Prefer local monorepo build when developing UILint itself.
 # Fall back to npx for normal consumers.
 uilint() {
-  if [ -f "packages/uilint-cli/dist/index.js" ]; then
-    node "packages/uilint-cli/dist/index.js" "$@"
+  if [ -f "packages/uilint/dist/index.js" ]; then
+    node "packages/uilint/dist/index.js" "$@"
   else
-    npx uilint-cli "$@"
+    npx uilint "$@"
   fi
 }
 
@@ -148,10 +148,10 @@ echo "[UILint] Stop input: $input" >&2
 # Prefer local monorepo build when developing UILint itself.
 # Fall back to npx for normal consumers.
 uilint() {
-  if [ -f "packages/uilint-cli/dist/index.js" ]; then
-    node "packages/uilint-cli/dist/index.js" "$@"
+  if [ -f "packages/uilint/dist/index.js" ]; then
+    node "packages/uilint/dist/index.js" "$@"
   else
-    npx uilint-cli "$@"
+    npx uilint "$@"
   fi
 }
 

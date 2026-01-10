@@ -157,7 +157,7 @@ let fileWatcher: FSWatcher | null = null;
 // Basic client tracking for CLI feedback
 let connectedClients = 0;
 
-// Local require (from uilint-cli deps) for TSX parsing
+// Local require (from uilint deps) for TSX parsing
 const localRequire = createRequire(import.meta.url);
 
 type JsxElementSpan = {

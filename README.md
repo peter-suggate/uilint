@@ -15,7 +15,7 @@ UILint scans your UI for design inconsistencies, auto-generates a style guide fr
 
 ```bash
 # 1) Install Cursor integration (pick MCP when prompted)
-npx uilint-cli@latest install
+npx uilint@latest install
 
 # 2) Generate `.uilint/styleguide.md` inside Cursor
 # Run: /genstyleguide
@@ -45,7 +45,7 @@ AI uses MCP tools:
               ▲                    ▲                    ▲
               │                    │                    │
     ┌─────────┴────────┐  ┌────────┴───────┐  ┌────────┴───────┐
-    │   uilint-react   │  │   uilint-cli   │  │   uilint-mcp   │
+    │   uilint-react   │  │     uilint     │  │   uilint-mcp   │
     │  React Component │  │  CLI Commands  │  │   MCP Server   │
     └──────────────────┘  └────────────────┘  └────────────────┘
 ```
@@ -68,7 +68,7 @@ If Ollama isn’t installed, the CLI will print install instructions; on macOS i
 
 ```bash
 # Install the CLI globally
-npm install -g uilint-cli
+npm install -g uilint
 
 # Or add to your project
 npm install uilint-react uilint-core
@@ -78,7 +78,7 @@ You can also run the CLI without installing globally:
 
 ```bash
 # If published to npm:
-npx uilint-cli --help
+npx uilint --help
 ```
 
 ---
@@ -124,7 +124,7 @@ export default function RootLayout({ children }) {
 The easiest way to set up UILint in your Next.js app:
 
 ```bash
-npx uilint-cli install
+npx uilint install
 ```
 
 This will:
@@ -340,7 +340,7 @@ jobs:
 
       - name: Run UILint
         run: |
-          curl http://localhost:3000 | npx uilint-cli scan --output json
+          curl http://localhost:3000 | npx uilint scan --output json
 ```
 
 ---
@@ -411,7 +411,7 @@ UILint uses a simple Markdown format for style guides:
 | -------------- | -------------------------------------------------------- |
 | `uilint-core`  | Core library with types, Ollama client, style extraction |
 | `uilint-react` | React component for runtime UI analysis                  |
-| `uilint-cli`   | Command-line interface                                   |
+| `uilint`       | Command-line interface                                   |
 | `uilint-mcp`   | MCP server for editor integration                        |
 
 ---
@@ -493,7 +493,7 @@ pnpm publish:packages
 Notes:
 
 - You must be logged in to npm (`npm whoami`) and have rights to publish the package names.
-- The `version:*` scripts bump all packages and the root in sync automatically, and also sync internal dependency ranges (e.g. `uilint-cli` → `uilint-core`).
+- The `version:*` scripts bump all packages and the root in sync automatically, and also sync internal dependency ranges (e.g. `uilint` → `uilint-core`).
 - `publish:*` runs `sync:workspace` + `build:packages` before publishing, so the published `package.json` metadata is always consistent.
 
 ---

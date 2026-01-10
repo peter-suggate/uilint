@@ -111,7 +111,7 @@ node /path/to/uilint-mcp/dist/server.js
 ## Related Packages
 
 - [`uilint-core`](https://www.npmjs.com/package/uilint-core) - Core library
-- [`uilint-cli`](https://www.npmjs.com/package/uilint-cli) - Command-line interface
+- [`uilint`](https://www.npmjs.com/package/uilint) - Command-line interface
 - [`uilint-react`](https://www.npmjs.com/package/uilint-react) - React component
 
 ## Documentation

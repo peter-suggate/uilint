@@ -1,12 +1,12 @@
 {
-  "name": "uilint-cli",
+  "name": "uilint",
   "version": "0.1.57",
   "description": "CLI for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
     "type": "git",
     "url": "https://github.com/peter-suggate/uilint.git",
-    "directory": "packages/uilint-cli"
+    "directory": "packages/uilint"
   },
   "homepage": "https://github.com/peter-suggate/uilint#readme",
   "bugs": {

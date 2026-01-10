@@ -32,12 +32,12 @@ import {
 const require = createRequire(import.meta.url);
 
 /**
- * Get the version range for a dependency from uilint-cli's package.json
+ * Get the version range for a dependency from uilint's package.json
  */
 function getSelfDependencyVersionRange(pkgName: string): string | null {
   try {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const pkgJson = require("uilint-cli/package.json") as Record<
+    const pkgJson = require("uilint/package.json") as Record<
       string,
       unknown
     >;

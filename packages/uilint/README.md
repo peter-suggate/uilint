@@ -1,19 +1,19 @@
-# uilint-cli
+# uilint
 
 Command-line interface for UILint - AI-powered UI consistency checking.
 
 ## Overview
 
-`uilint-cli` provides a powerful command-line interface for analyzing UI consistency, generating style guides, and validating your design system.
+`uilint` provides a powerful command-line interface for analyzing UI consistency, generating style guides, and validating your design system.
 
 ## Installation
 
 ```bash
 # Install globally
-npm install -g uilint-cli
+npm install -g uilint
 
 # Or use with npx
-npx uilint-cli --help
+npx uilint --help
 ```
 
 ## Prerequisites
@@ -36,7 +36,7 @@ UILint expects a style guide at `.uilint/styleguide.md`.
 The recommended way to generate one is via Cursor:
 
 ```bash
-npx uilint-cli install
+npx uilint install
 ```
 
 Then run the Cursor command:
@@ -156,7 +156,7 @@ jobs:
 
       - name: Run UILint
         run: |
-          curl http://localhost:3000 | npx uilint-cli scan --output json
+          curl http://localhost:3000 | npx uilint scan --output json
 ```
 
 ## Related Packages
