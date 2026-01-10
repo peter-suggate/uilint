@@ -112,6 +112,7 @@ const recommendedConfig: Linter.Config = {
       ]],
     "uilint/no-mixed-component-libraries": ["error", ...[
         {
+          "preferred": "shadcn",
           "libraries": [
             "shadcn",
             "mui"
@@ -176,6 +177,7 @@ const strictConfig: Linter.Config = {
       ]],
     "uilint/no-mixed-component-libraries": ["error", ...[
         {
+          "preferred": "shadcn",
           "libraries": [
             "shadcn",
             "mui"

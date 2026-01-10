@@ -115,7 +115,11 @@ function wrapChildrenWithUILintProvider(source: string): string {
 
 export async function installReactUILintOverlay(
   opts: InstallReactOverlayOptions
-): Promise<{ targetFile: string; modified: boolean }> {
+): Promise<{
+  targetFile: string;
+  modified: boolean;
+  alreadyConfigured?: boolean;
+}> {
   const candidates = getDefaultCandidates(opts.projectPath, opts.appRoot);
   if (!candidates.length) {
     throw new Error(
@@ -136,13 +140,17 @@ export async function installReactUILintOverlay(
   const absTarget = join(opts.projectPath, chosen);
   const original = readFileSync(absTarget, "utf-8");
 
-  if (
-    original.includes("<UILintProvider") ||
-    original.includes('from "uilint-react"')
-  ) {
-    if (!opts.force) {
-      const ok = await opts.confirmOverwrite?.(chosen);
-      if (!ok) return { targetFile: chosen, modified: false };
+  // Check if already fully configured (has both import and provider)
+  const hasImport =
+    original.includes('from "uilint-react"') ||
+    original.includes("from 'uilint-react'");
+  const hasProvider = original.includes("<UILintProvider");
+  const alreadyConfigured = hasImport && hasProvider;
+
+  if (alreadyConfigured && !opts.force) {
+    const ok = await opts.confirmOverwrite?.(chosen);
+    if (!ok) {
+      return { targetFile: chosen, modified: false, alreadyConfigured: true };
     }
   }
 
@@ -155,5 +163,9 @@ export async function installReactUILintOverlay(
     writeFileSync(absTarget, updated, "utf-8");
   }
 
-  return { targetFile: chosen, modified };
+  return {
+    targetFile: chosen,
+    modified,
+    alreadyConfigured: alreadyConfigured && !modified,
+  };
 }

@@ -243,10 +243,13 @@ async function executeInjectReact(
     confirmOverwrite: async () => true,
   });
 
+  // Success if modified OR already configured (goal achieved either way)
+  const success = result.modified || result.alreadyConfigured === true;
+
   return {
     action,
-    success: result.modified,
-    error: result.modified ? undefined : "Already configured",
+    success,
+    error: success ? undefined : "Failed to configure React overlay",
   };
 }
 

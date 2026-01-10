@@ -18,6 +18,7 @@ import { detectPackageManager } from "../../utils/package-manager.js";
 import {
   findEslintConfigFile,
   getEslintConfigFilename,
+  getUilintEslintConfigInfoFromSource,
 } from "../../utils/eslint-config-inject.js";
 import type {
   ProjectState,
@@ -30,24 +31,8 @@ import type {
 // Legacy hook commands to detect for upgrade path
 const LEGACY_HOOK_FILES = ["uilint-validate.sh", "uilint-validate.js"];
 
-/**
- * Check if ESLint config source has uilint rules
- */
-function hasUilintRules(source: string): boolean {
-  return source.includes('"uilint/') || source.includes("'uilint/");
-}
-
-/**
- * Extract configured uilint rule IDs from source
- */
-function extractConfiguredRuleIds(source: string): string[] {
-  const ids: string[] = [];
-  const re = /["']uilint\/([^"']+)["']\s*:/g;
-  for (const m of source.matchAll(re)) {
-    if (m[1]) ids.push(m[1]);
-  }
-  return ids;
-}
+// NOTE: uilint rule detection must ignore commented-out keys and handle spreads.
+// We re-use the AST-backed detector from eslint-config-inject.
 
 /**
  * Safely parse JSON file, returning undefined on error
@@ -139,8 +124,9 @@ export async function analyze(
       eslintConfigFilename = getEslintConfigFilename(eslintConfigPath);
       try {
         const source = readFileSync(eslintConfigPath, "utf-8");
-        hasRules = hasUilintRules(source);
-        configuredRuleIds = extractConfiguredRuleIds(source);
+        const info = getUilintEslintConfigInfoFromSource(source);
+        hasRules = info.configuredRuleIds.size > 0 || info.usesUilintConfigs;
+        configuredRuleIds = Array.from(info.configuredRuleIds);
       } catch {
         // Ignore read errors
       }

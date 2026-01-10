@@ -182,7 +182,7 @@ export const ruleRegistry: RuleMetadata[] = [
     name: "No Mixed Component Libraries",
     description: "Forbid mixing component libraries (e.g., shadcn + MUI)",
     defaultSeverity: "error",
-    defaultOptions: [{ libraries: ["shadcn", "mui"] }],
+    defaultOptions: [{ preferred: "shadcn", libraries: ["shadcn", "mui"] }],
     optionSchema: {
       fields: [
         {

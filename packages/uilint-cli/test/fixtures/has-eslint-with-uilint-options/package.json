@@ -1,0 +1,7 @@
+{
+  "name": "has-eslint-with-uilint-options",
+  "version": "1.0.0",
+  "dependencies": {
+    "uilint-eslint": "^0.1.0"
+  }
+}

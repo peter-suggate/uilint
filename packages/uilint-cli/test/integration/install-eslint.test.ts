@@ -79,6 +79,76 @@ describe("ESLint installation - fresh config", () => {
     expect(updatedConfig).toContain("plugins: { uilint: uilint }");
   });
 
+  it("preserves comments and ignores commented-out uilint rule keys (spread rules config)", async () => {
+    fixture = useFixture("has-eslint-flat-comments-spread");
+
+    const initialConfig = fixture.readFile("eslint.config.mjs");
+    expect(initialConfig).toContain("Keep this comment");
+    expect(initialConfig).toContain('"uilint/no-arbitrary-tailwind"');
+
+    const state = await analyze(fixture.path);
+    const pkg = state.packages.find((p) => p.eslintConfigPath !== null)!;
+    expect(pkg.hasUilintRules).toBe(false);
+
+    const prompter = mockPrompter({
+      installItems: ["eslint"],
+      eslintPackagePaths: [pkg.path],
+      eslintRuleIds: ["no-arbitrary-tailwind", "consistent-spacing"],
+    });
+
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+    const result = await execute(plan, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+
+    expect(result.success).toBe(true);
+
+    const updatedConfig = fixture.readFile("eslint.config.mjs");
+    // Preserve comments
+    expect(updatedConfig).toContain("Keep this comment");
+    // And the commented-out rule remains commented (still present in file)
+    expect(updatedConfig).toContain('"uilint/no-arbitrary-tailwind": "warn"');
+    // But we also add actual configured rules in an appended uilint block
+    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
+    expect(updatedConfig).toContain("uilint/consistent-spacing");
+    expect(updatedConfig).toContain('import uilint from "uilint-eslint"');
+  });
+
+  it("injects into CommonJS defineConfig([...]) config and adds require binding", async () => {
+    fixture = useFixture("has-eslint-flat-cjs-define-config");
+
+    const initialConfig = fixture.readFile("eslint.config.cjs");
+    expect(initialConfig).not.toContain("uilint/no-arbitrary-tailwind");
+    expect(initialConfig).toContain("Keep this comment");
+
+    const state = await analyze(fixture.path);
+    const pkg = state.packages.find((p) => p.eslintConfigPath !== null)!;
+    expect(pkg.hasUilintRules).toBe(false);
+
+    const prompter = mockPrompter({
+      installItems: ["eslint"],
+      eslintPackagePaths: [pkg.path],
+      eslintRuleIds: ["no-arbitrary-tailwind"],
+    });
+
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+    const result = await execute(plan, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+
+    expect(result.success).toBe(true);
+
+    const updatedConfig = fixture.readFile("eslint.config.cjs");
+    expect(updatedConfig).toContain('const uilint = require("uilint-eslint")');
+    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
+    expect(updatedConfig).toContain("plugins: { uilint: uilint }");
+    expect(updatedConfig).toContain("Keep this comment");
+  });
+
   it("injects uilint block into defineConfig([...]) flat config (FlatCompat)", async () => {
     fixture = useFixture("has-eslint-flat-define-config");
 
@@ -135,6 +205,42 @@ describe("ESLint installation - fresh config", () => {
     expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     expect(updatedConfig).not.toContain("uilint/consistent-spacing");
     expect(updatedConfig).not.toContain("uilint/consistent-dark-mode");
+  });
+
+  it("is idempotent on subsequent installs", async () => {
+    fixture = useFixture("has-eslint-flat-comments-spread");
+
+    const state1 = await analyze(fixture.path);
+    const pkg1 = state1.packages.find((p) => p.eslintConfigPath !== null)!;
+
+    const prompter = mockPrompter({
+      installItems: ["eslint"],
+      eslintPackagePaths: [pkg1.path],
+      eslintRuleIds: ["no-arbitrary-tailwind", "consistent-spacing"],
+    });
+
+    const choices1 = await gatherChoices(state1, {}, prompter);
+    const plan1 = createPlan(state1, choices1);
+    const result1 = await execute(plan1, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+    expect(result1.success).toBe(true);
+
+    const afterFirst = fixture.readFile("eslint.config.mjs");
+
+    const state2 = await analyze(fixture.path);
+    const pkg2 = state2.packages.find((p) => p.eslintConfigPath !== null)!;
+    const choices2 = await gatherChoices(state2, {}, prompter);
+    const plan2 = createPlan(state2, choices2);
+    const result2 = await execute(plan2, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+    expect(result2.success).toBe(true);
+
+    const afterSecond = fixture.readFile("eslint.config.mjs");
+    expect(afterSecond).toBe(afterFirst);
   });
 });
 
@@ -330,8 +436,12 @@ describe("ESLint installation - rule options", () => {
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
       eslintRuleIds: ["no-mixed-component-libraries"],
-      setPreferredLibrary: true,
-      preferredLibrary: "shadcn",
+      customizeRuleOptions: true,
+      ruleOptions: {
+        "no-mixed-component-libraries": {
+          preferred: "shadcn",
+        },
+      },
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -344,6 +454,47 @@ describe("ESLint installation - rule options", () => {
     expect(config).toContain("no-mixed-component-libraries");
     expect(config).toContain("preferred");
     expect(config).toContain("shadcn");
+  });
+
+  it("updates existing rule with new options", async () => {
+    fixture = useFixture("has-eslint-with-uilint-options");
+
+    // Verify initial state - rule exists without preferred option
+    const initialConfig = fixture.readFile("eslint.config.mjs");
+    expect(initialConfig).toContain("no-mixed-component-libraries");
+    expect(initialConfig).toContain("libraries");
+    expect(initialConfig).not.toContain("preferred");
+
+    const state = await analyze(fixture.path);
+    const pkg = state.packages.find((p) => p.eslintConfigPath !== null)!;
+
+    // Select the same rule but with new options (including preferred)
+    const prompter = mockPrompter({
+      installItems: ["eslint"],
+      eslintPackagePaths: [pkg.path],
+      eslintRuleIds: ["no-mixed-component-libraries"],
+      customizeRuleOptions: true,
+      ruleOptions: {
+        "no-mixed-component-libraries": {
+          preferred: "mui",
+        },
+      },
+    });
+
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+    await execute(plan, {
+      installDependencies: mockInstallDependencies,
+    });
+
+    const updatedConfig = fixture.readFile("eslint.config.mjs");
+    // Should still have the rule
+    expect(updatedConfig).toContain("no-mixed-component-libraries");
+    // Should now have preferred option
+    expect(updatedConfig).toContain("preferred");
+    expect(updatedConfig).toContain("mui");
+    // Should still have libraries (merged with defaults)
+    expect(updatedConfig).toContain("libraries");
   });
 });
 

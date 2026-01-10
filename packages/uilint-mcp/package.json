@@ -1,6 +1,6 @@
 {
   "name": "uilint-mcp",
-  "version": "0.1.55",
+  "version": "0.1.56",
   "description": "MCP server for UILint - enables AI agents to validate UI code",
   "author": "Peter Suggate",
   "repository": {
@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.1",
-    "uilint-core": "^0.1.55"
+    "uilint-core": "^0.1.56"
   },
   "devDependencies": {
     "tsup": "^8.5.1",

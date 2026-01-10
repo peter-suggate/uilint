@@ -165,10 +165,11 @@ export const cliPrompter: Prompter = {
       return confirmed ? [packages[0].path] : [];
     }
 
-    // Pre-select frontend packages
+    // Pre-select first frontend packages
     const initialValues = packages
       .filter((p) => p.isFrontend)
-      .map((p) => p.path);
+      .map((p) => p.path)
+      .slice(0, 1);
 
     return multiselect<string>({
       message: "Which packages should have ESLint plugin installed?",
