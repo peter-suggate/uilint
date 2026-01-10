@@ -193,18 +193,91 @@ function findExportedConfigArrayExpression(mod: any): {
   arrayExpr: any;
   program: any;
 } | null {
-  // ESM: export default [ ... ] OR export default defineConfig([ ... ])
-  if (mod?.exports?.default) {
-    const exported = mod.exports.default;
-    const node =
-      exported.$type === "function-call" ? exported.$args?.[0] : exported;
-    if (node?.$ast?.type === "ArrayExpression") {
-      return { kind: "esm", arrayExpr: node.$ast, program: mod.$ast };
+  function unwrapExpression(expr: any): any {
+    let e = expr;
+    // Best-effort unwrap for TS/parenthesized wrappers. (These can appear if the
+    // config is authored in TS/JS with type assertions or parentheses.)
+    while (e) {
+      if (e.type === "TSAsExpression" || e.type === "TSNonNullExpression") {
+        e = e.expression;
+        continue;
+      }
+      if (e.type === "TSSatisfiesExpression") {
+        e = e.expression;
+        continue;
+      }
+      if (e.type === "ParenthesizedExpression") {
+        e = e.expression;
+        continue;
+      }
+      break;
+    }
+    return e;
+  }
+
+  function resolveTopLevelIdentifierToArrayExpr(
+    program: any,
+    name: string
+  ): any | null {
+    if (!program || program.type !== "Program") return null;
+    for (const stmt of program.body ?? []) {
+      if (stmt?.type !== "VariableDeclaration") continue;
+      for (const decl of stmt.declarations ?? []) {
+        const id = decl?.id;
+        if (!isIdentifier(id, name)) continue;
+        const init = unwrapExpression(decl?.init);
+        if (!init) return null;
+        if (init.type === "ArrayExpression") return init;
+        if (
+          init.type === "CallExpression" &&
+          isIdentifier(init.callee, "defineConfig") &&
+          unwrapExpression(init.arguments?.[0])?.type === "ArrayExpression"
+        ) {
+          return unwrapExpression(init.arguments?.[0]);
+        }
+        return null;
+      }
+    }
+    return null;
+  }
+
+  // Prefer reading directly from the program AST so we can handle:
+  // - export default [ ... ]
+  // - export default defineConfig([ ... ])
+  // - export default eslintConfig;  (where eslintConfig is a top-level array)
+  const program = mod?.$ast;
+  if (program && program.type === "Program") {
+    for (const stmt of program.body ?? []) {
+      if (!stmt || stmt.type !== "ExportDefaultDeclaration") continue;
+      const decl = unwrapExpression(stmt.declaration);
+      if (!decl) break;
+
+      if (decl.type === "ArrayExpression") {
+        return { kind: "esm", arrayExpr: decl, program };
+      }
+      if (
+        decl.type === "CallExpression" &&
+        isIdentifier(decl.callee, "defineConfig") &&
+        unwrapExpression(decl.arguments?.[0])?.type === "ArrayExpression"
+      ) {
+        return {
+          kind: "esm",
+          arrayExpr: unwrapExpression(decl.arguments?.[0]),
+          program,
+        };
+      }
+      if (decl.type === "Identifier" && typeof decl.name === "string") {
+        const resolved = resolveTopLevelIdentifierToArrayExpr(
+          program,
+          decl.name
+        );
+        if (resolved) return { kind: "esm", arrayExpr: resolved, program };
+      }
+      break;
     }
   }
 
   // CommonJS: module.exports = [ ... ] OR module.exports = defineConfig([ ... ])
-  const program = mod?.$ast;
   if (!program || program.type !== "Program") return null;
 
   for (const stmt of program.body ?? []) {
@@ -228,6 +301,13 @@ function findExportedConfigArrayExpression(mod: any): {
       right.arguments?.[0]?.type === "ArrayExpression"
     ) {
       return { kind: "cjs", arrayExpr: right.arguments[0], program };
+    }
+    if (right?.type === "Identifier" && typeof right.name === "string") {
+      const resolved = resolveTopLevelIdentifierToArrayExpr(
+        program,
+        right.name
+      );
+      if (resolved) return { kind: "cjs", arrayExpr: resolved, program };
     }
   }
 
