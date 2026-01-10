@@ -9,7 +9,6 @@ export interface InstallNextRoutesOptions {
    */
   appRoot: string;
   force?: boolean;
-  confirmOverwrite?: (relPath: string) => Promise<boolean>;
 }
 
 const DEV_SOURCE_ROUTE_TS = `/**
@@ -153,10 +152,9 @@ async function writeRouteFile(
   content: string,
   opts: InstallNextRoutesOptions
 ): Promise<void> {
-  if (existsSync(absPath) && !opts.force) {
-    const ok = await opts.confirmOverwrite?.(relPath);
-    if (!ok) return;
-  }
+  // This generator is deterministic; no confirmOverwrite prompts needed.
+  // If a file exists and we're not forcing, just skip it.
+  if (existsSync(absPath) && !opts.force) return;
   await writeFile(absPath, content, "utf-8");
 }
 

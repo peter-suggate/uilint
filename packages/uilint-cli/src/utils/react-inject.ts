@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+import { parseModule, generateCode } from "magicast";
 
 export interface InstallReactOverlayOptions {
   projectPath: string;
@@ -8,7 +9,6 @@ export interface InstallReactOverlayOptions {
    */
   appRoot: string;
   force?: boolean;
-  confirmOverwrite?: (relPath: string) => Promise<boolean>;
   /**
    * If multiple candidates are found, prompt user to choose.
    */
@@ -42,75 +42,130 @@ function getDefaultCandidates(projectPath: string, appRoot: string): string[] {
   return pageCandidates.filter((rel) => existsSync(join(projectPath, rel)));
 }
 
-function ensureUILintProviderImport(source: string): string {
-  if (
-    source.includes('from "uilint-react"') ||
-    source.includes("from 'uilint-react'")
-  ) {
-    // Check if UILintProvider is imported
-    if (source.includes("UILintProvider")) {
-      return source;
-    }
-    // Add UILintProvider to existing import
-    return source.replace(
-      /import\s*{([^}]*?)}\s*from\s*["']uilint-react["']/,
-      (match, imports) => {
-        const trimmedImports = imports.trim();
-        if (trimmedImports) {
-          return `import { ${trimmedImports}, UILintProvider } from "uilint-react"`;
-        }
-        return `import { UILintProvider } from "uilint-react"`;
-      }
-    );
-  }
-
-  const importLine = `import { UILintProvider } from "uilint-react";\n`;
-
-  // Keep "use client" first if present.
-  const useClientMatch = source.match(/^["']use client["'];\s*\n/);
-  const startIdx = useClientMatch ? useClientMatch[0].length : 0;
-
-  // Insert after last import statement in the header region.
-  const header = source.slice(0, Math.min(source.length, 5000));
-  const importRegex = /^import[\s\S]*?;\s*$/gm;
-  let lastImportEnd = -1;
-  for (const m of header.matchAll(importRegex)) {
-    lastImportEnd = (m.index ?? 0) + m[0].length;
-  }
-
-  if (lastImportEnd !== -1) {
-    const absoluteEnd = lastImportEnd;
-    return (
-      source.slice(0, absoluteEnd) +
-      "\n" +
-      importLine +
-      source.slice(absoluteEnd)
-    );
-  }
-
-  return source.slice(0, startIdx) + importLine + source.slice(startIdx);
+function isUseClientDirective(stmt: any): boolean {
+  return (
+    stmt?.type === "ExpressionStatement" &&
+    stmt.expression?.type === "StringLiteral" &&
+    stmt.expression.value === "use client"
+  );
 }
 
-function wrapChildrenWithUILintProvider(source: string): string {
-  if (source.includes("<UILintProvider")) return source;
-  const marker = "{children}";
-  const idx = source.indexOf(marker);
-  if (idx === -1) {
-    throw new Error("Could not find `{children}` in target file to wrap.");
+function findImportDeclaration(program: any, from: string): any | null {
+  if (!program || program.type !== "Program") return null;
+  for (const stmt of program.body ?? []) {
+    if (stmt?.type !== "ImportDeclaration") continue;
+    if (stmt.source?.value === from) return stmt;
+  }
+  return null;
+}
+
+function walkAst(node: any, visit: (n: any) => void): void {
+  if (!node || typeof node !== "object") return;
+  if (node.type) visit(node);
+  for (const key of Object.keys(node)) {
+    const v = (node as any)[key];
+    if (!v) continue;
+    if (Array.isArray(v)) {
+      for (const item of v) walkAst(item, visit);
+    } else if (typeof v === "object" && v.type) {
+      walkAst(v, visit);
+    }
+  }
+}
+
+function ensureNamedImport(
+  program: any,
+  from: string,
+  name: string
+): { changed: boolean } {
+  if (!program || program.type !== "Program") return { changed: false };
+
+  const existing = findImportDeclaration(program, from);
+  if (existing) {
+    const has = (existing.specifiers ?? []).some(
+      (s: any) =>
+        s?.type === "ImportSpecifier" &&
+        (s.imported?.name === name || s.imported?.value === name)
+    );
+    if (has) return { changed: false };
+
+    const spec = (parseModule(`import { ${name} } from "${from}";`).$ast as any)
+      .body?.[0]?.specifiers?.[0];
+    if (!spec) return { changed: false };
+
+    existing.specifiers = [...(existing.specifiers ?? []), spec];
+    return { changed: true };
   }
 
-  const wrapperStart = `<UILintProvider enabled={process.env.NODE_ENV !== "production"}>
-          `;
-  const wrapperEnd = `
-        </UILintProvider>`;
+  // Insert a fresh import after directives, and after existing imports.
+  const importDecl = (
+    parseModule(`import { ${name} } from "${from}";`).$ast as any
+  ).body?.[0];
+  if (!importDecl) return { changed: false };
 
-  return (
-    source.slice(0, idx) +
-    wrapperStart +
-    marker +
-    wrapperEnd +
-    source.slice(idx + marker.length)
+  const body = program.body ?? [];
+  let insertAt = 0;
+  while (insertAt < body.length && isUseClientDirective(body[insertAt])) {
+    insertAt++;
+  }
+  // Skip over existing imports
+  while (
+    insertAt < body.length &&
+    body[insertAt]?.type === "ImportDeclaration"
+  ) {
+    insertAt++;
+  }
+  program.body.splice(insertAt, 0, importDecl);
+  return { changed: true };
+}
+
+function hasUILintProviderJsx(program: any): boolean {
+  let found = false;
+  walkAst(program, (node) => {
+    if (found) return;
+    if (node.type !== "JSXElement") return;
+    const name = node.openingElement?.name;
+    if (name?.type === "JSXIdentifier" && name.name === "UILintProvider") {
+      found = true;
+    }
+  });
+  return found;
+}
+
+function wrapFirstChildrenExpressionWithProvider(program: any): {
+  changed: boolean;
+} {
+  if (!program || program.type !== "Program") return { changed: false };
+  if (hasUILintProviderJsx(program)) return { changed: false };
+
+  const providerMod = parseModule(
+    'const __uilint_provider = (<UILintProvider enabled={process.env.NODE_ENV !== "production"}>{children}</UILintProvider>);'
   );
+  const providerJsx =
+    (providerMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
+  if (!providerJsx || providerJsx.type !== "JSXElement")
+    return { changed: false };
+
+  let replaced = false;
+  walkAst(program, (node) => {
+    if (replaced) return;
+    if (
+      node.type === "JSXExpressionContainer" &&
+      node.expression?.type === "Identifier" &&
+      node.expression.name === "children"
+    ) {
+      // Replace `{children}` with `<UILintProvider ...>{children}</UILintProvider>`
+      // by replacing the expression container node with the provider JSX element.
+      Object.keys(node).forEach((k) => delete (node as any)[k]);
+      Object.assign(node, providerJsx);
+      replaced = true;
+    }
+  });
+
+  if (!replaced) {
+    throw new Error("Could not find `{children}` in target file to wrap.");
+  }
+  return { changed: true };
 }
 
 export async function installReactUILintOverlay(
@@ -140,23 +195,31 @@ export async function installReactUILintOverlay(
   const absTarget = join(opts.projectPath, chosen);
   const original = readFileSync(absTarget, "utf-8");
 
-  // Check if already fully configured (has both import and provider)
-  const hasImport =
-    original.includes('from "uilint-react"') ||
-    original.includes("from 'uilint-react'");
-  const hasProvider = original.includes("<UILintProvider");
-  const alreadyConfigured = hasImport && hasProvider;
-
-  if (alreadyConfigured && !opts.force) {
-    const ok = await opts.confirmOverwrite?.(chosen);
-    if (!ok) {
-      return { targetFile: chosen, modified: false, alreadyConfigured: true };
-    }
+  let mod: any;
+  try {
+    mod = parseModule(original);
+  } catch {
+    throw new Error(
+      `Unable to parse ${chosen} as JavaScript/TypeScript. Please update it manually.`
+    );
   }
 
-  let updated = original;
-  updated = ensureUILintProviderImport(updated);
-  updated = wrapChildrenWithUILintProvider(updated);
+  const program = mod.$ast;
+  const alreadyConfigured =
+    !!findImportDeclaration(program, "uilint-react") &&
+    hasUILintProviderJsx(program);
+
+  let changed = false;
+  const importRes = ensureNamedImport(
+    program,
+    "uilint-react",
+    "UILintProvider"
+  );
+  if (importRes.changed) changed = true;
+  const wrapRes = wrapFirstChildrenExpressionWithProvider(program);
+  if (wrapRes.changed) changed = true;
+
+  const updated = changed ? generateCode(mod).code : original;
 
   const modified = updated !== original;
   if (modified) {

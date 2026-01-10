@@ -207,3 +207,76 @@ describe("Next.js installation - dry run", () => {
     expect(routesResult?.wouldDo).toContain("Install Next.js API routes");
   });
 });
+
+// ============================================================================
+// Execution Tests (file modifications)
+// ============================================================================
+
+describe("Next.js installation - execute", () => {
+  it("injects UILintProvider into app layout and wraps next.config export", async () => {
+    fixture = useFixture("fresh-nextjs-app");
+
+    const state = await analyze(fixture.path);
+    const prompter = mockPrompter({ installItems: ["next"] });
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+
+    const result = await execute(plan, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+
+    expect(result.success).toBe(true);
+
+    const updatedLayout = fixture.readFile("app/layout.tsx");
+    expect(updatedLayout).toContain('from "uilint-react"');
+    expect(updatedLayout).toContain("<UILintProvider");
+    expect(updatedLayout).toContain(
+      'enabled={process.env.NODE_ENV !== "production"}'
+    );
+
+    const updatedNextConfig = fixture.readFile("next.config.ts");
+    expect(updatedNextConfig).toContain('from "jsx-loc-plugin"');
+    expect(updatedNextConfig).toContain("withJsxLoc(");
+  });
+
+  it('keeps "use client" first and preserves comments (idempotent)', async () => {
+    fixture = useFixture("nextjs-app-use-client");
+
+    const state1 = await analyze(fixture.path);
+    const prompter = mockPrompter({ installItems: ["next"] });
+    const choices1 = await gatherChoices(state1, {}, prompter);
+    const plan1 = createPlan(state1, choices1);
+
+    const result1 = await execute(plan1, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+    expect(result1.success).toBe(true);
+
+    const afterFirstLayout = fixture.readFile("app/layout.tsx");
+    const afterFirstNextConfig = fixture.readFile("next.config.ts");
+
+    // "use client" should remain the very first statement.
+    expect(afterFirstLayout.trimStart().startsWith('"use client";')).toBe(true);
+    // Comments should remain.
+    expect(afterFirstLayout).toContain("Preserve this comment too.");
+    expect(afterFirstNextConfig).toContain("Preserve this comment.");
+
+    // Run again (should be idempotent)
+    const state2 = await analyze(fixture.path);
+    const choices2 = await gatherChoices(state2, {}, prompter);
+    const plan2 = createPlan(state2, choices2);
+    const result2 = await execute(plan2, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+    expect(result2.success).toBe(true);
+
+    const afterSecondLayout = fixture.readFile("app/layout.tsx");
+    const afterSecondNextConfig = fixture.readFile("next.config.ts");
+
+    expect(afterSecondLayout).toBe(afterFirstLayout);
+    expect(afterSecondNextConfig).toBe(afterFirstNextConfig);
+  });
+});

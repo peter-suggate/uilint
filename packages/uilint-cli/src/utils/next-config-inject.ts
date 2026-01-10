@@ -6,11 +6,11 @@
 
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+import { parseModule, generateCode } from "magicast";
 
 export interface InstallJsxLocPluginOptions {
   projectPath: string;
   force?: boolean;
-  confirmOverwrite?: (relPath: string) => Promise<boolean>;
 }
 
 const CONFIG_EXTENSIONS = [".ts", ".mjs", ".js", ".cjs"];
@@ -53,165 +53,156 @@ function hasJsxLocWrapper(source: string): boolean {
   return source.includes("withJsxLoc(");
 }
 
-/**
- * Add the withJsxLoc import to the source if not present
- */
-function ensureJsxLocImport(source: string): string {
-  if (hasJsxLocImport(source)) {
-    // Check if withJsxLoc is already imported
-    if (source.includes("withJsxLoc")) {
-      return source;
-    }
-    // Add withJsxLoc to existing import
-    return source.replace(
-      /import\s*{([^}]*?)}\s*from\s*["']jsx-loc-plugin["']/,
-      (match, imports) => {
-        const trimmedImports = imports.trim();
-        if (trimmedImports) {
-          return `import { ${trimmedImports}, withJsxLoc } from "jsx-loc-plugin"`;
-        }
-        return `import { withJsxLoc } from "jsx-loc-plugin"`;
-      }
-    );
-  }
-
-  const importLine = `import { withJsxLoc } from "jsx-loc-plugin";\n`;
-
-  // Find the last import statement and insert after it
-  const header = source.slice(0, Math.min(source.length, 5000));
-  const importRegex = /^import[\s\S]*?;\s*$/gm;
-  let lastImportEnd = -1;
-  for (const m of header.matchAll(importRegex)) {
-    lastImportEnd = (m.index ?? 0) + m[0].length;
-  }
-
-  if (lastImportEnd !== -1) {
-    return (
-      source.slice(0, lastImportEnd) +
-      "\n" +
-      importLine +
-      source.slice(lastImportEnd)
-    );
-  }
-
-  // No imports found, add at the beginning
-  return importLine + source;
-}
-
-/**
- * Wrap the export default with withJsxLoc()
- *
- * Handles patterns:
- * - export default nextConfig
- * - export default { ... }
- * - export default someFunction(config)
- */
-function wrapExportWithJsxLoc(source: string): string {
-  if (hasJsxLocWrapper(source)) {
-    return source;
-  }
-
-  // Pattern 1: export default identifier;
-  // e.g., export default nextConfig;
-  const simpleExportMatch = source.match(
-    /export\s+default\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*;/
+function isIdentifier(node: any, name?: string): boolean {
+  return (
+    !!node &&
+    node.type === "Identifier" &&
+    (name ? node.name === name : typeof node.name === "string")
   );
-  if (simpleExportMatch) {
-    const identifier = simpleExportMatch[1];
-    return source.replace(
-      /export\s+default\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*;/,
-      `export default withJsxLoc(${identifier});`
-    );
-  }
-
-  // Pattern 2: export default { ... } or export default someCall(...)
-  // Find "export default" and wrap whatever comes after
-  const exportDefaultMatch = source.match(/export\s+default\s+/);
-  if (exportDefaultMatch && exportDefaultMatch.index !== undefined) {
-    const exportStart = exportDefaultMatch.index;
-    const afterExport = exportStart + exportDefaultMatch[0].length;
-
-    // Find the end of the export statement
-    // This is tricky - we need to find the matching ; at the end
-    // For objects/function calls, we need to handle nested braces/parens
-
-    const rest = source.slice(afterExport);
-
-    // Simple case: ends with semicolon on same logical expression
-    // We'll use a heuristic: find the last semicolon or end of file
-    const semicolonMatch = findExportEnd(rest);
-
-    if (semicolonMatch !== -1) {
-      const exportedValue = rest.slice(0, semicolonMatch).trim();
-      const afterSemicolon = rest.slice(semicolonMatch);
-
-      return (
-        source.slice(0, afterExport) +
-        `withJsxLoc(${exportedValue})` +
-        afterSemicolon
-      );
-    }
-  }
-
-  // Fallback: couldn't parse, return unchanged
-  return source;
 }
 
-/**
- * Find the end of the export default statement (position of semicolon or end)
- */
-function findExportEnd(source: string): number {
-  let depth = 0;
-  let inString: string | null = null;
-  let escaped = false;
+function isStringLiteral(node: any): node is { type: string; value: string } {
+  return (
+    !!node &&
+    (node.type === "StringLiteral" || node.type === "Literal") &&
+    typeof node.value === "string"
+  );
+}
 
-  for (let i = 0; i < source.length; i++) {
-    const char = source[i];
-    const prevChar = i > 0 ? source[i - 1] : "";
+function ensureEsmWithJsxLocImport(program: any): { changed: boolean } {
+  if (!program || program.type !== "Program") return { changed: false };
 
-    // Handle escape sequences in strings
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
+  // Find existing import from jsx-loc-plugin
+  const existing = (program.body ?? []).find(
+    (s: any) => s?.type === "ImportDeclaration" && s.source?.value === "jsx-loc-plugin"
+  );
 
-    if (char === "\\") {
-      escaped = true;
-      continue;
-    }
+  if (existing) {
+    const has = (existing.specifiers ?? []).some(
+      (sp: any) =>
+        sp?.type === "ImportSpecifier" &&
+        (sp.imported?.name === "withJsxLoc" || sp.imported?.value === "withJsxLoc")
+    );
+    if (has) return { changed: false };
 
-    // Handle string boundaries
-    if (inString) {
-      if (char === inString) {
-        inString = null;
+    const spec = (parseModule('import { withJsxLoc } from "jsx-loc-plugin";')
+      .$ast as any).body?.[0]?.specifiers?.[0];
+    if (!spec) return { changed: false };
+    existing.specifiers = [...(existing.specifiers ?? []), spec];
+    return { changed: true };
+  }
+
+  const importDecl = (parseModule('import { withJsxLoc } from "jsx-loc-plugin";')
+    .$ast as any).body?.[0];
+  if (!importDecl) return { changed: false };
+
+  // Insert after last import
+  const body = program.body ?? [];
+  let insertAt = 0;
+  while (insertAt < body.length && body[insertAt]?.type === "ImportDeclaration") {
+    insertAt++;
+  }
+  program.body.splice(insertAt, 0, importDecl);
+  return { changed: true };
+}
+
+function ensureCjsWithJsxLocRequire(program: any): { changed: boolean } {
+  if (!program || program.type !== "Program") return { changed: false };
+
+  // Detect an existing require("jsx-loc-plugin") that binds withJsxLoc
+  for (const stmt of program.body ?? []) {
+    if (stmt?.type !== "VariableDeclaration") continue;
+    for (const decl of stmt.declarations ?? []) {
+      const init = decl?.init;
+      if (
+        init?.type === "CallExpression" &&
+        isIdentifier(init.callee, "require") &&
+        isStringLiteral(init.arguments?.[0]) &&
+        init.arguments[0].value === "jsx-loc-plugin"
+      ) {
+        // If destructuring, ensure property exists
+        if (decl.id?.type === "ObjectPattern") {
+          const has = (decl.id.properties ?? []).some((p: any) => {
+            if (p?.type !== "ObjectProperty" && p?.type !== "Property") return false;
+            return isIdentifier(p.key, "withJsxLoc");
+          });
+          if (has) return { changed: false };
+          const prop = (parseModule('const { withJsxLoc } = require("jsx-loc-plugin");')
+            .$ast as any).body?.[0]?.declarations?.[0]?.id?.properties?.[0];
+          if (!prop) return { changed: false };
+          decl.id.properties = [...(decl.id.properties ?? []), prop];
+          return { changed: true };
+        }
+
+        // Already requiring the module in some other shape; don't try to rewrite.
+        return { changed: false };
       }
-      continue;
-    }
-
-    if (char === '"' || char === "'" || char === "`") {
-      inString = char;
-      continue;
-    }
-
-    // Track depth of brackets/parens/braces
-    if (char === "(" || char === "[" || char === "{") {
-      depth++;
-      continue;
-    }
-
-    if (char === ")" || char === "]" || char === "}") {
-      depth--;
-      continue;
-    }
-
-    // Found semicolon at depth 0 - this is our end
-    if (char === ";" && depth === 0) {
-      return i;
     }
   }
 
-  // No semicolon found, return end of source
-  return source.length;
+  // Insert: const { withJsxLoc } = require("jsx-loc-plugin");
+  const reqDecl = (parseModule('const { withJsxLoc } = require("jsx-loc-plugin");')
+    .$ast as any).body?.[0];
+  if (!reqDecl) return { changed: false };
+  program.body.unshift(reqDecl);
+  return { changed: true };
+}
+
+function wrapEsmExportDefault(program: any): { changed: boolean } {
+  if (!program || program.type !== "Program") return { changed: false };
+
+  const exportDecl = (program.body ?? []).find(
+    (s: any) => s?.type === "ExportDefaultDeclaration"
+  );
+  if (!exportDecl) return { changed: false };
+
+  const decl = exportDecl.declaration;
+  if (
+    decl?.type === "CallExpression" &&
+    isIdentifier(decl.callee, "withJsxLoc")
+  ) {
+    return { changed: false };
+  }
+
+  exportDecl.declaration = {
+    type: "CallExpression",
+    callee: { type: "Identifier", name: "withJsxLoc" },
+    arguments: [decl],
+  };
+  return { changed: true };
+}
+
+function wrapCjsModuleExports(program: any): { changed: boolean } {
+  if (!program || program.type !== "Program") return { changed: false };
+
+  for (const stmt of program.body ?? []) {
+    if (!stmt || stmt.type !== "ExpressionStatement") continue;
+    const expr = stmt.expression;
+    if (!expr || expr.type !== "AssignmentExpression") continue;
+    const left = expr.left;
+    const right = expr.right;
+    const isModuleExports =
+      left?.type === "MemberExpression" &&
+      isIdentifier(left.object, "module") &&
+      isIdentifier(left.property, "exports");
+    if (!isModuleExports) continue;
+
+    if (
+      right?.type === "CallExpression" &&
+      isIdentifier(right.callee, "withJsxLoc")
+    ) {
+      return { changed: false };
+    }
+
+    expr.right = {
+      type: "CallExpression",
+      callee: { type: "Identifier", name: "withJsxLoc" },
+      arguments: [right],
+    };
+    return { changed: true };
+  }
+
+  return { changed: false };
 }
 
 /**
@@ -229,20 +220,32 @@ export async function installJsxLocPlugin(
   const configFilename = getNextConfigFilename(configPath);
   const original = readFileSync(configPath, "utf-8");
 
-  // Check if already configured
-  if (hasJsxLocWrapper(original)) {
-    if (!opts.force) {
-      const ok = await opts.confirmOverwrite?.(configFilename);
-      if (!ok) {
-        return { configFile: configFilename, modified: false };
-      }
-    }
+  let mod: any;
+  try {
+    mod = parseModule(original);
+  } catch {
+    return { configFile: configFilename, modified: false };
   }
 
-  // Apply transformations
-  let updated = original;
-  updated = ensureJsxLocImport(updated);
-  updated = wrapExportWithJsxLoc(updated);
+  const program = mod.$ast;
+  const isCjs = configPath.endsWith(".cjs");
+
+  // No confirmOverwrite needed: injector is idempotent.
+
+  let changed = false;
+  if (isCjs) {
+    const reqRes = ensureCjsWithJsxLocRequire(program);
+    if (reqRes.changed) changed = true;
+    const wrapRes = wrapCjsModuleExports(program);
+    if (wrapRes.changed) changed = true;
+  } else {
+    const impRes = ensureEsmWithJsxLocImport(program);
+    if (impRes.changed) changed = true;
+    const wrapRes = wrapEsmExportDefault(program);
+    if (wrapRes.changed) changed = true;
+  }
+
+  const updated = changed ? generateCode(mod).code : original;
 
   if (updated !== original) {
     writeFileSync(configPath, updated, "utf-8");

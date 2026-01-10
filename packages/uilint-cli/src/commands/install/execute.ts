@@ -201,7 +201,6 @@ async function executeInjectEslint(
     selectedRules: action.rules,
     force: !action.hasExistingRules, // Don't force if already has rules
     // Auto-confirm for execute phase (choices were made during planning)
-    confirmOverwrite: async () => true,
     confirmAddMissingRules: async () => true,
   });
 
@@ -240,7 +239,6 @@ async function executeInjectReact(
     force: false,
     // Auto-select first choice for execute phase
     confirmFileChoice: async (choices) => choices[0],
-    confirmOverwrite: async () => true,
   });
 
   // Success if modified OR already configured (goal achieved either way)
@@ -273,7 +271,6 @@ async function executeInjectNextConfig(
   const result = await installJsxLocPlugin({
     projectPath: action.projectPath,
     force: false,
-    confirmOverwrite: async () => true,
   });
 
   return {
@@ -304,7 +301,6 @@ async function executeInstallNextRoutes(
     projectPath: action.projectPath,
     appRoot: action.appRoot,
     force: false,
-    confirmOverwrite: async () => true,
   });
 
   return { action, success: true };

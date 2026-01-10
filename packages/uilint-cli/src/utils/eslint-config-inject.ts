@@ -13,7 +13,6 @@ export interface InstallEslintPluginOptions {
   projectPath: string;
   selectedRules: RuleMetadata[];
   force?: boolean;
-  confirmOverwrite?: (relPath: string) => Promise<boolean>;
   confirmAddMissingRules?: (
     relPath: string,
     missingRules: RuleMetadata[]
