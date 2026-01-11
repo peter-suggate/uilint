@@ -1009,6 +1009,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
         route,
         timestamp: Date.now(),
         screenshot: screenshotDataUrl || undefined,
+        screenshotFile: filename,
         manifest,
         requestId,
       };

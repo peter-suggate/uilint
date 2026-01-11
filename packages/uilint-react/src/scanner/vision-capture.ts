@@ -408,12 +408,15 @@ export function buildVisionAnalysisPayload(options: {
   screenshotDataUrl?: string;
   manifest: ElementManifest[];
   route: string;
+  /** Screenshot filename saved under `.uilint/screenshots` (e.g. uilint-...png) */
+  screenshotFile?: string;
 }) {
   return {
     type: "vision:analyze" as const,
     route: options.route,
     timestamp: Date.now(),
     screenshot: options.screenshotDataUrl,
+    screenshotFile: options.screenshotFile,
     manifest: options.manifest,
   };
 }

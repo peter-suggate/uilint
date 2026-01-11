@@ -8,7 +8,7 @@
  * - Client -> Server: { type: 'lint:element', filePath: string, dataLoc: string, requestId?: string }
  * - Client -> Server: { type: 'subscribe:file', filePath: string }
  * - Client -> Server: { type: 'cache:invalidate', filePath?: string }
- * - Client -> Server: { type: 'vision:analyze', route: string, timestamp: number, screenshot?: string, manifest: ElementManifest[], requestId?: string }
+ * - Client -> Server: { type: 'vision:analyze', route: string, timestamp: number, screenshot?: string, screenshotFile?: string, manifest: ElementManifest[], requestId?: string }
  * - Server -> Client: { type: 'lint:result', filePath: string, issues: Issue[], requestId?: string }
  * - Server -> Client: { type: 'lint:progress', filePath: string, phase: string, requestId?: string }
  * - Server -> Client: { type: 'file:changed', filePath: string }
@@ -18,7 +18,7 @@
 
 import { existsSync, statSync, readdirSync, readFileSync } from "fs";
 import { createRequire } from "module";
-import { dirname, resolve, relative, join } from "path";
+import { dirname, resolve, relative, join, parse } from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { watch, type FSWatcher } from "chokidar";
 import {
@@ -29,7 +29,10 @@ import {
   detectNextAppRouter,
   findNextAppRouterProjects,
 } from "../utils/next-detect.js";
-import { runVisionAnalysis } from "../utils/vision-run.js";
+import {
+  runVisionAnalysis,
+  writeVisionMarkdownReport,
+} from "../utils/vision-run.js";
 import {
   logInfo,
   logSuccess,
@@ -79,6 +82,8 @@ interface VisionAnalyzeMessage {
   route: string;
   timestamp: number;
   screenshot?: string;
+  /** Screenshot filename persisted under `.uilint/screenshots/` (e.g. uilint-...png) */
+  screenshotFile?: string;
   manifest: ElementManifest[];
   requestId?: string;
 }
@@ -208,6 +213,12 @@ function getVisionAnalyzerInstance(): ReturnType<typeof getCoreVisionAnalyzer> {
 
 // Default styleguide search root for vision analysis (set when `serve()` starts)
 let serverAppRootForVision = process.cwd();
+
+function isValidScreenshotFilename(filename: string): boolean {
+  // Only allow alphanumeric, hyphens, underscores, and dots; must end with a safe image extension.
+  const validPattern = /^[a-zA-Z0-9_-]+\.(png|jpeg|jpg)$/;
+  return validPattern.test(filename) && !filename.includes("..");
+}
 
 // Cache resolved paths for incoming filePath strings
 const resolvedPathCache = new Map<string, string>();
@@ -728,7 +739,14 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
     }
 
     case "vision:analyze": {
-      const { route, timestamp, screenshot, manifest, requestId } = message;
+      const {
+        route,
+        timestamp,
+        screenshot,
+        screenshotFile,
+        manifest,
+        requestId,
+      } = message;
       logInfo(
         `${pc.dim("[ws]")} ${pc.bold("vision:analyze")} ${pc.dim(route)}${
           requestId ? ` ${pc.dim(`(req ${requestId})`)}` : ""
@@ -765,6 +783,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
             `  screenshot:   ${pc.dim(
               screenshot ? `${Math.round(screenshotBytes / 1024)}kb` : "none"
             )}`,
+            `  screenshotFile: ${pc.dim(screenshotFile ?? "(none)")}`,
             `  ollamaUrl:    ${pc.dim(analyzerBaseUrl ?? "(default)")}`,
             `  visionModel:  ${pc.dim(analyzerModel ?? "(default)")}`,
           ].join("\n")
@@ -799,6 +818,61 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
             });
           },
         });
+
+        // Write a markdown report alongside the saved screenshot (best-effort).
+        if (typeof screenshotFile === "string" && screenshotFile.length > 0) {
+          if (!isValidScreenshotFilename(screenshotFile)) {
+            logWarning(
+              `Skipping vision report write: invalid screenshotFile ${pc.dim(
+                screenshotFile
+              )}`
+            );
+          } else {
+            const screenshotsDir = join(
+              serverAppRootForVision,
+              ".uilint",
+              "screenshots"
+            );
+            const imagePath = join(screenshotsDir, screenshotFile);
+            try {
+              if (!existsSync(imagePath)) {
+                logWarning(
+                  `Skipping vision report write: screenshot file not found ${pc.dim(
+                    imagePath
+                  )}`
+                );
+              } else {
+                const report = writeVisionMarkdownReport({
+                  imagePath,
+                  route,
+                  timestamp,
+                  visionModel: result.visionModel,
+                  baseUrl: result.baseUrl,
+                  analysisTimeMs: result.analysisTime,
+                  prompt: result.prompt ?? null,
+                  rawResponse: result.rawResponse ?? null,
+                  metadata: {
+                    screenshotFile: parse(imagePath).base,
+                    appRoot: serverAppRootForVision,
+                    manifestElements: manifest.length,
+                    requestId: requestId ?? null,
+                  },
+                });
+                logInfo(
+                  `${pc.dim("[ws]")} wrote vision report ${pc.dim(
+                    report.outPath
+                  )}`
+                );
+              }
+            } catch (e) {
+              logWarning(
+                `Failed to write vision report for ${pc.dim(screenshotFile)}: ${
+                  e instanceof Error ? e.message : String(e)
+                }`
+              );
+            }
+          }
+        }
 
         const elapsed = Date.now() - startedAt;
         logInfo(

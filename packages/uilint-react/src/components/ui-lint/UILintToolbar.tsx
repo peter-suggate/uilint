@@ -415,7 +415,7 @@ function Kbd({ children }: { children: React.ReactNode }) {
         borderRadius: "4px",
         backgroundColor: TOKENS.bgElevated,
         border: `1px solid ${TOKENS.border}`,
-        fontSize: "11px",
+        fontSize: "10px",
         fontFamily: TOKENS.fontMono,
         color: TOKENS.textSecondary,
         boxShadow: "0 1px 2px rgba(0, 0, 0, 0.4)",
@@ -612,7 +612,12 @@ function ScanningToolbar({
   return (
     <div
       className="uilint-scanning-bar"
-      style={{ display: "flex", alignItems: "center", gap: "10px" }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "10px",
+      }}
     >
       {/* Status pill */}
       <PillContainer glow={glowColor}>
@@ -673,10 +678,7 @@ function ScanningToolbar({
       </PillContainer>
 
       {/* Keyboard hint */}
-      <Kbd>⌥ + Click</Kbd>
-      <span style={{ fontSize: "12px", color: TOKENS.textMuted }}>
-        to inspect
-      </span>
+      <Kbd>⌥ + Click an element</Kbd>
     </div>
   );
 }

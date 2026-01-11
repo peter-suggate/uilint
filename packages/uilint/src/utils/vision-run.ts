@@ -1,4 +1,4 @@
-import { dirname } from "path";
+import { dirname, join, parse } from "path";
 import { existsSync, statSync, mkdirSync, writeFileSync } from "fs";
 import {
   ensureOllamaReady,
@@ -109,6 +109,7 @@ export type RunVisionAnalysisArgs = {
 export type RunVisionAnalysisResult = {
   issues: VisionIssue[];
   analysisTime: number;
+  prompt?: string;
   rawResponse?: string;
   styleguideLocation: string | null;
   visionModel: string;
@@ -256,9 +257,85 @@ export async function runVisionAnalysis(
   return {
     issues: result.issues,
     analysisTime: result.analysisTime,
+    // Prompt is available in newer uilint-core versions; keep this resilient across versions.
+    prompt: (result as any).prompt,
     rawResponse: result.rawResponse,
     styleguideLocation,
     visionModel,
     baseUrl,
   };
+}
+
+export type WriteVisionMarkdownReportArgs = {
+  /** Absolute path to the source image file */
+  imagePath: string;
+  /** Route label (optional; included in report) */
+  route?: string;
+  /** Unix ms timestamp (optional; included in report) */
+  timestamp?: number;
+  visionModel?: string;
+  baseUrl?: string;
+  analysisTimeMs?: number;
+  prompt?: string | null;
+  rawResponse?: string | null;
+  /** Extra JSON-ish metadata to include */
+  metadata?: Record<string, unknown>;
+  /**
+   * Optional output path; if omitted, writes alongside the image:
+   * `<basename>.vision.md`
+   */
+  outPath?: string;
+};
+
+export function writeVisionMarkdownReport(
+  args: WriteVisionMarkdownReportArgs
+): {
+  outPath: string;
+  content: string;
+} {
+  const p = parse(args.imagePath);
+  const outPath = args.outPath ?? join(p.dir, `${p.name || p.base}.vision.md`);
+
+  const lines: string[] = [];
+  lines.push(`# UILint Vision Report`);
+  lines.push(``);
+  lines.push(`- Image: \`${p.base}\``);
+  if (args.route) lines.push(`- Route: \`${args.route}\``);
+  if (typeof args.timestamp === "number") {
+    lines.push(`- Timestamp: \`${new Date(args.timestamp).toISOString()}\``);
+  }
+  if (args.visionModel) lines.push(`- Model: \`${args.visionModel}\``);
+  if (args.baseUrl) lines.push(`- Ollama baseUrl: \`${args.baseUrl}\``);
+  if (typeof args.analysisTimeMs === "number")
+    lines.push(`- Analysis time: \`${args.analysisTimeMs}ms\``);
+  lines.push(`- Generated: \`${new Date().toISOString()}\``);
+  lines.push(``);
+
+  if (args.metadata && Object.keys(args.metadata).length > 0) {
+    lines.push(`## Metadata`);
+    lines.push(``);
+    lines.push("```json");
+    lines.push(JSON.stringify(args.metadata, null, 2));
+    lines.push("```");
+    lines.push(``);
+  }
+
+  lines.push(`## Prompt`);
+  lines.push(``);
+  lines.push("```text");
+  lines.push((args.prompt ?? "").trim());
+  lines.push("```");
+  lines.push(``);
+
+  lines.push(`## Raw Response`);
+  lines.push(``);
+  lines.push("```text");
+  lines.push((args.rawResponse ?? "").trim());
+  lines.push("```");
+  lines.push(``);
+
+  const content = lines.join("\n");
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, content, "utf-8");
+  return { outPath, content };
 }

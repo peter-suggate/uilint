@@ -18,6 +18,7 @@ vi.mock("uilint-core/node", async () => {
           },
         ],
         analysisTime: 7,
+        prompt: "PROMPT: mock prompt",
         rawResponse: '{"issues":[{"elementText":"Submit"}]}',
       };
     });
@@ -120,5 +121,31 @@ describe("vision-run", () => {
     const dumpPath = join(outDir, files[0]);
     const dump = JSON.parse(readFileSync(dumpPath, "utf-8"));
     expect(dump.inputs.imageBase64).toContain("omitted");
+  });
+
+  it("writeVisionMarkdownReport writes a .vision.md report next to the image", async () => {
+    const dir = tmpDir();
+    const imagePath = join(dir, "uilint-123.png");
+    writeFileSync(imagePath, "not-a-real-png", "utf-8");
+
+    const mod = await import("../../src/utils/vision-run.js");
+    const report = mod.writeVisionMarkdownReport({
+      imagePath,
+      route: "/todos",
+      timestamp: 1700000000000,
+      visionModel: "qwen3-vl:8b-instruct",
+      baseUrl: "http://localhost:11434",
+      analysisTimeMs: 7,
+      prompt: "hello prompt",
+      rawResponse: "hello response",
+      metadata: { a: 1 },
+    });
+
+    expect(report.outPath).toBe(join(dir, "uilint-123.vision.md"));
+    const md = readFileSync(report.outPath, "utf-8");
+    expect(md).toContain("## Prompt");
+    expect(md).toContain("hello prompt");
+    expect(md).toContain("## Raw Response");
+    expect(md).toContain("hello response");
   });
 });

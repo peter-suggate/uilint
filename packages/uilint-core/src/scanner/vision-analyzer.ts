@@ -77,6 +77,8 @@ export interface VisionAnalysisResult {
   issues: VisionIssue[];
   /** Analysis time in milliseconds */
   analysisTime: number;
+  /** Full prompt sent to the model (for debugging/reports) */
+  prompt?: string;
   /** Raw LLM response (for debugging) */
   rawResponse?: string;
 }
@@ -182,6 +184,7 @@ export class VisionAnalyzer {
       return {
         issues,
         analysisTime: Date.now() - startTime,
+        prompt,
         rawResponse,
       };
     } catch (error) {

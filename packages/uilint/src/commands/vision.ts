@@ -26,6 +26,7 @@ import { nsNow, nsToMs, formatMs, maybeMs } from "../utils/timing.js";
 import {
   resolveVisionStyleGuide,
   runVisionAnalysis,
+  writeVisionMarkdownReport,
 } from "../utils/vision-run.js";
 import {
   intro,
@@ -436,6 +437,7 @@ export async function vision(options: VisionOptions): Promise<void> {
     let result: {
       issues: VisionIssue[];
       analysisTime: number;
+      prompt?: string;
       rawResponse?: string;
     } | null = null;
 
@@ -645,6 +647,30 @@ export async function vision(options: VisionOptions): Promise<void> {
           "Timings"
         );
       }
+    }
+
+    // Write markdown report alongside the image (best-effort; never affects stdout JSON).
+    try {
+      writeVisionMarkdownReport({
+        imagePath: resolvedImagePath,
+        route: routeLabel,
+        visionModel,
+        baseUrl: options.baseUrl ?? "http://localhost:11434",
+        analysisTimeMs: result?.analysisTime ?? 0,
+        prompt: result?.prompt ?? null,
+        rawResponse: result?.rawResponse ?? null,
+        metadata: {
+          imageSizeBytes: sizeBytes,
+          styleguideLocation,
+        },
+      });
+      debugLog(dbg, "Wrote .vision.md report alongside image");
+    } catch (e) {
+      debugLog(
+        dbg,
+        "Failed to write .vision.md report",
+        e instanceof Error ? e.message : e
+      );
     }
 
     // Exit with error code if issues found
