@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUILintContext } from "./UILintProvider";
+import { useUILintStore, type UILintStore } from "./store";
 import type { SourceLocation } from "./types";
 
 /**
@@ -26,6 +27,9 @@ const STYLES = {
   fontMono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
   shadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
   blur: "blur(12px)",
+  // Severity colors for highlights
+  error: "#EF4444",
+  warning: "#F59E0B",
 };
 
 /**
@@ -115,6 +119,76 @@ export function LocatorOverlay() {
   );
 
   return createPortal(content, document.body);
+}
+
+/**
+ * Highlight for a hovered vision issue
+ */
+export function VisionIssueHighlight() {
+  const hoveredVisionIssue = useUILintStore(
+    (s: UILintStore) => s.hoveredVisionIssue
+  );
+  const [mounted, setMounted] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Update rect when issue changes or on scroll/resize
+  useEffect(() => {
+    if (!hoveredVisionIssue?.dataLoc) {
+      setRect(null);
+      return;
+    }
+
+    const updateRect = () => {
+      const element = document.querySelector(
+        `[data-loc="${hoveredVisionIssue.dataLoc}"]`
+      );
+      if (element) {
+        setRect(element.getBoundingClientRect());
+      } else {
+        setRect(null);
+      }
+    };
+
+    updateRect();
+
+    window.addEventListener("scroll", updateRect, true);
+    window.addEventListener("resize", updateRect);
+
+    return () => {
+      window.removeEventListener("scroll", updateRect, true);
+      window.removeEventListener("resize", updateRect);
+    };
+  }, [hoveredVisionIssue]);
+
+  if (!mounted || !hoveredVisionIssue || !rect) return null;
+
+  const severityColor =
+    hoveredVisionIssue.severity === "error" ? STYLES.error : STYLES.warning;
+
+  return createPortal(
+    <div
+      data-ui-lint
+      style={{
+        position: "fixed",
+        top: rect.top - 4,
+        left: rect.left - 4,
+        width: rect.width + 8,
+        height: rect.height + 8,
+        border: `2px solid ${severityColor}`,
+        borderRadius: "6px",
+        backgroundColor: `${severityColor}10`,
+        boxShadow: `0 0 12px ${severityColor}40`,
+        zIndex: 99997,
+        pointerEvents: "none",
+        animation: "uilint-locator-fade-in 0.1s ease-out",
+      }}
+    />,
+    document.body
+  );
 }
 
 /**
@@ -269,8 +343,8 @@ export function InspectedElementHighlight() {
     >
       <style>{`
         @keyframes uilint-inspected-pulse {
-          0%, 100% { box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.6), 0 0 8px rgba(16, 185, 129, 0.3); }
-          50% { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.8), 0 0 16px rgba(16, 185, 129, 0.5); }
+          0%, 100% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.6), 0 0 8px rgba(59, 130, 246, 0.3); }
+          50% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.8), 0 0 16px rgba(59, 130, 246, 0.5); }
         }
       `}</style>
 
@@ -282,9 +356,9 @@ export function InspectedElementHighlight() {
           left: rect.left - 3,
           width: rect.width + 6,
           height: rect.height + 6,
-          border: "2px solid #10B981",
+          border: "2px solid #3B82F6",
           borderRadius: "6px",
-          backgroundColor: "rgba(16, 185, 129, 0.08)",
+          backgroundColor: "rgba(59, 130, 246, 0.08)",
           animation: "uilint-inspected-pulse 2s ease-in-out infinite",
           zIndex: 99996,
         }}
@@ -297,7 +371,7 @@ export function InspectedElementHighlight() {
           top: rect.top - 24,
           left: rect.left - 3,
           padding: "2px 8px",
-          backgroundColor: "#10B981",
+          backgroundColor: "#3B82F6",
           color: "#FFFFFF",
           fontSize: "10px",
           fontWeight: 600,

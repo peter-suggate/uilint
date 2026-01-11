@@ -53,18 +53,18 @@ function useNavigationDetection(
 
     const checkNavigation = () => {
       const currentRoute = window.location.pathname;
-      
+
       // Skip if same route
       if (currentRoute === previousRouteRef.current) return;
-      
+
       const previousRoute = previousRouteRef.current;
       previousRouteRef.current = currentRoute;
-      
+
       // Debounce to wait for DOM to settle
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
       }
-      
+
       debounceRef.current = setTimeout(() => {
         onNavigate(currentRoute, previousRoute);
       }, 500); // 500ms debounce after navigation
@@ -181,7 +181,10 @@ export function UILintProvider({
   );
 
   // Use navigation detection
-  useNavigationDetection(enabled && isMounted && liveScanEnabled, handleNavigate);
+  useNavigationDetection(
+    enabled && isMounted && liveScanEnabled,
+    handleNavigate
+  );
 
   /**
    * Get element info from a DOM element for locator mode
@@ -426,6 +429,7 @@ function UILintUI() {
     Toolbar: React.ComponentType;
     Panel: React.ComponentType;
     LocatorOverlay: React.ComponentType;
+    VisionIssueHighlight: React.ComponentType;
     InspectedHighlight: React.ComponentType;
     ElementBadges: React.ComponentType;
     VisionIssueBadges: React.ComponentType;
@@ -434,7 +438,7 @@ function UILintUI() {
   useEffect(() => {
     // Import components
     Promise.all([
-      import("./UILintToolbar"),
+      import("./toolbar"),
       import("./InspectionPanel"),
       import("./LocatorOverlay"),
       import("./ElementBadges"),
@@ -444,6 +448,7 @@ function UILintUI() {
         Toolbar: toolbar.UILintToolbar,
         Panel: panel.InspectionPanel,
         LocatorOverlay: locator.LocatorOverlay,
+        VisionIssueHighlight: locator.VisionIssueHighlight,
         InspectedHighlight: locator.InspectedElementHighlight,
         ElementBadges: badges.ElementBadges,
         VisionIssueBadges: visionBadges.VisionIssueBadges,
@@ -457,6 +462,7 @@ function UILintUI() {
     Toolbar,
     Panel,
     LocatorOverlay,
+    VisionIssueHighlight,
     InspectedHighlight,
     ElementBadges,
     VisionIssueBadges,
@@ -468,6 +474,7 @@ function UILintUI() {
     <>
       <Toolbar />
       {(altKeyHeld || inspectedElement) && <LocatorOverlay />}
+      <VisionIssueHighlight />
       {liveScanEnabled && <ElementBadges />}
       {hasVisionIssues && <VisionIssueBadges />}
       {inspectedElement && (

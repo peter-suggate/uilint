@@ -24,6 +24,10 @@ const STYLES = {
   badgeShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
   highlightBorder: "rgba(139, 92, 246, 0.8)",
   highlightBg: "rgba(139, 92, 246, 0.1)",
+  // Severity-based highlight colors
+  error: "#EF4444",
+  warning: "#F59E0B",
+  info: "#3B82F6",
 };
 
 /**
@@ -74,6 +78,20 @@ function VisionBadge({
   const severity = getHighestSeverity(issues);
   const badgeColor = getBadgeColor(severity);
 
+  // Get color for highlight border based on severity
+  const highlightColor = useMemo(() => {
+    switch (severity) {
+      case "error":
+        return STYLES.error;
+      case "warning":
+        return STYLES.warning;
+      case "info":
+        return STYLES.info;
+      default:
+        return STYLES.highlightBorder;
+    }
+  }, [severity]);
+
   // Position badge at top-right of element
   const badgeStyle: React.CSSProperties = {
     position: "fixed",
@@ -108,12 +126,11 @@ function VisionBadge({
         left: rect.left - 2,
         width: rect.width + 4,
         height: rect.height + 4,
-        border: `2px solid ${STYLES.highlightBorder}`,
-        backgroundColor: STYLES.highlightBg,
+        border: `2px solid ${highlightColor}`,
+        backgroundColor: `${highlightColor}15`,
         borderRadius: "4px",
         zIndex: 99996,
         pointerEvents: "none",
-        transition: "all 0.2s ease",
       }
     : {};
 

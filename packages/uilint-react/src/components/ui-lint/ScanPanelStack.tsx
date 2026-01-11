@@ -20,8 +20,9 @@ type TabId = "eslint" | "vision";
 
 export function ScanPanelStack({ show, onClose }: ScanPanelStackProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<TabId>("eslint");
-  
+  const activeTab = useUILintStore((s: UILintStore) => s.activeResultsTab);
+  const setActiveTab = useUILintStore((s: UILintStore) => s.setActiveResultsTab);
+
   const visionIssuesCache = useUILintStore(
     (s: UILintStore) => s.visionIssuesCache
   );

@@ -229,6 +229,25 @@ export interface UILintStore {
   visionCurrentRoute: string | null;
   /** Highlighted vision issue element ID (for click-to-highlight) */
   highlightedVisionElementId: string | null;
+  /** Hovered vision issue (for hover-to-highlight) */
+  hoveredVisionIssue: VisionIssue | null;
+  /** Capture mode: full page or region selection */
+  captureMode: "full" | "region";
+  /** Whether region selection is currently active */
+  regionSelectionActive: boolean;
+  /** Selected region for capture (null if full page) */
+  selectedRegion: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null;
+
+  // ============ Results Panel ============
+  /** Whether the results panel is visible */
+  showResultsPanel: boolean;
+  /** Active tab in the results panel */
+  activeResultsTab: "eslint" | "vision";
 
   // Vision actions
   /** Trigger vision analysis for current page */
@@ -237,8 +256,22 @@ export interface UILintStore {
   clearVisionLastError: () => void;
   /** Set highlighted vision element */
   setHighlightedVisionElementId: (id: string | null) => void;
+  /** Set hovered vision issue */
+  setHoveredVisionIssue: (issue: VisionIssue | null) => void;
+  /** Set results panel visibility */
+  setShowResultsPanel: (show: boolean) => void;
+  /** Set active results tab */
+  setActiveResultsTab: (tab: "eslint" | "vision") => void;
   /** Clear vision results */
   clearVisionResults: () => void;
+  /** Set capture mode */
+  setCaptureMode: (mode: "full" | "region") => void;
+  /** Set region selection active state */
+  setRegionSelectionActive: (active: boolean) => void;
+  /** Set selected region for capture */
+  setSelectedRegion: (
+    region: { x: number; y: number; width: number; height: number } | null
+  ) => void;
 
   // ============ Internal ============
   _setScanState: (state: Partial<AutoScanState>) => void;
@@ -919,9 +952,16 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   screenshotHistory: new Map(),
   visionCurrentRoute: null,
   highlightedVisionElementId: null,
+  hoveredVisionIssue: null,
+  captureMode: "full",
+  regionSelectionActive: false,
+  selectedRegion: null,
+
+  showResultsPanel: false,
+  activeResultsTab: "eslint",
 
   triggerVisionAnalysis: async () => {
-    const { wsConnection, wsConnected } = get();
+    const { wsConnection, wsConnected, selectedRegion, captureMode } = get();
 
     if (!wsConnected || !wsConnection) {
       console.warn("[UILint] WebSocket not connected for vision analysis");
@@ -941,6 +981,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     const {
       collectElementManifest,
       captureScreenshot,
+      captureScreenshotRegion,
       getCurrentRoute,
       generateTimestamp,
     } = await import("../../scanner/vision-capture");
@@ -954,16 +995,24 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       visionCurrentRoute: route,
       visionProgressPhase: "Capturing screenshot...",
       visionLastError: null,
+      showResultsPanel: true,
+      activeResultsTab: "vision",
     });
 
     try {
-      // Capture screenshot
-      const screenshotDataUrl = await captureScreenshot();
+      // Capture screenshot (full or region)
+      const screenshotDataUrl =
+        captureMode === "region" && selectedRegion
+          ? await captureScreenshotRegion(selectedRegion)
+          : await captureScreenshot();
 
       set({ visionProgressPhase: "Collecting elements..." });
 
-      // Collect element manifest
-      const manifest = collectElementManifest();
+      // Collect element manifest (filtered to region if applicable)
+      const manifest =
+        captureMode === "region" && selectedRegion
+          ? collectElementManifest(document.body, selectedRegion)
+          : collectElementManifest();
       if (!manifest || manifest.length === 0) {
         throw new Error(
           "No elements found for vision analysis (no visible `[data-loc]` elements on the page)"
@@ -1109,6 +1158,15 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   setHighlightedVisionElementId: (id) =>
     set({ highlightedVisionElementId: id }),
 
+  setHoveredVisionIssue: (issue) => set({ hoveredVisionIssue: issue }),
+
+  setShowResultsPanel: (show) => set({ showResultsPanel: show }),
+  setActiveResultsTab: (tab) => set({ activeResultsTab: tab }),
+
+  setCaptureMode: (mode) => set({ captureMode: mode }),
+  setRegionSelectionActive: (active) => set({ regionSelectionActive: active }),
+  setSelectedRegion: (region) => set({ selectedRegion: region }),
+
   clearVisionResults: () =>
     set({
       visionResult: null,
@@ -1116,6 +1174,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       visionAnalyzing: false,
       visionProgressPhase: null,
       highlightedVisionElementId: null,
+      hoveredVisionIssue: null,
       visionLastError: null,
     }),
 

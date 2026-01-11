@@ -284,7 +284,12 @@ export class OllamaClient {
 
             // Stream thinking trace first (if any). Keep it separate from the final response.
             if (thinkingDelta) {
-              onProgress(lastLineEmitted, fullResponse, undefined, thinkingDelta);
+              onProgress(
+                lastLineEmitted,
+                fullResponse,
+                undefined,
+                thinkingDelta
+              );
             }
 
             if (delta) {

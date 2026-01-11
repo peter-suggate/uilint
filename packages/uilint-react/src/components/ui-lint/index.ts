@@ -13,7 +13,7 @@ export { useUILintStore } from "./store";
 export type { UILintStore } from "./store";
 
 // UI components
-export { UILintToolbar } from "./UILintToolbar";
+export { UILintToolbar } from "./toolbar";
 export { InspectionPanel } from "./InspectionPanel";
 export { LocatorOverlay } from "./LocatorOverlay";
 export { VisionIssueBadges } from "./VisionIssueBadge";

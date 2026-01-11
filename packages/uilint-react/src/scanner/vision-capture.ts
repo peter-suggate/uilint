@@ -222,13 +222,38 @@ function isElementVisible(element: Element): boolean {
 }
 
 /**
+ * Check if element rect intersects with a region
+ */
+function rectIntersectsRegion(
+  rect: DOMRect,
+  region: { x: number; y: number; width: number; height: number }
+): boolean {
+  const rectRight = rect.left + rect.width;
+  const rectBottom = rect.top + rect.height;
+  const regionRight = region.x + region.width;
+  const regionBottom = region.y + region.height;
+
+  // Check if rectangles overlap
+  return !(
+    rect.left > regionRight ||
+    rectRight < region.x ||
+    rect.top > regionBottom ||
+    rectBottom < region.y
+  );
+}
+
+/**
  * Collect element manifest from DOM
  *
  * Scans all elements with data-loc attributes and builds a manifest
  * with deduplication for repeated elements (e.g., list items).
+ *
+ * @param container - Container element to scan (default: document.body)
+ * @param region - Optional region to filter elements (only include elements within this region)
  */
 export function collectElementManifest(
-  container: Element = document.body
+  container: Element = document.body,
+  region?: { x: number; y: number; width: number; height: number }
 ): ElementManifest[] {
   const manifest: ElementManifest[] = [];
   const dataLocCounts = new Map<string, number>();
@@ -247,6 +272,10 @@ export function collectElementManifest(
     // Skip hidden elements
     if (!isElementVisible(element)) continue;
 
+    // Skip elements outside the region (if region is specified)
+    const rect = element.getBoundingClientRect();
+    if (region && !rectIntersectsRegion(rect, region)) continue;
+
     const dataLoc = element.getAttribute("data-loc");
     if (!dataLoc) continue;
 
@@ -264,7 +293,6 @@ export function collectElementManifest(
     // Only collect up to MAX_INSTANCES_PER_DATALOC
     if (instances.length >= MAX_INSTANCES_PER_DATALOC) continue;
 
-    const rect = element.getBoundingClientRect();
     const text = getVisibleText(element);
     const id =
       element.getAttribute("data-ui-lint-id") ||
@@ -382,6 +410,113 @@ export async function captureScreenshot(): Promise<string> {
       `Screenshot capture failed (html-to-image): ${msg}.${hint}`
     );
   }
+}
+
+/**
+ * Capture screenshot of a specific region of the page
+ *
+ * @param region - The region to capture (in viewport coordinates)
+ */
+export async function captureScreenshotRegion(region: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}): Promise<string> {
+  // Try to use html-to-image if available
+  const htmlToImage = await import("html-to-image").catch(() => null);
+
+  if (!htmlToImage) {
+    throw new Error(
+      "Screenshot capture unavailable: `html-to-image` failed to load (check the uilint-react bundle/deps)"
+    );
+  }
+
+  try {
+    // Capture the full page first, then crop to the region
+    // This is more reliable than trying to capture a specific element
+    const dataUrl = await htmlToImage.toPng(document.body, {
+      pixelRatio: 1,
+      cacheBust: true,
+      filter: (node) => {
+        // Skip UILint overlay elements
+        if (node instanceof Element && node.closest("[data-ui-lint]")) {
+          return false;
+        }
+        return true;
+      },
+    });
+
+    // Crop the image to the selected region using canvas
+    return await cropImageToRegion(dataUrl, region);
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    const msg = err.message || "Unknown error";
+
+    // Common failure modes: cross-origin images/fonts taint the canvas.
+    const hint = /tainted|cross[- ]origin|CORS|security/i.test(msg)
+      ? " Hint: this is often caused by cross-origin images/fonts; try removing external images or ensuring they allow CORS."
+      : "";
+
+    throw new Error(
+      `Screenshot capture failed (html-to-image): ${msg}.${hint}`
+    );
+  }
+}
+
+/**
+ * Crop an image data URL to a specific region
+ */
+async function cropImageToRegion(
+  dataUrl: string,
+  region: { x: number; y: number; width: number; height: number }
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        // Create a canvas for cropping
+        const canvas = document.createElement("canvas");
+        canvas.width = region.width;
+        canvas.height = region.height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Failed to get canvas context"));
+          return;
+        }
+
+        // Draw the cropped region
+        ctx.drawImage(
+          img,
+          region.x,
+          region.y,
+          region.width,
+          region.height,
+          0,
+          0,
+          region.width,
+          region.height
+        );
+
+        // Convert to data URL
+        const croppedDataUrl = canvas.toDataURL("image/png");
+        resolve(croppedDataUrl);
+      } catch (error) {
+        reject(
+          new Error(
+            `Failed to crop image: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          )
+        );
+      }
+    };
+    img.onerror = () => {
+      reject(new Error("Failed to load image for cropping"));
+    };
+    img.src = dataUrl;
+  });
 }
 
 /**
