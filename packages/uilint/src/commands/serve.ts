@@ -8,9 +8,12 @@
  * - Client -> Server: { type: 'lint:element', filePath: string, dataLoc: string, requestId?: string }
  * - Client -> Server: { type: 'subscribe:file', filePath: string }
  * - Client -> Server: { type: 'cache:invalidate', filePath?: string }
+ * - Client -> Server: { type: 'vision:analyze', route: string, timestamp: number, screenshot?: string, manifest: ElementManifest[], requestId?: string }
  * - Server -> Client: { type: 'lint:result', filePath: string, issues: Issue[], requestId?: string }
  * - Server -> Client: { type: 'lint:progress', filePath: string, phase: string, requestId?: string }
  * - Server -> Client: { type: 'file:changed', filePath: string }
+ * - Server -> Client: { type: 'vision:result', route: string, issues: VisionIssue[], analysisTime: number, error?: string, requestId?: string }
+ * - Server -> Client: { type: 'vision:progress', route: string, phase: string, requestId?: string }
  */
 
 import { existsSync, statSync, readdirSync, readFileSync } from "fs";
@@ -18,11 +21,15 @@ import { createRequire } from "module";
 import { dirname, resolve, relative, join } from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { watch, type FSWatcher } from "chokidar";
-import { findWorkspaceRoot } from "uilint-core/node";
+import {
+  findWorkspaceRoot,
+  getVisionAnalyzer as getCoreVisionAnalyzer,
+} from "uilint-core/node";
 import {
   detectNextAppRouter,
   findNextAppRouterProjects,
 } from "../utils/next-detect.js";
+import { runVisionAnalysis } from "../utils/vision-run.js";
 import {
   logInfo,
   logSuccess,
@@ -67,11 +74,21 @@ interface CacheInvalidateMessage {
   filePath?: string;
 }
 
+interface VisionAnalyzeMessage {
+  type: "vision:analyze";
+  route: string;
+  timestamp: number;
+  screenshot?: string;
+  manifest: ElementManifest[];
+  requestId?: string;
+}
+
 type ClientMessage =
   | LintFileMessage
   | LintElementMessage
   | SubscribeFileMessage
-  | CacheInvalidateMessage;
+  | CacheInvalidateMessage
+  | VisionAnalyzeMessage;
 
 interface LintResultMessage {
   type: "lint:result";
@@ -103,11 +120,29 @@ interface WorkspaceInfoMessage {
   serverCwd: string;
 }
 
+interface VisionResultMessage {
+  type: "vision:result";
+  route: string;
+  issues: VisionIssue[];
+  analysisTime: number;
+  error?: string;
+  requestId?: string;
+}
+
+interface VisionProgressMessage {
+  type: "vision:progress";
+  route: string;
+  phase: string;
+  requestId?: string;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
   | FileChangedMessage
-  | WorkspaceInfoMessage;
+  | WorkspaceInfoMessage
+  | VisionResultMessage
+  | VisionProgressMessage;
 
 function pickAppRoot(params: { cwd: string; workspaceRoot: string }): string {
   const { cwd, workspaceRoot } = params;
@@ -141,6 +176,38 @@ const cache = new Map<string, CacheEntry>();
 
 // ESLint instances cached per detected project root
 const eslintInstances = new Map<string, unknown>();
+
+// Vision analyzer instance (lazy loaded)
+type VisionIssue = {
+  elementText: string;
+  dataLoc?: string;
+  message: string;
+  category: string;
+  severity: string;
+  suggestion?: string;
+};
+
+type ElementManifest = {
+  id: string;
+  text: string;
+  dataLoc: string;
+  rect: { x: number; y: number; width: number; height: number };
+  tagName: string;
+  role?: string;
+  instanceCount?: number;
+};
+
+let visionAnalyzer: ReturnType<typeof getCoreVisionAnalyzer> | null = null;
+
+function getVisionAnalyzerInstance(): ReturnType<typeof getCoreVisionAnalyzer> {
+  if (!visionAnalyzer) {
+    visionAnalyzer = getCoreVisionAnalyzer();
+  }
+  return visionAnalyzer;
+}
+
+// Default styleguide search root for vision analysis (set when `serve()` starts)
+let serverAppRootForVision = process.cwd();
 
 // Cache resolved paths for incoming filePath strings
 const resolvedPathCache = new Map<string, string>();
@@ -541,6 +608,8 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         message.filePath ?? "(all)"
       )}`
     );
+  } else if (message.type === "vision:analyze") {
+    // Logged in handler for more detailed output
   }
 
   switch (message.type) {
@@ -657,6 +726,129 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       }
       break;
     }
+
+    case "vision:analyze": {
+      const { route, timestamp, screenshot, manifest, requestId } = message;
+      logInfo(
+        `${pc.dim("[ws]")} ${pc.bold("vision:analyze")} ${pc.dim(route)}${
+          requestId ? ` ${pc.dim(`(req ${requestId})`)}` : ""
+        }`
+      );
+
+      sendMessage(ws, {
+        type: "vision:progress",
+        route,
+        requestId,
+        phase: "Starting vision analysis...",
+      });
+
+      const startedAt = Date.now();
+      const analyzer = getVisionAnalyzerInstance();
+
+      try {
+        const screenshotBytes =
+          typeof screenshot === "string" ? Buffer.byteLength(screenshot) : 0;
+        const analyzerModel =
+          typeof (analyzer as any).getModel === "function"
+            ? ((analyzer as any).getModel() as string)
+            : undefined;
+        const analyzerBaseUrl =
+          typeof (analyzer as any).getBaseUrl === "function"
+            ? ((analyzer as any).getBaseUrl() as string)
+            : undefined;
+        logInfo(
+          [
+            `${pc.dim("[ws]")} ${pc.dim("vision")} details`,
+            `  route:        ${pc.dim(route)}`,
+            `  requestId:    ${pc.dim(requestId ?? "(none)")}`,
+            `  manifest:     ${pc.dim(String(manifest.length))} element(s)`,
+            `  screenshot:   ${pc.dim(
+              screenshot ? `${Math.round(screenshotBytes / 1024)}kb` : "none"
+            )}`,
+            `  ollamaUrl:    ${pc.dim(analyzerBaseUrl ?? "(default)")}`,
+            `  visionModel:  ${pc.dim(analyzerModel ?? "(default)")}`,
+          ].join("\n")
+        );
+
+        if (!screenshot) {
+          sendMessage(ws, {
+            type: "vision:result",
+            route,
+            issues: [],
+            analysisTime: Date.now() - startedAt,
+            error: "No screenshot provided for vision analysis",
+            requestId,
+          });
+          break;
+        }
+
+        const result = await runVisionAnalysis({
+          imageBase64: screenshot,
+          manifest,
+          projectPath: serverAppRootForVision,
+          // In the overlay/server context, default to upward search from app root.
+          baseUrl: analyzerBaseUrl,
+          model: analyzerModel,
+          analyzer: analyzer as any,
+          onPhase: (phase) => {
+            sendMessage(ws, {
+              type: "vision:progress",
+              route,
+              requestId,
+              phase,
+            });
+          },
+        });
+
+        const elapsed = Date.now() - startedAt;
+        logInfo(
+          `${pc.dim("[ws]")} vision:analyze done ${pc.dim(route)} → ${pc.bold(
+            `${result.issues.length}`
+          )} issue(s) ${pc.dim(`(${elapsed}ms)`)}`
+        );
+
+        if (result.rawResponse) {
+          logInfo(
+            `${pc.dim("[ws]")} vision rawResponse ${pc.dim(
+              `${result.rawResponse.length} chars`
+            )}`
+          );
+        }
+
+        sendMessage(ws, {
+          type: "vision:result",
+          route,
+          issues: result.issues,
+          analysisTime: result.analysisTime,
+          requestId,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        const stack = error instanceof Error ? error.stack : undefined;
+        logError(
+          [
+            `Vision analysis failed`,
+            `  route:     ${route}`,
+            `  requestId: ${requestId ?? "(none)"}`,
+            `  error:     ${errorMessage}`,
+            stack ? `  stack:\n${stack}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n")
+        );
+
+        sendMessage(ws, {
+          type: "vision:result",
+          route,
+          issues: [],
+          analysisTime: Date.now() - startedAt,
+          error: errorMessage,
+          requestId,
+        });
+      }
+      break;
+    }
   }
 }
 
@@ -706,6 +898,7 @@ export async function serve(options: ServeOptions): Promise<void> {
   const cwd = process.cwd();
   const wsRoot = findWorkspaceRoot(cwd);
   const appRoot = pickAppRoot({ cwd, workspaceRoot: wsRoot });
+  serverAppRootForVision = appRoot;
   logInfo(`Workspace root: ${pc.dim(wsRoot)}`);
   logInfo(`App root:        ${pc.dim(appRoot)}`);
   logInfo(`Server cwd:     ${pc.dim(cwd)}`);

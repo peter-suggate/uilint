@@ -51,6 +51,9 @@ export {
   truncateHTML,
 } from "./scanner/style-extractor.js";
 
+// NOTE: Vision analyzer is Node-only (it pulls in Ollama's node client).
+// Use `import { VisionAnalyzer } from "uilint-core/node"` when needed.
+
 // Styleguide
 export {
   parseStyleGuide,

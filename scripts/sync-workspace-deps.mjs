@@ -51,7 +51,19 @@ function syncDepsForPackage(pkgJson, versionsByName) {
       const internalVersion = versionsByName.get(depName);
       if (!internalVersion) continue;
 
-      const desired = `^${internalVersion}`;
+      // Prefer pnpm's workspace protocol for internal packages so local dev always
+      // links to the workspace copy (and doesn't get pinned to specific versions).
+      //
+      // Keep peerDependencies versioned by default to preserve published
+      // compatibility constraints.
+      const desired =
+        section === "peerDependencies" ? `^${internalVersion}` : "workspace:*";
+
+      // If the user has already opted into a workspace protocol, don't rewrite it
+      // (e.g. workspace:^, workspace:~, workspace:*, etc).
+      if (typeof depRange === "string" && depRange.startsWith("workspace:")) {
+        continue;
+      }
       if (depRange !== desired) {
         deps[depName] = desired;
         changed = true;

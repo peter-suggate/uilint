@@ -43,7 +43,8 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "uilint-core": "^0.2.1",
+    "html-to-image": "^1.11.11",
+    "uilint-core": "workspace:*",
     "zustand": "^5.0.5"
   },
   "peerDependencies": {
@@ -51,8 +52,10 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@types/jsdom": "^21.1.7",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "jsdom": "^26.1.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "tsup": "^8.5.1",

@@ -232,6 +232,40 @@ export const ruleRegistry: RuleMetadata[] = [
     requiresStyleguide: true,
     category: "semantic",
   },
+  {
+    id: "semantic-vision",
+    name: "Vision Analysis",
+    description:
+      "Report cached vision analysis results from UILint browser overlay",
+    defaultSeverity: "warn",
+    defaultOptions: [
+      { maxAgeMs: 3600000, screenshotsPath: ".uilint/screenshots" },
+    ],
+    optionSchema: {
+      fields: [
+        {
+          key: "maxAgeMs",
+          label: "Max cache age (milliseconds)",
+          type: "number",
+          defaultValue: 3600000,
+          placeholder: "3600000",
+          description:
+            "Maximum age of cached results in milliseconds (default: 1 hour)",
+        },
+        {
+          key: "screenshotsPath",
+          label: "Screenshots directory path",
+          type: "text",
+          defaultValue: ".uilint/screenshots",
+          placeholder: ".uilint/screenshots",
+          description:
+            "Relative path to the screenshots directory containing analysis results",
+        },
+      ],
+    },
+    requiresStyleguide: false,
+    category: "semantic",
+  },
 ];
 
 /**

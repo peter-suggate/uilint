@@ -238,6 +238,9 @@ export class OllamaClient {
         body: JSON.stringify({
           model: this.model,
           prompt,
+          // Enable thinking when streaming so we can surface reasoning traces for thinking-capable models.
+          // For models that don't support it, Ollama will ignore it.
+          think: true,
           stream: true,
           ...(jsonFormat && { format: "json" }),
         }),
@@ -259,6 +262,7 @@ export class OllamaClient {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullResponse = "";
+      let lastLineEmitted = "";
       let buffer = "";
 
       while (true) {
@@ -275,15 +279,24 @@ export class OllamaClient {
           if (!line.trim()) continue;
           try {
             const chunk = JSON.parse(line);
-            if (chunk.response) {
-              fullResponse += chunk.response;
+            const thinkingDelta: string = chunk.thinking || "";
+            const delta: string = chunk.response || "";
+
+            // Stream thinking trace first (if any). Keep it separate from the final response.
+            if (thinkingDelta) {
+              onProgress(lastLineEmitted, fullResponse, undefined, thinkingDelta);
+            }
+
+            if (delta) {
+              fullResponse += delta;
               // Get the latest line from the response for progress display
               const responseLines = fullResponse.split("\n");
               const latestLine =
                 responseLines[responseLines.length - 1] ||
                 responseLines[responseLines.length - 2] ||
                 "";
-              onProgress(latestLine.trim(), fullResponse);
+              lastLineEmitted = latestLine.trim();
+              onProgress(lastLineEmitted, fullResponse, delta);
             }
             // Capture token counts from final chunk
             if (chunk.done) {
@@ -300,8 +313,9 @@ export class OllamaClient {
       if (buffer.trim()) {
         try {
           const chunk = JSON.parse(buffer);
-          if (chunk.response) {
-            fullResponse += chunk.response;
+          const delta: string = chunk.response || "";
+          if (delta) {
+            fullResponse += delta;
           }
           if (chunk.done) {
             promptTokens = chunk.prompt_eval_count;

@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.1",
-    "uilint-core": "^0.2.1"
+    "uilint-core": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.5.1",

@@ -24,6 +24,20 @@ import type {
 } from "./types";
 import { DEFAULT_SETTINGS, DEFAULT_AUTO_SCAN_STATE } from "./types";
 import { scanDOMForSources, groupBySourceFile } from "./dom-utils";
+import type {
+  VisionIssue,
+  VisionAnalysisResult,
+  ElementManifest,
+} from "../../scanner/vision-capture";
+
+type VisionStage = "capture" | "manifest" | "ws" | "vision";
+
+export type VisionErrorInfo = {
+  stage: VisionStage;
+  message: string;
+  route: string;
+  timestamp: number;
+};
 
 /**
  * WebSocket message types (client -> server)
@@ -86,11 +100,29 @@ interface WorkspaceInfoMessage {
   serverCwd: string;
 }
 
+interface VisionResultMessage {
+  type: "vision:result";
+  route: string;
+  issues: VisionIssue[];
+  analysisTime: number;
+  error?: string;
+  requestId?: string;
+}
+
+interface VisionProgressMessage {
+  type: "vision:progress";
+  route: string;
+  phase: string;
+  requestId?: string;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
   | FileChangedMessage
-  | WorkspaceInfoMessage;
+  | WorkspaceInfoMessage
+  | VisionResultMessage
+  | VisionProgressMessage;
 
 /**
  * UILint Store State and Actions
@@ -179,6 +211,34 @@ export interface UILintStore {
   ) => Promise<ESLintIssue[]>;
   subscribeToFile: (filePath: string) => void;
   invalidateCache: (filePath?: string) => void;
+
+  // ============ Vision Analysis ============
+  /** Whether vision analysis is in progress */
+  visionAnalyzing: boolean;
+  /** Current vision analysis progress phase */
+  visionProgressPhase: string | null;
+  /** Last vision error (if any), with stage for user-friendly UI */
+  visionLastError: VisionErrorInfo | null;
+  /** Latest vision analysis result */
+  visionResult: VisionAnalysisResult | null;
+  /** Vision issues cache by route */
+  visionIssuesCache: Map<string, VisionIssue[]>;
+  /** Screenshot history (route -> data URL) */
+  screenshotHistory: Map<string, { dataUrl: string; timestamp: number }>;
+  /** Current route being analyzed or last analyzed */
+  visionCurrentRoute: string | null;
+  /** Highlighted vision issue element ID (for click-to-highlight) */
+  highlightedVisionElementId: string | null;
+
+  // Vision actions
+  /** Trigger vision analysis for current page */
+  triggerVisionAnalysis: () => Promise<void>;
+  /** Clear last vision error */
+  clearVisionLastError: () => void;
+  /** Set highlighted vision element */
+  setHighlightedVisionElementId: (id: string | null) => void;
+  /** Clear vision results */
+  clearVisionResults: () => void;
 
   // ============ Internal ============
   _setScanState: (state: Partial<AutoScanState>) => void;
@@ -319,6 +379,58 @@ const pendingRequests = new Map<
   string,
   { resolve: (issues: ESLintIssue[]) => void; reject: (error: Error) => void }
 >();
+
+/** Pending vision requests waiting for WebSocket responses */
+const pendingVisionRequests = new Map<
+  string,
+  {
+    resolve: (result: VisionAnalysisResult) => void;
+    reject: (error: Error) => void;
+    route: string;
+    filename: string;
+    // Keep for debugging + sidecar write; type kept loose to avoid circular imports here.
+    manifest: unknown;
+  }
+>();
+
+function sanitizeForFilename(input: string): string {
+  return input
+    .replace(/\//g, "-")
+    .replace(/^-+/, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 80);
+}
+
+async function postScreenshotToApi(payload: {
+  filename: string;
+  imageData?: string;
+  manifest?: unknown;
+  analysisResult?: unknown;
+}): Promise<any> {
+  const res = await fetch("/api/.uilint/screenshots", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await res.text().catch(() => "");
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    const details = json?.error || text || res.statusText;
+    throw new Error(
+      `Screenshot API failed: ${res.status} ${details} (POST /api/.uilint/screenshots)`
+    );
+  }
+
+  return json;
+}
 
 /** Timeout for WebSocket lint requests (in ms) */
 const WS_REQUEST_TIMEOUT_MS = 120_000; // 2 minutes
@@ -798,6 +910,214 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     }
   },
 
+  // ============ Vision Analysis ============
+  visionAnalyzing: false,
+  visionProgressPhase: null,
+  visionLastError: null,
+  visionResult: null,
+  visionIssuesCache: new Map(),
+  screenshotHistory: new Map(),
+  visionCurrentRoute: null,
+  highlightedVisionElementId: null,
+
+  triggerVisionAnalysis: async () => {
+    const { wsConnection, wsConnected } = get();
+
+    if (!wsConnected || !wsConnection) {
+      console.warn("[UILint] WebSocket not connected for vision analysis");
+      const route = window.location?.pathname || "/";
+      set({
+        visionLastError: {
+          stage: "ws",
+          message: "WebSocket not connected (start `uilint serve` and refresh)",
+          route,
+          timestamp: Date.now(),
+        },
+      });
+      return;
+    }
+
+    // Import vision capture module dynamically
+    const {
+      collectElementManifest,
+      captureScreenshot,
+      getCurrentRoute,
+      generateTimestamp,
+    } = await import("../../scanner/vision-capture");
+
+    const route = getCurrentRoute();
+    const timestampSlug = generateTimestamp();
+    const routeSlug = sanitizeForFilename(route === "/" ? "home" : route);
+    const filename = `uilint-${timestampSlug}-${routeSlug}.png`;
+    set({
+      visionAnalyzing: true,
+      visionCurrentRoute: route,
+      visionProgressPhase: "Capturing screenshot...",
+      visionLastError: null,
+    });
+
+    try {
+      // Capture screenshot
+      const screenshotDataUrl = await captureScreenshot();
+
+      set({ visionProgressPhase: "Collecting elements..." });
+
+      // Collect element manifest
+      const manifest = collectElementManifest();
+      if (!manifest || manifest.length === 0) {
+        throw new Error(
+          "No elements found for vision analysis (no visible `[data-loc]` elements on the page)"
+        );
+      }
+
+      set({
+        visionProgressPhase: `Saving screenshot (${manifest.length} elements)...`,
+      });
+
+      // Persist screenshot + manifest to Next.js app's .uilint/screenshots via dev route.
+      // This enables on-disk debugging and the ESLint semantic-vision rule.
+      try {
+        await postScreenshotToApi({
+          filename,
+          imageData: screenshotDataUrl,
+          manifest,
+        });
+      } catch (e) {
+        // Non-fatal: continue analysis even if saving fails.
+        console.warn("[UILint] Failed to save screenshot to server:", e);
+      }
+
+      set({ visionProgressPhase: `Sending ${manifest.length} elements...` });
+
+      // Store screenshot
+      if (screenshotDataUrl) {
+        set((state) => {
+          const next = new Map(state.screenshotHistory);
+          next.set(route, {
+            dataUrl: screenshotDataUrl,
+            timestamp: Date.now(),
+          });
+          return { screenshotHistory: next };
+        });
+      }
+
+      // Send analysis request
+      const requestId = makeRequestId();
+
+      const message = {
+        type: "vision:analyze" as const,
+        route,
+        timestamp: Date.now(),
+        screenshot: screenshotDataUrl || undefined,
+        manifest,
+        requestId,
+      };
+
+      wsConnection.send(JSON.stringify(message));
+      set({ visionProgressPhase: "Analyzing (server)..." });
+
+      // Wait for result
+      const result = await new Promise<VisionAnalysisResult>(
+        (resolve, reject) => {
+          pendingVisionRequests.set(requestId, {
+            resolve,
+            reject,
+            route,
+            filename,
+            manifest,
+          });
+
+          // Timeout after 2 minutes
+          setTimeout(() => {
+            if (pendingVisionRequests.has(requestId)) {
+              pendingVisionRequests.delete(requestId);
+              reject(new Error("Vision analysis timed out"));
+            }
+          }, WS_REQUEST_TIMEOUT_MS);
+        }
+      );
+
+      // Store result
+      set((state) => {
+        const next = new Map(state.visionIssuesCache);
+        next.set(route, result.issues);
+        const lastError = result.error
+          ? ({
+              stage: "vision",
+              message: result.error,
+              route,
+              timestamp: Date.now(),
+            } satisfies VisionErrorInfo)
+          : null;
+        return {
+          visionResult: result,
+          visionIssuesCache: next,
+          visionAnalyzing: false,
+          visionProgressPhase: null,
+          visionLastError: lastError,
+        };
+      });
+
+      // Persist analysis result as a JSON sidecar (can be written without re-sending image bytes).
+      try {
+        await postScreenshotToApi({
+          filename,
+          analysisResult: {
+            route,
+            timestamp: result.timestamp,
+            issues: result.issues,
+            analysisTime: result.analysisTime,
+            error: result.error,
+          },
+        });
+      } catch (e) {
+        console.warn("[UILint] Failed to save analysis result to server:", e);
+      }
+    } catch (error) {
+      console.error("[UILint] Vision analysis failed:", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      const stage: VisionStage =
+        msg.includes("Screenshot") || msg.includes("html-to-image")
+          ? "capture"
+          : msg.includes("[data-loc]") || msg.includes("elements found")
+          ? "manifest"
+          : "vision";
+      set({
+        visionAnalyzing: false,
+        visionProgressPhase: null,
+        visionLastError: {
+          stage,
+          message: msg,
+          route,
+          timestamp: Date.now(),
+        },
+        visionResult: {
+          route,
+          timestamp: Date.now(),
+          manifest: [],
+          issues: [],
+          analysisTime: 0,
+          error: msg,
+        },
+      });
+    }
+  },
+
+  clearVisionLastError: () => set({ visionLastError: null }),
+
+  setHighlightedVisionElementId: (id) =>
+    set({ highlightedVisionElementId: id }),
+
+  clearVisionResults: () =>
+    set({
+      visionResult: null,
+      visionIssuesCache: new Map(),
+      visionAnalyzing: false,
+      visionProgressPhase: null,
+      highlightedVisionElementId: null,
+      visionLastError: null,
+    }),
+
   _handleWsMessage: (data: ServerMessage) => {
     switch (data.type) {
       case "lint:result": {
@@ -932,6 +1252,81 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
           serverCwd,
         });
         set({ appRoot, workspaceRoot, serverCwd });
+        break;
+      }
+
+      case "vision:result": {
+        const { route, issues, analysisTime, error, requestId } = data;
+        console.log("[UILint] Vision result:", {
+          route,
+          issues: issues.length,
+          error,
+        });
+
+        // Update cache
+        set((state) => {
+          const next = new Map(state.visionIssuesCache);
+          next.set(route, issues);
+          return {
+            visionIssuesCache: next,
+            visionResult: {
+              route,
+              timestamp: Date.now(),
+              manifest: [],
+              issues,
+              analysisTime,
+              error,
+            },
+            visionAnalyzing: false,
+            visionProgressPhase: null,
+            visionLastError: error
+              ? ({
+                  stage: "vision",
+                  message: error,
+                  route,
+                  timestamp: Date.now(),
+                } satisfies VisionErrorInfo)
+              : null,
+          };
+        });
+
+        // Resolve pending request
+        if (requestId) {
+          const pending = pendingVisionRequests.get(requestId);
+          if (pending) {
+            // Fire-and-forget: persist sidecar even if the awaiting promise is ignored.
+            postScreenshotToApi({
+              filename: pending.filename,
+              analysisResult: {
+                route: pending.route,
+                timestamp: Date.now(),
+                issues,
+                analysisTime,
+                error,
+              },
+            }).catch((e) => {
+              console.warn("[UILint] Failed to save vision result sidecar:", e);
+            });
+
+            pending.resolve({
+              route,
+              timestamp: Date.now(),
+              manifest: Array.isArray(pending.manifest)
+                ? (pending.manifest as any)
+                : [],
+              issues,
+              analysisTime,
+              error,
+            });
+            pendingVisionRequests.delete(requestId);
+          }
+        }
+        break;
+      }
+
+      case "vision:progress": {
+        const { phase } = data;
+        set({ visionProgressPhase: phase });
         break;
       }
     }

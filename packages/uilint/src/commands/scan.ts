@@ -25,6 +25,7 @@ import {
 } from "../utils/input.js";
 import { resolvePathSpecifier } from "../utils/path-specifiers.js";
 import { createLLMClient, flushLangfuse } from "../utils/llm-client.js";
+import { nsNow, nsToMs, formatMs, maybeMs } from "../utils/timing.js";
 import {
   intro,
   withSpinner,
@@ -319,6 +320,7 @@ export async function scan(options: ScanOptions): Promise<void> {
     }
 
     // Prepare Ollama
+    const prepStartNs = nsNow();
     if (!isJsonOutput) {
       await withSpinner("Preparing Ollama", async () => {
         await ensureOllamaReady();
@@ -326,6 +328,7 @@ export async function scan(options: ScanOptions): Promise<void> {
     } else {
       await ensureOllamaReady();
     }
+    const prepEndNs = nsNow();
 
     // Call Ollama for analysis
     const client = await createLLMClient({});
@@ -456,8 +459,40 @@ export async function scan(options: ScanOptions): Promise<void> {
       // Use streaming to show progress
       const s = createSpinner();
       s.start("Analyzing with LLM");
+      let thinkingStarted = false;
+      const analysisStartNs = nsNow();
+      let firstTokenNs: bigint | null = null;
+      let firstThinkingNs: bigint | null = null;
+      let lastThinkingNs: bigint | null = null;
+      let firstAnswerNs: bigint | null = null;
+      let lastAnswerNs: bigint | null = null;
 
-      const onProgress = (latestLine: string): void => {
+      const onProgress = (
+        latestLine: string,
+        _fullResponse: string,
+        delta?: string,
+        thinkingDelta?: string
+      ): void => {
+        const nowNs = nsNow();
+        if (!firstTokenNs && (thinkingDelta || delta)) firstTokenNs = nowNs;
+        if (thinkingDelta) {
+          if (!firstThinkingNs) firstThinkingNs = nowNs;
+          lastThinkingNs = nowNs;
+        }
+        if (delta) {
+          if (!firstAnswerNs) firstAnswerNs = nowNs;
+          lastAnswerNs = nowNs;
+        }
+
+        if (thinkingDelta) {
+          if (!thinkingStarted) {
+            thinkingStarted = true;
+            s.stop(pc.dim("[scan] streaming thinking:"));
+            process.stderr.write(pc.dim("Thinking:\n"));
+          }
+          process.stderr.write(thinkingDelta);
+          return;
+        }
         // Truncate line if too long for terminal
         const maxLen = 60;
         const displayLine =
@@ -489,6 +524,42 @@ export async function scan(options: ScanOptions): Promise<void> {
                 }
               );
         s.stop(pc.green("✓ ") + "Analyzing with LLM");
+
+        if (process.stdout.isTTY) {
+          const analysisEndNs = nsNow();
+          const prepMs = nsToMs(prepEndNs - prepStartNs);
+          const totalMs = nsToMs(analysisEndNs - analysisStartNs);
+          const endToEndMs = nsToMs(analysisEndNs - prepStartNs);
+          const ttftMs = firstTokenNs
+            ? nsToMs(firstTokenNs - analysisStartNs)
+            : null;
+          const thinkingMs =
+            firstThinkingNs && (firstAnswerNs || lastThinkingNs)
+              ? nsToMs(
+                  (firstAnswerNs ?? lastThinkingNs ?? analysisEndNs) -
+                    firstThinkingNs
+                )
+              : null;
+          const outputMs =
+            firstAnswerNs && (lastAnswerNs || analysisEndNs)
+              ? nsToMs((lastAnswerNs ?? analysisEndNs) - firstAnswerNs)
+              : null;
+
+          note(
+            [
+              `Prepare Ollama: ${formatMs(prepMs)}`,
+              `Time to first token: ${maybeMs(ttftMs)}`,
+              `Thinking: ${maybeMs(thinkingMs)}`,
+              `Outputting: ${maybeMs(outputMs)}`,
+              `LLM total: ${formatMs(totalMs)}`,
+              `End-to-end: ${formatMs(endToEndMs)}`,
+              result?.analysisTime
+                ? pc.dim(`(core analysisTime: ${formatMs(result.analysisTime)})`)
+                : pc.dim("(core analysisTime: n/a)"),
+            ].join("\n"),
+            "Timings"
+          );
+        }
       } catch (error) {
         s.stop(pc.red("✗ ") + "Analyzing with LLM");
         throw error;

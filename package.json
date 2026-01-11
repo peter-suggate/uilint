@@ -17,6 +17,7 @@
     "dev": "pnpm --filter test-app dev",
     "build": "pnpm -r build",
     "build:packages": "pnpm --filter uilint-core build && pnpm --filter uilint-react build && pnpm --filter uilint build && pnpm --filter uilint-eslint build && pnpm --filter uilint-mcp build && pnpm --filter jsx-loc-plugin build",
+    "clean": "pnpm -r --workspace-concurrency=1 exec -- sh -c \"rm -rf dist tsconfig.tsbuildinfo .turbo .next coverage node_modules/.cache || true\"",
     "test": "pnpm --filter uilint-eslint --filter uilint-react --filter uilint test",
     "test:watch": "pnpm --filter uilint-eslint --filter uilint-react --filter uilint test:watch",
     "lint": "pnpm -r lint",

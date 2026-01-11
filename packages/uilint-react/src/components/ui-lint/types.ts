@@ -202,3 +202,12 @@ export const DEFAULT_AUTO_SCAN_STATE: AutoScanState = {
  * Data attribute used to mark scanned elements
  */
 export const DATA_UILINT_ID = "data-ui-lint-id";
+
+/**
+ * Re-export vision types for convenience
+ */
+export type {
+  VisionIssue,
+  VisionAnalysisResult,
+  ElementManifest,
+} from "../../scanner/vision-capture";

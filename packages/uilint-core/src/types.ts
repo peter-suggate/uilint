@@ -156,7 +156,14 @@ export interface OllamaClientOptions {
 // Callback for streaming progress updates
 export type StreamProgressCallback = (
   latestLine: string,
-  fullResponse: string
+  fullResponse: string,
+  /** The text delta just received (optional, for printing raw streamed output) */
+  delta?: string,
+  /**
+   * The "thinking" delta just received (optional, for models that support Ollama's `think`).
+   * For chat this comes from `chunk.message.thinking`; for generate this comes from `chunk.thinking`.
+   */
+  thinkingDelta?: string
 ) => void;
 
 // Style values extracted from styleguide

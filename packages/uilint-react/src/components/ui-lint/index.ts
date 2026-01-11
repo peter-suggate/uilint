@@ -16,6 +16,9 @@ export type { UILintStore } from "./store";
 export { UILintToolbar } from "./UILintToolbar";
 export { InspectionPanel } from "./InspectionPanel";
 export { LocatorOverlay } from "./LocatorOverlay";
+export { VisionIssueBadges } from "./VisionIssueBadge";
+export { VisionIssuesPanel } from "./VisionIssuesPanel";
+export { ScreenshotViewer } from "./ScreenshotViewer";
 
 // DOM utilities (data-loc based)
 export {
@@ -54,7 +57,18 @@ export type {
   CachedSource,
   LocatorTarget,
   InspectedElement,
+  VisionIssue,
+  VisionAnalysisResult,
+  ElementManifest,
 } from "./types";
 
 // Constants
 export { FILE_COLORS, DEFAULT_SETTINGS, DATA_UILINT_ID } from "./types";
+
+// Vision capture utilities
+export {
+  collectElementManifest,
+  captureScreenshot,
+  getCurrentRoute,
+  matchIssuesToManifest,
+} from "../../scanner/vision-capture";

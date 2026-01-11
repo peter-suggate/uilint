@@ -9,6 +9,7 @@ import { consistency } from "./commands/consistency.js";
 import { update } from "./commands/update.js";
 import { install } from "./commands/install.js";
 import { serve } from "./commands/serve.js";
+import { vision } from "./commands/vision.js";
 import {
   sessionClear,
   sessionTrack,
@@ -214,6 +215,60 @@ program
   .action(async (options) => {
     await serve({
       port: parseInt(options.port, 10),
+    });
+  });
+
+// Vision command
+program
+  .command("vision")
+  .description("Analyze a screenshot with Ollama vision models (requires a manifest)")
+  .option("--list", "List available .uilint/screenshots sidecars and exit")
+  .option(
+    "--screenshots-dir <path>",
+    "Screenshots directory for --list (default: nearest .uilint/screenshots)"
+  )
+  .option("--image <path>", "Path to a screenshot image (png/jpg)")
+  .option(
+    "--sidecar <path>",
+    "Path to a .uilint/screenshots/*.json sidecar (contains manifest + metadata)"
+  )
+  .option("--manifest-file <path>", "Path to a manifest JSON file (array)")
+  .option("--manifest-json <json>", "Inline manifest JSON (array)")
+  .option("--route <route>", "Optional route label (e.g., /todos)")
+  .option(
+    "-s, --styleguide <path>",
+    "Path to style guide file OR project directory (falls back to upward search)"
+  )
+  .option("-o, --output <format>", "Output format: text or json", "text")
+  .option("--model <name>", "Ollama vision model override", undefined)
+  .option("--base-url <url>", "Ollama base URL (default: http://localhost:11434)")
+  .option("--stream", "Stream model output/progress to stderr (text mode only)")
+  .option("--debug", "Enable debug logging (stderr)")
+  .option(
+    "--debug-full",
+    "Print full prompt/styleguide and include base64 in dumps (can be very large)"
+  )
+  .option(
+    "--debug-dump <path>",
+    "Write full analysis payload dump to JSON file (or directory to auto-name)"
+  )
+  .action(async (options) => {
+    await vision({
+      list: options.list,
+      screenshotsDir: options.screenshotsDir,
+      image: options.image,
+      sidecar: options.sidecar,
+      manifestFile: options.manifestFile,
+      manifestJson: options.manifestJson,
+      route: options.route,
+      styleguide: options.styleguide,
+      output: options.output,
+      model: options.model,
+      baseUrl: options.baseUrl,
+      stream: options.stream,
+      debug: options.debug,
+      debugFull: options.debugFull,
+      debugDump: options.debugDump,
     });
   });
 

@@ -1,22 +1,36 @@
 "use client";
 
 /**
- * Scan Panel Stack - Container for the scan results popover
+ * Scan Panel Stack - Container for scan results and vision issues
  *
- * Now renders only the consolidated ScanResultsPopover which has
- * expandable file sections with inline element lists.
+ * Renders tabs for ESLint issues and Vision issues.
  */
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { ScanResultsPopover } from "./ScanResultsPopover";
+import { VisionIssuesPanel } from "./VisionIssuesPanel";
+import { useUILintStore, type UILintStore } from "./store";
 
 interface ScanPanelStackProps {
   show: boolean;
   onClose: () => void;
 }
 
+type TabId = "eslint" | "vision";
+
 export function ScanPanelStack({ show, onClose }: ScanPanelStackProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<TabId>("eslint");
+  
+  const visionIssuesCache = useUILintStore(
+    (s: UILintStore) => s.visionIssuesCache
+  );
+  
+  // Count vision issues
+  let visionIssueCount = 0;
+  visionIssuesCache.forEach((issues) => {
+    visionIssueCount += issues.length;
+  });
 
   // Handle click outside to close panel
   useEffect(() => {
@@ -74,6 +88,15 @@ export function ScanPanelStack({ show, onClose }: ScanPanelStackProps) {
 
   if (!show) return null;
 
+  const TOKENS = {
+    bg: "rgba(15, 15, 15, 0.92)",
+    border: "rgba(255, 255, 255, 0.1)",
+    textPrimary: "rgba(255, 255, 255, 0.95)",
+    textMuted: "rgba(255, 255, 255, 0.5)",
+    accent: "#63b3ed",
+    violet: "#8B5CF6",
+  };
+
   return (
     <div
       ref={containerRef}
@@ -87,10 +110,78 @@ export function ScanPanelStack({ show, onClose }: ScanPanelStackProps) {
         bottom: "100%",
         left: 0,
         marginBottom: "8px",
-        pointerEvents: "auto", // Ensure panel is interactive
+        pointerEvents: "auto",
       }}
     >
-      <ScanResultsPopover onClose={onClose} />
+      {/* Tab bar */}
+      <div
+        style={{
+          display: "flex",
+          gap: "2px",
+          marginBottom: "4px",
+        }}
+      >
+        <button
+          onClick={() => setActiveTab("eslint")}
+          style={{
+            padding: "6px 12px",
+            borderRadius: "6px 6px 0 0",
+            border: "none",
+            backgroundColor: activeTab === "eslint" ? TOKENS.bg : "transparent",
+            color: activeTab === "eslint" ? TOKENS.textPrimary : TOKENS.textMuted,
+            fontSize: "12px",
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+        >
+          ESLint Issues
+        </button>
+        <button
+          onClick={() => setActiveTab("vision")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "6px 12px",
+            borderRadius: "6px 6px 0 0",
+            border: "none",
+            backgroundColor: activeTab === "vision" ? TOKENS.bg : "transparent",
+            color: activeTab === "vision" ? TOKENS.violet : TOKENS.textMuted,
+            fontSize: "12px",
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+        >
+          Vision
+          {visionIssueCount > 0 && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: "16px",
+                height: "16px",
+                padding: "0 4px",
+                borderRadius: "8px",
+                backgroundColor: TOKENS.violet,
+                color: "#FFFFFF",
+                fontSize: "10px",
+                fontWeight: 600,
+              }}
+            >
+              {visionIssueCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Tab content */}
+      {activeTab === "eslint" && <ScanResultsPopover onClose={onClose} />}
+      {activeTab === "vision" && (
+        <VisionIssuesPanel show={true} onClose={onClose} embedded />
+      )}
     </div>
   );
 }

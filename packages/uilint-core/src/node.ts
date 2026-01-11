@@ -57,3 +57,17 @@ export {
   findTailwindConfigPath,
   readTailwindThemeTokens,
 } from "./tailwind/config-reader.js";
+
+// Node.js-specific: Vision analyzer for screenshot-based analysis
+export {
+  VisionAnalyzer,
+  getVisionAnalyzer,
+  UILINT_DEFAULT_VISION_MODEL,
+  type VisionAnalyzerOptions,
+  type VisionAnalysisOptions,
+  type VisionAnalysisResult,
+  type VisionIssue,
+  type VisionIssueCategory,
+  type VisionIssueSeverity,
+  type ElementManifest,
+} from "./scanner/vision-analyzer.js";

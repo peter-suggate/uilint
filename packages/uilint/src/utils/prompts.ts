@@ -74,12 +74,15 @@ export function handleCancel<T>(value: T | symbol): T {
  */
 export async function withSpinner<T>(
   message: string,
-  fn: () => Promise<T>
+  fn: (() => Promise<T>) | ((spinner: ReturnType<typeof p.spinner>) => Promise<T>)
 ): Promise<T> {
   const s = p.spinner();
   s.start(message);
   try {
-    const result = await fn();
+    const result =
+      fn.length >= 1
+        ? await (fn as (spinner: ReturnType<typeof p.spinner>) => Promise<T>)(s)
+        : await (fn as () => Promise<T>)();
     s.stop(pc.green("✓ ") + message);
     return result;
   } catch (error) {

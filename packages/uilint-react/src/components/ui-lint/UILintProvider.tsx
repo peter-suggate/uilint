@@ -23,6 +23,7 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 import type {
   UILintContextValue,
@@ -35,6 +36,70 @@ import { useDOMObserver } from "./useDOMObserver";
 
 // Create context
 const UILintContext = createContext<UILintContextValue | null>(null);
+
+/**
+ * Hook to detect navigation changes
+ * Monitors pathname changes and fires callback with debounce
+ */
+function useNavigationDetection(
+  enabled: boolean,
+  onNavigate: (route: string, previousRoute: string | null) => void
+) {
+  const previousRouteRef = useRef<string | null>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!enabled || !isBrowser()) return;
+
+    const checkNavigation = () => {
+      const currentRoute = window.location.pathname;
+      
+      // Skip if same route
+      if (currentRoute === previousRouteRef.current) return;
+      
+      const previousRoute = previousRouteRef.current;
+      previousRouteRef.current = currentRoute;
+      
+      // Debounce to wait for DOM to settle
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+      
+      debounceRef.current = setTimeout(() => {
+        onNavigate(currentRoute, previousRoute);
+      }, 500); // 500ms debounce after navigation
+    };
+
+    // Initial check
+    checkNavigation();
+
+    // Listen for popstate (back/forward)
+    window.addEventListener("popstate", checkNavigation);
+
+    // Create a MutationObserver to detect soft navigations (Next.js app router)
+    const observer = new MutationObserver(() => {
+      checkNavigation();
+    });
+
+    // Observe URL changes via title or any navigation-related elements
+    observer.observe(document.head, {
+      subtree: true,
+      childList: true,
+    });
+
+    // Also check periodically for URL changes (fallback)
+    const intervalId = setInterval(checkNavigation, 1000);
+
+    return () => {
+      window.removeEventListener("popstate", checkNavigation);
+      observer.disconnect();
+      clearInterval(intervalId);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [enabled, onNavigate]);
+}
 
 /**
  * Hook to access UILint context
@@ -97,8 +162,26 @@ export function UILintProvider({
     (s: UILintStore) => s.disconnectWebSocket
   );
 
+  // Vision state
+  const visionCurrentRoute = useUILintStore(
+    (s: UILintStore) => s.visionCurrentRoute
+  );
+
   // Mount DOM observer for navigation detection
   useDOMObserver(enabled && isMounted);
+
+  // Navigation detection callback
+  const handleNavigate = useCallback(
+    (route: string, previousRoute: string | null) => {
+      console.log("[UILint] Navigation detected:", { route, previousRoute });
+      // For now, just log. Auto-capture can be enabled here later.
+      // Future: if settings.autoVisionCapture, trigger vision analysis
+    },
+    []
+  );
+
+  // Use navigation detection
+  useNavigationDetection(enabled && isMounted && liveScanEnabled, handleNavigate);
 
   /**
    * Get element info from a DOM element for locator mode
@@ -334,6 +417,9 @@ export function UILintProvider({
  */
 function UILintUI() {
   const { altKeyHeld, inspectedElement, liveScanEnabled } = useUILintContext();
+  const visionIssuesCache = useUILintStore(
+    (s: UILintStore) => s.visionIssuesCache
+  );
 
   // Dynamically import components to avoid circular dependencies
   const [components, setComponents] = useState<{
@@ -342,6 +428,7 @@ function UILintUI() {
     LocatorOverlay: React.ComponentType;
     InspectedHighlight: React.ComponentType;
     ElementBadges: React.ComponentType;
+    VisionIssueBadges: React.ComponentType;
   } | null>(null);
 
   useEffect(() => {
@@ -351,27 +438,38 @@ function UILintUI() {
       import("./InspectionPanel"),
       import("./LocatorOverlay"),
       import("./ElementBadges"),
-    ]).then(([toolbar, panel, locator, badges]) => {
+      import("./VisionIssueBadge"),
+    ]).then(([toolbar, panel, locator, badges, visionBadges]) => {
       setComponents({
         Toolbar: toolbar.UILintToolbar,
         Panel: panel.InspectionPanel,
         LocatorOverlay: locator.LocatorOverlay,
         InspectedHighlight: locator.InspectedElementHighlight,
         ElementBadges: badges.ElementBadges,
+        VisionIssueBadges: visionBadges.VisionIssueBadges,
       });
     });
   }, []);
 
   if (!components) return null;
 
-  const { Toolbar, Panel, LocatorOverlay, InspectedHighlight, ElementBadges } =
-    components;
+  const {
+    Toolbar,
+    Panel,
+    LocatorOverlay,
+    InspectedHighlight,
+    ElementBadges,
+    VisionIssueBadges,
+  } = components;
+
+  const hasVisionIssues = visionIssuesCache.size > 0;
 
   return (
     <>
       <Toolbar />
       {(altKeyHeld || inspectedElement) && <LocatorOverlay />}
       {liveScanEnabled && <ElementBadges />}
+      {hasVisionIssues && <VisionIssueBadges />}
       {inspectedElement && (
         <>
           <InspectedHighlight />

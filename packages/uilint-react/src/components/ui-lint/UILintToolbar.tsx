@@ -12,7 +12,11 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useUILintContext } from "./UILintProvider";
-import { useUILintStore, type UILintStore } from "./store";
+import {
+  useUILintStore,
+  type UILintStore,
+  type VisionErrorInfo,
+} from "./store";
 import { SettingsPopover } from "./SettingsPopover";
 import { ScanPanelStack } from "./ScanPanelStack";
 import { Badge, BADGE_COLORS } from "./Badge";
@@ -185,6 +189,36 @@ const Icons = {
       <line x1="7" y1="12" x2="17" y2="12" />
     </svg>
   ),
+  Camera: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
+  ),
+  Spinner: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ animation: "uilint-spin 1s linear infinite" }}
+    >
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
+  ),
 };
 
 // ============================================================================
@@ -209,6 +243,11 @@ const globalStyles = `
   @keyframes uilint-slide-up {
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes uilint-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
   
   .uilint-btn {
@@ -480,6 +519,11 @@ interface ScanningToolbarProps {
   showResults: boolean;
   onToggleResults: () => void;
   onStopScan: () => void;
+  onVisionAnalyze: () => void;
+  visionAnalyzing: boolean;
+  visionIssueCount: number;
+  visionProgressPhase: string | null;
+  visionLastError: VisionErrorInfo | null;
 }
 
 function ScanningToolbar({
@@ -488,8 +532,15 @@ function ScanningToolbar({
   showResults,
   onToggleResults,
   onStopScan,
+  onVisionAnalyze,
+  visionAnalyzing,
+  visionIssueCount,
+  visionProgressPhase,
+  visionLastError,
 }: ScanningToolbarProps) {
-  const hasIssues = issueCount > 0;
+  const hasIssues = issueCount > 0 || visionIssueCount > 0;
+  const totalIssues = issueCount + visionIssueCount;
+  const hasVisionError = !!visionLastError?.message;
 
   // Determine status display
   const getStatusContent = () => {
@@ -521,7 +572,7 @@ function ScanningToolbar({
           >
             <Icons.AlertTriangle />
           </span>
-          <Badge count={issueCount} />
+          <Badge count={totalIssues} />
         </>
       );
     }
@@ -571,7 +622,7 @@ function ScanningToolbar({
           onClick={onToggleResults}
           title={
             hasIssues
-              ? `${issueCount} issue${issueCount !== 1 ? "s" : ""} found`
+              ? `${totalIssues} issue${totalIssues !== 1 ? "s" : ""} found`
               : "View scan results"
           }
           aria-label="Toggle scan results"
@@ -580,6 +631,32 @@ function ScanningToolbar({
         >
           {getStatusContent()}
           <Icons.ChevronDown />
+        </button>
+
+        <Divider />
+
+        {/* Vision analysis button */}
+        <button
+          className={`uilint-btn uilint-btn--icon ${
+            visionAnalyzing ? "uilint-btn--accent" : ""
+          }`}
+          style={
+            !visionAnalyzing && hasVisionError
+              ? { color: TOKENS.error, backgroundColor: `${TOKENS.error}12` }
+              : undefined
+          }
+          onClick={onVisionAnalyze}
+          disabled={visionAnalyzing}
+          title={
+            visionAnalyzing
+              ? visionProgressPhase || "Analyzing..."
+              : hasVisionError
+              ? `Last vision run failed (${visionLastError?.stage}): ${visionLastError?.message}`
+              : "Capture & Analyze Page"
+          }
+          aria-label="Capture and analyze page with vision"
+        >
+          {visionAnalyzing ? <Icons.Spinner /> : <Icons.Camera />}
         </button>
 
         <Divider />
@@ -621,6 +698,17 @@ export function UILintToolbar() {
   );
   const fileIssuesCache = useUILintStore((s: UILintStore) => s.fileIssuesCache);
   const wsConnected = useUILintStore((s: UILintStore) => s.wsConnected);
+  const visionAnalyzing = useUILintStore((s: UILintStore) => s.visionAnalyzing);
+  const visionProgressPhase = useUILintStore(
+    (s: UILintStore) => s.visionProgressPhase
+  );
+  const visionLastError = useUILintStore((s: UILintStore) => s.visionLastError);
+  const visionIssuesCache = useUILintStore(
+    (s: UILintStore) => s.visionIssuesCache
+  );
+  const triggerVisionAnalysis = useUILintStore(
+    (s: UILintStore) => s.triggerVisionAnalysis
+  );
 
   // Local state
   const [showSettings, setShowSettings] = useState(false);
@@ -646,6 +734,11 @@ export function UILintToolbar() {
   let fileLevelIssues = 0;
   fileIssuesCache.forEach((issues) => {
     fileLevelIssues += issues.length;
+  });
+
+  let visionIssueCount = 0;
+  visionIssuesCache.forEach((issues) => {
+    visionIssueCount += issues.length;
   });
 
   const totalIssues = elementIssues + fileLevelIssues;
@@ -755,6 +848,10 @@ export function UILintToolbar() {
     setShowResults((prev) => !prev);
   }, []);
 
+  const handleVisionAnalyze = useCallback(() => {
+    triggerVisionAnalysis();
+  }, [triggerVisionAnalysis]);
+
   // Prevent event propagation
   const handleUILintInteraction = useCallback(
     (e: React.MouseEvent | React.KeyboardEvent | React.PointerEvent) => {
@@ -795,6 +892,11 @@ export function UILintToolbar() {
         showResults={showResults}
         onToggleResults={handleToggleResults}
         onStopScan={handleStopScan}
+        onVisionAnalyze={handleVisionAnalyze}
+        visionAnalyzing={visionAnalyzing}
+        visionIssueCount={visionIssueCount}
+        visionProgressPhase={visionProgressPhase}
+        visionLastError={visionLastError}
       />
     );
   };

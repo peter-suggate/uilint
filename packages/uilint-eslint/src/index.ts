@@ -13,6 +13,7 @@ import noDirectStoreImport from "./rules/no-direct-store-import.js";
 import preferZustandStateManagement from "./rules/prefer-zustand-state-management.js";
 import noMixedComponentLibraries from "./rules/no-mixed-component-libraries.js";
 import semantic from "./rules/semantic.js";
+import semanticVision from "./rules/semantic-vision.js";
 
 /**
  * All available rules
@@ -25,6 +26,7 @@ const rules = {
   "prefer-zustand-state-management": preferZustandStateManagement,
   "no-mixed-component-libraries": noMixedComponentLibraries,
   "semantic": semantic,
+  "semantic-vision": semanticVision,
 };
 
 // Package version (injected at build time or fallback)
@@ -188,6 +190,12 @@ const strictConfig: Linter.Config = {
         {
           "model": "qwen3-coder:30b",
           "styleguidePath": ".uilint/styleguide.md"
+        }
+      ]],
+    "uilint/semantic-vision": ["warn", ...[
+        {
+          "maxAgeMs": 3600000,
+          "screenshotsPath": ".uilint/screenshots"
         }
       ]],
   },
