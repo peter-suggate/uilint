@@ -1,7 +1,7 @@
 /**
  * Inject uilint-eslint rules into ESLint config
  *
- * Modifies eslint.config.{mjs,js,cjs} to add uilint import and selected rules
+ * Modifies eslint.config.{ts,mjs,js,cjs} to add uilint import and selected rules
  */
 
 import { existsSync, readFileSync, writeFileSync } from "fs";
@@ -19,7 +19,7 @@ export interface InstallEslintPluginOptions {
   ) => Promise<boolean>;
 }
 
-const CONFIG_EXTENSIONS = [".mjs", ".js", ".cjs"];
+const CONFIG_EXTENSIONS = [".ts", ".mjs", ".js", ".cjs"];
 
 /**
  * Find the eslint.config file in a project

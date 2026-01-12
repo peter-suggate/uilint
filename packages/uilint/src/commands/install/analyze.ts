@@ -13,6 +13,10 @@ import {
   detectNextAppRouter,
   findNextAppRouterProjects,
 } from "../../utils/next-detect.js";
+import {
+  detectViteReact,
+  findViteReactProjects,
+} from "../../utils/vite-detect.js";
 import { findPackages } from "../../utils/package-detect.js";
 import { detectPackageManager } from "../../utils/package-manager.js";
 import {
@@ -26,6 +30,7 @@ import type {
   HooksConfig,
   EslintPackageInfo,
   NextAppInfo,
+  ViteAppInfo,
 } from "./types.js";
 
 // Legacy hook commands to detect for upgrade path
@@ -112,6 +117,21 @@ export async function analyze(
     }
   }
 
+  // Detect Vite + React projects
+  const viteApps: ViteAppInfo[] = [];
+  const directVite = detectViteReact(projectPath);
+  if (directVite) {
+    viteApps.push({ projectPath, detection: directVite });
+  } else {
+    const matches = findViteReactProjects(workspaceRoot, { maxDepth: 5 });
+    for (const match of matches) {
+      viteApps.push({
+        projectPath: match.projectPath,
+        detection: match.detection,
+      });
+    }
+  }
+
   // Find all packages and enrich with ESLint info
   const rawPackages = findPackages(workspaceRoot);
   const packages: EslintPackageInfo[] = rawPackages.map((pkg) => {
@@ -170,6 +190,7 @@ export async function analyze(
       genrules: genrulesExists,
     },
     nextApps,
+    viteApps,
     packages,
   };
 }

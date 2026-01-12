@@ -37,6 +37,7 @@ const DEFAULT_IGNORE_DIRS = new Set([
 
 const ESLINT_CONFIG_FILES = [
   "eslint.config.js",
+  "eslint.config.ts",
   "eslint.config.mjs",
   "eslint.config.cjs",
   ".eslintrc.js",

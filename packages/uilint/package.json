@@ -1,6 +1,6 @@
 {
   "name": "uilint",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "CLI for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {

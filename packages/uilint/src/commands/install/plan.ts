@@ -37,10 +37,7 @@ const require = createRequire(import.meta.url);
 function getSelfDependencyVersionRange(pkgName: string): string | null {
   try {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const pkgJson = require("uilint/package.json") as Record<
-      string,
-      unknown
-    >;
+    const pkgJson = require("uilint/package.json") as Record<string, unknown>;
     const deps = pkgJson?.dependencies as Record<string, string> | undefined;
     const optDeps = pkgJson?.optionalDependencies as
       | Record<string, string>
@@ -294,6 +291,34 @@ export function createPlan(
     // Inject jsx-loc-plugin into next.config
     actions.push({
       type: "inject_next_config",
+      projectPath,
+    });
+  }
+
+  // =========================================================================
+  // Vite Overlay Installation
+  // =========================================================================
+  if (items.includes("vite") && choices.vite) {
+    const { projectPath, detection } = choices.vite;
+
+    // Install React overlay dependencies
+    dependencies.push({
+      packagePath: projectPath,
+      packageManager: state.packageManager,
+      packages: ["uilint-react", "uilint-core", "jsx-loc-plugin"],
+    });
+
+    // Inject UILintProvider into React entry
+    actions.push({
+      type: "inject_react",
+      projectPath,
+      appRoot: detection.entryRoot,
+      mode: "vite",
+    });
+
+    // Inject jsx-loc-plugin into vite.config
+    actions.push({
+      type: "inject_vite_config",
       projectPath,
     });
   }

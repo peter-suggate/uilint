@@ -91,6 +91,18 @@ function displayResults(result: InstallResult): void {
     );
   }
 
+  // Vite
+  if (summary.viteApp) {
+    installedItems.push(
+      `${pc.cyan("Vite Overlay")} → ${pc.dim("<UILintProvider> injected")}`
+    );
+    installedItems.push(
+      `${pc.cyan("JSX Loc Plugin")} → ${pc.dim(
+        "vite.config plugins patched with jsxLoc()"
+      )}`
+    );
+  }
+
   // ESLint
   if (summary.eslintTargets.length > 0) {
     installedItems.push(
@@ -149,6 +161,12 @@ function displayResults(result: InstallResult): void {
   if (summary.nextApp) {
     steps.push(
       "Run your Next.js dev server - use Alt+Click on any element to inspect"
+    );
+  }
+
+  if (summary.viteApp) {
+    steps.push(
+      "Run your Vite dev server - use Alt+Click on any element to inspect"
     );
   }
 

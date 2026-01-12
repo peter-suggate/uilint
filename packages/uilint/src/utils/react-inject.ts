@@ -5,9 +5,17 @@ import { parseModule, generateCode } from "magicast";
 export interface InstallReactOverlayOptions {
   projectPath: string;
   /**
-   * Relative app root: "app" or "src/app"
+   * Relative entry root:
+   * - Next.js: "app" or "src/app"
+   * - Vite: typically "src"
    */
   appRoot: string;
+  /**
+   * Injection mode:
+   * - "next": wraps `{children}` (App Router layout/page)
+   * - "vite": wraps the first `*.render(<...>)` argument
+   */
+  mode?: "next" | "vite";
   force?: boolean;
   /**
    * If multiple candidates are found, prompt user to choose.
@@ -20,6 +28,25 @@ export interface InstallReactOverlayOptions {
  * Prefer layout.* over page.* (layouts are better for providers).
  */
 function getDefaultCandidates(projectPath: string, appRoot: string): string[] {
+  // Vite entry files (prefer src/main.*)
+  const viteMainCandidates = [
+    join(appRoot, "main.tsx"),
+    join(appRoot, "main.jsx"),
+    join(appRoot, "main.ts"),
+    join(appRoot, "main.js"),
+  ];
+  const existingViteMain = viteMainCandidates.filter((rel) =>
+    existsSync(join(projectPath, rel))
+  );
+  if (existingViteMain.length > 0) return existingViteMain;
+
+  // Vite fallback: src/App.* (some templates wire provider there)
+  const viteAppCandidates = [join(appRoot, "App.tsx"), join(appRoot, "App.jsx")];
+  const existingViteApp = viteAppCandidates.filter((rel) =>
+    existsSync(join(projectPath, rel))
+  );
+  if (existingViteApp.length > 0) return existingViteApp;
+
   // Check layout files first (preferred)
   const layoutCandidates = [
     join(appRoot, "layout.tsx"),
@@ -168,6 +195,55 @@ function wrapFirstChildrenExpressionWithProvider(program: any): {
   return { changed: true };
 }
 
+function wrapFirstRenderCallArgumentWithProvider(program: any): {
+  changed: boolean;
+} {
+  if (!program || program.type !== "Program") return { changed: false };
+  if (hasUILintProviderJsx(program)) return { changed: false };
+
+  const providerMod = parseModule(
+    'const __uilint_provider = (<UILintProvider enabled={process.env.NODE_ENV !== "production"}></UILintProvider>);'
+  );
+  const providerJsx =
+    (providerMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
+  if (!providerJsx || providerJsx.type !== "JSXElement")
+    return { changed: false };
+
+  // Ensure it can accept children.
+  providerJsx.children = providerJsx.children ?? [];
+
+  let wrapped = false;
+  walkAst(program, (node) => {
+    if (wrapped) return;
+    if (node.type !== "CallExpression") return;
+    const callee = node.callee;
+    // Match: something.render(<JSX />)
+    if (callee?.type !== "MemberExpression") return;
+    const prop = callee.property;
+    const isRender =
+      (prop?.type === "Identifier" && prop.name === "render") ||
+      (prop?.type === "StringLiteral" && prop.value === "render") ||
+      (prop?.type === "Literal" && prop.value === "render");
+    if (!isRender) return;
+
+    const arg0 = node.arguments?.[0];
+    if (!arg0) return;
+    if (arg0.type !== "JSXElement" && arg0.type !== "JSXFragment") return;
+
+    // Wrap the JSX render root with provider.
+    providerJsx.children = [arg0];
+    node.arguments[0] = providerJsx;
+    wrapped = true;
+  });
+
+  if (!wrapped) {
+    throw new Error(
+      'Could not find a `.render(<...>)` call to wrap. Expected a React entry like `createRoot(...).render(<App />)`.'
+    );
+  }
+  return { changed: true };
+}
+
 export async function installReactUILintOverlay(
   opts: InstallReactOverlayOptions
 ): Promise<{
@@ -178,7 +254,7 @@ export async function installReactUILintOverlay(
   const candidates = getDefaultCandidates(opts.projectPath, opts.appRoot);
   if (!candidates.length) {
     throw new Error(
-      `No suitable Next.js entry files found under ${opts.appRoot} (expected layout.* or page.*).`
+      `No suitable entry files found under ${opts.appRoot} (expected Next.js layout/page or Vite main/App).`
     );
   }
 
@@ -216,7 +292,12 @@ export async function installReactUILintOverlay(
     "UILintProvider"
   );
   if (importRes.changed) changed = true;
-  const wrapRes = wrapFirstChildrenExpressionWithProvider(program);
+
+  const mode = opts.mode ?? "next";
+  const wrapRes =
+    mode === "vite"
+      ? wrapFirstRenderCallArgumentWithProvider(program)
+      : wrapFirstChildrenExpressionWithProvider(program);
   if (wrapRes.changed) changed = true;
 
   const updated = changed ? generateCode(mod).code : original;

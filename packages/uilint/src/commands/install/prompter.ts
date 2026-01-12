@@ -12,10 +12,12 @@ import { formatPackageOption } from "../../utils/package-detect.js";
 import type {
   InstallItem,
   NextAppInfo,
+  ViteAppInfo,
   EslintPackageInfo,
   UserChoices,
   EslintChoices,
   NextChoices,
+  ViteChoices,
   ProjectState,
   InstallOptions,
 } from "./types.js";
@@ -44,6 +46,11 @@ export interface Prompter {
    * Select which Next.js app to install into (when multiple found)
    */
   selectNextApp(apps: NextAppInfo[]): Promise<NextAppInfo>;
+
+  /**
+   * Select which Vite app to install into (when multiple found)
+   */
+  selectViteApp(apps: ViteAppInfo[]): Promise<ViteAppInfo>;
 
   /**
    * Select which packages to install ESLint plugin into
@@ -90,12 +97,17 @@ export const cliPrompter: Prompter = {
         {
           value: "eslint",
           label: "ESLint plugin",
-          hint: "Installs uilint-eslint and configures eslint.config.js",
+          hint: "Installs uilint-eslint and configures eslint.config.*",
         },
         {
           value: "next",
           label: "UI overlay",
           hint: "Installs routes + UILintProvider (Alt+Click to inspect)",
+        },
+        {
+          value: "vite",
+          label: "UI overlay (Vite)",
+          hint: "Installs jsx-loc-plugin + UILintProvider (Alt+Click to inspect)",
         },
         {
           value: "genstyleguide",
@@ -144,6 +156,19 @@ export const cliPrompter: Prompter = {
   async selectNextApp(apps: NextAppInfo[]): Promise<NextAppInfo> {
     const chosen = await select<string>({
       message: "Which Next.js App Router project should UILint install into?",
+      options: apps.map((app) => ({
+        value: app.projectPath,
+        label: app.projectPath,
+      })),
+      initialValue: apps[0].projectPath,
+    });
+
+    return apps.find((a) => a.projectPath === chosen) || apps[0];
+  },
+
+  async selectViteApp(apps: ViteAppInfo[]): Promise<ViteAppInfo> {
+    const chosen = await select<string>({
+      message: "Which Vite + React project should UILint install into?",
       options: apps.map((app) => ({
         value: app.projectPath,
         label: app.projectPath,
@@ -437,6 +462,27 @@ export async function gatherChoices(
     }
   }
 
+  // Vite app selection
+  let viteChoices: ViteChoices | undefined;
+  if (items.includes("vite")) {
+    if (state.viteApps.length === 0) {
+      throw new Error(
+        "Could not find a Vite + React project (expected vite.config.* + react deps). Run this from your Vite project root."
+      );
+    } else if (state.viteApps.length === 1) {
+      viteChoices = {
+        projectPath: state.viteApps[0].projectPath,
+        detection: state.viteApps[0].detection,
+      };
+    } else {
+      const selected = await prompter.selectViteApp(state.viteApps);
+      viteChoices = {
+        projectPath: selected.projectPath,
+        detection: selected.detection,
+      };
+    }
+  }
+
   // ESLint choices
   let eslintChoices: EslintChoices | undefined;
   if (items.includes("eslint")) {
@@ -447,7 +493,7 @@ export async function gatherChoices(
 
     if (packagesWithEslint.length === 0) {
       throw new Error(
-        "No packages with eslint.config.{mjs,js,cjs} found. Create an ESLint config first."
+        "No packages with eslint.config.{ts,mjs,js,cjs} found. Create an ESLint config first."
       );
     }
 
@@ -489,6 +535,7 @@ export async function gatherChoices(
     mcpMerge,
     hooksMerge,
     next: nextChoices,
+    vite: viteChoices,
     eslint: eslintChoices,
   };
 }

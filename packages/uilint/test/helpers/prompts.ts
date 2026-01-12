@@ -10,6 +10,7 @@ import { ruleRegistry } from "uilint-eslint";
 import type {
   InstallItem,
   NextAppInfo,
+  ViteAppInfo,
   EslintPackageInfo,
 } from "../../src/commands/install/types.js";
 import type { Prompter } from "../../src/commands/install/prompter.js";
@@ -23,6 +24,8 @@ export interface MockPrompterOptions {
   hooksMerge?: boolean;
   /** Index of Next.js app to select (when multiple found) */
   nextAppIndex?: number;
+  /** Index of Vite app to select (when multiple found) */
+  viteAppIndex?: number;
   /** Package paths to select for ESLint installation */
   eslintPackagePaths?: string[];
   /** Rule IDs to select for ESLint */
@@ -47,6 +50,7 @@ export function mockPrompter(options: MockPrompterOptions = {}): Prompter {
     mcpMerge = true,
     hooksMerge = true,
     nextAppIndex = 0,
+    viteAppIndex = 0,
     eslintPackagePaths,
     eslintRuleIds,
     eslintRuleSeverity = "warn",
@@ -69,6 +73,10 @@ export function mockPrompter(options: MockPrompterOptions = {}): Prompter {
 
     async selectNextApp(apps: NextAppInfo[]): Promise<NextAppInfo> {
       return apps[nextAppIndex] || apps[0];
+    },
+
+    async selectViteApp(apps: ViteAppInfo[]): Promise<ViteAppInfo> {
+      return apps[viteAppIndex] || apps[0];
     },
 
     async selectEslintPackages(
@@ -129,6 +137,7 @@ export function noopPrompter(): Prompter {
     confirmMcpMerge: throwError,
     confirmHooksMerge: throwError,
     selectNextApp: throwError,
+    selectViteApp: throwError,
     selectEslintPackages: throwError,
     selectEslintRules: throwError,
     selectEslintRuleSeverity: throwError,

@@ -9,6 +9,7 @@
 
 import type { RuleMetadata } from "uilint-eslint";
 import type { NextAppRouterDetection } from "../../utils/next-detect.js";
+import type { ViteReactDetection } from "../../utils/vite-detect.js";
 import type { PackageInfo } from "../../utils/package-detect.js";
 import type { PackageManager } from "../../utils/package-manager.js";
 
@@ -42,6 +43,11 @@ export interface MCPConfig {
 export interface NextAppInfo {
   projectPath: string;
   detection: NextAppRouterDetection;
+}
+
+export interface ViteAppInfo {
+  projectPath: string;
+  detection: ViteReactDetection;
 }
 
 export interface EslintPackageInfo extends PackageInfo {
@@ -101,6 +107,9 @@ export interface ProjectState {
   /** Detected Next.js App Router projects */
   nextApps: NextAppInfo[];
 
+  /** Detected Vite + React projects */
+  viteApps: ViteAppInfo[];
+
   /** All packages with ESLint info */
   packages: EslintPackageInfo[];
 }
@@ -115,6 +124,7 @@ export type InstallItem =
   | "genstyleguide"
   | "genrules"
   | "next"
+  | "vite"
   | "eslint";
 
 export interface EslintChoices {
@@ -131,6 +141,13 @@ export interface NextChoices {
   detection: NextAppRouterDetection;
 }
 
+export interface ViteChoices {
+  /** Selected Vite app project path */
+  projectPath: string;
+  /** Detection info for the selected Vite app */
+  detection: ViteReactDetection;
+}
+
 export interface UserChoices {
   /** Items selected for installation */
   items: InstallItem[];
@@ -138,6 +155,8 @@ export interface UserChoices {
   eslint?: EslintChoices;
   /** Next.js-specific choices (if next selected) */
   next?: NextChoices;
+  /** Vite-specific choices (if vite selected) */
+  vite?: ViteChoices;
   /** Whether to merge or skip existing MCP config */
   mcpMerge: boolean;
   /** Whether to merge or skip existing hooks config */
@@ -180,11 +199,22 @@ export interface InjectEslintAction {
 export interface InjectReactAction {
   type: "inject_react";
   projectPath: string;
+  /**
+   * For Next.js: "app" or "src/app"
+   * For Vite: typically "src"
+   */
   appRoot: string;
+  /** Injection mode: defaults to "next" for backwards compatibility */
+  mode?: "next" | "vite";
 }
 
 export interface InjectNextConfigAction {
   type: "inject_next_config";
+  projectPath: string;
+}
+
+export interface InjectViteConfigAction {
+  type: "inject_vite_config";
   projectPath: string;
 }
 
@@ -214,6 +244,7 @@ export type InstallAction =
   | InjectEslintAction
   | InjectReactAction
   | InjectNextConfigAction
+  | InjectViteConfigAction
   | InstallNextRoutesAction
   | CreateDirectoryAction
   | AppendToFileAction;
@@ -263,6 +294,8 @@ export interface InstallSummary {
   eslintTargets: { displayName: string; configFile: string }[];
   /** Next.js app configured (if any) */
   nextApp?: { appRoot: string };
+  /** Vite app configured (if any) */
+  viteApp?: { entryRoot: string };
 }
 
 export interface InstallResult {

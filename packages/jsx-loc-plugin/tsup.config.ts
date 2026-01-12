@@ -1,9 +1,12 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/loader.ts"],
+  entry: ["src/index.ts", "src/loader.ts", "src/vite.ts"],
   format: ["cjs", "esm"],
-  dts: true,
+  dts: {
+    resolve: true,
+  },
   clean: true,
-  external: ["next", "@builder.io/jsx-loc-internals"],
+  external: ["next", "vite", "@builder.io/jsx-loc-internals"],
+  noExternal: [],
 });

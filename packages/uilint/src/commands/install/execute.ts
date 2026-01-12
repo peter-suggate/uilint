@@ -25,12 +25,14 @@ import type {
   InjectEslintAction,
   InjectReactAction,
   InjectNextConfigAction,
+  InjectViteConfigAction,
   InstallNextRoutesAction,
 } from "./types.js";
 import { installDependencies as defaultInstallDependencies } from "../../utils/package-manager.js";
 import { installEslintPlugin } from "../../utils/eslint-config-inject.js";
 import { installReactUILintOverlay } from "../../utils/react-inject.js";
 import { installJsxLocPlugin } from "../../utils/next-config-inject.js";
+import { installViteJsxLocPlugin } from "../../utils/vite-config-inject.js";
 import { installNextUILintRoutes } from "../../utils/next-routes.js";
 
 /**
@@ -154,6 +156,10 @@ async function executeAction(
         return await executeInjectNextConfig(action, options);
       }
 
+      case "inject_vite_config": {
+        return await executeInjectViteConfig(action, options);
+      }
+
       case "install_next_routes": {
         return await executeInstallNextRoutes(action, options);
       }
@@ -236,6 +242,7 @@ async function executeInjectReact(
   const result = await installReactUILintOverlay({
     projectPath: action.projectPath,
     appRoot: action.appRoot,
+    mode: action.mode,
     force: false,
     // Auto-select first choice for execute phase
     confirmFileChoice: async (choices) => choices[0],
@@ -248,6 +255,35 @@ async function executeInjectReact(
     action,
     success,
     error: success ? undefined : "Failed to configure React overlay",
+  };
+}
+
+/**
+ * Execute Vite config injection
+ */
+async function executeInjectViteConfig(
+  action: InjectViteConfigAction,
+  options: ExecuteOptions
+): Promise<ActionResult> {
+  const { dryRun = false } = options;
+
+  if (dryRun) {
+    return {
+      action,
+      success: true,
+      wouldDo: `Inject jsx-loc-plugin into vite.config: ${action.projectPath}`,
+    };
+  }
+
+  const result = await installViteJsxLocPlugin({
+    projectPath: action.projectPath,
+    force: false,
+  });
+
+  return {
+    action,
+    success: result.modified || result.configFile !== null,
+    error: result.configFile === null ? "No vite.config found" : undefined,
   };
 }
 
@@ -352,6 +388,7 @@ function buildSummary(
   const filesDeleted: string[] = [];
   const eslintTargets: { displayName: string; configFile: string }[] = [];
   let nextApp: { appRoot: string } | undefined;
+  let viteApp: { entryRoot: string } | undefined;
 
   for (const result of actionsPerformed) {
     if (!result.success) continue;
@@ -376,6 +413,12 @@ function buildSummary(
         });
         break;
       case "inject_react":
+        if (action.mode === "vite") {
+          viteApp = { entryRoot: action.appRoot };
+        } else {
+          nextApp = { appRoot: action.appRoot };
+        }
+        break;
       case "install_next_routes":
         nextApp = { appRoot: action.appRoot };
         break;
@@ -401,6 +444,7 @@ function buildSummary(
     dependenciesInstalled,
     eslintTargets,
     nextApp,
+    viteApp,
   };
 }
 
@@ -474,12 +518,11 @@ export async function execute(
       if (action.path.includes("genrules.md")) items.push("genrules");
     }
     if (action.type === "inject_eslint") items.push("eslint");
-    if (
-      action.type === "inject_react" ||
-      action.type === "install_next_routes"
-    ) {
-      items.push("next");
+    if (action.type === "install_next_routes") items.push("next");
+    if (action.type === "inject_react") {
+      items.push(action.mode === "vite" ? "vite" : "next");
     }
+    if (action.type === "inject_vite_config") items.push("vite");
   }
   // Dedupe
   const uniqueItems = [...new Set(items)];
