@@ -1,21 +1,26 @@
 /**
  * Badge component - Consistent badge styling across UILint components
  * Matches the toolbar badge style (.uilint-badge class)
+ *
+ * Uses CSS variables for theme support (light/dark modes).
  */
 
 import React from "react";
 
+// Font family matching TOKENS.fontMono from toolbar
+const FONT_MONO = `"SF Mono", Monaco, "Cascadia Code", monospace`;
+
 // ============================================================================
-// Shared Design Tokens - Matching UILintToolbar.tsx
+// Shared Design Tokens - Using CSS Variables
 // ============================================================================
 export const BADGE_COLORS = {
-  success: "#68d391", // Soft green
-  warning: "#f6ad55", // Warm orange
-  error: "#ef4444", // Red (for future use)
+  success: "var(--uilint-success)",
+  successBg: "var(--uilint-success-bg)",
+  warning: "var(--uilint-warning)",
+  warningBg: "var(--uilint-warning-bg)",
+  error: "var(--uilint-error)",
+  errorBg: "var(--uilint-error-bg)",
 } as const;
-
-// Font family matching TOKENS.fontMono from UILintToolbar
-const FONT_MONO = `"SF Mono", Monaco, "Cascadia Code", monospace`;
 
 // ============================================================================
 // Helper Functions
@@ -23,7 +28,6 @@ const FONT_MONO = `"SF Mono", Monaco, "Cascadia Code", monospace`;
 
 /**
  * Get badge text color based on issue count
- * Matches UILintToolbar.tsx styling
  */
 function getBadgeTextColor(issueCount: number): string {
   if (issueCount === 0) return BADGE_COLORS.success;
@@ -31,15 +35,11 @@ function getBadgeTextColor(issueCount: number): string {
 }
 
 /**
- * Get badge background color with opacity based on issue count
- * Uses the same pattern as UILintToolbar: `${color}20` for 20% opacity
- * Matches UILintToolbar.tsx styling
+ * Get badge background color based on issue count
  */
 function getBadgeBackgroundColor(issueCount: number): string {
-  const color = getBadgeTextColor(issueCount);
-  // Append "20" to hex color for 20% opacity (hex alpha channel)
-  // This matches the pattern used in UILintToolbar: `${TOKENS.warning}20`
-  return `${color}20`;
+  if (issueCount === 0) return BADGE_COLORS.successBg;
+  return BADGE_COLORS.warningBg;
 }
 
 // ============================================================================
@@ -94,7 +94,7 @@ export function Badge({
   color,
 }: BadgeProps) {
   const sizeStyles = BADGE_STYLES[size];
-  // Default to toolbar styling if not explicitly provided
+  // Default to themed styling if not explicitly provided
   const bgColor = backgroundColor ?? getBadgeBackgroundColor(count);
   const textColor = color ?? getBadgeTextColor(count);
 

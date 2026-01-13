@@ -11,23 +11,24 @@ import React, { useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useUILintStore, type UILintStore } from "./store";
 import type { VisionIssue } from "../../scanner/vision-capture";
+import { getUILintPortalHost } from "./portal-host";
 
 /**
- * Design tokens for vision badges
+ * Design tokens for vision badges - uses CSS variables for theme support
  */
 const STYLES = {
   // Vision-specific colors (purple/violet theme to distinguish from ESLint)
-  badgeBg: "rgba(139, 92, 246, 0.95)", // violet-500
-  badgeBgWarning: "rgba(245, 158, 11, 0.95)", // amber-500
-  badgeBgInfo: "rgba(59, 130, 246, 0.95)", // blue-500
-  badgeText: "#FFFFFF",
-  badgeShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
-  highlightBorder: "rgba(139, 92, 246, 0.8)",
-  highlightBg: "rgba(139, 92, 246, 0.1)",
+  badgeBg: "oklch(0.585 0.233 283.04 / 95%)", // violet-500
+  badgeBgWarning: "var(--uilint-warning)",
+  badgeBgInfo: "var(--uilint-accent)",
+  badgeText: "var(--uilint-text-primary)",
+  badgeShadow: "var(--uilint-shadow)",
+  highlightBorder: "oklch(0.585 0.233 283.04 / 80%)",
+  highlightBg: "oklch(0.585 0.233 283.04 / 10%)",
   // Severity-based highlight colors
-  error: "#EF4444",
-  warning: "#F59E0B",
-  info: "#3B82F6",
+  error: "var(--uilint-error)",
+  warning: "var(--uilint-warning)",
+  info: "var(--uilint-accent)",
 };
 
 /**
@@ -235,6 +236,6 @@ export function VisionIssueBadges() {
         />
       ))}
     </div>,
-    document.body
+    getUILintPortalHost()
   );
 }

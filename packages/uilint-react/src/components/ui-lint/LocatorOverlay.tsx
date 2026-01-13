@@ -12,24 +12,25 @@ import { createPortal } from "react-dom";
 import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import type { SourceLocation } from "./types";
+import { getUILintPortalHost } from "./portal-host";
 
 /**
- * Design tokens
+ * Design tokens - uses CSS variables for theme support
  */
 const STYLES = {
-  bg: "rgba(17, 24, 39, 0.95)",
-  border: "rgba(59, 130, 246, 0.8)",
-  borderHighlight: "#3B82F6",
-  text: "#F9FAFB",
-  textMuted: "#9CA3AF",
-  accent: "#3B82F6",
+  bg: "var(--uilint-backdrop)",
+  border: "var(--uilint-border-focus)",
+  borderHighlight: "var(--uilint-accent)",
+  text: "var(--uilint-text-primary)",
+  textMuted: "var(--uilint-text-secondary)",
+  accent: "var(--uilint-accent)",
   font: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   fontMono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
-  shadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
+  shadow: "var(--uilint-shadow)",
   blur: "blur(12px)",
   // Severity colors for highlights
-  error: "#EF4444",
-  warning: "#F59E0B",
+  error: "var(--uilint-error)",
+  warning: "var(--uilint-warning)",
 };
 
 /**
@@ -118,7 +119,7 @@ export function LocatorOverlay() {
     </div>
   );
 
-  return createPortal(content, document.body);
+  return createPortal(content, getUILintPortalHost());
 }
 
 /**
@@ -187,7 +188,7 @@ export function VisionIssueHighlight() {
         animation: "uilint-locator-fade-in 0.1s ease-out",
       }}
     />,
-    document.body
+    getUILintPortalHost()
   );
 }
 
@@ -356,9 +357,10 @@ export function InspectedElementHighlight() {
           left: rect.left - 3,
           width: rect.width + 6,
           height: rect.height + 6,
-          border: "2px solid #3B82F6",
+          border: `2px solid ${STYLES.accent}`,
           borderRadius: "6px",
-          backgroundColor: "rgba(59, 130, 246, 0.08)",
+          backgroundColor: "var(--uilint-accent)",
+          opacity: 0.08,
           animation: "uilint-inspected-pulse 2s ease-in-out infinite",
           zIndex: 99996,
         }}
@@ -371,8 +373,8 @@ export function InspectedElementHighlight() {
           top: rect.top - 24,
           left: rect.left - 3,
           padding: "2px 8px",
-          backgroundColor: "#3B82F6",
-          color: "#FFFFFF",
+          backgroundColor: STYLES.accent,
+          color: STYLES.text,
           fontSize: "10px",
           fontWeight: 600,
           fontFamily: STYLES.font,
@@ -385,5 +387,5 @@ export function InspectedElementHighlight() {
     </div>
   );
 
-  return createPortal(content, document.body);
+  return createPortal(content, getUILintPortalHost());
 }

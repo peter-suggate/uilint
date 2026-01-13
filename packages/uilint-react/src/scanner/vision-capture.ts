@@ -5,8 +5,6 @@
  * Uses html-to-image for DOM-to-image capture.
  */
 
-import type { SourceLocation } from "../components/ui-lint/types";
-
 /**
  * Element manifest entry for vision analysis
  */

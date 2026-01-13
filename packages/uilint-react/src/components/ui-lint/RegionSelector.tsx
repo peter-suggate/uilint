@@ -9,6 +9,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { getUILintPortalHost } from "./portal-host";
 
 export interface SelectedRegion {
   x: number;
@@ -26,12 +27,13 @@ interface RegionSelectorProps {
   onCancel: () => void;
 }
 
+// Design tokens - uses CSS variables where applicable
 const TOKENS = {
-  overlayBg: "rgba(0, 0, 0, 0.5)",
-  selectionBorder: "#3B82F6",
-  selectionBg: "rgba(59, 130, 246, 0.1)",
-  textBg: "rgba(15, 15, 15, 0.92)",
-  textColor: "rgba(255, 255, 255, 0.95)",
+  overlayBg: "rgba(0, 0, 0, 0.5)", // Keep neutral overlay
+  selectionBorder: "var(--uilint-accent)",
+  selectionBg: "var(--uilint-accent)", // Will have opacity applied
+  textBg: "var(--uilint-backdrop)",
+  textColor: "var(--uilint-text-primary)",
   fontFamily: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
   fontMono: `"SF Mono", Monaco, "Cascadia Code", monospace`,
 } as const;
@@ -246,12 +248,13 @@ export function RegionSelector({
               whiteSpace: "nowrap",
             }}
           >
-            {Math.round(selectionRect.width)} × {Math.round(selectionRect.height)}
+            {Math.round(selectionRect.width)} ×{" "}
+            {Math.round(selectionRect.height)}
           </div>
         </>
       )}
     </div>
   );
 
-  return createPortal(content, document.body);
+  return createPortal(content, getUILintPortalHost());
 }

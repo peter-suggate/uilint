@@ -13,6 +13,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useUILintContext } from "../UILintProvider";
 import { useUILintStore } from "../store";
+import { getUILintPortalHost } from "../portal-host";
 import { SettingsPopover } from "../SettingsPopover";
 import { ScanPanelStack } from "../ScanPanelStack";
 import { RegionSelector, type SelectedRegion } from "../RegionSelector";
@@ -21,6 +22,7 @@ import { IdleToolbar } from "./IdleToolbar";
 import { ScanningToolbar } from "./ScanningToolbar";
 import { TOKENS } from "./tokens";
 import { globalStyles } from "./styles";
+import { PopoverContent, PopoverRoot } from "@/components/ui/popover";
 
 export function UILintToolbar() {
   const { settings, liveScanEnabled } = useUILintContext();
@@ -39,12 +41,10 @@ export function UILintToolbar() {
   // Local state
   const [showSettings, setShowSettings] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [settingsClosing, setSettingsClosing] = useState(false);
   const [nextjsOverlayVisible, setNextjsOverlayVisible] = useState(false);
 
   // Refs
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const settingsRef = useRef<HTMLDivElement>(null);
 
   // Detect Next.js overlay
   useEffect(() => {
@@ -90,23 +90,12 @@ export function UILintToolbar() {
       const target = e.target as Element | null;
       if (target?.closest?.("[data-ui-lint]")) return;
 
-      if (showSettings && settingsRef.current && toolbarRef.current) {
-        if (
-          !settingsRef.current.contains(target as Node) &&
-          !toolbarRef.current.contains(target as Node)
-        ) {
-          handleCloseSettings();
-        }
-      }
-
-      if (showResults) {
-        setShowResults(false);
-      }
+      if (showSettings) setShowSettings(false);
     };
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (showSettings) handleCloseSettings();
+        if (showSettings) setShowSettings(false);
         if (showResults) setShowResults(false);
       }
     };
@@ -122,20 +111,8 @@ export function UILintToolbar() {
 
   // Handlers
   const handleSettingsClick = useCallback(() => {
-    if (showSettings) {
-      handleCloseSettings();
-    } else {
-      setShowSettings(true);
-    }
+    setShowSettings((v) => !v);
   }, [showSettings]);
-
-  const handleCloseSettings = useCallback(() => {
-    setSettingsClosing(true);
-    setTimeout(() => {
-      setShowSettings(false);
-      setSettingsClosing(false);
-    }, 150);
-  }, []);
 
   const handleRegionSelected = useCallback(
     (region: SelectedRegion) => {
@@ -164,6 +141,17 @@ export function UILintToolbar() {
   if (!mounted) return null;
 
   const bottomPosition = nextjsOverlayVisible ? "80px" : "20px";
+  const devtoolPosition =
+    typeof document !== "undefined"
+      ? (document
+          .querySelector<HTMLElement>(".dev-tool-root")
+          ?.getAttribute("data-position") as
+          | "bottom-left"
+          | "bottom-right"
+          | "top-left"
+          | "top-right"
+          | null) ?? "bottom-left"
+      : "bottom-left";
 
   // Determine which mode to render
   const renderToolbar = () => {
@@ -197,8 +185,12 @@ export function UILintToolbar() {
       onKeyDown={handleUILintInteraction}
       style={{
         position: "fixed",
-        bottom: bottomPosition,
-        left: "20px",
+        ...(devtoolPosition.startsWith("top")
+          ? { top: "20px", bottom: "auto" }
+          : { bottom: bottomPosition, top: "auto" }),
+        ...(devtoolPosition.endsWith("right")
+          ? { right: "20px", left: "auto" }
+          : { left: "20px", right: "auto" }),
         zIndex: 99999,
         fontFamily: TOKENS.fontFamily,
         transition: `bottom ${TOKENS.transitionSlow}`,
@@ -219,21 +211,20 @@ export function UILintToolbar() {
 
       {/* Settings popover - for disconnected and idle modes */}
       {showSettings && !liveScanEnabled && (
-        <div
-          ref={settingsRef}
-          className={`uilint-popover ${
-            settingsClosing ? "uilint-popover--closing" : ""
-          }`}
-          style={{
-            position: "absolute",
-            bottom: "100%",
-            left: 0,
-            marginBottom: "8px",
-            pointerEvents: "auto",
-          }}
-        >
-          <SettingsPopover settings={settings} />
-        </div>
+        <PopoverRoot open={showSettings} onOpenChange={setShowSettings}>
+          <PopoverContent
+            className="uilint-popover"
+            style={{
+              position: "absolute",
+              bottom: "100%",
+              left: 0,
+              marginBottom: "8px",
+              pointerEvents: "auto",
+            }}
+          >
+            <SettingsPopover settings={settings} />
+          </PopoverContent>
+        </PopoverRoot>
       )}
 
       {/* Results panel - for scanning mode */}
@@ -251,5 +242,5 @@ export function UILintToolbar() {
     </div>
   );
 
-  return createPortal(content, document.body);
+  return createPortal(content, getUILintPortalHost());
 }

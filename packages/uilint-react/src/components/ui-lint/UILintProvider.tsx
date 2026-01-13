@@ -33,6 +33,13 @@ import type {
 import { getSourceFromDataLoc, isNodeModulesPath } from "./dom-utils";
 import { useUILintStore, type UILintStore } from "./store";
 import { useDOMObserver } from "./useDOMObserver";
+import { injectDevToolStyles } from "../../styles/inject-styles";
+import { DEVTOOL_ROOT_CLASS } from "./portal-host";
+
+// Inlined CSS (compiled by Tailwind/PostCSS during Vite build)
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - Vite handles ?inline for CSS
+import devtoolsCss from "../../styles/globals.css?inline";
 
 // Create context
 const UILintContext = createContext<UILintContextValue | null>(null);
@@ -128,6 +135,8 @@ export function UILintProvider({
   enabled = true,
 }: UILintProviderProps) {
   const [isMounted, setIsMounted] = useState(false);
+  const portalRootRef = useRef<HTMLElement | null>(null);
+  const createdPortalRootRef = useRef(false);
 
   // Get state from Zustand store
   const settings = useUILintStore((s: UILintStore) => s.settings);
@@ -350,6 +359,45 @@ export function UILintProvider({
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  /**
+   * Ensure the devtool styles + portal host exist.
+   *
+   * Without this, CSS variables like `--uilint-backdrop` will be undefined when
+   * consumers use `UILintProvider` directly (i.e. not via the web-component entry).
+   */
+  useEffect(() => {
+    if (!isBrowser() || !enabled) return;
+
+    // Inject compiled Tailwind/devtool CSS exactly once per page.
+    injectDevToolStyles(devtoolsCss as string);
+
+    // Ensure a stable portal host for all UILint portals.
+    const existing = document.querySelector<HTMLElement>(
+      `.${DEVTOOL_ROOT_CLASS}`
+    );
+    if (existing) {
+      portalRootRef.current = existing;
+      createdPortalRootRef.current = false;
+      return;
+    }
+
+    const container = document.createElement("div");
+    container.className = DEVTOOL_ROOT_CLASS;
+    container.setAttribute("data-ui-lint-root", "true");
+    document.body.appendChild(container);
+
+    portalRootRef.current = container;
+    createdPortalRootRef.current = true;
+
+    return () => {
+      if (createdPortalRootRef.current) {
+        portalRootRef.current?.remove();
+      }
+      portalRootRef.current = null;
+      createdPortalRootRef.current = false;
+    };
+  }, [enabled]);
 
   /**
    * Auto-connect to the UILint WebSocket server for server-side ESLint results.

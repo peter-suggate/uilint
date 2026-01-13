@@ -9,7 +9,6 @@ import {
   serializeStyles,
   truncateHTML,
   type DOMSnapshot,
-  type ExtractedStyles,
 } from "uilint-core";
 
 // Re-export for backwards compatibility

@@ -11,31 +11,32 @@ import React, { useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useUILintStore, type UILintStore } from "./store";
 import type { VisionIssue } from "../../scanner/vision-capture";
+import { getUILintPortalHost } from "./portal-host";
 
 /**
- * Design tokens
+ * Design tokens - uses CSS variables for theme support
  */
 const STYLES = {
-  bg: "rgba(17, 24, 39, 0.98)",
-  bgSurface: "rgba(31, 41, 55, 0.95)",
-  border: "rgba(75, 85, 99, 0.6)",
-  text: "#F9FAFB",
-  textMuted: "#9CA3AF",
-  textDim: "#6B7280",
-  // Category colors
-  error: "#EF4444",
-  warning: "#F59E0B",
-  info: "#3B82F6",
-  // Category-specific colors
-  spacing: "#8B5CF6", // violet
-  typography: "#EC4899", // pink
-  color: "#10B981", // emerald
-  alignment: "#06B6D4", // cyan
-  layout: "#F97316", // orange
-  contrast: "#EF4444", // red
-  visualHierarchy: "#A855F7", // purple
-  other: "#6B7280", // gray
-  shadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
+  bg: "var(--uilint-backdrop)",
+  bgSurface: "var(--uilint-surface-elevated)",
+  border: "var(--uilint-border)",
+  text: "var(--uilint-text-primary)",
+  textMuted: "var(--uilint-text-secondary)",
+  textDim: "var(--uilint-text-muted)",
+  // Category colors - keeping distinct for visual differentiation
+  error: "var(--uilint-error)",
+  warning: "var(--uilint-warning)",
+  info: "var(--uilint-accent)",
+  // Category-specific colors (these are semantic, not theme-dependent)
+  spacing: "oklch(0.585 0.233 283.04)", // violet
+  typography: "oklch(0.656 0.241 354.31)", // pink
+  color: "var(--uilint-success)", // emerald
+  alignment: "oklch(0.715 0.143 215.22)", // cyan
+  layout: "oklch(0.702 0.191 41.12)", // orange
+  contrast: "var(--uilint-error)", // red
+  visualHierarchy: "oklch(0.627 0.265 303.9)", // purple
+  other: "var(--uilint-text-muted)", // gray
+  shadow: "var(--uilint-shadow)",
   blur: "blur(12px)",
   font: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   fontMono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
@@ -906,5 +907,5 @@ export function VisionIssuesPanel({
     return content;
   }
 
-  return createPortal(content, document.body);
+  return createPortal(content, getUILintPortalHost());
 }

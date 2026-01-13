@@ -1,14 +1,19 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { useUILintContext } from "../UILintProvider";
 import { useUILintStore, type UILintStore } from "../store";
 import { Badge } from "../Badge";
-import { PillContainer, Divider, Kbd } from "./shared";
+import { PillContainer, Divider } from "./shared";
 import { TOKENS } from "./tokens";
 import { Icons } from "./icons";
 import { CaptureModePopover } from "./CaptureModePopover";
+import {
+  PopoverContent,
+  PopoverRoot,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Kbd } from "@/components/ui/kbd";
 
 export function ScanningToolbar() {
   const { autoScanState, disableLiveScan } = useUILintContext();
@@ -46,7 +51,6 @@ export function ScanningToolbar() {
 
   // Local state
   const [showCaptureModePopover, setShowCaptureModePopover] = useState(false);
-  const captureModePopoverRef = useRef<HTMLDivElement | null>(null);
   const captureModeAnchorRef = useRef<HTMLDivElement | null>(null);
   const [captureModePopoverPos, setCaptureModePopoverPos] = useState<{
     left: number;
@@ -101,62 +105,9 @@ export function ScanningToolbar() {
     }
   }, [captureMode, setRegionSelectionActive, triggerVisionAnalysis]);
 
-  const handleToggleCaptureModePopover = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowCaptureModePopover((prev) => {
-      const next = !prev;
-      if (next) {
-        const rect = captureModeAnchorRef.current?.getBoundingClientRect();
-        if (rect) {
-          setCaptureModePopoverPos({
-            left: rect.left,
-            // place the popover just above the anchor, with an 8px gap
-            bottom: window.innerHeight - rect.top + 8,
-          });
-        }
-      }
-      return next;
-    });
-  }, []);
-
   const handleCloseCaptureModePopover = useCallback(() => {
     setShowCaptureModePopover(false);
   }, []);
-
-  // Close popover on outside click
-  useEffect(() => {
-    if (!showCaptureModePopover) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Element | null;
-      if (!target) return;
-
-      const isInsidePopover = captureModePopoverRef.current?.contains(
-        target as Node
-      );
-      const isCaptureModeButton = target.closest(
-        "button[aria-label='Select capture mode']"
-      );
-
-      if (!isInsidePopover && !isCaptureModeButton) {
-        setShowCaptureModePopover(false);
-      }
-    };
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setShowCaptureModePopover(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside, true);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside, true);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [showCaptureModePopover]);
 
   // Keep popover positioned if the viewport changes
   useEffect(() => {
@@ -177,6 +128,17 @@ export function ScanningToolbar() {
       window.removeEventListener("resize", updatePos);
       window.removeEventListener("scroll", updatePos, true);
     };
+  }, [showCaptureModePopover]);
+
+  // Compute popover position when opening
+  useEffect(() => {
+    if (!showCaptureModePopover) return;
+    const rect = captureModeAnchorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setCaptureModePopoverPos({
+      left: rect.left,
+      bottom: window.innerHeight - rect.top + 8,
+    });
   }, [showCaptureModePopover]);
 
   // Determine status display
@@ -280,57 +242,76 @@ export function ScanningToolbar() {
         <Divider />
 
         {/* Vision capture button with mode selector */}
-        <div
-          ref={captureModeAnchorRef}
-          style={{ position: "relative", display: "flex" }}
+        <PopoverRoot
+          open={showCaptureModePopover}
+          onOpenChange={setShowCaptureModePopover}
+          className="uilint-popover-root"
         >
-          {/* Main capture button */}
-          <button
-            className={`uilint-btn ${
-              visionAnalyzing ? "uilint-btn--accent" : ""
-            }`}
-            style={{
-              paddingLeft: "12px",
-              paddingRight: "8px",
-              ...(!visionAnalyzing &&
-                hasVisionError && {
-                  color: TOKENS.error,
-                  backgroundColor: `${TOKENS.error}12`,
-                }),
-            }}
-            onClick={handleVisionAnalyze}
-            disabled={visionAnalyzing}
-            title={
-              visionAnalyzing
-                ? visionProgressPhase || "Analyzing..."
-                : hasVisionError
-                ? `Last vision run failed (${visionLastError?.stage}): ${visionLastError?.message}`
-                : `Capture ${captureModeLabel}`
-            }
-            aria-label={`Capture and analyze page with vision (${captureModeLabel} mode)`}
+          <div
+            ref={captureModeAnchorRef}
+            style={{ position: "relative", display: "flex" }}
           >
-            {visionAnalyzing ? <Icons.Spinner /> : <CaptureModeIcon />}
-            <span style={{ fontSize: "12px" }}>{captureModeLabel}</span>
-          </button>
+            {/* Main capture button */}
+            <button
+              className={`uilint-btn ${
+                visionAnalyzing ? "uilint-btn--accent" : ""
+              }`}
+              style={{
+                paddingLeft: "12px",
+                paddingRight: "8px",
+                ...(!visionAnalyzing &&
+                  hasVisionError && {
+                    color: TOKENS.error,
+                    backgroundColor: `${TOKENS.error}12`,
+                  }),
+              }}
+              onClick={handleVisionAnalyze}
+              disabled={visionAnalyzing}
+              title={
+                visionAnalyzing
+                  ? visionProgressPhase || "Analyzing..."
+                  : hasVisionError
+                  ? `Last vision run failed (${visionLastError?.stage}): ${visionLastError?.message}`
+                  : `Capture ${captureModeLabel}`
+              }
+              aria-label={`Capture and analyze page with vision (${captureModeLabel} mode)`}
+            >
+              {visionAnalyzing ? <Icons.Spinner /> : <CaptureModeIcon />}
+              <span style={{ fontSize: "12px" }}>{captureModeLabel}</span>
+            </button>
 
-          {/* Mode dropdown trigger */}
-          <button
-            className="uilint-btn"
+            {/* Mode dropdown trigger */}
+            <PopoverTrigger
+              className="uilint-btn"
+              style={{
+                paddingLeft: "6px",
+                paddingRight: "8px",
+                borderLeft: `1px solid ${TOKENS.border}`,
+                minWidth: "24px",
+              }}
+              disabled={visionAnalyzing}
+              title="Select capture mode"
+              aria-label="Select capture mode"
+            >
+              <Icons.ChevronDown />
+            </PopoverTrigger>
+          </div>
+
+          {/* Capture mode popover (portal so it isn't clipped by the pill container) */}
+          <PopoverContent
+            portal
+            className="uilint-popover"
             style={{
-              paddingLeft: "6px",
-              paddingRight: "8px",
-              borderLeft: `1px solid ${TOKENS.border}`,
-              minWidth: "24px",
+              position: "fixed",
+              left: captureModePopoverPos?.left ?? 0,
+              bottom: captureModePopoverPos?.bottom ?? 0,
+              pointerEvents: "auto",
+              zIndex: 100000,
             }}
-            onClick={handleToggleCaptureModePopover}
-            disabled={visionAnalyzing}
-            title="Select capture mode"
-            aria-label="Select capture mode"
-            aria-expanded={showCaptureModePopover}
           >
-            <Icons.ChevronDown />
-          </button>
-        </div>
+            <CaptureModePopover onClose={handleCloseCaptureModePopover} />
+          </PopoverContent>
+        </PopoverRoot>
 
         <Divider />
 
@@ -344,35 +325,13 @@ export function ScanningToolbar() {
           <Icons.X />
         </button>
       </PillContainer>
-
       {/* Keyboard hint */}
-      <Kbd>⌥ + Click an element</Kbd>
-
-      {/* Capture mode popover (portal so it isn't clipped by the pill container) */}
-      {showCaptureModePopover &&
-        captureModePopoverPos &&
-        createPortal(
-          <div
-            // Mark this as "inside" UILint for outside-click logic and styling
-            data-ui-lint
-            style={{
-              position: "fixed",
-              left: captureModePopoverPos.left,
-              bottom: captureModePopoverPos.bottom,
-              pointerEvents: "auto",
-              zIndex: 100000,
-            }}
-          >
-            <div
-              ref={captureModePopoverRef}
-              className="uilint-popover"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <CaptureModePopover onClose={handleCloseCaptureModePopover} />
-            </div>
-          </div>,
-          document.body
-        )}
+      <div className="flex flex-row items-center gap-2">
+        <Kbd>⌥</Kbd>
+        <span className="text-xs text-gray-500">+</span>
+        <Kbd>Click</Kbd>
+        <span className="text-xs text-gray-500">an element</span>
+      </div>
     </div>
   );
 }

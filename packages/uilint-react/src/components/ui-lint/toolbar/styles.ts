@@ -2,6 +2,7 @@ import { TOKENS } from "./tokens";
 
 /**
  * Global CSS styles for toolbar components
+ * Uses CSS variables for theme support (light/dark modes)
  */
 export const globalStyles = `
   @keyframes uilint-fade-in {
@@ -109,10 +110,10 @@ export const globalStyles = `
     animation: uilint-pulse 1.5s ease-in-out infinite;
   }
 
-  /* Scrollbar styling */
+  /* Scrollbar styling - uses CSS variables for theme support */
   [data-ui-lint] * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.15) rgba(15, 15, 15, 0.3);
+    scrollbar-color: var(--uilint-scrollbar-thumb) var(--uilint-scrollbar-track);
   }
   
   [data-ui-lint] *::-webkit-scrollbar {
@@ -121,16 +122,16 @@ export const globalStyles = `
   }
   
   [data-ui-lint] *::-webkit-scrollbar-track {
-    background: rgba(15, 15, 15, 0.3);
+    background: var(--uilint-scrollbar-track);
     border-radius: 4px;
   }
   
   [data-ui-lint] *::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--uilint-scrollbar-thumb);
     border-radius: 4px;
   }
   
   [data-ui-lint] *::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: var(--uilint-scrollbar-thumb-hover);
   }
 `;

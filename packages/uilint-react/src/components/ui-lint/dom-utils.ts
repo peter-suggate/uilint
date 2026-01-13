@@ -38,8 +38,6 @@ const SKIP_TAGS = new Set([
   "LINK",
 ]);
 
-let elementCounter = 0;
-
 /**
  * Parse source location from data-loc attribute
  * Format: "path/to/file.tsx:line:column" (injected by jsx-loc-plugin)
@@ -133,9 +131,6 @@ export function scanDOMForSources(
 ): ScannedElement[] {
   const elements: ScannedElement[] = [];
 
-  // Reset counter
-  elementCounter = 0;
-
   // data-loc values are not guaranteed to be unique across the DOM (e.g. the same
   // component line rendered in a list). Track occurrences so we can produce a
   // stable, unique per-instance id.
@@ -218,7 +213,6 @@ export function groupBySourceFile(elements: ScannedElement[]): SourceFile[] {
 export function cleanupDataAttributes(): void {
   const elements = document.querySelectorAll(`[${DATA_ATTR}]`);
   elements.forEach((el) => el.removeAttribute(DATA_ATTR));
-  elementCounter = 0;
 }
 
 /**

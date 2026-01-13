@@ -1,45 +1,47 @@
 /**
  * Design tokens for UILint toolbar components
  * Refined for the segmented pill toolbar design
+ *
+ * Uses CSS variables for theme support (light/dark modes).
  */
 export const STYLES = {
-  // Backgrounds
-  bg: "rgba(17, 24, 39, 0.92)",
-  bgHover: "rgba(31, 41, 55, 0.95)",
-  bgSegment: "rgba(31, 41, 55, 0.6)",
-  bgSegmentHover: "rgba(55, 65, 81, 0.8)",
-  bgPopover: "rgba(17, 24, 39, 0.96)",
+  // Backgrounds - using CSS variables for theming
+  bg: "var(--uilint-backdrop)",
+  bgHover: "var(--uilint-hover)",
+  bgSegment: "var(--uilint-surface-elevated)",
+  bgSegmentHover: "var(--uilint-active)",
+  bgPopover: "var(--uilint-backdrop)",
 
   // Borders
-  border: "rgba(75, 85, 99, 0.5)",
-  borderLight: "rgba(107, 114, 128, 0.3)",
-  divider: "rgba(75, 85, 99, 0.4)",
+  border: "var(--uilint-border)",
+  borderLight: "var(--uilint-border)",
+  divider: "var(--uilint-border)",
 
   // Text
-  text: "#F9FAFB",
-  textMuted: "#9CA3AF",
-  textDim: "#6B7280",
+  text: "var(--uilint-text-primary)",
+  textMuted: "var(--uilint-text-secondary)",
+  textDim: "var(--uilint-text-muted)",
 
   // Accent colors
-  accent: "#3B82F6",
-  accentHover: "#2563EB",
-  accentLight: "rgba(59, 130, 246, 0.15)",
+  accent: "var(--uilint-accent)",
+  accentHover: "var(--uilint-accent)",
+  accentLight: "var(--uilint-accent)",
 
   // Status colors
-  success: "#10B981",
-  successLight: "rgba(16, 185, 129, 0.15)",
-  warning: "#F59E0B",
-  warningLight: "rgba(245, 158, 11, 0.15)",
-  error: "#EF4444",
-  errorLight: "rgba(239, 68, 68, 0.15)",
+  success: "var(--uilint-success)",
+  successLight: "var(--uilint-success-bg)",
+  warning: "var(--uilint-warning)",
+  warningLight: "var(--uilint-warning-bg)",
+  error: "var(--uilint-error)",
+  errorLight: "var(--uilint-error-bg)",
 
   // Badge colors
-  badgeBg: "#3B82F6",
-  badgeText: "#FFFFFF",
+  badgeBg: "var(--uilint-accent)",
+  badgeText: "var(--uilint-accent-foreground)",
 
   // Effects
-  shadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
-  shadowLg: "0 12px 48px rgba(0, 0, 0, 0.5)",
+  shadow: "var(--uilint-shadow)",
+  shadowLg: "var(--uilint-shadow)",
   blur: "blur(12px)",
 
   // Typography

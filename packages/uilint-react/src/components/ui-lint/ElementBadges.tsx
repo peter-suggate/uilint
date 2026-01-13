@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import type { ScannedElement, ElementIssue, InspectedElement } from "./types";
+import { getUILintPortalHost } from "./portal-host";
 import {
   BadgeLayoutBuilder,
   findNearbyBadges,
@@ -24,18 +25,18 @@ import {
 } from "./visibility-utils";
 
 /**
- * Design tokens
+ * Design tokens - uses CSS variables for theme support
  */
 const STYLES = {
-  bg: "rgba(17, 24, 39, 0.95)",
-  success: "#10B981",
-  warning: "#F59E0B",
-  error: "#EF4444",
-  text: "#FFFFFF",
-  border: "rgba(255, 255, 255, 0.2)",
-  highlight: "#3B82F6",
+  bg: "var(--uilint-backdrop)",
+  success: "var(--uilint-success)",
+  warning: "var(--uilint-warning)",
+  error: "var(--uilint-error)",
+  text: "var(--uilint-text-primary)",
+  border: "var(--uilint-border)",
+  highlight: "var(--uilint-accent)",
   font: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  shadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
+  shadow: "var(--uilint-shadow)",
 };
 
 /**
@@ -390,7 +391,7 @@ export function ElementBadges() {
     </div>
   );
 
-  return createPortal(content, document.body);
+  return createPortal(content, getUILintPortalHost());
 }
 
 /**

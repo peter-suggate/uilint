@@ -17,6 +17,7 @@ import React, {
 import { createPortal } from "react-dom";
 import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
+import { getUILintPortalHost } from "./portal-host";
 import { fetchSourceWithWindow } from "./source-fetcher";
 import { buildEditorUrl } from "./dom-utils";
 import { dedentLines } from "./code-formatting";
@@ -30,21 +31,21 @@ import type {
 } from "./types";
 
 /**
- * Design tokens
+ * Design tokens - uses CSS variables for theme support (light/dark modes)
  */
 const STYLES = {
-  bg: "rgba(17, 24, 39, 0.98)",
-  bgSurface: "rgba(31, 41, 55, 0.95)",
-  border: "rgba(75, 85, 99, 0.6)",
-  text: "#F9FAFB",
-  textMuted: "#9CA3AF",
-  textDim: "#6B7280",
-  accent: "#3B82F6",
-  accentHover: "#2563EB",
-  success: "#10B981",
-  warning: "#F59E0B",
-  error: "#EF4444",
-  shadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
+  bg: "var(--uilint-backdrop)",
+  bgSurface: "var(--uilint-surface-elevated)",
+  border: "var(--uilint-border)",
+  text: "var(--uilint-text-primary)",
+  textMuted: "var(--uilint-text-secondary)",
+  textDim: "var(--uilint-text-muted)",
+  accent: "var(--uilint-accent)",
+  accentHover: "var(--uilint-accent)",
+  success: "var(--uilint-success)",
+  warning: "var(--uilint-warning)",
+  error: "var(--uilint-error)",
+  shadow: "var(--uilint-shadow)",
   blur: "blur(12px)",
   font: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   fontMono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
@@ -534,7 +535,7 @@ export function InspectionPanel() {
     </div>
   );
 
-  return createPortal(content, document.body);
+  return createPortal(content, getUILintPortalHost());
 }
 
 /**

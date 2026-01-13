@@ -1,0 +1,223 @@
+/* Tailwind entry for the injected devtool bundle.
+ *
+ * This file is compiled by Vite+PostCSS and then inlined into the devtools bundle
+ * via `?inline` import (no separate CSS file at runtime).
+ *
+ * Using Tailwind v4 syntax with @import and @theme inline.
+ */
+
+@import "tailwindcss";
+
+/* 
+ * UILint DevTool Theming
+ * 
+ * Follows shadcn v4 conventions with OKLCH colors.
+ * Inherits from host app's .dark class or system preference.
+ */
+
+/* Light theme (default) - Define variables on :root for global availability */
+:root {
+  /* Core colors */
+  --uilint-background: oklch(0.985 0 0);
+  --uilint-background-elevated: oklch(0.97 0 0);
+  --uilint-foreground: oklch(0.145 0 0);
+
+  /* Surface colors */
+  --uilint-surface: oklch(0.985 0 0);
+  --uilint-surface-elevated: oklch(0.97 0 0);
+
+  /* Text colors */
+  --uilint-text-primary: oklch(0.145 0 0);
+  --uilint-text-secondary: oklch(0.371 0 0);
+  --uilint-text-muted: oklch(0.556 0 0);
+  --uilint-text-disabled: oklch(0.708 0 0);
+
+  /* Interactive states */
+  --uilint-hover: oklch(0.145 0 0 / 8%);
+  --uilint-active: oklch(0.145 0 0 / 12%);
+
+  /* Borders */
+  --uilint-border: oklch(0.922 0 0);
+  --uilint-border-focus: oklch(0.588 0.158 241.966);
+
+  /* Accent colors */
+  --uilint-accent: oklch(0.588 0.158 241.966);
+  --uilint-accent-foreground: oklch(0.985 0 0);
+
+  /* Status colors */
+  --uilint-success: oklch(0.723 0.191 142.5);
+  --uilint-success-bg: oklch(0.723 0.191 142.5 / 15%);
+  --uilint-warning: oklch(0.75 0.183 55.934);
+  --uilint-warning-bg: oklch(0.75 0.183 55.934 / 15%);
+  --uilint-error: oklch(0.637 0.237 25.331);
+  --uilint-error-bg: oklch(0.637 0.237 25.331 / 15%);
+
+  /* Effects */
+  --uilint-shadow: 0 4px 20px oklch(0 0 0 / 15%);
+  --uilint-backdrop: oklch(0.985 0 0 / 92%);
+
+  /* Scrollbar */
+  --uilint-scrollbar-track: oklch(0.922 0 0);
+  --uilint-scrollbar-thumb: oklch(0.708 0 0);
+  --uilint-scrollbar-thumb-hover: oklch(0.556 0 0);
+
+  /* Sizing */
+  --uilint-radius: 12px;
+
+  /* Color scheme for native elements */
+  color-scheme: light;
+}
+
+/* Apply color-scheme to .dev-tool-root for isolation */
+.dev-tool-root {
+  color-scheme: light;
+}
+
+/* Dark theme - activated by .dark class on ancestor OR system preference */
+.dark,
+.dark .dev-tool-root,
+.dev-tool-root.dark,
+.dev-tool-root[data-theme="dark"] {
+  /* Core colors */
+  --uilint-background: oklch(0.145 0 0);
+  --uilint-background-elevated: oklch(0.205 0 0);
+  --uilint-foreground: oklch(0.985 0 0);
+
+  /* Surface colors */
+  --uilint-surface: oklch(0.145 0 0);
+  --uilint-surface-elevated: oklch(0.205 0 0);
+
+  /* Text colors */
+  --uilint-text-primary: oklch(0.985 0 0);
+  --uilint-text-secondary: oklch(0.869 0 0);
+  --uilint-text-muted: oklch(0.708 0 0);
+  --uilint-text-disabled: oklch(0.439 0 0);
+
+  /* Interactive states */
+  --uilint-hover: oklch(1 0 0 / 8%);
+  --uilint-active: oklch(1 0 0 / 12%);
+
+  /* Borders */
+  --uilint-border: oklch(1 0 0 / 10%);
+  --uilint-border-focus: oklch(0.7 0.15 241.966);
+
+  /* Accent colors */
+  --uilint-accent: oklch(0.7 0.15 241.966);
+  --uilint-accent-foreground: oklch(0.145 0 0);
+
+  /* Status colors */
+  --uilint-success: oklch(0.723 0.191 142.5);
+  --uilint-success-bg: oklch(0.723 0.191 142.5 / 20%);
+  --uilint-warning: oklch(0.75 0.183 55.934);
+  --uilint-warning-bg: oklch(0.75 0.183 55.934 / 20%);
+  --uilint-error: oklch(0.637 0.237 25.331);
+  --uilint-error-bg: oklch(0.637 0.237 25.331 / 20%);
+
+  /* Effects */
+  --uilint-shadow: 0 4px 20px oklch(0 0 0 / 40%);
+  --uilint-backdrop: oklch(0.1 0 0 / 92%);
+
+  /* Scrollbar */
+  --uilint-scrollbar-track: oklch(0.205 0 0);
+  --uilint-scrollbar-thumb: oklch(0.371 0 0);
+  --uilint-scrollbar-thumb-hover: oklch(0.439 0 0);
+
+  /* Color scheme for native elements */
+  color-scheme: dark;
+}
+
+/* System preference fallback (when no .dark class on ancestors) */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .dev-tool-root:not(.light):not([data-theme="light"]),
+  .dev-tool-root:not(.light):not([data-theme="light"]) {
+    /* Only apply if not explicitly set to light */
+    --uilint-background: oklch(0.145 0 0);
+    --uilint-background-elevated: oklch(0.205 0 0);
+    --uilint-foreground: oklch(0.985 0 0);
+
+    --uilint-surface: oklch(0.145 0 0);
+    --uilint-surface-elevated: oklch(0.205 0 0);
+
+    --uilint-text-primary: oklch(0.985 0 0);
+    --uilint-text-secondary: oklch(0.869 0 0);
+    --uilint-text-muted: oklch(0.708 0 0);
+    --uilint-text-disabled: oklch(0.439 0 0);
+
+    --uilint-hover: oklch(1 0 0 / 8%);
+    --uilint-active: oklch(1 0 0 / 12%);
+
+    --uilint-border: oklch(1 0 0 / 10%);
+    --uilint-border-focus: oklch(0.7 0.15 241.966);
+
+    --uilint-accent: oklch(0.7 0.15 241.966);
+    --uilint-accent-foreground: oklch(0.145 0 0);
+
+    --uilint-success: oklch(0.723 0.191 142.5);
+    --uilint-success-bg: oklch(0.723 0.191 142.5 / 20%);
+    --uilint-warning: oklch(0.75 0.183 55.934);
+    --uilint-warning-bg: oklch(0.75 0.183 55.934 / 20%);
+    --uilint-error: oklch(0.637 0.237 25.331);
+    --uilint-error-bg: oklch(0.637 0.237 25.331 / 20%);
+
+    --uilint-shadow: 0 4px 20px oklch(0 0 0 / 40%);
+    --uilint-backdrop: oklch(0.1 0 0 / 92%);
+
+    --uilint-scrollbar-track: oklch(0.205 0 0);
+    --uilint-scrollbar-thumb: oklch(0.371 0 0);
+    --uilint-scrollbar-thumb-hover: oklch(0.439 0 0);
+
+    color-scheme: dark;
+  }
+}
+
+/* Override when host app explicitly sets light mode */
+.light,
+.light .dev-tool-root,
+.dev-tool-root.light,
+.dev-tool-root[data-theme="light"] {
+  /* Force light theme variables (same as default) */
+  --uilint-background: oklch(0.985 0 0);
+  --uilint-background-elevated: oklch(0.97 0 0);
+  --uilint-foreground: oklch(0.145 0 0);
+
+  --uilint-surface: oklch(0.985 0 0);
+  --uilint-surface-elevated: oklch(0.97 0 0);
+
+  --uilint-text-primary: oklch(0.145 0 0);
+  --uilint-text-secondary: oklch(0.371 0 0);
+  --uilint-text-muted: oklch(0.556 0 0);
+  --uilint-text-disabled: oklch(0.708 0 0);
+
+  --uilint-hover: oklch(0.145 0 0 / 8%);
+  --uilint-active: oklch(0.145 0 0 / 12%);
+
+  --uilint-border: oklch(0.922 0 0);
+  --uilint-border-focus: oklch(0.588 0.158 241.966);
+
+  --uilint-accent: oklch(0.588 0.158 241.966);
+  --uilint-accent-foreground: oklch(0.985 0 0);
+
+  --uilint-success: oklch(0.723 0.191 142.5);
+  --uilint-success-bg: oklch(0.723 0.191 142.5 / 15%);
+  --uilint-warning: oklch(0.75 0.183 55.934);
+  --uilint-warning-bg: oklch(0.75 0.183 55.934 / 15%);
+  --uilint-error: oklch(0.637 0.237 25.331);
+  --uilint-error-bg: oklch(0.637 0.237 25.331 / 15%);
+
+  --uilint-shadow: 0 4px 20px oklch(0 0 0 / 15%);
+  --uilint-backdrop: oklch(0.985 0 0 / 92%);
+
+  --uilint-scrollbar-track: oklch(0.922 0 0);
+  --uilint-scrollbar-thumb: oklch(0.708 0 0);
+  --uilint-scrollbar-thumb-hover: oklch(0.556 0 0);
+
+  color-scheme: light;
+}
+
+/* Scope styles to .dev-tool-root for isolation */
+@layer components {
+  .dev-tool-root {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+      Roboto, sans-serif;
+  }
+}

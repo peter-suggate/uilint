@@ -1,3 +1,7 @@
+// Next.js App Router / RSC compatibility:
+// This package exports React components/hooks, so consumers must treat it as client-side.
+"use client";
+
 // UILint Provider and Components
 export {
   UILintProvider,

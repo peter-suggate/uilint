@@ -1,27 +1,28 @@
-import { BADGE_COLORS } from "../Badge";
-
 /**
  * Design tokens for toolbar components
+ *
+ * Uses CSS custom properties for theming support.
+ * Variables are defined in globals.css and support light/dark modes.
  */
 export const TOKENS = {
-  // Colors
-  bgBase: "rgba(15, 15, 15, 0.92)",
-  bgElevated: "rgba(25, 25, 25, 0.95)",
-  bgHover: "rgba(255, 255, 255, 0.08)",
-  bgActive: "rgba(255, 255, 255, 0.12)",
+  // Colors - using CSS variables for theme support
+  bgBase: "var(--uilint-backdrop)",
+  bgElevated: "var(--uilint-background-elevated)",
+  bgHover: "var(--uilint-hover)",
+  bgActive: "var(--uilint-active)",
 
-  border: "rgba(255, 255, 255, 0.1)",
-  borderFocus: "rgba(99, 179, 237, 0.6)",
+  border: "var(--uilint-border)",
+  borderFocus: "var(--uilint-border-focus)",
 
-  textPrimary: "rgba(255, 255, 255, 0.95)",
-  textSecondary: "rgba(255, 255, 255, 0.7)",
-  textMuted: "rgba(255, 255, 255, 0.4)",
-  textDisabled: "rgba(255, 255, 255, 0.25)",
+  textPrimary: "var(--uilint-text-primary)",
+  textSecondary: "var(--uilint-text-secondary)",
+  textMuted: "var(--uilint-text-muted)",
+  textDisabled: "var(--uilint-text-disabled)",
 
-  accent: "#63b3ed",
-  success: BADGE_COLORS.success,
-  warning: BADGE_COLORS.warning,
-  error: "#f56565",
+  accent: "var(--uilint-accent)",
+  success: "var(--uilint-success)",
+  warning: "var(--uilint-warning)",
+  error: "var(--uilint-error)",
 
   fontFamily: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
   fontMono: `"SF Mono", Monaco, "Cascadia Code", monospace`,
@@ -31,10 +32,22 @@ export const TOKENS = {
   buttonMinWidth: "40px",
 
   blur: "blur(16px)",
-  shadowMd: "0 4px 20px rgba(0, 0, 0, 0.4)",
+  shadowMd: "var(--uilint-shadow)",
   shadowGlow: (color: string) => `0 0 16px ${color}`,
 
   transitionFast: "150ms cubic-bezier(0.4, 0, 0.2, 1)",
   transitionBase: "200ms cubic-bezier(0.4, 0, 0.2, 1)",
   transitionSlow: "300ms cubic-bezier(0.4, 0, 0.2, 1)",
+} as const;
+
+/**
+ * Status badge colors using CSS variables
+ */
+export const BADGE_COLORS = {
+  success: "var(--uilint-success)",
+  successBg: "var(--uilint-success-bg)",
+  warning: "var(--uilint-warning)",
+  warningBg: "var(--uilint-warning-bg)",
+  error: "var(--uilint-error)",
+  errorBg: "var(--uilint-error-bg)",
 } as const;

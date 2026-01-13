@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { UILintProvider } from "uilint-react";
+import type { ReactNode } from "react";
 import { Navigation } from "./components/Navigation";
 import "./globals.css";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "UILint Test App - Todo Manager",
@@ -9,18 +10,14 @@ export const metadata: Metadata = {
     "Test application for UILint component with deliberate inconsistencies",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <UILintProvider enabled={process.env.NODE_ENV !== "production"}>
+        <Providers>
           <Navigation />
           {children}
-        </UILintProvider>
+        </Providers>
       </body>
     </html>
   );

@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { Violation } from "./types";
 import { getElementBySnapshotId } from "./snapshot";
+import { getUILintPortalHost } from "../components/ui-lint/portal-host";
 
 interface HighlightRect {
   top: number;
@@ -254,5 +255,5 @@ export function ConsistencyHighlighter({
     </>
   );
 
-  return createPortal(content, document.body);
+  return createPortal(content, getUILintPortalHost());
 }
