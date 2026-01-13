@@ -248,6 +248,8 @@ export interface UILintStore {
   showResultsPanel: boolean;
   /** Active tab in the results panel */
   activeResultsTab: "eslint" | "vision";
+  /** Active tab in the main toolbar */
+  activeToolbarTab: "configure" | "eslint" | "vision";
 
   // Vision actions
   /** Trigger vision analysis for current page */
@@ -262,6 +264,8 @@ export interface UILintStore {
   setShowResultsPanel: (show: boolean) => void;
   /** Set active results tab */
   setActiveResultsTab: (tab: "eslint" | "vision") => void;
+  /** Set active toolbar tab */
+  setActiveToolbarTab: (tab: "configure" | "eslint" | "vision") => void;
   /** Clear vision results */
   clearVisionResults: () => void;
   /** Set capture mode */
@@ -959,6 +963,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
 
   showResultsPanel: false,
   activeResultsTab: "eslint",
+  activeToolbarTab: "configure",
 
   triggerVisionAnalysis: async () => {
     const { wsConnection, wsConnected, selectedRegion, captureMode } = get();
@@ -1162,6 +1167,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
 
   setShowResultsPanel: (show) => set({ showResultsPanel: show }),
   setActiveResultsTab: (tab) => set({ activeResultsTab: tab }),
+  setActiveToolbarTab: (tab) => set({ activeToolbarTab: tab }),
 
   setCaptureMode: (mode) => set({ captureMode: mode }),
   setRegionSelectionActive: (active) => set({ regionSelectionActive: active }),

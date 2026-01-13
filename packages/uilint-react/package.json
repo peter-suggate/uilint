@@ -48,6 +48,7 @@
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
+    "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-slot": "^1.2.4",
     "class-variance-authority": "^0.7.0",
     "html-to-image": "^1.11.11",
@@ -75,7 +76,7 @@
     "globals": "^17.0.0",
     "jiti": "^2.5.0",
     "jsdom": "^26.1.0",
-    "motion": "^12.25.0",
+    "motion": "^12.26.1",
     "postcss": "^8.5.6",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

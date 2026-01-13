@@ -14,18 +14,12 @@ import { createPortal } from "react-dom";
 import { useUILintContext } from "../UILintProvider";
 import { useUILintStore } from "../store";
 import { getUILintPortalHost } from "../portal-host";
-import { SettingsPopover } from "../SettingsPopover";
-import { ScanPanelStack } from "../ScanPanelStack";
 import { RegionSelector, type SelectedRegion } from "../RegionSelector";
-import { DisconnectedToolbar } from "./DisconnectedToolbar";
-import { IdleToolbar } from "./IdleToolbar";
-import { ScanningToolbar } from "./ScanningToolbar";
+import { TabbedToolbar } from "./TabbedToolbar";
 import { TOKENS } from "./tokens";
-import { globalStyles } from "./styles";
-import { PopoverContent, PopoverRoot } from "@/components/ui/popover";
 
 export function UILintToolbar() {
-  const { settings, liveScanEnabled } = useUILintContext();
+  const { settings } = useUILintContext();
 
   // Store state
   const wsConnected = useUILintStore((s) => s.wsConnected);
@@ -39,7 +33,6 @@ export function UILintToolbar() {
   const triggerVisionAnalysis = useUILintStore((s) => s.triggerVisionAnalysis);
 
   // Local state
-  const [showSettings, setShowSettings] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [nextjsOverlayVisible, setNextjsOverlayVisible] = useState(false);
 
@@ -86,34 +79,20 @@ export function UILintToolbar() {
 
   // Close popovers on outside click / escape
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Element | null;
-      if (target?.closest?.("[data-ui-lint]")) return;
-
-      if (showSettings) setShowSettings(false);
-    };
-
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (showSettings) setShowSettings(false);
         if (showResults) setShowResults(false);
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside, true);
     document.addEventListener("keydown", handleEscape);
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside, true);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [showSettings, showResults, setShowResults]);
+  }, [showResults, setShowResults]);
 
   // Handlers
-  const handleSettingsClick = useCallback(() => {
-    setShowSettings((v) => !v);
-  }, [showSettings]);
-
   const handleRegionSelected = useCallback(
     (region: SelectedRegion) => {
       setRegionSelectionActive(false);
@@ -153,29 +132,6 @@ export function UILintToolbar() {
           | null) ?? "bottom-left"
       : "bottom-left";
 
-  // Determine which mode to render
-  const renderToolbar = () => {
-    if (!wsConnected) {
-      return (
-        <DisconnectedToolbar
-          onSettingsClick={handleSettingsClick}
-          showSettings={showSettings}
-        />
-      );
-    }
-
-    if (!liveScanEnabled) {
-      return (
-        <IdleToolbar
-          onSettingsClick={handleSettingsClick}
-          showSettings={showSettings}
-        />
-      );
-    }
-
-    return <ScanningToolbar />;
-  };
-
   const content = (
     <div
       data-ui-lint
@@ -197,8 +153,6 @@ export function UILintToolbar() {
         pointerEvents: "none",
       }}
     >
-      <style>{globalStyles}</style>
-
       {/* Main toolbar area */}
       <div
         ref={toolbarRef}
@@ -206,32 +160,8 @@ export function UILintToolbar() {
         aria-label="UI Lint toolbar"
         style={{ pointerEvents: "auto" }}
       >
-        {renderToolbar()}
+        <TabbedToolbar />
       </div>
-
-      {/* Settings popover - for disconnected and idle modes */}
-      {showSettings && !liveScanEnabled && (
-        <PopoverRoot open={showSettings} onOpenChange={setShowSettings}>
-          <PopoverContent
-            className="uilint-popover"
-            style={{
-              position: "absolute",
-              bottom: "100%",
-              left: 0,
-              marginBottom: "8px",
-              pointerEvents: "auto",
-            }}
-          >
-            <SettingsPopover settings={settings} />
-          </PopoverContent>
-        </PopoverRoot>
-      )}
-
-      {/* Results panel - for scanning mode */}
-      <ScanPanelStack
-        show={showResults && liveScanEnabled}
-        onClose={() => setShowResults(false)}
-      />
 
       {/* Region selector overlay */}
       <RegionSelector

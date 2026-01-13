@@ -22,34 +22,25 @@ import { fetchSourceWithWindow } from "./source-fetcher";
 import { buildEditorUrl } from "./dom-utils";
 import { dedentLines } from "./code-formatting";
 import { computeInspectionPanelPosition } from "./inspection-panel-positioning";
-import { Badge } from "./Badge";
+import { IssueCountBadge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  PopoverHeader,
+  PopoverBody,
+  PopoverFooter,
+} from "@/components/ui/popover";
+import {
+  Expandable,
+  ExpandableTrigger,
+  ExpandableContent,
+} from "@/components/ui/expandable";
+import { cn } from "@/lib/utils";
 import type {
   InspectedElement,
   SourceLocation,
   ElementIssue,
   ESLintIssue,
 } from "./types";
-
-/**
- * Design tokens - uses CSS variables for theme support (light/dark modes)
- */
-const STYLES = {
-  bg: "var(--uilint-backdrop)",
-  bgSurface: "var(--uilint-surface-elevated)",
-  border: "var(--uilint-border)",
-  text: "var(--uilint-text-primary)",
-  textMuted: "var(--uilint-text-secondary)",
-  textDim: "var(--uilint-text-muted)",
-  accent: "var(--uilint-accent)",
-  accentHover: "var(--uilint-accent)",
-  success: "var(--uilint-success)",
-  warning: "var(--uilint-warning)",
-  error: "var(--uilint-error)",
-  shadow: "var(--uilint-shadow)",
-  blur: "blur(12px)",
-  font: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  fontMono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
-};
 
 const POPOVER_WIDTH = 450;
 const POPOVER_MAX_HEIGHT = 450;
@@ -351,39 +342,14 @@ export function InspectionPanel() {
       onPointerDown={handleUILintInteraction}
       onClick={handleUILintInteraction}
       onKeyDown={handleUILintInteraction}
+      className="fixed w-[450px] max-h-[450px] overflow-hidden z-99998 pointer-events-auto bg-white/92 dark:bg-zinc-900/92 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg animate-in fade-in-0 zoom-in-95 duration-150"
       style={{
-        position: "fixed",
         top: position.top,
         left: position.left,
-        width: POPOVER_WIDTH,
-        maxHeight: POPOVER_MAX_HEIGHT,
-        backgroundColor: STYLES.bg,
-        backdropFilter: STYLES.blur,
-        WebkitBackdropFilter: STYLES.blur,
-        border: `1px solid ${STYLES.border}`,
-        borderRadius: "12px",
-        boxShadow: STYLES.shadow,
-        fontFamily: STYLES.font,
-        color: STYLES.text,
-        overflow: "hidden",
-        zIndex: 99998,
-        animation: "uilint-popover-appear 0.15s ease-out",
-        pointerEvents: "auto", // Ensure panel is interactive
       }}
     >
-      <style>{`
-        @keyframes uilint-popover-appear {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes uilint-spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-
       {/* Header */}
-      <PopoverHeader
+      <InspectionPanelHeader
         element={inspectedElement}
         issueCount={eslintIssues.length}
         lineRange={lineRange}
@@ -391,50 +357,18 @@ export function InspectionPanel() {
       />
 
       {/* Content */}
-      <div
-        style={{
-          maxHeight: POPOVER_MAX_HEIGHT - 120,
-          overflowY: "auto",
-        }}
-      >
+      <div className="max-h-[330px] overflow-y-auto">
         {cachedIssue?.status === "scanning" && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "32px",
-              gap: "12px",
-            }}
-          >
-            <div
-              style={{
-                width: "20px",
-                height: "20px",
-                border: `2px solid ${STYLES.border}`,
-                borderTopColor: STYLES.accent,
-                borderRadius: "50%",
-                animation: "uilint-spin 0.8s linear infinite",
-              }}
-            />
-            <span style={{ color: STYLES.textMuted, fontSize: "13px" }}>
+          <div className="flex items-center justify-center py-8 gap-3">
+            <div className="w-5 h-5 border-2 border-zinc-200 dark:border-zinc-800 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin" />
+            <span className="text-sm text-zinc-500 dark:text-zinc-400">
               Scanning...
             </span>
           </div>
         )}
 
         {cachedIssue?.status === "complete" && eslintIssues.length === 0 && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "32px",
-              gap: "8px",
-              color: STYLES.success,
-              fontSize: "13px",
-            }}
-          >
+          <div className="flex items-center justify-center py-8 gap-2 text-green-600 dark:text-green-400 text-sm">
             <CheckIcon />
             No issues found
           </div>
@@ -449,14 +383,7 @@ export function InspectionPanel() {
         )}
 
         {!cachedIssue && (
-          <div
-            style={{
-              padding: "24px 16px",
-              textAlign: "center",
-              color: STYLES.textMuted,
-              fontSize: "12px",
-            }}
-          >
+          <div className="py-6 px-4 text-center text-zinc-500 dark:text-zinc-400 text-xs">
             Enable live scanning to analyze this element
           </div>
         )}
@@ -464,73 +391,26 @@ export function InspectionPanel() {
 
       {/* Footer */}
       {cachedIssue?.status === "complete" && eslintIssues.length > 0 && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "10px 14px",
-            borderTop: `1px solid ${STYLES.border}`,
-            backgroundColor: STYLES.bgSurface,
-          }}
-        >
-          <button
+        <PopoverFooter className="flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+          <Button
             onClick={() => setShowFullContext(!showFullContext)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "5px 10px",
-              borderRadius: "6px",
-              border: `1px solid ${STYLES.border}`,
-              backgroundColor: "transparent",
-              color: STYLES.textMuted,
-              fontSize: "11px",
-              fontWeight: 500,
-              cursor: "pointer",
-              transition: "all 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = STYLES.bg;
-              e.currentTarget.style.color = STYLES.text;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
-              e.currentTarget.style.color = STYLES.textMuted;
-            }}
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1.5"
           >
             {showFullContext ? <CollapseIcon /> : <ExpandIcon />}
             {showFullContext ? "Hide context" : "Show full context"}
-          </button>
+          </Button>
 
-          <button
+          <Button
             onClick={handleOpenInCursor}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              padding: "5px 10px",
-              borderRadius: "6px",
-              border: "none",
-              backgroundColor: STYLES.accent,
-              color: "#FFFFFF",
-              fontSize: "11px",
-              fontWeight: 500,
-              cursor: "pointer",
-              transition: "background-color 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = STYLES.accentHover;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = STYLES.accent;
-            }}
-            title="Open in Cursor"
+            size="sm"
+            className="h-7 text-xs gap-1 bg-blue-600 hover:bg-blue-700 text-white"
           >
             <ExternalLinkIcon />
             Open in Cursor
-          </button>
-        </div>
+          </Button>
+        </PopoverFooter>
       )}
     </div>
   );
@@ -539,9 +419,9 @@ export function InspectionPanel() {
 }
 
 /**
- * Popover header with file name:line range, issue count, and close button
+ * Inspection Panel Header with file name:line range, issue count, and close button
  */
-function PopoverHeader({
+function InspectionPanelHeader({
   element,
   issueCount,
   lineRange,
@@ -555,63 +435,21 @@ function PopoverHeader({
   const fileName = element.source.fileName.split("/").pop() || "Unknown";
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "12px 14px",
-        borderBottom: `1px solid ${STYLES.border}`,
-        backgroundColor: STYLES.bgSurface,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            fontSize: "13px",
-            fontWeight: 600,
-          }}
-        >
-          <span style={{ fontFamily: STYLES.fontMono }}>{fileName}</span>
-          <span style={{ color: STYLES.textDim, fontWeight: 400 }}>
+    <PopoverHeader className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+      <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 text-sm font-semibold">
+          <span className="font-mono">{fileName}</span>
+          <span className="text-zinc-500 dark:text-zinc-400 font-normal">
             :{lineRange}
           </span>
         </div>
-        {issueCount > 0 && (
-          <Badge count={issueCount} backgroundColor={STYLES.error} />
-        )}
+        {issueCount > 0 && <IssueCountBadge count={issueCount} error />}
       </div>
 
-      <button
-        onClick={onClose}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "26px",
-          height: "26px",
-          borderRadius: "6px",
-          border: "none",
-          backgroundColor: "transparent",
-          color: STYLES.textMuted,
-          cursor: "pointer",
-          transition: "all 0.15s",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = STYLES.bg;
-          e.currentTarget.style.color = STYLES.text;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = "transparent";
-          e.currentTarget.style.color = STYLES.textMuted;
-        }}
-      >
+      <Button onClick={onClose} variant="ghost" size="icon" className="h-6 w-6">
         <CloseIcon />
-      </button>
-    </div>
+      </Button>
+    </PopoverHeader>
   );
 }
 
@@ -644,7 +482,7 @@ function IssuesList({
   );
 
   return (
-    <div style={{ padding: "12px" }}>
+    <div className="p-3">
       {sortedLines.map((lineNumber, index) => (
         <CodeBlockWithAnnotations
           key={lineNumber}
@@ -713,37 +551,18 @@ function CodeBlockWithAnnotations({
 
   return (
     <div
-      style={{
-        marginBottom: isLast ? 0 : "12px",
-        backgroundColor: STYLES.bg,
-        borderRadius: "8px",
-        overflow: "hidden",
-        border: `1px solid ${STYLES.border}`,
-      }}
+      className={cn(
+        "rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800",
+        !isLast && "mb-3"
+      )}
     >
       {loading ? (
-        <div
-          style={{
-            padding: "12px",
-            textAlign: "center",
-            color: STYLES.textDim,
-            fontSize: "11px",
-          }}
-        >
+        <div className="p-3 text-center text-zinc-400 dark:text-zinc-500 text-xs">
           Loading...
         </div>
       ) : codeData ? (
         <div>
-          <pre
-            style={{
-              margin: 0,
-              padding: "8px 0",
-              overflow: "auto",
-              fontSize: "11px",
-              lineHeight: "1.5",
-              fontFamily: STYLES.fontMono,
-            }}
-          >
+          <pre className="m-0 py-2 overflow-auto text-xs leading-relaxed font-mono">
             {dedentLines(codeData.lines).lines.map((line, index) => {
               const currentLineNumber = codeData.startLine + index;
               const isHighlight = currentLineNumber === codeData.highlightLine;
@@ -751,36 +570,29 @@ function CodeBlockWithAnnotations({
               return (
                 <React.Fragment key={currentLineNumber}>
                   <div
-                    style={{
-                      display: "flex",
-                      backgroundColor: isHighlight
-                        ? "rgba(239, 68, 68, 0.1)"
-                        : "transparent",
-                      borderLeft: isHighlight
-                        ? `2px solid ${STYLES.error}`
-                        : "2px solid transparent",
-                    }}
+                    className={cn(
+                      "flex",
+                      isHighlight &&
+                        "bg-red-500/10 border-l-2 border-l-red-600 dark:border-l-red-400"
+                    )}
                   >
                     <span
-                      style={{
-                        display: "inline-block",
-                        width: "36px",
-                        paddingRight: "8px",
-                        paddingLeft: "8px",
-                        textAlign: "right",
-                        color: isHighlight ? STYLES.error : STYLES.textDim,
-                        userSelect: "none",
-                        flexShrink: 0,
-                      }}
+                      className={cn(
+                        "inline-block w-9 pr-2 pl-2 text-right select-none shrink-0",
+                        isHighlight
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-zinc-400 dark:text-zinc-500"
+                      )}
                     >
                       {currentLineNumber}
                     </span>
                     <code
-                      style={{
-                        color: isHighlight ? STYLES.text : STYLES.textMuted,
-                        whiteSpace: "pre",
-                        paddingRight: "8px",
-                      }}
+                      className={cn(
+                        "whitespace-pre pr-2",
+                        isHighlight
+                          ? "text-zinc-900 dark:text-zinc-100"
+                          : "text-zinc-500 dark:text-zinc-400"
+                      )}
                     >
                       {line || " "}
                     </code>
@@ -795,14 +607,7 @@ function CodeBlockWithAnnotations({
           </pre>
         </div>
       ) : (
-        <div
-          style={{
-            padding: "12px",
-            textAlign: "center",
-            color: STYLES.textDim,
-            fontSize: "11px",
-          }}
-        >
+        <div className="p-3 text-center text-zinc-400 dark:text-zinc-500 text-xs">
           Could not load source
         </div>
       )}
@@ -821,19 +626,12 @@ function InlineAnnotation({ issue }: { issue: ESLintIssue }) {
     : null;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: "8px",
-        padding: "6px 8px 6px 46px",
-        backgroundColor: "rgba(239, 68, 68, 0.08)",
-        borderLeft: `2px solid ${STYLES.error}`,
-      }}
-    >
+    <div className="flex items-start gap-2 py-1.5 px-2 pl-[46px] bg-red-500/8 border-l-2 border-l-red-600 dark:border-l-red-400">
       <ErrorSquiggleIcon />
-      <div style={{ flex: 1, fontSize: "11px", lineHeight: "1.4" }}>
-        <span style={{ color: STYLES.text }}>{issue.message}</span>
+      <div className="flex-1 text-xs leading-snug">
+        <span className="text-zinc-900 dark:text-zinc-100">
+          {issue.message}
+        </span>
         {issue.ruleId && (
           <>
             {" "}
@@ -841,19 +639,7 @@ function InlineAnnotation({ issue }: { issue: ESLintIssue }) {
               href={ruleUrl || "#"}
               target="_blank"
               rel="noopener noreferrer"
-              style={{
-                color: STYLES.textDim,
-                textDecoration: "none",
-                fontFamily: STYLES.fontMono,
-                fontSize: "10px",
-                transition: "color 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = STYLES.accent;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = STYLES.textDim;
-              }}
+              className="text-zinc-400 dark:text-zinc-500 font-mono text-[10px] no-underline hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             >
               ({issue.ruleId})
             </a>
@@ -915,14 +701,15 @@ function ErrorSquiggleIcon() {
       height="14"
       viewBox="0 0 24 24"
       fill="none"
-      style={{ flexShrink: 0, marginTop: "1px" }}
+      className="shrink-0 mt-0.5"
     >
       <path
         d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-        stroke={STYLES.error}
+        stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
+        className="text-red-600 dark:text-red-400"
       />
     </svg>
   );

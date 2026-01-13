@@ -221,3 +221,92 @@
       Roboto, sans-serif;
   }
 }
+
+/* UILint animations */
+@keyframes uilint-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes uilint-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@keyframes uilint-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes uilint-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes uilint-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes uilint-popover-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Scrollbar styling for UILint components */
+[data-ui-lint] * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--uilint-scrollbar-thumb) var(--uilint-scrollbar-track);
+}
+
+[data-ui-lint] *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[data-ui-lint] *::-webkit-scrollbar-track {
+  background: var(--uilint-scrollbar-track);
+  border-radius: 4px;
+}
+
+[data-ui-lint] *::-webkit-scrollbar-thumb {
+  background: var(--uilint-scrollbar-thumb);
+  border-radius: 4px;
+}
+
+[data-ui-lint] *::-webkit-scrollbar-thumb:hover {
+  background: var(--uilint-scrollbar-thumb-hover);
+}

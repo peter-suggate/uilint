@@ -13,25 +13,7 @@ import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import type { SourceLocation } from "./types";
 import { getUILintPortalHost } from "./portal-host";
-
-/**
- * Design tokens - uses CSS variables for theme support
- */
-const STYLES = {
-  bg: "var(--uilint-backdrop)",
-  border: "var(--uilint-border-focus)",
-  borderHighlight: "var(--uilint-accent)",
-  text: "var(--uilint-text-primary)",
-  textMuted: "var(--uilint-text-secondary)",
-  accent: "var(--uilint-accent)",
-  font: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  fontMono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
-  shadow: "var(--uilint-shadow)",
-  blur: "blur(12px)",
-  // Severity colors for highlights
-  error: "var(--uilint-error)",
-  warning: "var(--uilint-warning)",
-};
+import { cn } from "@/lib/utils";
 
 /**
  * Get the display name from a file path
@@ -81,31 +63,16 @@ export function LocatorOverlay() {
       onPointerDown={handleUILintInteraction}
       onClick={handleUILintInteraction}
       onKeyDown={handleUILintInteraction}
-      style={{ pointerEvents: "none" }}
+      className="pointer-events-none"
     >
-      <style>{`
-        @keyframes uilint-locator-fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes uilint-locator-pulse {
-          0%, 100% { opacity: 0.8; }
-          50% { opacity: 1; }
-        }
-      `}</style>
-
       {/* Element highlight border */}
       <div
+        className="fixed border-2 border-blue-500 rounded ring-2 ring-blue-500/30 animate-in fade-in duration-100"
         style={{
-          position: "fixed",
           top: rect.top - 2,
           left: rect.left - 2,
           width: rect.width + 4,
           height: rect.height + 4,
-          border: `2px solid ${STYLES.borderHighlight}`,
-          borderRadius: "4px",
-          boxShadow: `0 0 0 1px rgba(59, 130, 246, 0.3), inset 0 0 0 1px rgba(59, 130, 246, 0.1)`,
-          animation: "uilint-locator-fade-in 0.1s ease-out",
           zIndex: 99997,
         }}
       />
@@ -167,25 +134,23 @@ export function VisionIssueHighlight() {
 
   if (!mounted || !hoveredVisionIssue || !rect) return null;
 
-  const severityColor =
-    hoveredVisionIssue.severity === "error" ? STYLES.error : STYLES.warning;
+  const isError = hoveredVisionIssue.severity === "error";
 
   return createPortal(
     <div
       data-ui-lint
+      className={cn(
+        "fixed rounded-lg pointer-events-none animate-in fade-in duration-100",
+        isError
+          ? "border-2 border-red-500 bg-red-500/10 shadow-[0_0_12px_rgba(239,68,68,0.4)]"
+          : "border-2 border-amber-500 bg-amber-500/10 shadow-[0_0_12px_rgba(245,158,11,0.4)]"
+      )}
       style={{
-        position: "fixed",
         top: rect.top - 4,
         left: rect.left - 4,
         width: rect.width + 8,
         height: rect.height + 8,
-        border: `2px solid ${severityColor}`,
-        borderRadius: "6px",
-        backgroundColor: `${severityColor}10`,
-        boxShadow: `0 0 12px ${severityColor}40`,
         zIndex: 99997,
-        pointerEvents: "none",
-        animation: "uilint-locator-fade-in 0.1s ease-out",
       }}
     />,
     getUILintPortalHost()
@@ -212,7 +177,6 @@ function InfoTooltip({ rect, source, componentName }: InfoTooltipProps) {
     position: "fixed",
     left: Math.max(8, Math.min(rect.left, window.innerWidth - 320)),
     zIndex: 99999,
-    animation: "uilint-locator-fade-in 0.15s ease-out",
   };
 
   if (positionAbove) {
@@ -223,32 +187,12 @@ function InfoTooltip({ rect, source, componentName }: InfoTooltipProps) {
 
   return (
     <div
-      style={{
-        ...tooltipStyle,
-        display: "flex",
-        flexDirection: "column",
-        gap: "6px",
-        padding: "10px 12px",
-        borderRadius: "8px",
-        backgroundColor: STYLES.bg,
-        backdropFilter: STYLES.blur,
-        WebkitBackdropFilter: STYLES.blur,
-        border: `1px solid ${STYLES.border}`,
-        boxShadow: STYLES.shadow,
-        fontFamily: STYLES.font,
-        maxWidth: "320px",
-        pointerEvents: "auto",
-      }}
+      style={tooltipStyle}
+      className="flex flex-col gap-1.5 p-2.5 px-3 rounded-lg bg-zinc-900/95 dark:bg-zinc-950/95 backdrop-blur-xl border border-zinc-700 dark:border-zinc-600 shadow-lg max-w-80 pointer-events-auto animate-in fade-in duration-150"
     >
       {/* Element name */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <span
-          style={{
-            fontSize: "13px",
-            fontWeight: 600,
-            color: STYLES.accent,
-          }}
-        >
+      <div className="flex items-center gap-2">
+        <span className="text-[13px] font-semibold text-blue-400">
           {"<"}
           {componentName}
           {" />"}
@@ -257,35 +201,15 @@ function InfoTooltip({ rect, source, componentName }: InfoTooltipProps) {
 
       {/* File path and line number */}
       {source && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            fontSize: "11px",
-            fontFamily: STYLES.fontMono,
-            color: STYLES.text,
-          }}
-        >
-          <span style={{ opacity: 0.9 }}>{getFileName(source.fileName)}</span>
-          <span style={{ color: STYLES.textMuted }}>:</span>
-          <span style={{ color: STYLES.accent }}>{source.lineNumber}</span>
+        <div className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-300">
+          <span>{getFileName(source.fileName)}</span>
+          <span className="text-zinc-500">:</span>
+          <span className="text-blue-400">{source.lineNumber}</span>
         </div>
       )}
 
       {/* Click hint */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          fontSize: "10px",
-          color: STYLES.textMuted,
-          borderTop: `1px solid rgba(75, 85, 99, 0.3)`,
-          paddingTop: "8px",
-          marginTop: "2px",
-        }}
-      >
+      <div className="flex items-center gap-3 text-[10px] text-zinc-500 border-t border-zinc-700/50 pt-2 mt-0.5">
         <span>Click to inspect</span>
       </div>
     </div>
@@ -340,45 +264,28 @@ export function InspectedElementHighlight() {
       onPointerDown={handleUILintInteraction}
       onClick={handleUILintInteraction}
       onKeyDown={handleUILintInteraction}
-      style={{ pointerEvents: "none" }}
+      className="pointer-events-none"
     >
-      <style>{`
-        @keyframes uilint-inspected-pulse {
-          0%, 100% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.6), 0 0 8px rgba(59, 130, 246, 0.3); }
-          50% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.8), 0 0 16px rgba(59, 130, 246, 0.5); }
-        }
-      `}</style>
-
       {/* Element highlight with pulsing border */}
       <div
+        className="fixed border-2 border-blue-500 rounded-md bg-blue-500/10 animate-pulse"
         style={{
-          position: "fixed",
           top: rect.top - 3,
           left: rect.left - 3,
           width: rect.width + 6,
           height: rect.height + 6,
-          border: `2px solid ${STYLES.accent}`,
-          borderRadius: "6px",
-          backgroundColor: "var(--uilint-accent)",
-          opacity: 0.08,
-          animation: "uilint-inspected-pulse 2s ease-in-out infinite",
+          boxShadow:
+            "0 0 0 2px rgba(59, 130, 246, 0.6), 0 0 8px rgba(59, 130, 246, 0.3)",
           zIndex: 99996,
         }}
       />
 
       {/* Small label at top-left of element */}
       <div
+        className="fixed px-2 py-0.5 bg-blue-500 text-white text-[10px] font-semibold rounded-t"
         style={{
-          position: "fixed",
-          top: rect.top - 24,
+          top: rect.top - 22,
           left: rect.left - 3,
-          padding: "2px 8px",
-          backgroundColor: STYLES.accent,
-          color: STYLES.text,
-          fontSize: "10px",
-          fontWeight: 600,
-          fontFamily: STYLES.font,
-          borderRadius: "4px 4px 0 0",
           zIndex: 99996,
         }}
       >
