@@ -7,7 +7,6 @@ import { scan } from "./commands/scan.js";
 import { analyze } from "./commands/analyze.js";
 import { consistency } from "./commands/consistency.js";
 import { update } from "./commands/update.js";
-import { install } from "./commands/install.js";
 import { serve } from "./commands/serve.js";
 import { vision } from "./commands/vision.js";
 import { readFileSync } from "fs";
@@ -167,24 +166,9 @@ program
   .command("install")
   .description("Install UILint integration")
   .option("--force", "Overwrite existing configuration files")
-  .option("--genstyleguide", "Install /genstyleguide Cursor command")
-  .option("--eslint", "Install uilint-eslint plugin and configure ESLint")
-  .option(
-    "--routes",
-    "Back-compat: install Next.js overlay (routes + deps + inject)"
-  )
-  .option(
-    "--react",
-    "Back-compat: install Next.js overlay (routes + deps + inject)"
-  )
   .action(async (options) => {
-    await install({
-      force: options.force,
-      genstyleguide: options.genstyleguide,
-      eslint: options.eslint,
-      routes: options.routes,
-      react: options.react,
-    });
+    const { installUI } = await import("./commands/install-ui.js");
+    await installUI({ force: options.force });
   });
 
 // Serve command - WebSocket server for UI overlay
