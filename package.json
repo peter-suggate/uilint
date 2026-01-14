@@ -1,6 +1,6 @@
 {
   "name": "uilint-monorepo",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "private": true,
   "description": "AI-powered UI consistency checker for Next.js applications",
   "author": "Peter Suggate",
@@ -33,7 +33,8 @@
     "version:minor": "pnpm --filter 'uilint*' exec npm version minor --no-git-tag-version && pnpm --filter jsx-loc-plugin exec npm version minor --no-git-tag-version && npm version minor --no-git-tag-version && pnpm sync:workspace",
     "version:major": "pnpm --filter 'uilint*' exec npm version major --no-git-tag-version && pnpm --filter jsx-loc-plugin exec npm version major --no-git-tag-version && npm version major --no-git-tag-version && pnpm sync:workspace",
     "publish:dry": "pnpm sync:workspace && pnpm build:packages && pnpm --filter uilint-core publish --dry-run --no-git-checks && pnpm --filter uilint-react publish --dry-run --no-git-checks && pnpm --filter uilint publish --dry-run --no-git-checks && pnpm --filter uilint-eslint publish --dry-run --no-git-checks && pnpm --filter jsx-loc-plugin publish --dry-run --no-git-checks",
-    "publish:packages": "pnpm sync:workspace && pnpm build:packages && pnpm --filter uilint-core publish --access public --no-git-checks && pnpm --filter uilint-react publish --access public --no-git-checks && pnpm --filter uilint publish --access public --no-git-checks && pnpm --filter uilint-eslint publish --access public --no-git-checks && pnpm --filter jsx-loc-plugin publish --access public --no-git-checks"
+    "publish:packages": "pnpm sync:workspace && pnpm build:packages && pnpm --filter uilint-core publish --access public --no-git-checks && pnpm --filter uilint-react publish --access public --no-git-checks && pnpm --filter uilint publish --access public --no-git-checks && pnpm --filter uilint-eslint publish --access public --no-git-checks && pnpm --filter jsx-loc-plugin publish --access public --no-git-checks",
+    "publish": "pnpm publish:packages"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
