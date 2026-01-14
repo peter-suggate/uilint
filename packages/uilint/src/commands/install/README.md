@@ -1,21 +1,8 @@
-# Install Command Redesign
+# Install Command
 
-This directory contains the redesigned `uilint install` command with improved UX and extensibility.
+This directory contains the `uilint install` command with an interactive Ink-based UI.
 
 ## Architecture
-
-### Two Install Flows
-
-1. **Legacy Flow** (`install.ts`) - Original @clack/prompts-based installer
-   - Used when CLI flags are provided (`--eslint`, `--routes`, etc.)
-   - Maintained for backwards compatibility
-   - Will be deprecated in future versions
-
-2. **New Flow** (`install-ui.tsx`) - Ink-based installer with rich UI
-   - Used when `--ui` flag is provided OR no flags (interactive mode)
-   - Project-first: Shows detected apps/packages before asking what to install
-   - Granular progress indicators
-   - Extensible plugin architecture
 
 ### Directory Structure
 
@@ -26,7 +13,6 @@ install/
 ├── execute.ts              # Side effect execution (phase 3)
 ├── types.ts                # Shared types
 ├── constants.ts            # Constants (file templates, etc.)
-├── prompter.ts             # Legacy prompt abstraction
 │
 ├── installers/             # Pluggable installers
 │   ├── types.ts           # Installer interface
@@ -40,9 +26,9 @@ install/
 │
 └── components/             # Ink React components
     ├── InstallApp.tsx     # Main state machine
-    ├── ProjectSummary.tsx # Project detection display
-    ├── FeatureSelector.tsx # Multi-select UI
-    └── ProgressList.tsx   # Progress tracking UI
+    ├── MultiSelect.tsx    # Configuration selector
+    ├── ProgressList.tsx   # Progress tracking UI
+    └── Spinner.tsx        # Loading spinner
 ```
 
 ## Installer Plugin System
@@ -129,13 +115,9 @@ SCANNING
   ↓
   Analyze project (packages, Next apps, Vite apps, ESLint configs)
   ↓
-DISPLAYING
+CONFIGURING
   ↓
-  Show ProjectSummary (what was detected)
-  ↓
-SELECTING
-  ↓
-  FeatureSelector (multi-select installers)
+  ConfigSelector (grouped features, toggle selection)
   ↓
 EXECUTING
   ↓
@@ -146,30 +128,19 @@ COMPLETE
 
 ## Usage
 
-### Interactive Mode (Default)
-
 ```bash
-# Default: beautiful configuration dashboard
+# Interactive configuration dashboard
 uilint install
 
-# Shows project detection, grouped features, keyboard navigation
+# Force overwrite existing files
+uilint install --force
 ```
 
-### Legacy Flow
-
-```bash
-# Use legacy @clack/prompts installer
-uilint install --legacy
-
-# Non-interactive with specific flags (also uses legacy)
-uilint install --eslint --routes
-```
-
-## Migration Notes
-
-- The new Ink-based UI is now the default
-- Use `--legacy` flag to access the old @clack/prompts installer
-- Specific feature flags (`--eslint`, `--routes`, etc.) trigger legacy flow for backwards compatibility
+The installer shows a configuration dashboard with:
+- Detected project context (package manager, frameworks, configs)
+- Features grouped by category
+- Installation status for each feature
+- Keyboard navigation (↑↓ navigate, space toggle, a=all, n=none, enter apply, q quit)
 
 ## Benefits
 
@@ -191,29 +162,19 @@ uilint install --eslint --routes
 # Run installer tests
 pnpm --filter uilint test test/unit/install
 
-# Test new UI manually
-pnpm uilint install --ui
+# Test UI manually
+pnpm uilint install
 ```
 
 ## Components
 
-### ProjectSummary
+### ConfigSelector
 
-Displays:
-- Package manager
-- Detected Next.js apps
-- Detected Vite apps
-- ESLint configs
-- Already installed features
-
-### FeatureSelector
-
-Multi-select interface using `@inkjs/ui` MultiSelect component.
-
-Features:
-- Pre-selects non-installed items
-- Shows hints for each option
-- Keyboard navigation (↑↓, space, enter)
+Configuration dashboard with:
+- Items grouped by category
+- Status indicators (installed, not installed, partial)
+- Keyboard shortcuts for bulk selection
+- Selection summary
 
 ### ProgressList
 

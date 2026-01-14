@@ -20,7 +20,10 @@ import type {
   InstallItem,
   ProjectState,
 } from "./install/types.js";
-import type { InstallerSelection, InstallTarget } from "./install/installers/types.js";
+import type {
+  InstallerSelection,
+  InstallTarget,
+} from "./install/installers/types.js";
 import { ruleRegistry } from "uilint-eslint";
 
 // Import installers to trigger registration
@@ -56,7 +59,9 @@ function selectionsToUserChoices(
       items.push("next");
       // Add Next.js choices
       const target = targets[0];
-      const appInfo = project.nextApps.find((app) => app.projectPath === target?.path);
+      const appInfo = project.nextApps.find(
+        (app) => app.projectPath === target?.path
+      );
       if (appInfo) {
         choices.next = {
           projectPath: appInfo.projectPath,
@@ -67,7 +72,9 @@ function selectionsToUserChoices(
       items.push("vite");
       // Add Vite choices
       const target = targets[0];
-      const appInfo = project.viteApps.find((app) => app.projectPath === target?.path);
+      const appInfo = project.viteApps.find(
+        (app) => app.projectPath === target?.path
+      );
       if (appInfo) {
         choices.vite = {
           projectPath: appInfo.projectPath,
@@ -101,15 +108,9 @@ export async function installUI(
 
   // Check if terminal supports interactive mode
   if (!isInteractiveTerminal()) {
-    console.log(
-      "\n⚠️  Interactive mode requires a TTY terminal."
-    );
-    console.log("Use --legacy flag or run in an interactive terminal.\n");
-
-    // Fall back to the old install flow
-    const { install } = await import("./install.js");
-    await install(options);
-    return;
+    console.error("\n✗ Interactive mode requires a TTY terminal.");
+    console.error("Run uilint install in an interactive terminal.\n");
+    process.exit(1);
   }
 
   // Start project analysis
