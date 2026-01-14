@@ -5,7 +5,7 @@
  * into user projects. Rules are copied to .uilint/rules/ in the target project.
  */
 
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, readdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
@@ -271,8 +271,7 @@ export function getAvailableRuleIds(): string[] {
 
     // This is a fallback - ideally we'd use the registry
     // But if we can't import it, we can at least try to list files
-    const fs = require("fs");
-    const files = fs.readdirSync(rulesDir);
+    const files = readdirSync(rulesDir);
     return files
       .filter((f: string) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
       .map((f: string) => f.replace(".ts", ""));

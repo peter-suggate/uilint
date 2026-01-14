@@ -177,14 +177,31 @@ program
     "--react",
     "Back-compat: install Next.js overlay (routes + deps + inject)"
   )
+  .option("--legacy", "Use legacy @clack/prompts installer")
   .action(async (options) => {
-    await install({
-      force: options.force,
-      genstyleguide: options.genstyleguide,
-      eslint: options.eslint,
-      routes: options.routes,
-      react: options.react,
-    });
+    // Use legacy flow if --legacy flag or specific feature flags provided
+    const useSpecificFlags =
+      options.genstyleguide || options.eslint || options.routes || options.react;
+
+    if (options.legacy || useSpecificFlags) {
+      await install({
+        force: options.force,
+        genstyleguide: options.genstyleguide,
+        eslint: options.eslint,
+        routes: options.routes,
+        react: options.react,
+      });
+    } else {
+      // Default: use new interactive UI
+      const { installUI } = await import("./commands/install-ui.js");
+      await installUI({
+        force: options.force,
+        genstyleguide: options.genstyleguide,
+        eslint: options.eslint,
+        routes: options.routes,
+        react: options.react,
+      });
+    }
   });
 
 // Serve command - WebSocket server for UI overlay
