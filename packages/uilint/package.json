@@ -1,6 +1,6 @@
 {
   "name": "uilint",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "CLI for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -36,6 +36,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "test": "vitest",
+    "test:watch": "vitest --watch",
     "test:unit": "vitest run test/unit",
     "test:integration": "vitest run test/integration",
     "prepublishOnly": "npm run build"

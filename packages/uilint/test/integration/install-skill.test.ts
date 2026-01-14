@@ -110,8 +110,10 @@ describe("Agent Skill installation", () => {
     expect(skillContent).toContain("## Step-by-Step Process");
     expect(skillContent).toContain("createRule");
     expect(skillContent).toContain("RuleTester");
-    expect(skillContent).toContain("rule-registry.ts");
-    expect(skillContent).toContain("packages/uilint-eslint");
+    // New approach: rules are created alongside the target app under `.uilint/rules/`
+    expect(skillContent).toContain(".uilint/rules");
+    // And ESLint config uses a custom plugin prefix for local rules
+    expect(skillContent).toContain("uilint-custom");
   });
 
   it("RULE-TEMPLATE.ts is a valid TypeScript template", async () => {

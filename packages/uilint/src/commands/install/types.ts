@@ -59,6 +59,8 @@ export interface EslintPackageInfo extends PackageInfo {
   hasUilintRules: boolean;
   /** IDs of uilint rules already configured */
   configuredRuleIds: string[];
+  /** Whether this package uses TypeScript (inherited from PackageInfo) */
+  isTypeScript: boolean;
 }
 
 export interface ProjectState {

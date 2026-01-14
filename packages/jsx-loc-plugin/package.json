@@ -1,6 +1,6 @@
 {
   "name": "jsx-loc-plugin",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Next.js plugin that adds data-loc attributes to JSX elements for UILint inspection",
   "author": "Peter Suggate",
   "license": "MIT",

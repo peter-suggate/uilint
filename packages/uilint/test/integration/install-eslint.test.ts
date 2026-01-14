@@ -71,12 +71,22 @@ describe("ESLint installation - fresh config", () => {
     // Verify result
     expect(result.success).toBe(true);
 
+    // Verify rules were copied to .uilint/rules/
+    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/consistent-spacing.ts")).toBe(true);
+
     // Read updated config
     const updatedConfig = fixture.readFile("eslint.config.mjs");
-    expect(updatedConfig).toContain('import uilint from "uilint-eslint"');
+    expect(updatedConfig).toContain('from "uilint-eslint"');
+    expect(updatedConfig).toMatch(
+      /from\s+["']\.\/\.uilint\/rules\/no-arbitrary-tailwind\.ts["']/
+    );
+    expect(updatedConfig).toMatch(
+      /from\s+["']\.\/\.uilint\/rules\/consistent-spacing\.ts["']/
+    );
     expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     expect(updatedConfig).toContain("uilint/consistent-spacing");
-    expect(updatedConfig).toContain("plugins: { uilint: uilint }");
+    expect(updatedConfig).toContain("plugins: { uilint:");
   });
 
   it("injects uilint block into existing eslint.config.ts", async () => {
@@ -114,12 +124,22 @@ describe("ESLint installation - fresh config", () => {
     // Verify result
     expect(result.success).toBe(true);
 
+    // Verify rules were copied to .uilint/rules/
+    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/consistent-spacing.ts")).toBe(true);
+
     // Read updated config
     const updatedConfig = fixture.readFile("eslint.config.ts");
-    expect(updatedConfig).toContain('import uilint from "uilint-eslint"');
+    expect(updatedConfig).toContain('from "uilint-eslint"');
+    expect(updatedConfig).toMatch(
+      /from\s+["']\.\/\.uilint\/rules\/no-arbitrary-tailwind\.ts["']/
+    );
+    expect(updatedConfig).toMatch(
+      /from\s+["']\.\/\.uilint\/rules\/consistent-spacing\.ts["']/
+    );
     expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     expect(updatedConfig).toContain("uilint/consistent-spacing");
-    expect(updatedConfig).toContain("plugins: { uilint: uilint }");
+    expect(updatedConfig).toContain("plugins: { uilint:");
   });
 
   it("preserves comments and ignores commented-out uilint rule keys (spread rules config)", async () => {
@@ -148,6 +168,10 @@ describe("ESLint installation - fresh config", () => {
 
     expect(result.success).toBe(true);
 
+    // Verify rules were copied
+    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/consistent-spacing.ts")).toBe(true);
+
     const updatedConfig = fixture.readFile("eslint.config.mjs");
     // Preserve comments
     expect(updatedConfig).toContain("Keep this comment");
@@ -156,7 +180,8 @@ describe("ESLint installation - fresh config", () => {
     // But we also add actual configured rules in an appended uilint block
     expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     expect(updatedConfig).toContain("uilint/consistent-spacing");
-    expect(updatedConfig).toContain('import uilint from "uilint-eslint"');
+    expect(updatedConfig).toContain('from "uilint-eslint"');
+    expect(updatedConfig).toContain("./.uilint/rules/");
   });
 
   it("injects into CommonJS defineConfig([...]) config and adds require binding", async () => {
@@ -185,10 +210,18 @@ describe("ESLint installation - fresh config", () => {
 
     expect(result.success).toBe(true);
 
+    // Verify rules were copied
+    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(true);
+
     const updatedConfig = fixture.readFile("eslint.config.cjs");
-    expect(updatedConfig).toContain('const uilint = require("uilint-eslint")');
+    expect(updatedConfig).toContain(
+      'const { createRule } = require("uilint-eslint")'
+    );
+    expect(updatedConfig).toContain(
+      'require("./.uilint/rules/no-arbitrary-tailwind.ts")'
+    );
     expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
-    expect(updatedConfig).toContain("plugins: { uilint: uilint }");
+    expect(updatedConfig).toContain("plugins: { uilint:");
     expect(updatedConfig).toContain("Keep this comment");
   });
 
@@ -219,11 +252,21 @@ describe("ESLint installation - fresh config", () => {
 
     expect(result.success).toBe(true);
 
+    // Verify rules were copied
+    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/consistent-spacing.ts")).toBe(true);
+
     const updatedConfig = fixture.readFile("eslint.config.mjs");
-    expect(updatedConfig).toContain('import uilint from "uilint-eslint"');
+    expect(updatedConfig).toContain('from "uilint-eslint"');
+    expect(updatedConfig).toMatch(
+      /from\s+["']\.\/\.uilint\/rules\/no-arbitrary-tailwind\.ts["']/
+    );
+    expect(updatedConfig).toMatch(
+      /from\s+["']\.\/\.uilint\/rules\/consistent-spacing\.ts["']/
+    );
     expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     expect(updatedConfig).toContain("uilint/consistent-spacing");
-    expect(updatedConfig).toContain("plugins: { uilint: uilint }");
+    expect(updatedConfig).toContain("plugins: { uilint:");
   });
 
   it("respects selected rules only", async () => {
@@ -243,6 +286,10 @@ describe("ESLint installation - fresh config", () => {
     await execute(plan, {
       installDependencies: mockInstallDependencies,
     });
+
+    // Verify only selected rule was copied
+    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/consistent-spacing.ts")).toBe(false);
 
     const updatedConfig = fixture.readFile("eslint.config.mjs");
     expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
@@ -334,8 +381,12 @@ describe("ESLint installation - existing uilint rules", () => {
       installDependencies: mockInstallDependencies,
     });
 
+    // Verify new rules were copied
+    expect(fixture.exists(".uilint/rules/consistent-spacing.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/consistent-dark-mode.ts")).toBe(true);
+
     const updatedConfig = fixture.readFile("eslint.config.mjs");
-    // Should still have original rule
+    // Should still have original rule (from old config)
     expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     // Should have new rules added
     expect(updatedConfig).toContain("uilint/consistent-spacing");
@@ -426,6 +477,10 @@ describe("ESLint installation - monorepo", () => {
       installDependencies: mockInstallDependencies,
     });
 
+    // Verify rules were copied (should be at workspace root)
+    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/consistent-dark-mode.ts")).toBe(true);
+
     // Verify both configs were updated
     for (const pkgPath of selectedPaths) {
       const pkg = packagesWithEslint.find((p) => p.path === pkgPath)!;
@@ -434,7 +489,8 @@ describe("ESLint installation - monorepo", () => {
         ""
       );
       const config = fixture.readFile(relativePath);
-      expect(config).toContain("uilint");
+      expect(config).toContain("uilint/");
+      expect(config).toContain(".uilint/rules/");
     }
   });
 });
@@ -463,9 +519,12 @@ describe("ESLint installation - rule options", () => {
       installDependencies: mockInstallDependencies,
     });
 
+    // Verify rule was copied
+    expect(fixture.exists(".uilint/rules/consistent-spacing.ts")).toBe(true);
+
     const config = fixture.readFile("eslint.config.mjs");
     // Should include the scale option from defaultOptions
-    expect(config).toContain("consistent-spacing");
+    expect(config).toContain("uilint/consistent-spacing");
     expect(config).toContain("scale");
   });
 
@@ -493,8 +552,13 @@ describe("ESLint installation - rule options", () => {
       installDependencies: mockInstallDependencies,
     });
 
+    // Verify rule was copied
+    expect(
+      fixture.exists(".uilint/rules/no-mixed-component-libraries.ts")
+    ).toBe(true);
+
     const config = fixture.readFile("eslint.config.mjs");
-    expect(config).toContain("no-mixed-component-libraries");
+    expect(config).toContain("uilint/no-mixed-component-libraries");
     expect(config).toContain("preferred");
     expect(config).toContain("shadcn");
   });
@@ -530,9 +594,14 @@ describe("ESLint installation - rule options", () => {
       installDependencies: mockInstallDependencies,
     });
 
+    // Verify rule was copied
+    expect(
+      fixture.exists(".uilint/rules/no-mixed-component-libraries.ts")
+    ).toBe(true);
+
     const updatedConfig = fixture.readFile("eslint.config.mjs");
     // Should still have the rule
-    expect(updatedConfig).toContain("no-mixed-component-libraries");
+    expect(updatedConfig).toContain("uilint/no-mixed-component-libraries");
     // Should now have preferred option
     expect(updatedConfig).toContain("preferred");
     expect(updatedConfig).toContain("mui");
@@ -725,9 +794,106 @@ describe("ESLint installation - all static rules", () => {
 
     expect(result.success).toBe(true);
 
+    // Verify all rules were copied
+    for (const ruleId of staticRuleIds) {
+      expect(fixture.exists(`.uilint/rules/${ruleId}.ts`)).toBe(true);
+    }
+
     const config = fixture.readFile("eslint.config.mjs");
     for (const ruleId of staticRuleIds) {
       expect(config).toContain(`uilint/${ruleId}`);
     }
+  });
+});
+
+// ============================================================================
+// JavaScript/TypeScript File Format Tests
+// ============================================================================
+
+describe("ESLint installation - JavaScript vs TypeScript file formats", () => {
+  it("copies .js rule files for JavaScript-only projects", async () => {
+    fixture = useFixture("has-eslint-flat-js");
+
+    const state = await analyze(fixture.path);
+    const pkg = state.packages.find((p) => p.eslintConfigPath !== null);
+    expect(pkg).toBeDefined();
+    expect(pkg?.isTypeScript).toBe(false);
+
+    const prompter = mockPrompter({
+      installItems: ["eslint"],
+      eslintPackagePaths: [pkg!.path],
+      eslintRuleIds: ["no-arbitrary-tailwind", "consistent-spacing"],
+    });
+
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+    const result = await execute(plan, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+
+    expect(result.success).toBe(true);
+
+    // Verify .js files were copied (not .ts)
+    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.js")).toBe(true);
+    expect(fixture.exists(".uilint/rules/consistent-spacing.js")).toBe(true);
+    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(
+      false
+    );
+    expect(fixture.exists(".uilint/rules/consistent-spacing.ts")).toBe(false);
+
+    // Verify config imports .js files
+    const updatedConfig = fixture.readFile("eslint.config.mjs");
+    expect(updatedConfig).toMatch(
+      /from\s+["']\.\/\.uilint\/rules\/no-arbitrary-tailwind\.js["']/
+    );
+    expect(updatedConfig).toMatch(
+      /from\s+["']\.\/\.uilint\/rules\/consistent-spacing\.js["']/
+    );
+    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
+    expect(updatedConfig).toContain("uilint/consistent-spacing");
+  });
+
+  it("copies .ts rule files for TypeScript projects", async () => {
+    fixture = useFixture("has-eslint-flat-ts");
+
+    const state = await analyze(fixture.path);
+    const pkg = state.packages.find((p) => p.eslintConfigPath !== null);
+    expect(pkg).toBeDefined();
+    expect(pkg?.isTypeScript).toBe(true);
+
+    const prompter = mockPrompter({
+      installItems: ["eslint"],
+      eslintPackagePaths: [pkg!.path],
+      eslintRuleIds: ["no-arbitrary-tailwind", "consistent-spacing"],
+    });
+
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+    const result = await execute(plan, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+
+    expect(result.success).toBe(true);
+
+    // Verify .ts files were copied (not .js)
+    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/consistent-spacing.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.js")).toBe(
+      false
+    );
+    expect(fixture.exists(".uilint/rules/consistent-spacing.js")).toBe(false);
+
+    // Verify config imports .ts files
+    const updatedConfig = fixture.readFile("eslint.config.ts");
+    expect(updatedConfig).toMatch(
+      /from\s+["']\.\/\.uilint\/rules\/no-arbitrary-tailwind\.ts["']/
+    );
+    expect(updatedConfig).toMatch(
+      /from\s+["']\.\/\.uilint\/rules\/consistent-spacing\.ts["']/
+    );
+    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
+    expect(updatedConfig).toContain("uilint/consistent-spacing");
   });
 });

@@ -145,7 +145,7 @@ export async function analyze(
       try {
         const source = readFileSync(eslintConfigPath, "utf-8");
         const info = getUilintEslintConfigInfoFromSource(source);
-        hasRules = info.configuredRuleIds.size > 0 || info.usesUilintConfigs;
+        hasRules = info.configuredRuleIds.size > 0;
         configuredRuleIds = Array.from(info.configuredRuleIds);
       } catch {
         // Ignore read errors

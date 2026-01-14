@@ -103,7 +103,7 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
       typescript-eslint:
-        specifier: ^8.52.0
+        specifier: ^8.53.0
         version: 8.53.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
       vitest:
         specifier: ^4.0.16
@@ -313,8 +313,8 @@ importers:
         specifier: workspace:*
         version: link:../uilint-core
       uilint-eslint:
-        specifier: ^0.2.1
-        version: 0.2.1(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+        specifier: workspace:*
+        version: link:../uilint-eslint
       zustand:
         specifier: ^5.0.5
         version: 5.0.10(@types/react@19.2.8)(react@19.2.3)
@@ -4365,16 +4365,6 @@ packages:
 
   ufo@1.6.2:
     resolution: {integrity: sha512-heMioaxBcG9+Znsda5Q8sQbWnLJSl98AFDXTO80wELWEzX3hordXsTdxrIfMQoO9IY1MEnoGoPjpoKpMj+Yx0Q==}
-
-  uilint-core@0.2.1:
-    resolution: {integrity: sha512-x8APK1oYH4+i4LEfwFB8Sehfj7ftnXiybRLMbuK+2uuh0fY/fDFqXj2X7X7dd0BGZg7w8HdoI8RwyUItNjkOhA==}
-    engines: {node: '>=20.0.0'}
-
-  uilint-eslint@0.2.1:
-    resolution: {integrity: sha512-0u8v9XQDoQcXH2uQfTPguJgXr6YAIE/uLhRxq9FyaKhAzKw9smHRQkVQJ1pfcYwRHrC+WjXJJoYB+L1E5AKy0w==}
-    engines: {node: '>=20.0.0'}
-    peerDependencies:
-      eslint: '>=8.0.0'
 
   unbox-primitive@1.1.0:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
@@ -9097,35 +9087,6 @@ snapshots:
   typescript@5.9.3: {}
 
   ufo@1.6.2: {}
-
-  uilint-core@0.2.1:
-    dependencies:
-      jiti: 2.6.1
-      jsdom: 27.4.0
-      picocolors: 1.1.1
-      tailwindcss: 4.1.18
-    transitivePeerDependencies:
-      - '@exodus/crypto'
-      - bufferutil
-      - canvas
-      - supports-color
-      - utf-8-validate
-
-  uilint-eslint@0.2.1(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3):
-    dependencies:
-      '@typescript-eslint/typescript-estree': 8.52.0(typescript@5.9.3)
-      '@typescript-eslint/utils': 8.53.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
-      eslint: 9.39.2(jiti@2.6.1)
-      oxc-resolver: 11.16.2
-      uilint-core: 0.2.1
-      xxhash-wasm: 1.1.0
-    transitivePeerDependencies:
-      - '@exodus/crypto'
-      - bufferutil
-      - canvas
-      - supports-color
-      - typescript
-      - utf-8-validate
 
   unbox-primitive@1.1.0:
     dependencies:

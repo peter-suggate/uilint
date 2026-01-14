@@ -29,6 +29,7 @@ import {
   GENRULES_COMMAND_MD,
 } from "./constants.js";
 import { loadSkill } from "../../utils/skill-loader.js";
+import { loadSelectedRules } from "../../utils/rule-loader.js";
 
 const require = createRequire(import.meta.url);
 
@@ -291,7 +292,10 @@ export function createPlan(
         const filePath = join(skillDir, file.relativePath);
 
         // Ensure subdirectories exist (e.g., references/)
-        const fileDir = join(skillDir, file.relativePath.split("/").slice(0, -1).join("/"));
+        const fileDir = join(
+          skillDir,
+          file.relativePath.split("/").slice(0, -1).join("/")
+        );
         if (fileDir !== skillDir && file.relativePath.includes("/")) {
           actions.push({
             type: "create_directory",
@@ -381,14 +385,53 @@ export function createPlan(
     for (const pkgPath of packagePaths) {
       const pkgInfo = state.packages.find((p) => p.path === pkgPath);
 
-      // Install dependencies
+      // Create .uilint/rules directory alongside the target app (not at workspace root)
+      const rulesDir = join(pkgPath, ".uilint", "rules");
+      actions.push({
+        type: "create_directory",
+        path: rulesDir,
+      });
+
+      // Load and copy rule files into this target package
+      // Detect if this package uses TypeScript
+      const isTypeScript = pkgInfo?.isTypeScript ?? true; // Default to TypeScript for safety
+      try {
+        const ruleFiles = loadSelectedRules(
+          selectedRules.map((r) => r.id),
+          {
+            typescript: isTypeScript,
+          }
+        );
+        for (const ruleFile of ruleFiles) {
+          // Copy implementation file
+          actions.push({
+            type: "create_file",
+            path: join(rulesDir, ruleFile.implementation.relativePath),
+            content: ruleFile.implementation.content,
+          });
+
+          // Copy test file if it exists (only for TypeScript projects)
+          if (ruleFile.test && isTypeScript) {
+            actions.push({
+              type: "create_file",
+              path: join(rulesDir, ruleFile.test.relativePath),
+              content: ruleFile.test.content,
+            });
+          }
+        }
+      } catch {
+        // If rule loading fails, continue anyway - the inject will handle it.
+        // This allows install to proceed even if some rules can't be loaded.
+      }
+
+      // Install dependencies (still needed for utilities like createRule)
       dependencies.push({
         packagePath: pkgPath,
         packageManager: state.packageManager,
         packages: [toInstallSpecifier("uilint-eslint"), "typescript-eslint"],
       });
 
-      // Inject ESLint rules
+      // Inject ESLint rules (will reference local .uilint/rules/ files)
       if (pkgInfo?.eslintConfigPath) {
         actions.push({
           type: "inject_eslint",

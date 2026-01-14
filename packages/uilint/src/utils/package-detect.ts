@@ -18,6 +18,8 @@ export interface PackageInfo {
   isFrontend: boolean;
   /** Whether this is the workspace root */
   isRoot: boolean;
+  /** Whether this package uses TypeScript */
+  isTypeScript: boolean;
 }
 
 const DEFAULT_IGNORE_DIRS = new Set([
@@ -72,6 +74,35 @@ function isFrontendPackage(pkgJson: Record<string, unknown>): boolean {
 }
 
 /**
+ * Check if a package uses TypeScript
+ */
+function isTypeScriptPackage(dir: string, pkgJson: Record<string, unknown>): boolean {
+  // Check for tsconfig.json
+  if (existsSync(join(dir, "tsconfig.json"))) {
+    return true;
+  }
+
+  // Check for typescript in dependencies
+  const deps = {
+    ...(pkgJson.dependencies as Record<string, string> | undefined),
+    ...(pkgJson.devDependencies as Record<string, string> | undefined),
+  };
+
+  if ("typescript" in deps) {
+    return true;
+  }
+
+  // Check ESLint config file extension (if .ts, it's TypeScript)
+  for (const configFile of ESLINT_CONFIG_FILES) {
+    if (configFile.endsWith(".ts") && existsSync(join(dir, configFile))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Check if directory has ESLint config
  */
 function hasEslintConfig(dir: string): boolean {
@@ -122,6 +153,7 @@ export function findPackages(
         hasEslintConfig: hasEslintConfig(dir),
         isFrontend: isFrontendPackage(pkg),
         isRoot,
+        isTypeScript: isTypeScriptPackage(dir, pkg),
       };
     } catch {
       return null;

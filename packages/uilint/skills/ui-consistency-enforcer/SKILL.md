@@ -13,7 +13,7 @@ metadata:
   version: "1.0.0"
   category: react-eslint
 compatibility: |
-  Requires Node.js 20+, TypeScript project with @typescript-eslint/utils,
+  Requires TypeScript project with @typescript-eslint,
   and uilint-eslint package installed.
 ---
 
@@ -56,21 +56,22 @@ Ask clarifying questions if needed before proceeding.
 
 ### Step 2: Analyze Existing Rules
 
-Look at the existing uilint-eslint rules for patterns:
+Look at existing rules installed in the project for patterns:
 
 ```bash
-ls packages/uilint-eslint/src/rules/
+ls .uilint/rules/
 ```
 
-Read similar rules to understand the codebase patterns:
-- `prefer-zustand-state-management.ts` - component analysis, hook counting
-- `no-mixed-component-libraries.ts` - cross-file analysis, import tracking
-- `consistent-spacing.ts` - className/Tailwind pattern matching
-- `consistent-dark-mode.ts` - attribute analysis in JSX
+If no rules exist yet, you can reference examples from the uilint-eslint package or look at similar patterns. Common rule patterns include:
+
+- Component analysis and hook counting
+- Cross-file analysis and import tracking
+- className/Tailwind pattern matching
+- Attribute analysis in JSX
 
 ### Step 3: Write the Rule
 
-Create the rule file at `packages/uilint-eslint/src/rules/{rule-name}.ts`.
+Create the rule file at `.uilint/rules/{rule-name}.ts` in the target project.
 
 Follow this structure exactly:
 
@@ -81,7 +82,7 @@ Follow this structure exactly:
  * {Description of what this rule does and why}
  */
 
-import { createRule } from "../utils/create-rule.js";
+import { createRule } from "uilint-eslint";
 import type { TSESTree } from "@typescript-eslint/utils";
 
 type MessageIds = "{messageId1}" | "{messageId2}";
@@ -143,7 +144,7 @@ export default createRule<Options, MessageIds>({
 
 ### Step 4: Write Comprehensive Tests
 
-Create the test file at `packages/uilint-eslint/src/rules/{rule-name}.test.ts`.
+Create the test file at `.uilint/rules/{rule-name}.test.ts` in the target project.
 
 Follow this structure:
 
@@ -239,45 +240,32 @@ ruleTester.run("{rule-name}", rule, {
 });
 ```
 
-### Step 5: Register the Rule
+### Step 5: Configure ESLint to Use the Rule
 
-Add the rule to `packages/uilint-eslint/src/rule-registry.ts`:
+The rule will be automatically configured in your `eslint.config.{js,ts,mjs,cjs}` file. The installer creates a custom plugin that references your local rules:
 
-```typescript
-{
-  id: "{rule-name}",
-  name: "{Display Name}",
-  description: "{Short description for CLI}",
-  defaultSeverity: "warn" | "error",
-  defaultOptions: [{ /* defaults */ }],
-  optionSchema: {
-    fields: [
-      {
-        key: "optionName",
-        label: "Option Label",
-        type: "select" | "text" | "boolean" | "number",
-        defaultValue: "default",
-        options: [{ value: "x", label: "X" }], // for select
-        description: "Help text",
+```javascript
+import { createRule } from "uilint-eslint";
+import yourRuleName from "./.uilint/rules/your-rule-name.js";
+
+export default [
+  // ... existing config
+  {
+    plugins: {
+      "uilint-custom": {
+        rules: {
+          "your-rule-name": yourRuleName,
+        },
       },
-    ],
+    },
+    rules: {
+      "uilint-custom/your-rule-name": "error",
+    },
   },
-  category: "static",
-},
+];
 ```
 
-### Step 6: Regenerate Index and Test
-
-```bash
-# Regenerate the index file
-pnpm -C packages/uilint-eslint generate:index
-
-# Run the tests
-pnpm -C packages/uilint-eslint test
-
-# Build to verify
-pnpm -C packages/uilint-eslint build
-```
+If you're creating the rule manually (not via the installer), you'll need to add the import and configure it in your ESLint config.
 
 ## Common AST Patterns
 
@@ -401,6 +389,7 @@ import { getComponentLibrary, clearCache } from "../utils/import-graph.js";
 3. Use placeholders for dynamic content
 
 Good:
+
 ```typescript
 messages: {
   useDesignSystem:
@@ -409,6 +398,7 @@ messages: {
 ```
 
 Bad:
+
 ```typescript
 messages: {
   error: "Invalid element",  // Too vague
@@ -435,11 +425,11 @@ See the following files for complete working examples:
 
 Before finishing, verify:
 
-- [ ] Rule file created at `packages/uilint-eslint/src/rules/{name}.ts`
-- [ ] Test file created at `packages/uilint-eslint/src/rules/{name}.test.ts`
-- [ ] Rule added to `packages/uilint-eslint/src/rule-registry.ts`
-- [ ] Index regenerated with `pnpm -C packages/uilint-eslint generate:index`
-- [ ] All tests pass with `pnpm -C packages/uilint-eslint test`
-- [ ] Build succeeds with `pnpm -C packages/uilint-eslint build`
+- [ ] Rule file created at `.uilint/rules/{name}.ts`
+- [ ] Test file created at `.uilint/rules/{name}.test.ts` (if applicable)
+- [ ] Rule imports `createRule` from `"uilint-eslint"`
+- [ ] ESLint config updated to import and use the rule from `.uilint/rules/`
+- [ ] Rule configured in ESLint with appropriate severity
 - [ ] Error messages are clear and actionable
 - [ ] Configuration options are documented in schema
+- [ ] Rule works correctly when ESLint runs

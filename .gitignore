@@ -33,7 +33,7 @@ coverage/
 .turbo/
 
 # Testing outputs
-/.uilint/
+# /.uilint/
 
 # UILint cache
 apps/test-app/.uilint/.cache/eslint-semantic.json

@@ -1,0 +1,13 @@
+{
+  "name": "has-eslint-flat-js",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "@next/eslint-plugin-next": "^14.0.0"
+  }
+}

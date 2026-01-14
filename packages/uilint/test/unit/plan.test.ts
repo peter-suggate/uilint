@@ -6,7 +6,10 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createPlan, getMissingRules } from "../../src/commands/install/plan.js";
+import {
+  createPlan,
+  getMissingRules,
+} from "../../src/commands/install/plan.js";
 import type {
   ProjectState,
   UserChoices,
@@ -18,7 +21,9 @@ import { ruleRegistry, type RuleMetadata } from "uilint-eslint";
 // Test Helpers
 // ============================================================================
 
-function createMockProjectState(overrides: Partial<ProjectState> = {}): ProjectState {
+function createMockProjectState(
+  overrides: Partial<ProjectState> = {}
+): ProjectState {
   return {
     projectPath: "/test/project",
     workspaceRoot: "/test/project",
@@ -52,7 +57,9 @@ function createMockProjectState(overrides: Partial<ProjectState> = {}): ProjectS
   };
 }
 
-function createMockPackage(overrides: Partial<EslintPackageInfo> = {}): EslintPackageInfo {
+function createMockPackage(
+  overrides: Partial<EslintPackageInfo> = {}
+): EslintPackageInfo {
   return {
     path: "/test/project",
     displayPath: ".",
@@ -60,6 +67,7 @@ function createMockPackage(overrides: Partial<EslintPackageInfo> = {}): EslintPa
     hasEslintConfig: true,
     isFrontend: true,
     isRoot: true,
+    isTypeScript: true,
     eslintConfigPath: "/test/project/eslint.config.mjs",
     eslintConfigFilename: "eslint.config.mjs",
     hasUilintRules: false,
@@ -106,7 +114,9 @@ describe("createPlan - MCP", () => {
       mcp: {
         exists: true,
         path: "/test/project/.cursor/mcp.json",
-        config: { mcpServers: { existing: { command: "npx", args: ["existing"] } } },
+        config: {
+          mcpServers: { existing: { command: "npx", args: ["existing"] } },
+        },
       },
     });
     const choices = createMockChoices({ items: ["mcp"], mcpMerge: true });
@@ -132,7 +142,9 @@ describe("createPlan - MCP", () => {
       mcp: {
         exists: true,
         path: "/test/project/.cursor/mcp.json",
-        config: { mcpServers: { existing: { command: "npx", args: ["existing"] } } },
+        config: {
+          mcpServers: { existing: { command: "npx", args: ["existing"] } },
+        },
       },
     });
     const choices = createMockChoices({ items: ["mcp"], mcpMerge: true });
@@ -425,11 +437,33 @@ describe("createPlan - ESLint", () => {
       items: ["eslint"],
       eslint: {
         packagePaths: [pkg.path],
-        selectedRules: ruleRegistry.filter((r) => r.id === "no-arbitrary-tailwind"),
+        selectedRules: ruleRegistry.filter(
+          (r) => r.id === "no-arbitrary-tailwind"
+        ),
       },
     });
 
     const plan = createPlan(state, choices);
+
+    // Should create .uilint/rules directory
+    expect(plan.actions).toContainEqual({
+      type: "create_directory",
+      path: expect.stringContaining(".uilint/rules"),
+    });
+
+    // Should copy rule files
+    const ruleFileAction = plan.actions.find(
+      (a) =>
+        a.type === "create_file" && a.path.includes("no-arbitrary-tailwind.ts")
+    );
+    expect(ruleFileAction).toBeDefined();
+    if (ruleFileAction?.type === "create_file") {
+      // Default is TypeScript, so should be .ts
+      expect(ruleFileAction.path).toContain(
+        ".uilint/rules/no-arbitrary-tailwind.ts"
+      );
+      expect(ruleFileAction.content).toContain("createRule");
+    }
 
     // Should install dependencies
     expect(plan.dependencies).toContainEqual(
@@ -503,7 +537,9 @@ describe("createPlan - ESLint", () => {
     expect(plan.dependencies).toHaveLength(2);
 
     // Should have inject actions for both packages
-    const eslintActions = plan.actions.filter((a) => a.type === "inject_eslint");
+    const eslintActions = plan.actions.filter(
+      (a) => a.type === "inject_eslint"
+    );
     expect(eslintActions).toHaveLength(2);
   });
 
@@ -527,6 +563,64 @@ describe("createPlan - ESLint", () => {
     expect(eslintAction).toBeDefined();
     if (eslintAction?.type === "inject_eslint") {
       expect(eslintAction.hasExistingRules).toBe(true);
+    }
+  });
+
+  it("copies .js files for JavaScript-only packages", () => {
+    const pkg = createMockPackage({
+      isTypeScript: false,
+    });
+    const state = createMockProjectState({ packages: [pkg] });
+    const choices = createMockChoices({
+      items: ["eslint"],
+      eslint: {
+        packagePaths: [pkg.path],
+        selectedRules: ruleRegistry.filter(
+          (r) => r.id === "no-arbitrary-tailwind"
+        ),
+      },
+    });
+
+    const plan = createPlan(state, choices);
+
+    const ruleFileAction = plan.actions.find(
+      (a) =>
+        a.type === "create_file" && a.path.includes("no-arbitrary-tailwind")
+    );
+    expect(ruleFileAction).toBeDefined();
+    if (ruleFileAction?.type === "create_file") {
+      expect(ruleFileAction.path).toContain(
+        ".uilint/rules/no-arbitrary-tailwind.js"
+      );
+    }
+  });
+
+  it("copies .ts files for TypeScript packages", () => {
+    const pkg = createMockPackage({
+      isTypeScript: true,
+    });
+    const state = createMockProjectState({ packages: [pkg] });
+    const choices = createMockChoices({
+      items: ["eslint"],
+      eslint: {
+        packagePaths: [pkg.path],
+        selectedRules: ruleRegistry.filter(
+          (r) => r.id === "no-arbitrary-tailwind"
+        ),
+      },
+    });
+
+    const plan = createPlan(state, choices);
+
+    const ruleFileAction = plan.actions.find(
+      (a) =>
+        a.type === "create_file" && a.path.includes("no-arbitrary-tailwind")
+    );
+    expect(ruleFileAction).toBeDefined();
+    if (ruleFileAction?.type === "create_file") {
+      expect(ruleFileAction.path).toContain(
+        ".uilint/rules/no-arbitrary-tailwind.ts"
+      );
     }
   });
 });
@@ -603,8 +697,20 @@ describe("getMissingRules", () => {
   it("returns rules not in configured list", () => {
     const configured = ["no-arbitrary-tailwind"];
     const selected: RuleMetadata[] = [
-      { id: "no-arbitrary-tailwind", name: "Test", description: "", defaultSeverity: "error", category: "static" },
-      { id: "consistent-spacing", name: "Test2", description: "", defaultSeverity: "warn", category: "static" },
+      {
+        id: "no-arbitrary-tailwind",
+        name: "Test",
+        description: "",
+        defaultSeverity: "error",
+        category: "static",
+      },
+      {
+        id: "consistent-spacing",
+        name: "Test2",
+        description: "",
+        defaultSeverity: "warn",
+        category: "static",
+      },
     ];
 
     const missing = getMissingRules(configured, selected);
@@ -616,8 +722,20 @@ describe("getMissingRules", () => {
   it("returns empty array when all rules are configured", () => {
     const configured = ["no-arbitrary-tailwind", "consistent-spacing"];
     const selected: RuleMetadata[] = [
-      { id: "no-arbitrary-tailwind", name: "Test", description: "", defaultSeverity: "error", category: "static" },
-      { id: "consistent-spacing", name: "Test2", description: "", defaultSeverity: "warn", category: "static" },
+      {
+        id: "no-arbitrary-tailwind",
+        name: "Test",
+        description: "",
+        defaultSeverity: "error",
+        category: "static",
+      },
+      {
+        id: "consistent-spacing",
+        name: "Test2",
+        description: "",
+        defaultSeverity: "warn",
+        category: "static",
+      },
     ];
 
     const missing = getMissingRules(configured, selected);
@@ -628,7 +746,13 @@ describe("getMissingRules", () => {
   it("returns all rules when none are configured", () => {
     const configured: string[] = [];
     const selected: RuleMetadata[] = [
-      { id: "no-arbitrary-tailwind", name: "Test", description: "", defaultSeverity: "error", category: "static" },
+      {
+        id: "no-arbitrary-tailwind",
+        name: "Test",
+        description: "",
+        defaultSeverity: "error",
+        category: "static",
+      },
     ];
 
     const missing = getMissingRules(configured, selected);
@@ -658,7 +782,15 @@ describe("createPlan - Combined scenarios", () => {
       ],
     });
     const choices = createMockChoices({
-      items: ["mcp", "hooks", "genstyleguide", "genrules", "skill", "next", "eslint"],
+      items: [
+        "mcp",
+        "hooks",
+        "genstyleguide",
+        "genrules",
+        "skill",
+        "next",
+        "eslint",
+      ],
       next: {
         projectPath: "/test/project",
         detection: state.nextApps[0].detection,

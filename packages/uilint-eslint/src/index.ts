@@ -255,6 +255,13 @@ export {
   type CacheStore,
 } from "./utils/cache.js";
 
+// Re-export import graph utilities (used by rules like no-mixed-component-libraries)
+export {
+  getComponentLibrary,
+  clearCache as clearImportGraphCache,
+  type LibraryName,
+} from "./utils/import-graph.js";
+
 // Re-export rule registry for CLI tooling
 export {
   ruleRegistry,

@@ -5,9 +5,10 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import { join, relative, dirname } from "path";
 import type { RuleMetadata } from "uilint-eslint";
 import { parseExpression, parseModule, generateCode } from "magicast";
+import { findWorkspaceRoot } from "uilint-core/node";
 
 export interface InstallEslintPluginOptions {
   projectPath: string;
@@ -42,8 +43,11 @@ export function getEslintConfigFilename(configPath: string): string {
   return parts[parts.length - 1] || "eslint.config.mjs";
 }
 
-function isUilintConfigured(source: string): boolean {
-  return hasUilintConfigsUsage(source) || hasUilintRules(source);
+/**
+ * Check if the source already has uilint rules configured
+ */
+function hasUilintRules(source: string): boolean {
+  return source.includes('"uilint/') || source.includes("'uilint/");
 }
 
 /**
@@ -58,26 +62,10 @@ function hasUilintImport(source: string): boolean {
   );
 }
 
-/**
- * Check if the source already has uilint rules configured
- */
-function hasUilintRules(source: string): boolean {
-  return source.includes('"uilint/') || source.includes("'uilint/");
-}
-
-function hasUilintConfigsUsage(source: string): boolean {
-  // e.g. export default [uilint.configs.recommended]
-  // This implies the rule set will evolve with the installed uilint-eslint version,
-  // so we should not inject/patch per-rule keys.
-  return /\builint\s*\.\s*configs\s*\./.test(source);
-}
-
 type UilintEslintConfigInfo = {
-  /** Whether uilint is configured in a way that implies we shouldn't patch per-rule keys. */
-  usesUilintConfigs: boolean;
   /** Set of configured `uilint/*` rule IDs (without the `uilint/` prefix). */
   configuredRuleIds: Set<string>;
-  /** Whether config appears to configure uilint (rules/configs/plugins), ignoring commented-out text. */
+  /** Whether config appears to configure uilint rules. */
   configured: boolean;
 };
 
@@ -182,8 +170,9 @@ function collectUilintRuleIdsFromRulesObject(rulesObj: any): Set<string> {
     if (!isStringLiteral(key)) continue;
     const val = key.value;
     if (typeof val !== "string") continue;
-    if (!val.startsWith("uilint/")) continue;
-    ids.add(val.slice("uilint/".length));
+    if (val.startsWith("uilint/")) {
+      ids.add(val.slice("uilint/".length));
+    }
   }
   return ids;
 }
@@ -314,30 +303,6 @@ function findExportedConfigArrayExpression(mod: any): {
   return null;
 }
 
-function findUsesUilintConfigs(program: any): boolean {
-  let found = false;
-  walkAst(program, (n) => {
-    if (found) return;
-    // Match: uilint.configs.*
-    if (n?.type === "MemberExpression") {
-      const obj = n.object;
-      const prop = n.property;
-      if (isIdentifier(prop, "configs") && isIdentifier(obj, "uilint")) {
-        found = true;
-        return;
-      }
-      if (
-        obj?.type === "MemberExpression" &&
-        isIdentifier(obj.object, "uilint") &&
-        isIdentifier(obj.property, "configs")
-      ) {
-        found = true;
-      }
-    }
-  });
-  return found;
-}
-
 function collectConfiguredUilintRuleIdsFromConfigArray(
   arrayExpr: any
 ): Set<string> {
@@ -411,101 +376,132 @@ function chooseUniqueIdentifier(base: string, used: Set<string>): string {
   return `${base}${i}`;
 }
 
-function getEsmUilintDefaultImportLocal(mod: any): string | null {
-  const items = mod?.imports?.$items ?? [];
-  const found = items.find(
-    (it: any) => it?.from === "uilint-eslint" && it?.imported === "default"
-  );
-  return found?.local ?? null;
-}
+/**
+ * Add imports for local rules from .uilint/rules/
+ */
+function addLocalRuleImportsAst(
+  mod: any,
+  selectedRules: RuleMetadata[],
+  configPath: string,
+  rulesRoot: string,
+  fileExtension: string = ".js"
+): { importNames: Map<string, string>; changed: boolean } {
+  const importNames = new Map<string, string>();
+  let changed = false;
 
-function ensureUilintImportAst(mod: any): { local: string; changed: boolean } {
-  // Ensure we have a default import we can reference, and return its local name.
-  const existing = getEsmUilintDefaultImportLocal(mod);
-  if (existing) return { local: existing, changed: false };
+  // Calculate relative path from config file to .uilint/rules/
+  const configDir = dirname(configPath);
+  const rulesDir = join(rulesRoot, ".uilint", "rules");
+  const relativeRulesPath = relative(configDir, rulesDir).replace(/\\/g, "/");
 
-  mod.imports.$prepend({
-    imported: "default",
-    local: "uilint",
-    from: "uilint-eslint",
-  });
-  return { local: "uilint", changed: true };
-}
+  // Ensure it starts with ./ or ../ (note: `.foo` is NOT a valid relative import)
+  const normalizedRulesPath =
+    relativeRulesPath.startsWith("./") || relativeRulesPath.startsWith("../")
+      ? relativeRulesPath
+      : `./${relativeRulesPath}`;
 
-function findCjsUilintRequireBinding(program: any): string | null {
-  if (!program || program.type !== "Program") return null;
-  for (const stmt of program.body ?? []) {
-    if (stmt?.type !== "VariableDeclaration") continue;
-    for (const decl of stmt.declarations ?? []) {
-      const id = decl?.id;
-      const init = decl?.init;
-      if (!isIdentifier(id)) continue;
-      if (
-        init?.type === "CallExpression" &&
-        isIdentifier(init.callee, "require") &&
-        isStringLiteral(init.arguments?.[0]) &&
-        init.arguments[0].value === "uilint-eslint"
-      ) {
-        return id.name;
-      }
-    }
+  const used = collectTopLevelBindings(mod.$ast);
+
+  for (const rule of selectedRules) {
+    // Generate a safe import name (e.g., noArbitraryTailwindRule)
+    const importName = chooseUniqueIdentifier(
+      `${rule.id
+        .replace(/-([a-z])/g, (_: string, c: string) => c.toUpperCase())
+        .replace(/^./, (c: string) => c.toUpperCase())}Rule`,
+      used
+    );
+    importNames.set(rule.id, importName);
+    used.add(importName);
+
+    // Add import statement
+    const rulePath = `${normalizedRulesPath}/${rule.id}${fileExtension}`;
+    mod.imports.$add({
+      imported: "default",
+      local: importName,
+      from: rulePath,
+    });
+    changed = true;
   }
-  return null;
+
+  return { importNames, changed };
 }
 
-function ensureUilintRequireAst(program: any): {
-  local: string;
-  changed: boolean;
-} {
-  // Ensure we have a require binding we can reference, and return its local name.
+/**
+ * Add require statements for local rules (CommonJS)
+ */
+function addLocalRuleRequiresAst(
+  program: any,
+  selectedRules: RuleMetadata[],
+  configPath: string,
+  rulesRoot: string,
+  fileExtension: string = ".js"
+): { importNames: Map<string, string>; changed: boolean } {
+  const importNames = new Map<string, string>();
+  let changed = false;
+
   if (!program || program.type !== "Program") {
-    return { local: "uilint", changed: false };
+    return { importNames, changed };
   }
 
-  const existing = findCjsUilintRequireBinding(program);
-  if (existing) return { local: existing, changed: false };
+  // Calculate relative path from config file to .uilint/rules/
+  const configDir = dirname(configPath);
+  const rulesDir = join(rulesRoot, ".uilint", "rules");
+  const relativeRulesPath = relative(configDir, rulesDir).replace(/\\/g, "/");
+
+  // Ensure it starts with ./ or ../ (note: `.foo` is NOT a valid relative require)
+  const normalizedRulesPath =
+    relativeRulesPath.startsWith("./") || relativeRulesPath.startsWith("../")
+      ? relativeRulesPath
+      : `./${relativeRulesPath}`;
 
   const used = collectTopLevelBindings(program);
-  const local = chooseUniqueIdentifier("uilint", used);
 
-  const stmtMod = parseModule(`const ${local} = require("uilint-eslint");`);
-  const stmt = (stmtMod.$ast as any).body?.[0];
-  if (!stmt) return { local, changed: false };
+  for (const rule of selectedRules) {
+    // Generate a safe import name
+    const importName = chooseUniqueIdentifier(
+      `${rule.id
+        .replace(/-([a-z])/g, (_: string, c: string) => c.toUpperCase())
+        .replace(/^./, (c: string) => c.toUpperCase())}Rule`,
+      used
+    );
+    importNames.set(rule.id, importName);
+    used.add(importName);
 
-  // Place after a leading "use strict" if present.
-  let insertAt = 0;
-  const first = program.body?.[0];
-  if (
-    first?.type === "ExpressionStatement" &&
-    first.expression?.type === "StringLiteral" &&
-    first.expression.value === "use strict"
-  ) {
-    insertAt = 1;
+    // Add require statement
+    const rulePath = `${normalizedRulesPath}/${rule.id}${fileExtension}`;
+    const stmtMod = parseModule(
+      `const ${importName} = require("${rulePath}");`
+    );
+    const stmt = (stmtMod.$ast as any).body?.[0];
+    if (stmt) {
+      // Place after a leading "use strict" if present.
+      let insertAt = 0;
+      const first = program.body?.[0];
+      if (
+        first?.type === "ExpressionStatement" &&
+        first.expression?.type === "StringLiteral" &&
+        first.expression.value === "use strict"
+      ) {
+        insertAt = 1;
+      }
+      program.body.splice(insertAt, 0, stmt);
+      changed = true;
+    }
   }
-  program.body.splice(insertAt, 0, stmt);
-  return { local, changed: true };
-}
 
-function buildUilintRuleProperty(rule: RuleMetadata): any {
-  const ruleKey = `uilint/${rule.id}`;
-  const valueCode =
-    rule.defaultOptions && rule.defaultOptions.length > 0
-      ? `["${rule.defaultSeverity}", ...${JSON.stringify(
-          rule.defaultOptions,
-          null,
-          2
-        )}]`
-      : `"${rule.defaultSeverity}"`;
-  const expr = parseExpression(`({ "${ruleKey}": ${valueCode} })`) as any;
-  const obj = expr.$ast;
-  return obj.properties?.[0];
+  return { importNames, changed };
 }
 
 function appendUilintConfigBlockToArray(
   arrayExpr: any,
   selectedRules: RuleMetadata[],
-  uilintRef: string
+  ruleImportNames: Map<string, string>
 ): void {
+  // Build plugin object with local rule imports
+  const pluginRulesCode = Array.from(ruleImportNames.entries())
+    .map(([ruleId, importName]) => `      "${ruleId}": ${importName},`)
+    .join("\n");
+
   const rulesPropsCode = selectedRules
     .map((r) => {
       const ruleKey = `uilint/${r.id}`;
@@ -527,7 +523,13 @@ function appendUilintConfigBlockToArray(
       "app/**/*.{js,jsx,ts,tsx}",
       "pages/**/*.{js,jsx,ts,tsx}",
     ],
-    plugins: { uilint: ${uilintRef} },
+    plugins: {
+      uilint: {
+        rules: {
+${pluginRulesCode}
+        },
+      },
+    },
     rules: {
 ${rulesPropsCode}
     },
@@ -555,19 +557,15 @@ function getUilintEslintConfigInfoFromSourceAst(source: string):
       };
     }
 
-    const usesUilintConfigs = findUsesUilintConfigs(found.program);
     const configuredRuleIds = collectConfiguredUilintRuleIdsFromConfigArray(
       found.arrayExpr
     );
     const existingUilint = findExistingUilintRulesObject(found.arrayExpr);
     const configured =
-      usesUilintConfigs ||
-      configuredRuleIds.size > 0 ||
-      existingUilint.configObj !== null ||
-      hasUilintImport(source);
+      configuredRuleIds.size > 0 || existingUilint.configObj !== null;
 
     return {
-      info: { usesUilintConfigs, configuredRuleIds, configured },
+      info: { configuredRuleIds, configured },
       mod,
       arrayExpr: found.arrayExpr,
       kind: found.kind,
@@ -587,14 +585,9 @@ export function getUilintEslintConfigInfoFromSource(
   if ("error" in ast) {
     // Fallback (best-effort) to string heuristics for scan-only scenarios.
     const configuredRuleIds = extractConfiguredUilintRuleIds(source);
-    const usesUilintConfigs = hasUilintConfigsUsage(source);
     return {
-      usesUilintConfigs,
       configuredRuleIds,
-      configured:
-        usesUilintConfigs ||
-        configuredRuleIds.size > 0 ||
-        hasUilintImport(source),
+      configured: configuredRuleIds.size > 0,
     };
   }
   return ast.info;
@@ -1068,15 +1061,16 @@ export async function installEslintPlugin(
   }
 
   const { info, mod, arrayExpr, kind } = ast;
-  const usesUilintConfigs = info.usesUilintConfigs;
   const configuredIds = info.configuredRuleIds;
 
-  const missingRules = usesUilintConfigs
-    ? []
-    : getMissingSelectedRules(opts.selectedRules, configuredIds);
-  const rulesToUpdate = usesUilintConfigs
-    ? []
-    : getRulesNeedingUpdate(opts.selectedRules, configuredIds);
+  const missingRules = getMissingSelectedRules(
+    opts.selectedRules,
+    configuredIds
+  );
+  const rulesToUpdate = getRulesNeedingUpdate(
+    opts.selectedRules,
+    configuredIds
+  );
 
   // Decide what rules to apply, respecting prompts.
   let rulesToApply: RuleMetadata[] = [];
@@ -1101,61 +1095,102 @@ export async function installEslintPlugin(
     }
   }
 
-  let modifiedAst = false;
-
-  if (!usesUilintConfigs && rulesToApply.length > 0) {
-    const existing = findExistingUilintRulesObject(arrayExpr);
-
-    if (existing.safeToMutate && existing.rulesObj) {
-      let changedRules = false;
-      // Update/insert directly in the existing uilint rules object.
-      for (const rule of rulesToApply) {
-        const fullKey = `uilint/${rule.id}`;
-        const props = existing.rulesObj.properties ?? [];
-        const existingProp = props.find((p: any) => {
-          if (!p) return false;
-          if (p.type !== "ObjectProperty" && p.type !== "Property")
-            return false;
-          return isStringLiteral(p.key) && p.key.value === fullKey;
-        });
-
-        const newProp = buildUilintRuleProperty(rule);
-        if (!newProp) continue;
-
-        if (existingProp) {
-          // Preserve comments on the property itself; replace only when semantically different.
-          if (!astEquivalent(existingProp.value, newProp.value)) {
-            existingProp.value = newProp.value;
-            changedRules = true;
-          }
-        } else {
-          props.push(newProp);
-          changedRules = true;
-        }
-      }
-      if (changedRules) modifiedAst = true;
-    } else {
-      // Spread-safe strategy: append a dedicated uilint config block.
-      const uilintRef =
-        kind === "esm"
-          ? ensureUilintImportAst(mod).local
-          : ensureUilintRequireAst(mod.$ast).local;
-      appendUilintConfigBlockToArray(arrayExpr, rulesToApply, uilintRef);
-      modifiedAst = true;
-    }
-  } else if (!info.configured && !usesUilintConfigs) {
-    // No configured uilint keys were found, but we also didn't apply rules (should be rare).
-    // If we get here, treat as no-op.
+  if (rulesToApply.length === 0) {
+    return {
+      configFile: configFilename,
+      modified: false,
+      missingRuleIds: missingRules.map((r) => r.id),
+      configured: info.configured,
+    };
   }
 
-  // Ensure import/require if we made config changes or config implies uilint usage.
-  if (modifiedAst || info.configured) {
+  let modifiedAst = false;
+
+  // Check if .uilint/rules/ directory exists alongside this target package/app.
+  // (Also allow a fallback to workspace root for backwards compatibility.)
+  const localRulesDir = join(opts.projectPath, ".uilint", "rules");
+  const workspaceRoot = findWorkspaceRoot(opts.projectPath);
+  const workspaceRulesDir = join(workspaceRoot, ".uilint", "rules");
+
+  const rulesRoot = existsSync(localRulesDir)
+    ? opts.projectPath
+    : workspaceRoot;
+
+  // Always use local rules (they should have been copied by the plan phase)
+  // Detect file extension by checking what files exist
+  let fileExtension = ".js";
+  if (rulesToApply.length > 0) {
+    const firstRulePath = join(
+      rulesRoot,
+      ".uilint",
+      "rules",
+      `${rulesToApply[0]!.id}.ts`
+    );
+    if (existsSync(firstRulePath)) {
+      fileExtension = ".ts";
+    }
+  }
+
+  let ruleImportNames: Map<string, string> | undefined;
+
+  // Add imports for local rules
+  if (kind === "esm") {
+    const result = addLocalRuleImportsAst(
+      mod,
+      rulesToApply,
+      configPath,
+      rulesRoot,
+      fileExtension
+    );
+    ruleImportNames = result.importNames;
+    if (result.changed) modifiedAst = true;
+  } else {
+    const result = addLocalRuleRequiresAst(
+      mod.$ast,
+      rulesToApply,
+      configPath,
+      rulesRoot,
+      fileExtension
+    );
+    ruleImportNames = result.importNames;
+    if (result.changed) modifiedAst = true;
+  }
+
+  // Add config block with local rules
+  if (ruleImportNames && ruleImportNames.size > 0) {
+    appendUilintConfigBlockToArray(arrayExpr, rulesToApply, ruleImportNames);
+    modifiedAst = true;
+  }
+
+  // Ensure uilint-eslint import for utilities (createRule, etc.)
+  if (!info.configured) {
     if (kind === "esm") {
-      const { changed } = ensureUilintImportAst(mod);
-      if (changed) modifiedAst = true;
-    } else if (kind === "cjs") {
-      const { changed } = ensureUilintRequireAst(mod.$ast);
-      if (changed) modifiedAst = true;
+      // Import createRule utility from uilint-eslint
+      mod.imports.$add({
+        imported: "createRule",
+        local: "createRule",
+        from: "uilint-eslint",
+      });
+      modifiedAst = true;
+    } else {
+      // CommonJS: add require for createRule
+      const stmtMod = parseModule(
+        `const { createRule } = require("uilint-eslint");`
+      );
+      const stmt = (stmtMod.$ast as any).body?.[0];
+      if (stmt) {
+        let insertAt = 0;
+        const first = mod.$ast.body?.[0];
+        if (
+          first?.type === "ExpressionStatement" &&
+          first.expression?.type === "StringLiteral" &&
+          first.expression.value === "use strict"
+        ) {
+          insertAt = 1;
+        }
+        mod.$ast.body.splice(insertAt, 0, stmt);
+        modifiedAst = true;
+      }
     }
   }
 
