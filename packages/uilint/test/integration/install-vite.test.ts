@@ -10,7 +10,7 @@ import { mockPrompter } from "../helpers/prompts.js";
 import { analyze } from "../../src/commands/install/analyze.js";
 import { createPlan } from "../../src/commands/install/plan.js";
 import { execute } from "../../src/commands/install/execute.js";
-import { gatherChoices } from "../../src/commands/install/prompter.js";
+import { gatherChoices } from "../../src/commands/install/test-helpers.js";
 
 let fixture: FixtureContext | null = null;
 

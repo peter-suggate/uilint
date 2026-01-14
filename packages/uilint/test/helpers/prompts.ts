@@ -13,7 +13,7 @@ import type {
   ViteAppInfo,
   EslintPackageInfo,
 } from "../../src/commands/install/types.js";
-import type { Prompter } from "../../src/commands/install/prompter.js";
+import type { Prompter } from "../../src/commands/install/test-helpers.js";
 
 export interface MockPrompterOptions {
   /** Items to select for installation */
