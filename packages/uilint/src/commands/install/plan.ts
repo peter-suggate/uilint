@@ -16,17 +16,9 @@ import type {
   InstallAction,
   DependencyInstall,
   PlanOptions,
-  HooksConfig,
 } from "./types.js";
 import {
-  HOOKS_CONFIG,
-  MCP_CONFIG,
-  LEGACY_HOOK_COMMANDS,
-  SESSION_START_SCRIPT,
-  TRACK_SCRIPT,
-  SESSION_END_SCRIPT,
   GENSTYLEGUIDE_COMMAND_MD,
-  GENRULES_COMMAND_MD,
 } from "./constants.js";
 import { loadSkill } from "../../utils/skill-loader.js";
 import { loadSelectedRules } from "../../utils/rule-loader.js";
@@ -67,47 +59,6 @@ function toInstallSpecifier(pkgName: string): string {
 }
 
 /**
- * Merge our hooks into existing config without duplicating
- * Also removes legacy UILint hooks that are no longer used
- */
-function mergeHooksConfig(
-  existing: HooksConfig,
-  ours: HooksConfig
-): HooksConfig {
-  const result = { ...existing };
-
-  // First, remove any legacy UILint hooks from all hook arrays
-  for (const [hookName, hookArray] of Object.entries(result.hooks)) {
-    if (!Array.isArray(hookArray)) continue;
-
-    result.hooks[hookName] = hookArray.filter(
-      (h) => !LEGACY_HOOK_COMMANDS.includes(h.command)
-    );
-  }
-
-  // Then merge our new hooks
-  for (const [hookName, ourHooks] of Object.entries(ours.hooks)) {
-    if (!Array.isArray(ourHooks)) continue;
-
-    const existingHooks =
-      (result.hooks[hookName] as Array<{ command: string }>) || [];
-
-    for (const ourHook of ourHooks) {
-      const alreadyExists = existingHooks.some(
-        (h) => h.command === ourHook.command
-      );
-      if (!alreadyExists) {
-        existingHooks.push(ourHook);
-      }
-    }
-
-    result.hooks[hookName] = existingHooks;
-  }
-
-  return result;
-}
-
-/**
  * Create the install plan from project state and user choices
  *
  * @param state - The analyzed project state
@@ -128,103 +79,13 @@ export function createPlan(
 
   // Ensure .cursor directory exists if needed
   const needsCursorDir =
-    items.includes("mcp") ||
-    items.includes("hooks") ||
     items.includes("genstyleguide") ||
-    items.includes("genrules") ||
     items.includes("skill");
 
   if (needsCursorDir && !state.cursorDir.exists) {
     actions.push({
       type: "create_directory",
       path: state.cursorDir.path,
-    });
-  }
-
-  // =========================================================================
-  // MCP Installation
-  // =========================================================================
-  if (items.includes("mcp")) {
-    if (!state.mcp.exists || force) {
-      // Create new mcp.json
-      actions.push({
-        type: "create_file",
-        path: state.mcp.path,
-        content: JSON.stringify(MCP_CONFIG, null, 2),
-      });
-    } else if (choices.mcpMerge) {
-      // Merge with existing
-      const merged = {
-        mcpServers: {
-          ...(state.mcp.config?.mcpServers || {}),
-          ...MCP_CONFIG.mcpServers,
-        },
-      };
-      actions.push({
-        type: "create_file",
-        path: state.mcp.path,
-        content: JSON.stringify(merged, null, 2),
-      });
-    }
-    // If exists and not merging, skip (handled by prompter declining)
-  }
-
-  // =========================================================================
-  // Hooks Installation
-  // =========================================================================
-  if (items.includes("hooks")) {
-    const hooksDir = join(state.cursorDir.path, "hooks");
-
-    // Create hooks directory
-    actions.push({
-      type: "create_directory",
-      path: hooksDir,
-    });
-
-    // Clean up legacy hooks
-    for (const legacyPath of state.hooks.legacyPaths) {
-      actions.push({
-        type: "delete_file",
-        path: legacyPath,
-      });
-    }
-
-    // Create or merge hooks.json
-    let finalHooksConfig: HooksConfig;
-    if (!state.hooks.exists || force) {
-      finalHooksConfig = HOOKS_CONFIG;
-    } else if (choices.hooksMerge && state.hooks.config) {
-      finalHooksConfig = mergeHooksConfig(state.hooks.config, HOOKS_CONFIG);
-    } else {
-      finalHooksConfig = HOOKS_CONFIG;
-    }
-
-    actions.push({
-      type: "create_file",
-      path: state.hooks.path,
-      content: JSON.stringify(finalHooksConfig, null, 2),
-    });
-
-    // Create hook scripts
-    actions.push({
-      type: "create_file",
-      path: join(hooksDir, "uilint-session-start.sh"),
-      content: SESSION_START_SCRIPT,
-      permissions: 0o755,
-    });
-
-    actions.push({
-      type: "create_file",
-      path: join(hooksDir, "uilint-track.sh"),
-      content: TRACK_SCRIPT,
-      permissions: 0o755,
-    });
-
-    actions.push({
-      type: "create_file",
-      path: join(hooksDir, "uilint-session-end.sh"),
-      content: SESSION_END_SCRIPT,
-      permissions: 0o755,
     });
   }
 
@@ -243,24 +104,6 @@ export function createPlan(
       type: "create_file",
       path: join(commandsDir, "genstyleguide.md"),
       content: GENSTYLEGUIDE_COMMAND_MD,
-    });
-  }
-
-  // =========================================================================
-  // Genrules Command
-  // =========================================================================
-  if (items.includes("genrules")) {
-    const commandsDir = join(state.cursorDir.path, "commands");
-
-    actions.push({
-      type: "create_directory",
-      path: commandsDir,
-    });
-
-    actions.push({
-      type: "create_file",
-      path: join(commandsDir, "genrules.md"),
-      content: GENRULES_COMMAND_MD,
     });
   }
 

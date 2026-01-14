@@ -1,9 +1,0 @@
-{
-  "name": "has-cursor-mcp",
-  "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "next": "^14.0.0",
-    "react": "^18.2.0"
-  }
-}

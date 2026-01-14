@@ -33,16 +33,6 @@ export interface Prompter {
   selectInstallItems(): Promise<InstallItem[]>;
 
   /**
-   * Confirm whether to merge with existing MCP config
-   */
-  confirmMcpMerge(): Promise<boolean>;
-
-  /**
-   * Confirm whether to merge with existing hooks config
-   */
-  confirmHooksMerge(): Promise<boolean>;
-
-  /**
    * Select which Next.js app to install into (when multiple found)
    */
   selectNextApp(apps: NextAppInfo[]): Promise<NextAppInfo>;
@@ -115,21 +105,6 @@ export const cliPrompter: Prompter = {
           hint: "Adds .cursor/commands/genstyleguide.md",
         },
         {
-          value: "mcp",
-          label: "MCP Server",
-          hint: "Recommended - works with any MCP-compatible agent",
-        },
-        {
-          value: "hooks",
-          label: "Cursor Hooks",
-          hint: "Auto-validates UI files when the agent stops",
-        },
-        {
-          value: "genrules",
-          label: "/genrules command",
-          hint: "Adds .cursor/commands/genrules.md for ESLint rule generation",
-        },
-        {
           value: "skill",
           label: "UI Consistency Agent Skill",
           hint: "Cursor agent skill for generating ESLint rules from UI patterns",
@@ -137,24 +112,6 @@ export const cliPrompter: Prompter = {
       ],
       required: true,
       initialValues: ["eslint", "next", "genstyleguide", "skill"],
-    });
-  },
-
-  async confirmMcpMerge(): Promise<boolean> {
-    return confirm({
-      message: `${pc.dim(
-        ".cursor/mcp.json"
-      )} already exists. Merge UILint config?`,
-      initialValue: true,
-    });
-  },
-
-  async confirmHooksMerge(): Promise<boolean> {
-    return confirm({
-      message: `${pc.dim(
-        ".cursor/hooks.json"
-      )} already exists. Merge UILint hooks?`,
-      initialValue: true,
     });
   },
 
@@ -409,43 +366,19 @@ export async function gatherChoices(
   let items: InstallItem[];
 
   const hasExplicitFlags =
-    options.mcp !== undefined ||
-    options.hooks !== undefined ||
     options.genstyleguide !== undefined ||
-    options.genrules !== undefined ||
     options.skill !== undefined ||
     options.routes !== undefined ||
     options.react !== undefined;
 
   if (hasExplicitFlags || options.eslint) {
     items = [];
-    if (options.mcp) items.push("mcp");
-    if (options.hooks) items.push("hooks");
     if (options.genstyleguide) items.push("genstyleguide");
-    if (options.genrules) items.push("genrules");
     if (options.skill) items.push("skill");
     if (options.routes || options.react) items.push("next");
     if (options.eslint) items.push("eslint");
-  } else if (options.mode) {
-    items = [];
-    if (options.mode === "mcp" || options.mode === "both") items.push("mcp");
-    if (options.mode === "hooks" || options.mode === "both")
-      items.push("hooks");
-    items.push("genstyleguide"); // Default when using mode
   } else {
     items = await prompter.selectInstallItems();
-  }
-
-  // MCP merge decision
-  let mcpMerge = true;
-  if (items.includes("mcp") && state.mcp.exists && !options.force) {
-    mcpMerge = await prompter.confirmMcpMerge();
-  }
-
-  // Hooks merge decision
-  let hooksMerge = true;
-  if (items.includes("hooks") && state.hooks.exists && !options.force) {
-    hooksMerge = await prompter.confirmHooksMerge();
   }
 
   // Next.js app selection
@@ -539,8 +472,6 @@ export async function gatherChoices(
 
   return {
     items,
-    mcpMerge,
-    hooksMerge,
     next: nextChoices,
     vite: viteChoices,
     eslint: eslintChoices,

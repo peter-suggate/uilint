@@ -512,10 +512,7 @@ export async function execute(
     if (!result.success) continue;
     const { action } = result;
     if (action.type === "create_file") {
-      if (action.path.includes("mcp.json")) items.push("mcp");
-      if (action.path.includes("hooks.json")) items.push("hooks");
       if (action.path.includes("genstyleguide.md")) items.push("genstyleguide");
-      if (action.path.includes("genrules.md")) items.push("genrules");
       if (action.path.includes("/skills/") && action.path.includes("SKILL.md")) items.push("skill");
     }
     if (action.type === "inject_eslint") items.push("eslint");

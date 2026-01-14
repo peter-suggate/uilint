@@ -187,12 +187,12 @@ describe("Agent Skill installation", () => {
 // ============================================================================
 
 describe("Skill installation with other items", () => {
-  it("installs skill alongside MCP and hooks", async () => {
+  it("installs skill with genstyleguide command", async () => {
     fixture = useFixture("fresh-nextjs-app");
 
     const state = await analyze(fixture.path);
     const prompter = mockPrompter({
-      installItems: ["mcp", "hooks", "skill"],
+      installItems: ["genstyleguide", "skill"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -203,39 +203,15 @@ describe("Skill installation with other items", () => {
 
     expect(result.success).toBe(true);
 
-    // Verify all items installed
-    expect(fixture.exists(".cursor/mcp.json")).toBe(true);
-    expect(fixture.exists(".cursor/hooks.json")).toBe(true);
+    // Both command and skill directory should exist
+    expect(fixture.exists(".cursor/commands/genstyleguide.md")).toBe(true);
     expect(
       fixture.exists(".cursor/skills/ui-consistency-enforcer/SKILL.md")
     ).toBe(true);
 
-    // Verify summary includes all items
-    expect(result.summary.installedItems).toContain("mcp");
-    expect(result.summary.installedItems).toContain("hooks");
+    // Verify summary includes both items
+    expect(result.summary.installedItems).toContain("genstyleguide");
     expect(result.summary.installedItems).toContain("skill");
-  });
-
-  it("installs skill with genstyleguide and genrules commands", async () => {
-    fixture = useFixture("fresh-nextjs-app");
-
-    const state = await analyze(fixture.path);
-    const prompter = mockPrompter({
-      installItems: ["genstyleguide", "genrules", "skill"],
-    });
-
-    const choices = await gatherChoices(state, {}, prompter);
-    const plan = createPlan(state, choices);
-    const result = await execute(plan, {
-      installDependencies: mockInstallDependencies,
-    });
-
-    expect(result.success).toBe(true);
-
-    // Both commands and skill directory should exist
-    expect(fixture.exists(".cursor/commands/genstyleguide.md")).toBe(true);
-    expect(fixture.exists(".cursor/commands/genrules.md")).toBe(true);
-    expect(fixture.exists(".cursor/skills/ui-consistency-enforcer")).toBe(true);
   });
 });
 
@@ -253,8 +229,6 @@ describe("Skill CLI flags", () => {
     const choices = await gatherChoices(state, { skill: true }, prompter);
 
     expect(choices.items).toContain("skill");
-    expect(choices.items).not.toContain("mcp");
-    expect(choices.items).not.toContain("hooks");
   });
 
   it("combines --skill with other flags", async () => {
@@ -265,12 +239,11 @@ describe("Skill CLI flags", () => {
 
     const choices = await gatherChoices(
       state,
-      { skill: true, mcp: true, genstyleguide: true },
+      { skill: true, genstyleguide: true },
       prompter
     );
 
     expect(choices.items).toContain("skill");
-    expect(choices.items).toContain("mcp");
     expect(choices.items).toContain("genstyleguide");
   });
 });

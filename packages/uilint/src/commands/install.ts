@@ -51,27 +51,11 @@ function displayResults(result: InstallResult): void {
   const { summary } = result;
   const installedItems: string[] = [];
 
-  // MCP
-  if (summary.installedItems.includes("mcp")) {
-    installedItems.push(`${pc.cyan("MCP Server")} → .cursor/mcp.json`);
-  }
-
-  // Hooks
-  if (summary.installedItems.includes("hooks")) {
-    installedItems.push(`${pc.cyan("Hooks")} → .cursor/hooks.json`);
-    installedItems.push(`  ${pc.dim("├")} uilint-session-start.sh`);
-    installedItems.push(`  ${pc.dim("├")} uilint-track.sh`);
-    installedItems.push(`  ${pc.dim("└")} uilint-session-end.sh`);
-  }
-
   // Commands
   if (summary.installedItems.includes("genstyleguide")) {
     installedItems.push(
       `${pc.cyan("Command")} → .cursor/commands/genstyleguide.md`
     );
-  }
-  if (summary.installedItems.includes("genrules")) {
-    installedItems.push(`${pc.cyan("Command")} → .cursor/commands/genrules.md`);
   }
 
   // Next.js
@@ -142,20 +126,8 @@ function displayResults(result: InstallResult): void {
     steps.push(`Create a styleguide: ${pc.cyan("/genstyleguide")}`);
   }
 
-  if (
-    summary.installedItems.includes("mcp") ||
-    summary.installedItems.includes("hooks") ||
-    summary.installedItems.includes("genstyleguide")
-  ) {
+  if (summary.installedItems.includes("genstyleguide")) {
     steps.push("Restart Cursor to load the new configuration");
-  }
-
-  if (summary.installedItems.includes("mcp")) {
-    steps.push(`The MCP server exposes: ${pc.dim("scan_file, scan_snippet")}`);
-  }
-
-  if (summary.installedItems.includes("hooks")) {
-    steps.push("Hooks will auto-validate UI files when the agent stops");
   }
 
   if (summary.nextApp) {

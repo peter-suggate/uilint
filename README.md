@@ -9,12 +9,12 @@ UILint scans your UI for design inconsistencies, auto-generates a style guide fr
 - **Automatic style detection** - Extracts colors, typography, spacing, and component patterns from your UI
 - **AI-powered analysis** - Uses local LLMs (via Ollama) to identify subtle inconsistencies
 - **Style guide generation** - Auto-generates a Markdown style guide from your existing styles
-- **Multiple integration points** - Use in tests, at runtime, via CLI, or in your editor via MCP
+- **Multiple integration points** - Use in tests, at runtime, or via CLI
 
 ## Getting Started (Minimal)
 
 ```bash
-# 1) Install Cursor integration (pick MCP when prompted)
+# 1) Install Cursor integration
 npx uilint@latest install
 
 # 2) Generate `.uilint/styleguide.md` inside Cursor
@@ -24,17 +24,6 @@ npx uilint@latest install
 # "Update this Button to match our style guide (size, colors, spacing)."
 ```
 
-**Example agentic workflow:**
-
-```
-You: "Scan this component and fix any style inconsistencies"
-
-AI uses MCP tools:
-  1. scan_file → analyzes your component markup
-  2. Suggests fixes → "Change #3575E2 to #3B82F6 (primary blue)"
-  3. Updates your code automatically
-```
-
 ## Architecture
 
 ```
@@ -42,12 +31,12 @@ AI uses MCP tools:
 │                         uilint-core                             │
 │  Types, Ollama Client, Prompts, Style Extraction, Validation   │
 └─────────────────────────────────────────────────────────────────┘
-              ▲                    ▲                    ▲
-              │                    │                    │
-    ┌─────────┴────────┐  ┌────────┴───────┐  ┌────────┴───────┐
-    │   uilint-react   │  │     uilint     │  │   uilint-mcp   │
-    │  React Component │  │  CLI Commands  │  │   MCP Server   │
-    └──────────────────┘  └────────────────┘  └────────────────┘
+              ▲                    ▲
+              │                    │
+    ┌─────────┴────────┐  ┌────────┴───────┐
+    │   uilint-react   │  │     uilint     │
+    │  React Component │  │  CLI Commands  │
+    └──────────────────┘  └────────────────┘
 ```
 
 ## Quick Start
@@ -190,7 +179,7 @@ The CLI provides powerful commands for analyzing HTML, managing style guides, an
 | `uilint scan`    | Scan HTML for UI consistency issues               |
 | `uilint query`   | Query the style guide for specific rules          |
 | `uilint update`  | Update existing style guide with new styles       |
-| `uilint install` | Install Cursor integration (MCP + commands/hooks) |
+| `uilint install` | Install Cursor integration (commands + ESLint)     |
 
 ---
 
@@ -345,34 +334,6 @@ jobs:
 
 ---
 
-## MCP Server
-
-UILint includes an MCP (Model Context Protocol) server for editor integration:
-
-### Setup with Cursor
-
-Add to your Cursor settings:
-
-```json
-{
-  "mcpServers": {
-    "uilint": {
-      "command": "node",
-      "args": ["/path/to/uilint-mcp/dist/server.js"]
-    }
-  }
-}
-```
-
-### Available Tools
-
-| Tool           | Description                         |
-| -------------- | ----------------------------------- |
-| `scan_file`    | Scan a component file for UI issues |
-| `scan_snippet` | Scan a markup snippet for UI issues |
-
----
-
 ## Style Guide Format
 
 UILint uses a simple Markdown format for style guides:
@@ -412,7 +373,7 @@ UILint uses a simple Markdown format for style guides:
 | `uilint-core`  | Core library with types, Ollama client, style extraction |
 | `uilint-react` | React component for runtime UI analysis                  |
 | `uilint`       | Command-line interface                                   |
-| `uilint-mcp`   | MCP server for editor integration                        |
+| `uilint-eslint`| ESLint plugin for static analysis                        |
 
 ---
 

@@ -18,10 +18,6 @@ import type { Prompter } from "../../src/commands/install/prompter.js";
 export interface MockPrompterOptions {
   /** Items to select for installation */
   installItems?: InstallItem[];
-  /** Whether to merge MCP config */
-  mcpMerge?: boolean;
-  /** Whether to merge hooks config */
-  hooksMerge?: boolean;
   /** Index of Next.js app to select (when multiple found) */
   nextAppIndex?: number;
   /** Index of Vite app to select (when multiple found) */
@@ -46,9 +42,7 @@ export interface MockPrompterOptions {
  */
 export function mockPrompter(options: MockPrompterOptions = {}): Prompter {
   const {
-    installItems = ["mcp", "hooks"],
-    mcpMerge = true,
-    hooksMerge = true,
+    installItems = [],
     nextAppIndex = 0,
     viteAppIndex = 0,
     eslintPackagePaths,
@@ -61,14 +55,6 @@ export function mockPrompter(options: MockPrompterOptions = {}): Prompter {
   return {
     async selectInstallItems(): Promise<InstallItem[]> {
       return installItems;
-    },
-
-    async confirmMcpMerge(): Promise<boolean> {
-      return mcpMerge;
-    },
-
-    async confirmHooksMerge(): Promise<boolean> {
-      return hooksMerge;
     },
 
     async selectNextApp(apps: NextAppInfo[]): Promise<NextAppInfo> {
@@ -134,8 +120,6 @@ export function noopPrompter(): Prompter {
 
   return {
     selectInstallItems: throwError,
-    confirmMcpMerge: throwError,
-    confirmHooksMerge: throwError,
     selectNextApp: throwError,
     selectViteApp: throwError,
     selectEslintPackages: throwError,
@@ -151,9 +135,7 @@ export function noopPrompter(): Prompter {
  */
 export function acceptAllPrompter(): Prompter {
   return mockPrompter({
-    installItems: ["mcp", "hooks", "genstyleguide", "genrules", "skill", "eslint"],
-    mcpMerge: true,
-    hooksMerge: true,
+    installItems: ["genstyleguide", "skill", "eslint"],
     customizeRuleOptions: false,
   });
 }

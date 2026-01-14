@@ -14,29 +14,6 @@ import type { PackageInfo } from "../../utils/package-detect.js";
 import type { PackageManager } from "../../utils/package-manager.js";
 
 // ============================================================================
-// MCP and Hooks Config Types (from original install.ts)
-// ============================================================================
-
-export interface HooksConfig {
-  version: number;
-  hooks: {
-    beforeSubmitPrompt?: Array<{ command: string }>;
-    afterFileEdit?: Array<{ command: string }>;
-    stop?: Array<{ command: string }>;
-    [key: string]: unknown;
-  };
-}
-
-export interface MCPConfig {
-  mcpServers: {
-    [key: string]: {
-      command: string;
-      args: string[];
-    };
-  };
-}
-
-// ============================================================================
 // Phase 1: Analyze - ProjectState
 // ============================================================================
 
@@ -77,23 +54,6 @@ export interface ProjectState {
     path: string;
   };
 
-  /** MCP configuration state */
-  mcp: {
-    exists: boolean;
-    path: string;
-    config?: MCPConfig;
-  };
-
-  /** Hooks configuration state */
-  hooks: {
-    exists: boolean;
-    path: string;
-    config?: HooksConfig;
-    /** Whether legacy hooks (uilint-validate.sh) exist */
-    hasLegacy: boolean;
-    legacyPaths: string[];
-  };
-
   /** Styleguide state */
   styleguide: {
     exists: boolean;
@@ -103,7 +63,6 @@ export interface ProjectState {
   /** Cursor commands state */
   commands: {
     genstyleguide: boolean;
-    genrules: boolean;
   };
 
   /** Detected Next.js App Router projects */
@@ -121,10 +80,7 @@ export interface ProjectState {
 // ============================================================================
 
 export type InstallItem =
-  | "mcp"
-  | "hooks"
   | "genstyleguide"
-  | "genrules"
   | "skill"
   | "next"
   | "vite"
@@ -160,10 +116,6 @@ export interface UserChoices {
   next?: NextChoices;
   /** Vite-specific choices (if vite selected) */
   vite?: ViteChoices;
-  /** Whether to merge or skip existing MCP config */
-  mcpMerge: boolean;
-  /** Whether to merge or skip existing hooks config */
-  hooksMerge: boolean;
 }
 
 // ============================================================================
@@ -314,14 +266,10 @@ export interface InstallResult {
 
 export interface InstallOptions {
   force?: boolean;
-  mode?: "mcp" | "hooks" | "both";
   // Non-interactive selections
-  mcp?: boolean;
-  hooks?: boolean;
   genstyleguide?: boolean;
   routes?: boolean;
   react?: boolean;
-  genrules?: boolean;
   eslint?: boolean;
   skill?: boolean;
 }

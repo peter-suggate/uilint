@@ -26,15 +26,10 @@ import {
 } from "../../utils/eslint-config-inject.js";
 import type {
   ProjectState,
-  MCPConfig,
-  HooksConfig,
   EslintPackageInfo,
   NextAppInfo,
   ViteAppInfo,
 } from "./types.js";
-
-// Legacy hook commands to detect for upgrade path
-const LEGACY_HOOK_FILES = ["uilint-validate.sh", "uilint-validate.js"];
 
 // NOTE: uilint rule detection must ignore commented-out keys and handle spreads.
 // We re-use the AST-backed detector from eslint-config-inject.
@@ -70,28 +65,6 @@ export async function analyze(
   const cursorDir = join(projectPath, ".cursor");
   const cursorDirExists = existsSync(cursorDir);
 
-  // MCP configuration
-  const mcpPath = join(cursorDir, "mcp.json");
-  const mcpExists = existsSync(mcpPath);
-  const mcpConfig = mcpExists ? safeParseJson<MCPConfig>(mcpPath) : undefined;
-
-  // Hooks configuration
-  const hooksPath = join(cursorDir, "hooks.json");
-  const hooksExists = existsSync(hooksPath);
-  const hooksConfig = hooksExists
-    ? safeParseJson<HooksConfig>(hooksPath)
-    : undefined;
-
-  // Check for legacy hooks
-  const hooksDir = join(cursorDir, "hooks");
-  const legacyPaths: string[] = [];
-  for (const legacyFile of LEGACY_HOOK_FILES) {
-    const legacyPath = join(hooksDir, legacyFile);
-    if (existsSync(legacyPath)) {
-      legacyPaths.push(legacyPath);
-    }
-  }
-
   // Styleguide
   const styleguidePath = join(projectPath, ".uilint", "styleguide.md");
   const styleguideExists = existsSync(styleguidePath);
@@ -99,7 +72,6 @@ export async function analyze(
   // Cursor commands
   const commandsDir = join(cursorDir, "commands");
   const genstyleguideExists = existsSync(join(commandsDir, "genstyleguide.md"));
-  const genrulesExists = existsSync(join(commandsDir, "genrules.md"));
 
   // Detect Next.js App Router projects
   const nextApps: NextAppInfo[] = [];
@@ -169,25 +141,12 @@ export async function analyze(
       exists: cursorDirExists,
       path: cursorDir,
     },
-    mcp: {
-      exists: mcpExists,
-      path: mcpPath,
-      config: mcpConfig,
-    },
-    hooks: {
-      exists: hooksExists,
-      path: hooksPath,
-      config: hooksConfig,
-      hasLegacy: legacyPaths.length > 0,
-      legacyPaths,
-    },
     styleguide: {
       exists: styleguideExists,
       path: styleguidePath,
     },
     commands: {
       genstyleguide: genstyleguideExists,
-      genrules: genrulesExists,
     },
     nextApps,
     viteApps,

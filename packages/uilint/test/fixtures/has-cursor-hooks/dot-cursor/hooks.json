@@ -1,8 +1,0 @@
-{
-  "version": 1,
-  "hooks": {
-    "beforeSubmitPrompt": [
-      { "command": ".cursor/hooks/existing-hook.sh" }
-    ]
-  }
-}

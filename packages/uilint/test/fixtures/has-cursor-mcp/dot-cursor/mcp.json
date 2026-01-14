@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "other-mcp": {
-      "command": "npx",
-      "args": ["other-mcp-server"]
-    }
-  }
-}

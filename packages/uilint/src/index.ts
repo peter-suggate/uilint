@@ -10,12 +10,6 @@ import { update } from "./commands/update.js";
 import { install } from "./commands/install.js";
 import { serve } from "./commands/serve.js";
 import { vision } from "./commands/vision.js";
-import {
-  sessionClear,
-  sessionTrack,
-  sessionScan,
-  sessionList,
-} from "./commands/session.js";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -171,15 +165,9 @@ program
 // Install command
 program
   .command("install")
-  .description("Install UILint integration (MCP server and/or Cursor hooks)")
+  .description("Install UILint integration")
   .option("--force", "Overwrite existing configuration files")
-  .option("--mcp", "Install MCP server integration (.cursor/mcp.json)")
-  .option("--hooks", "Install Cursor hooks integration (.cursor/hooks.json)")
   .option("--genstyleguide", "Install /genstyleguide Cursor command")
-  .option(
-    "--genrules",
-    "Install /genrules Cursor command for ESLint rule generation"
-  )
   .option("--eslint", "Install uilint-eslint plugin and configure ESLint")
   .option(
     "--routes",
@@ -189,18 +177,10 @@ program
     "--react",
     "Back-compat: install Next.js overlay (routes + deps + inject)"
   )
-  .option(
-    "--mode <mode>",
-    "Integration mode: mcp, hooks, or both (skips interactive prompt)"
-  )
   .action(async (options) => {
     await install({
       force: options.force,
-      mode: options.mode,
-      mcp: options.mcp,
-      hooks: options.hooks,
       genstyleguide: options.genstyleguide,
-      genrules: options.genrules,
       eslint: options.eslint,
       routes: options.routes,
       react: options.react,
@@ -272,40 +252,5 @@ program
     });
   });
 
-// Session command (for Cursor hooks)
-const sessionCmd = program
-  .command("session")
-  .description(
-    "Manage file tracking for agentic sessions (used by Cursor hooks)"
-  );
-
-sessionCmd
-  .command("clear")
-  .description("Clear tracked files (called at start of agent turn)")
-  .action(async () => {
-    await sessionClear();
-  });
-
-sessionCmd
-  .command("track <file>")
-  .description("Track a file edit (called on each file edit)")
-  .action(async (file: string) => {
-    await sessionTrack(file);
-  });
-
-sessionCmd
-  .command("scan")
-  .description("Scan all tracked markup files (called on agent stop)")
-  .option("--hook", "Output in Cursor hook format (followup_message JSON only)")
-  .action(async (options: { hook?: boolean }) => {
-    await sessionScan({ hookFormat: options.hook });
-  });
-
-sessionCmd
-  .command("list")
-  .description("List tracked files (for debugging)")
-  .action(async () => {
-    await sessionList();
-  });
 
 program.parse();

@@ -32,23 +32,12 @@ function createMockProjectState(
       exists: false,
       path: "/test/project/.cursor",
     },
-    mcp: {
-      exists: false,
-      path: "/test/project/.cursor/mcp.json",
-    },
-    hooks: {
-      exists: false,
-      path: "/test/project/.cursor/hooks.json",
-      hasLegacy: false,
-      legacyPaths: [],
-    },
     styleguide: {
       exists: false,
       path: "/test/project/.uilint/styleguide.md",
     },
     commands: {
       genstyleguide: false,
-      genrules: false,
     },
     nextApps: [],
     viteApps: [],
@@ -79,207 +68,9 @@ function createMockPackage(
 function createMockChoices(overrides: Partial<UserChoices> = {}): UserChoices {
   return {
     items: [],
-    mcpMerge: true,
-    hooksMerge: true,
     ...overrides,
   };
 }
-
-// ============================================================================
-// MCP Planning Tests
-// ============================================================================
-
-describe("createPlan - MCP", () => {
-  it("creates MCP config when not exists", () => {
-    const state = createMockProjectState();
-    const choices = createMockChoices({ items: ["mcp"] });
-
-    const plan = createPlan(state, choices);
-
-    // Should create .cursor directory and mcp.json
-    expect(plan.actions).toContainEqual({
-      type: "create_directory",
-      path: "/test/project/.cursor",
-    });
-
-    const mcpAction = plan.actions.find(
-      (a) => a.type === "create_file" && a.path.includes("mcp.json")
-    );
-    expect(mcpAction).toBeDefined();
-    expect(mcpAction?.type).toBe("create_file");
-  });
-
-  it("creates MCP config when exists but force=true", () => {
-    const state = createMockProjectState({
-      mcp: {
-        exists: true,
-        path: "/test/project/.cursor/mcp.json",
-        config: {
-          mcpServers: { existing: { command: "npx", args: ["existing"] } },
-        },
-      },
-    });
-    const choices = createMockChoices({ items: ["mcp"], mcpMerge: true });
-
-    const plan = createPlan(state, choices, { force: true });
-
-    // Should overwrite with new config
-    const mcpAction = plan.actions.find(
-      (a) => a.type === "create_file" && a.path.includes("mcp.json")
-    );
-    expect(mcpAction).toBeDefined();
-    // Force should NOT include existing config
-    if (mcpAction?.type === "create_file") {
-      const content = JSON.parse(mcpAction.content);
-      expect(content.mcpServers.existing).toBeUndefined();
-      expect(content.mcpServers.uilint).toBeDefined();
-    }
-  });
-
-  it("merges MCP config when exists and mcpMerge=true", () => {
-    const state = createMockProjectState({
-      cursorDir: { exists: true, path: "/test/project/.cursor" },
-      mcp: {
-        exists: true,
-        path: "/test/project/.cursor/mcp.json",
-        config: {
-          mcpServers: { existing: { command: "npx", args: ["existing"] } },
-        },
-      },
-    });
-    const choices = createMockChoices({ items: ["mcp"], mcpMerge: true });
-
-    const plan = createPlan(state, choices);
-
-    const mcpAction = plan.actions.find(
-      (a) => a.type === "create_file" && a.path.includes("mcp.json")
-    );
-    expect(mcpAction).toBeDefined();
-    if (mcpAction?.type === "create_file") {
-      const content = JSON.parse(mcpAction.content);
-      // Should have both existing and new
-      expect(content.mcpServers.existing).toBeDefined();
-      expect(content.mcpServers.uilint).toBeDefined();
-    }
-  });
-
-  it("skips MCP when exists and mcpMerge=false", () => {
-    const state = createMockProjectState({
-      mcp: {
-        exists: true,
-        path: "/test/project/.cursor/mcp.json",
-        config: { mcpServers: {} },
-      },
-    });
-    const choices = createMockChoices({ items: ["mcp"], mcpMerge: false });
-
-    const plan = createPlan(state, choices);
-
-    const mcpAction = plan.actions.find(
-      (a) => a.type === "create_file" && a.path.includes("mcp.json")
-    );
-    expect(mcpAction).toBeUndefined();
-  });
-});
-
-// ============================================================================
-// Hooks Planning Tests
-// ============================================================================
-
-describe("createPlan - Hooks", () => {
-  it("creates hooks config and scripts when not exists", () => {
-    const state = createMockProjectState();
-    const choices = createMockChoices({ items: ["hooks"] });
-
-    const plan = createPlan(state, choices);
-
-    // Should create hooks directory
-    expect(plan.actions).toContainEqual({
-      type: "create_directory",
-      path: "/test/project/.cursor/hooks",
-    });
-
-    // Should create hooks.json
-    const hooksJsonAction = plan.actions.find(
-      (a) => a.type === "create_file" && a.path.includes("hooks.json")
-    );
-    expect(hooksJsonAction).toBeDefined();
-
-    // Should create hook scripts with executable permissions
-    const scriptNames = [
-      "uilint-session-start.sh",
-      "uilint-track.sh",
-      "uilint-session-end.sh",
-    ];
-
-    for (const scriptName of scriptNames) {
-      const scriptAction = plan.actions.find(
-        (a) => a.type === "create_file" && a.path.includes(scriptName)
-      );
-      expect(scriptAction).toBeDefined();
-      if (scriptAction?.type === "create_file") {
-        expect(scriptAction.permissions).toBe(0o755);
-      }
-    }
-  });
-
-  it("cleans up legacy hooks", () => {
-    const state = createMockProjectState({
-      hooks: {
-        exists: true,
-        path: "/test/project/.cursor/hooks.json",
-        config: {
-          version: 1,
-          hooks: {
-            afterFileEdit: [{ command: ".cursor/hooks/uilint-validate.sh" }],
-          },
-        },
-        hasLegacy: true,
-        legacyPaths: ["/test/project/.cursor/hooks/uilint-validate.sh"],
-      },
-    });
-    const choices = createMockChoices({ items: ["hooks"] });
-
-    const plan = createPlan(state, choices);
-
-    // Should delete legacy hook
-    expect(plan.actions).toContainEqual({
-      type: "delete_file",
-      path: "/test/project/.cursor/hooks/uilint-validate.sh",
-    });
-  });
-
-  it("merges hooks when exists and hooksMerge=true", () => {
-    const state = createMockProjectState({
-      cursorDir: { exists: true, path: "/test/project/.cursor" },
-      hooks: {
-        exists: true,
-        path: "/test/project/.cursor/hooks.json",
-        config: {
-          version: 1,
-          hooks: {
-            beforeSubmitPrompt: [{ command: ".cursor/hooks/existing.sh" }],
-          },
-        },
-        hasLegacy: false,
-        legacyPaths: [],
-      },
-    });
-    const choices = createMockChoices({ items: ["hooks"], hooksMerge: true });
-
-    const plan = createPlan(state, choices);
-
-    const hooksAction = plan.actions.find(
-      (a) => a.type === "create_file" && a.path.includes("hooks.json")
-    );
-    expect(hooksAction).toBeDefined();
-    if (hooksAction?.type === "create_file") {
-      const content = JSON.parse(hooksAction.content);
-      // Should have both existing and new hooks
-      expect(content.hooks.beforeSubmitPrompt).toHaveLength(2);
-    }
-  });
-});
 
 // ============================================================================
 // Commands Planning Tests
@@ -299,18 +90,6 @@ describe("createPlan - Commands", () => {
 
     const cmdAction = plan.actions.find(
       (a) => a.type === "create_file" && a.path.includes("genstyleguide.md")
-    );
-    expect(cmdAction).toBeDefined();
-  });
-
-  it("creates genrules command", () => {
-    const state = createMockProjectState();
-    const choices = createMockChoices({ items: ["genrules"] });
-
-    const plan = createPlan(state, choices);
-
-    const cmdAction = plan.actions.find(
-      (a) => a.type === "create_file" && a.path.includes("genrules.md")
     );
     expect(cmdAction).toBeDefined();
   });
@@ -400,22 +179,16 @@ describe("createPlan - Agent Skill", () => {
   it("creates skill alongside other items", () => {
     const state = createMockProjectState();
     const choices = createMockChoices({
-      items: ["mcp", "hooks", "skill"],
+      items: ["skill", "genstyleguide"],
     });
 
     const plan = createPlan(state, choices);
 
-    // Should have MCP config
-    const mcpAction = plan.actions.find(
-      (a) => a.type === "create_file" && a.path.includes("mcp.json")
+    // Should have genstyleguide command
+    const cmdAction = plan.actions.find(
+      (a) => a.type === "create_file" && a.path.includes("genstyleguide.md")
     );
-    expect(mcpAction).toBeDefined();
-
-    // Should have hooks config
-    const hooksAction = plan.actions.find(
-      (a) => a.type === "create_file" && a.path.includes("hooks.json")
-    );
-    expect(hooksAction).toBeDefined();
+    expect(cmdAction).toBeDefined();
 
     // Should have skill
     const skillAction = plan.actions.find(
@@ -864,10 +637,7 @@ describe("createPlan - Combined scenarios", () => {
     });
     const choices = createMockChoices({
       items: [
-        "mcp",
-        "hooks",
         "genstyleguide",
-        "genrules",
         "skill",
         "next",
         "eslint",
