@@ -1,6 +1,6 @@
 {
   "name": "uilint",
-  "version": "0.2.5",
+  "version": "0.2.7",
   "description": "CLI for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -45,30 +45,30 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@clack/prompts": "^0.10.0",
-    "@typescript-eslint/typescript-estree": "8.52.0",
+    "@clack/prompts": "^0.11.0",
+    "@typescript-eslint/typescript-estree": "8.53.0",
     "chokidar": "^5.0.0",
     "commander": "^14.0.2",
     "chalk": "^5.6.2",
-    "dotenv": "^16.4.7",
-    "magicast": "^0.3.5",
+    "dotenv": "^17.2.3",
+    "magicast": "^0.5.1",
     "picocolors": "^1.1.1",
     "uilint-core": "workspace:*",
     "uilint-eslint": "workspace:*",
-    "ws": "^8.18.0"
+    "ws": "^8.19.0"
   },
   "optionalDependencies": {
     "@langfuse/client": "^4.5.1",
     "@langfuse/otel": "^4.5.1",
     "@langfuse/tracing": "^4.5.1",
-    "@opentelemetry/sdk-node": "^0.208.0"
+    "@opentelemetry/sdk-node": "^0.209.0"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
+    "@types/node": "^25.0.8",
     "@types/ws": "^8.18.1",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^3.0.0"
+    "vitest": "^4.0.17"
   },
   "keywords": [
     "cli",

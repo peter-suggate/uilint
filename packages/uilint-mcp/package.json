@@ -1,6 +1,6 @@
 {
   "name": "uilint-mcp",
-  "version": "0.2.5",
+  "version": "0.2.7",
   "description": "MCP server for UILint - enables AI agents to validate UI code",
   "author": "Peter Suggate",
   "repository": {
