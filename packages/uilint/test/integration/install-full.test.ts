@@ -32,12 +32,12 @@ const mockInstallDependencies = async () => {};
 // ============================================================================
 
 describe("Full installation", () => {
-  it("installs MCP, hooks, and commands together", async () => {
+  it("installs MCP, hooks, commands, and skill together", async () => {
     fixture = useFixture("fresh-nextjs-app");
 
     const state = await analyze(fixture.path);
     const prompter = mockPrompter({
-      installItems: ["mcp", "hooks", "genstyleguide", "genrules"],
+      installItems: ["mcp", "hooks", "genstyleguide", "genrules", "skill"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -56,6 +56,7 @@ describe("Full installation", () => {
     expect(fixture.exists(".cursor/hooks/uilint-session-start.sh")).toBe(true);
     expect(fixture.exists(".cursor/hooks/uilint-track.sh")).toBe(true);
     expect(fixture.exists(".cursor/hooks/uilint-session-end.sh")).toBe(true);
+    expect(fixture.exists(".cursor/skills/ui-consistency-enforcer/SKILL.md")).toBe(true);
 
     // Verify configs are valid JSON
     const mcpConfig = fixture.readJson<MCPConfig>(".cursor/mcp.json");

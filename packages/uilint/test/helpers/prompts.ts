@@ -151,7 +151,7 @@ export function noopPrompter(): Prompter {
  */
 export function acceptAllPrompter(): Prompter {
   return mockPrompter({
-    installItems: ["mcp", "hooks", "genstyleguide", "genrules", "eslint"],
+    installItems: ["mcp", "hooks", "genstyleguide", "genrules", "skill", "eslint"],
     mcpMerge: true,
     hooksMerge: true,
     customizeRuleOptions: false,

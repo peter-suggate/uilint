@@ -28,6 +28,7 @@ import {
   GENSTYLEGUIDE_COMMAND_MD,
   GENRULES_COMMAND_MD,
 } from "./constants.js";
+import { loadSkill } from "../../utils/skill-loader.js";
 
 const require = createRequire(import.meta.url);
 
@@ -129,7 +130,8 @@ export function createPlan(
     items.includes("mcp") ||
     items.includes("hooks") ||
     items.includes("genstyleguide") ||
-    items.includes("genrules");
+    items.includes("genrules") ||
+    items.includes("skill");
 
   if (needsCursorDir && !state.cursorDir.exists) {
     actions.push({
@@ -259,6 +261,53 @@ export function createPlan(
       path: join(commandsDir, "genrules.md"),
       content: GENRULES_COMMAND_MD,
     });
+  }
+
+  // =========================================================================
+  // Agent Skill Installation
+  // =========================================================================
+  if (items.includes("skill")) {
+    const skillsDir = join(state.cursorDir.path, "skills");
+
+    // Create skills directory
+    actions.push({
+      type: "create_directory",
+      path: skillsDir,
+    });
+
+    // Load and install the ui-consistency-enforcer skill
+    try {
+      const skill = loadSkill("ui-consistency-enforcer");
+      const skillDir = join(skillsDir, skill.name);
+
+      // Create skill directory
+      actions.push({
+        type: "create_directory",
+        path: skillDir,
+      });
+
+      // Create all skill files
+      for (const file of skill.files) {
+        const filePath = join(skillDir, file.relativePath);
+
+        // Ensure subdirectories exist (e.g., references/)
+        const fileDir = join(skillDir, file.relativePath.split("/").slice(0, -1).join("/"));
+        if (fileDir !== skillDir && file.relativePath.includes("/")) {
+          actions.push({
+            type: "create_directory",
+            path: fileDir,
+          });
+        }
+
+        actions.push({
+          type: "create_file",
+          path: filePath,
+          content: file.content,
+        });
+      }
+    } catch {
+      // Skill not found - skip silently (shouldn't happen in normal install)
+    }
   }
 
   // =========================================================================

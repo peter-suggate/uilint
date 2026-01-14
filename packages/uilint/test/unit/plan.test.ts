@@ -46,6 +46,7 @@ function createMockProjectState(overrides: Partial<ProjectState> = {}): ProjectS
       genrules: false,
     },
     nextApps: [],
+    viteApps: [],
     packages: [],
     ...overrides,
   };
@@ -304,6 +305,115 @@ describe("createPlan - Commands", () => {
 });
 
 // ============================================================================
+// Agent Skill Planning Tests
+// ============================================================================
+
+describe("createPlan - Agent Skill", () => {
+  it("creates skill directory and files", () => {
+    const state = createMockProjectState();
+    const choices = createMockChoices({ items: ["skill"] });
+
+    const plan = createPlan(state, choices);
+
+    // Should create .cursor directory
+    expect(plan.actions).toContainEqual({
+      type: "create_directory",
+      path: "/test/project/.cursor",
+    });
+
+    // Should create skills directory
+    expect(plan.actions).toContainEqual({
+      type: "create_directory",
+      path: "/test/project/.cursor/skills",
+    });
+
+    // Should create skill directory
+    expect(plan.actions).toContainEqual({
+      type: "create_directory",
+      path: "/test/project/.cursor/skills/ui-consistency-enforcer",
+    });
+
+    // Should create SKILL.md
+    const skillMdAction = plan.actions.find(
+      (a) => a.type === "create_file" && a.path.includes("SKILL.md")
+    );
+    expect(skillMdAction).toBeDefined();
+    if (skillMdAction?.type === "create_file") {
+      expect(skillMdAction.content).toContain("name: ui-consistency-enforcer");
+      expect(skillMdAction.content).toContain("createRule");
+    }
+  });
+
+  it("creates reference files in subdirectory", () => {
+    const state = createMockProjectState();
+    const choices = createMockChoices({ items: ["skill"] });
+
+    const plan = createPlan(state, choices);
+
+    // Should create references directory
+    const referencesDir = plan.actions.find(
+      (a) => a.type === "create_directory" && a.path.includes("references")
+    );
+    expect(referencesDir).toBeDefined();
+
+    // Should create RULE-TEMPLATE.ts
+    const ruleTemplate = plan.actions.find(
+      (a) => a.type === "create_file" && a.path.includes("RULE-TEMPLATE.ts")
+    );
+    expect(ruleTemplate).toBeDefined();
+
+    // Should create TEST-TEMPLATE.ts
+    const testTemplate = plan.actions.find(
+      (a) => a.type === "create_file" && a.path.includes("TEST-TEMPLATE.ts")
+    );
+    expect(testTemplate).toBeDefined();
+
+    // Should create REGISTRY-ENTRY.md
+    const registryEntry = plan.actions.find(
+      (a) => a.type === "create_file" && a.path.includes("REGISTRY-ENTRY.md")
+    );
+    expect(registryEntry).toBeDefined();
+  });
+
+  it("does not add dependencies for skill installation", () => {
+    const state = createMockProjectState();
+    const choices = createMockChoices({ items: ["skill"] });
+
+    const plan = createPlan(state, choices);
+
+    // Skill installation doesn't require npm packages
+    expect(plan.dependencies).toHaveLength(0);
+  });
+
+  it("creates skill alongside other items", () => {
+    const state = createMockProjectState();
+    const choices = createMockChoices({
+      items: ["mcp", "hooks", "skill"],
+    });
+
+    const plan = createPlan(state, choices);
+
+    // Should have MCP config
+    const mcpAction = plan.actions.find(
+      (a) => a.type === "create_file" && a.path.includes("mcp.json")
+    );
+    expect(mcpAction).toBeDefined();
+
+    // Should have hooks config
+    const hooksAction = plan.actions.find(
+      (a) => a.type === "create_file" && a.path.includes("hooks.json")
+    );
+    expect(hooksAction).toBeDefined();
+
+    // Should have skill
+    const skillAction = plan.actions.find(
+      (a) => a.type === "create_file" && a.path.includes("SKILL.md")
+    );
+    expect(skillAction).toBeDefined();
+  });
+});
+
+// ============================================================================
 // ESLint Planning Tests
 // ============================================================================
 
@@ -532,7 +642,7 @@ describe("getMissingRules", () => {
 // ============================================================================
 
 describe("createPlan - Combined scenarios", () => {
-  it("plans full installation with all items", () => {
+  it("plans full installation with all items including skill", () => {
     const pkg = createMockPackage();
     const state = createMockProjectState({
       packages: [pkg],
@@ -548,7 +658,7 @@ describe("createPlan - Combined scenarios", () => {
       ],
     });
     const choices = createMockChoices({
-      items: ["mcp", "hooks", "genstyleguide", "genrules", "next", "eslint"],
+      items: ["mcp", "hooks", "genstyleguide", "genrules", "skill", "next", "eslint"],
       next: {
         projectPath: "/test/project",
         detection: state.nextApps[0].detection,
@@ -561,11 +671,17 @@ describe("createPlan - Combined scenarios", () => {
 
     const plan = createPlan(state, choices);
 
-    // Should have actions for all items
-    expect(plan.actions.length).toBeGreaterThan(10);
+    // Should have actions for all items (10+ base + skill files)
+    expect(plan.actions.length).toBeGreaterThan(15);
 
     // Should have dependencies
     expect(plan.dependencies.length).toBeGreaterThanOrEqual(2);
+
+    // Verify skill is included
+    const skillAction = plan.actions.find(
+      (a) => a.type === "create_file" && a.path.includes("SKILL.md")
+    );
+    expect(skillAction).toBeDefined();
   });
 
   it("creates no actions when items array is empty", () => {

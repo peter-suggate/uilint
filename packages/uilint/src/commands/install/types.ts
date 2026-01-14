@@ -123,6 +123,7 @@ export type InstallItem =
   | "hooks"
   | "genstyleguide"
   | "genrules"
+  | "skill"
   | "next"
   | "vite"
   | "eslint";
@@ -320,6 +321,7 @@ export interface InstallOptions {
   react?: boolean;
   genrules?: boolean;
   eslint?: boolean;
+  skill?: boolean;
 }
 
 export interface PlanOptions {

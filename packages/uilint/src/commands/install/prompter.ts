@@ -129,9 +129,14 @@ export const cliPrompter: Prompter = {
           label: "/genrules command",
           hint: "Adds .cursor/commands/genrules.md for ESLint rule generation",
         },
+        {
+          value: "skill",
+          label: "UI Consistency Agent Skill",
+          hint: "Cursor agent skill for generating ESLint rules from UI patterns",
+        },
       ],
       required: true,
-      initialValues: ["eslint", "next", "genstyleguide"],
+      initialValues: ["eslint", "next", "genstyleguide", "skill"],
     });
   },
 
@@ -408,6 +413,7 @@ export async function gatherChoices(
     options.hooks !== undefined ||
     options.genstyleguide !== undefined ||
     options.genrules !== undefined ||
+    options.skill !== undefined ||
     options.routes !== undefined ||
     options.react !== undefined;
 
@@ -417,6 +423,7 @@ export async function gatherChoices(
     if (options.hooks) items.push("hooks");
     if (options.genstyleguide) items.push("genstyleguide");
     if (options.genrules) items.push("genrules");
+    if (options.skill) items.push("skill");
     if (options.routes || options.react) items.push("next");
     if (options.eslint) items.push("eslint");
   } else if (options.mode) {
