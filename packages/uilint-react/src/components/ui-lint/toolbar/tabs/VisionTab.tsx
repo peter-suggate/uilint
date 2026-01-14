@@ -55,8 +55,8 @@ export function VisionTab() {
   const highlightedVisionElementId = useUILintStore((s) => s.highlightedVisionElementId);
   const setHighlightedVisionElementId = useUILintStore((s) => s.setHighlightedVisionElementId);
   const setHoveredVisionIssue = useUILintStore((s) => s.setHoveredVisionIssue);
-  const captureMode = useUILintStore((s) => s.captureMode);
   const setRegionSelectionActive = useUILintStore((s) => s.setRegionSelectionActive);
+  const screenshotHistory = useUILintStore((s) => s.screenshotHistory);
 
   const allIssues = useMemo(() => {
     const issues: VisionIssue[] = [];
@@ -74,13 +74,21 @@ export function VisionTab() {
     return map;
   }, [allIssues]);
 
-  const handleCapture = useCallback(() => {
-    if (captureMode === "region") {
-      setRegionSelectionActive(true);
-    } else {
-      triggerVisionAnalysis();
-    }
-  }, [captureMode, setRegionSelectionActive, triggerVisionAnalysis]);
+  const currentRoute = useMemo(() => {
+    return typeof window !== "undefined" ? window.location.pathname : "/";
+  }, []);
+
+  const currentScreenshot = useMemo(() => {
+    return screenshotHistory.get(currentRoute);
+  }, [screenshotHistory, currentRoute]);
+
+  const handleCaptureFullPage = useCallback(() => {
+    triggerVisionAnalysis();
+  }, [triggerVisionAnalysis]);
+
+  const handleSelectRegion = useCallback(() => {
+    setRegionSelectionActive(true);
+  }, [setRegionSelectionActive]);
 
   const handleShowInPage = useCallback((issue: VisionIssue) => {
     if (!issue.dataLoc) return;
@@ -91,12 +99,13 @@ export function VisionTab() {
 
   return (
     <div className="space-y-4">
-      {/* Capture Action */}
-      <div className="space-y-2">
+      {/* Capture Actions */}
+      <div className="flex gap-2">
         <Button
-          onClick={handleCapture}
+          onClick={handleCaptureFullPage}
           disabled={visionAnalyzing}
-          className="w-full h-10 gap-2"
+          className="flex-1 h-10 gap-2"
+          variant="default"
         >
           {visionAnalyzing ? (
             <>
@@ -105,12 +114,42 @@ export function VisionTab() {
             </>
           ) : (
             <>
-              {captureMode === "full" ? <Icons.Camera className="w-4 h-4" /> : <Icons.Crop className="w-4 h-4" />}
-              Capture {captureMode === "full" ? "Full Page" : "Region"}
+              <Icons.Camera className="w-4 h-4" />
+              Full Page
             </>
           )}
         </Button>
+        <Button
+          onClick={handleSelectRegion}
+          disabled={visionAnalyzing}
+          className="flex-1 h-10 gap-2"
+          variant="outline"
+        >
+          <Icons.Crop className="w-4 h-4" />
+          Region
+        </Button>
       </div>
+
+      {/* Screenshot Thumbnail Preview */}
+      {currentScreenshot ? (
+        <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-50 dark:bg-zinc-900/50">
+          <img
+            src={currentScreenshot.dataUrl}
+            alt="Last capture"
+            className="w-full h-auto max-h-[100px] object-contain"
+          />
+          <div className="px-2 py-1.5 text-[10px] text-zinc-500 dark:text-zinc-400 border-t border-zinc-200 dark:border-zinc-700">
+            Last captured: {new Date(currentScreenshot.timestamp).toLocaleTimeString()}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 p-4 flex flex-col items-center justify-center min-h-[100px]">
+          <Icons.Camera className="w-8 h-8 text-zinc-300 dark:text-zinc-600 mb-2" />
+          <p className="text-[10px] text-zinc-400 dark:text-zinc-500 text-center">
+            No capture yet
+          </p>
+        </div>
+      )}
 
       {visionLastError && !visionAnalyzing && (
         <div className="p-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800/50">

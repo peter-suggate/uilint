@@ -12,21 +12,21 @@ import { IssueCountBadge } from "@/components/ui/badge";
 export function TabbedToolbar() {
   const activeTab = useUILintStore((s) => s.activeToolbarTab);
   const setActiveTab = useUILintStore((s) => s.setActiveToolbarTab);
-  
+
   const elementIssuesCache = useUILintStore((s) => s.elementIssuesCache);
   const fileIssuesCache = useUILintStore((s) => s.fileIssuesCache);
   const visionIssuesCache = useUILintStore((s) => s.visionIssuesCache);
 
   const eslintIssueCount = useMemo(() => {
     let count = 0;
-    elementIssuesCache.forEach(el => count += el.issues.length);
-    fileIssuesCache.forEach(issues => count += issues.length);
+    elementIssuesCache.forEach((el) => (count += el.issues.length));
+    fileIssuesCache.forEach((issues) => (count += issues.length));
     return count;
   }, [elementIssuesCache, fileIssuesCache]);
 
   const visionIssueCount = useMemo(() => {
     let count = 0;
-    visionIssuesCache.forEach(issues => count += issues.length);
+    visionIssuesCache.forEach((issues) => (count += issues.length));
     return count;
   }, [visionIssuesCache]);
 

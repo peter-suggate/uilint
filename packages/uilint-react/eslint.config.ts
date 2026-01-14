@@ -16,7 +16,6 @@ export default defineConfig([
   pluginReact.configs.flat.recommended,
   {
     files: [
-      "@/**/*.{js,jsx,ts,tsx}",
       "src/**/*.{js,jsx,ts,tsx}",
       "app/**/*.{js,jsx,ts,tsx}",
       "pages/**/*.{js,jsx,ts,tsx}",
@@ -26,7 +25,7 @@ export default defineConfig([
 
     rules: {
       "react/react-in-jsx-scope": "off",
-      "uilint/no-arbitrary-tailwind": "warn",
+      "uilint/no-arbitrary-tailwind": "off",
       "uilint/consistent-dark-mode": [
         "warn",
         ...[

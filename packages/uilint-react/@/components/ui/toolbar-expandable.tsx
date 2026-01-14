@@ -246,11 +246,7 @@ const DynamicToolbarExpandable = React.memo<DynamicToolbarExpandableProps>(
                       exit={{ height: 0 }}
                       className=""
                     >
-                      <div ref={contentRef} className="pt-2 px-2 sm:px-2">
-                        <h4 className="text-sm font-medium text-zinc-950 px-2 dark:text-zinc-50">
-                          {activeTitle}
-                        </h4>
-
+                      <div ref={contentRef} className="px-2 sm:px-2">
                         <div className="pb-1">
                           <div className="shadow-[0px_1px_1px_0px_rgba(0,0,0,0.05),0px_1px_1px_0px_rgba(255,252,240,0.5)_inset,0px_0px_0px_1px_hsla(0,0%,100%,0.1)_inset,0px_0px_1px_0px_rgba(28,27,26,0.5)] dark:shadow-[0px_1px_1px_0px_rgba(0,0,0,0.2),0px_1px_1px_0px_rgba(255,255,255,0.05)_inset,0px_0px_0px_1px_hsla(0,0%,100%,0.05)_inset,0px_0px_1px_0px_rgba(0,0,0,0.8)] bg-zinc-100/50 rounded-[0.8rem] px-3 py-4 mt-3 mb-2 dark:bg-zinc-800/50">
                             {renderContent()}

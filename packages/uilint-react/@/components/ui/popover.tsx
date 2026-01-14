@@ -6,7 +6,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { AnimatePresence, motion, MotionConfig } from "motion/react";
 
@@ -55,31 +54,14 @@ function usePopover() {
   return context;
 }
 
-function usePopoverLogic(
-  controlledOpen?: boolean,
-  onOpenChange?: (open: boolean) => void
-) {
+function usePopoverLogic() {
   const uniqueId = useId();
-  const [internalOpen, setInternalOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [note, setNote] = useState("");
 
-  const isControlled = controlledOpen !== undefined;
-  const isOpen = isControlled ? controlledOpen : internalOpen;
-
-  const openPopover = () => {
-    if (isControlled) {
-      onOpenChange?.(true);
-    } else {
-      setInternalOpen(true);
-    }
-  };
-
+  const openPopover = () => setIsOpen(true);
   const closePopover = () => {
-    if (isControlled) {
-      onOpenChange?.(false);
-    } else {
-      setInternalOpen(false);
-    }
+    setIsOpen(false);
     setNote("");
   };
 
@@ -89,17 +71,10 @@ function usePopoverLogic(
 interface PopoverRootProps {
   children: React.ReactNode;
   className?: string;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
 }
 
-export function PopoverRoot({
-  children,
-  className,
-  open,
-  onOpenChange,
-}: PopoverRootProps) {
-  const popoverLogic = usePopoverLogic(open, onOpenChange);
+export function PopoverRoot({ children, className }: PopoverRootProps) {
+  const popoverLogic = usePopoverLogic();
 
   return (
     <PopoverContext.Provider value={popoverLogic}>
@@ -120,20 +95,9 @@ export function PopoverRoot({
 interface PopoverTriggerProps {
   children: React.ReactNode;
   className?: string;
-  style?: React.CSSProperties;
-  disabled?: boolean;
-  title?: string;
-  "aria-label"?: string;
 }
 
-export function PopoverTrigger({
-  children,
-  className,
-  style,
-  disabled,
-  title,
-  "aria-label": ariaLabel,
-}: PopoverTriggerProps) {
+export function PopoverTrigger({ children, className }: PopoverTriggerProps) {
   const { openPopover, uniqueId } = usePopover();
 
   return (
@@ -146,12 +110,8 @@ export function PopoverTrigger({
       )}
       style={{
         borderRadius: 8,
-        ...style,
       }}
       onClick={openPopover}
-      disabled={disabled}
-      title={title}
-      aria-label={ariaLabel}
     >
       <motion.span layoutId={`popover-label-${uniqueId}`} className="text-sm">
         {children}
@@ -163,18 +123,9 @@ export function PopoverTrigger({
 interface PopoverContentProps {
   children: React.ReactNode;
   className?: string;
-  portal?: boolean;
-  style?: React.CSSProperties;
-  "data-ui-lint"?: boolean;
 }
 
-export function PopoverContent({
-  children,
-  className,
-  portal,
-  style,
-  "data-ui-lint": dataUILint,
-}: PopoverContentProps) {
+export function PopoverContent({ children, className }: PopoverContentProps) {
   const { isOpen, closePopover, uniqueId } = usePopover();
   const formContainerRef = useRef<HTMLDivElement>(null);
 
@@ -194,7 +145,7 @@ export function PopoverContent({
     };
   }, [closePopover]);
 
-  const content = (
+  return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -209,21 +160,13 @@ export function PopoverContent({
             top: "auto", // Remove any top positioning
             left: "auto", // Remove any left positioning
             transform: "none", // Remove any transform
-            ...style,
           }}
-          data-ui-lint={dataUILint}
         >
           {children}
         </motion.div>
       )}
     </AnimatePresence>
   );
-
-  if (portal) {
-    return createPortal(content, document.body);
-  }
-
-  return content;
 }
 
 interface PopoverFormProps {

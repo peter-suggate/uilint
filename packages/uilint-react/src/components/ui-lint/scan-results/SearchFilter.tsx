@@ -26,7 +26,7 @@ export function SearchFilter({
   placeholder = "Filter by file or tag...",
 }: SearchFilterProps) {
   return (
-    <div className="relative flex items-center gap-2 px-2.5 py-1.5 bg-zinc-900/60 dark:bg-zinc-800/60 rounded-md border border-zinc-200 dark:border-zinc-800">
+    <div className="relative flex items-center gap-2 px-2.5 py-1.5 bg-zinc-100 dark:bg-zinc-800/60 rounded-md border border-zinc-200 dark:border-zinc-800">
       <div className="flex-shrink-0">
         <svg
           width="12"
