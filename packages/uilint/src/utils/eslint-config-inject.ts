@@ -654,11 +654,63 @@ function getMissingSelectedRules(
 /**
  * Get rules that exist but need updating (different options or severity)
  */
+function buildDesiredRuleValueExpression(rule: RuleMetadata): string {
+  if (rule.defaultOptions && rule.defaultOptions.length > 0) {
+    // Match the shape we generate elsewhere: ["severity", ...[options...]]
+    return `["${rule.defaultSeverity}", ...${JSON.stringify(
+      rule.defaultOptions,
+      null,
+      2
+    )}]`;
+  }
+  return `"${rule.defaultSeverity}"`;
+}
+
+function collectUilintRuleValueNodesFromConfigArray(
+  arrayExpr: any
+): Map<string, any> {
+  const out = new Map<string, any>();
+  if (!arrayExpr || arrayExpr.type !== "ArrayExpression") return out;
+
+  for (const el of arrayExpr.elements ?? []) {
+    if (!el || el.type !== "ObjectExpression") continue;
+    const rules = getObjectPropertyValue(el, "rules");
+    if (!rules || rules.type !== "ObjectExpression") continue;
+
+    for (const prop of rules.properties ?? []) {
+      if (!prop) continue;
+      if (prop.type !== "ObjectProperty" && prop.type !== "Property") continue;
+      const key = prop.key;
+      if (!isStringLiteral(key)) continue;
+      const k = key.value;
+      if (typeof k !== "string" || !k.startsWith("uilint/")) continue;
+      const id = k.slice("uilint/".length);
+      // First occurrence wins; that's enough for detecting up-to-date configs.
+      if (!out.has(id)) out.set(id, prop.value);
+    }
+  }
+
+  return out;
+}
+
 function getRulesNeedingUpdate(
   selectedRules: RuleMetadata[],
-  configuredIds: Set<string>
+  configuredIds: Set<string>,
+  arrayExpr: any
 ): RuleMetadata[] {
-  return selectedRules.filter((r) => configuredIds.has(r.id));
+  // Only consider rules that are already configured, and only update if the
+  // existing severity/options differ from what we would generate.
+  const existingVals = collectUilintRuleValueNodesFromConfigArray(arrayExpr);
+
+  return selectedRules.filter((r) => {
+    if (!configuredIds.has(r.id)) return false;
+    const existing = existingVals.get(r.id);
+    if (!existing) return true;
+
+    const desiredExpr = buildDesiredRuleValueExpression(r);
+    const desiredAst = (parseExpression(desiredExpr) as any).$ast;
+    return !astEquivalent(existing, desiredAst);
+  });
 }
 
 /**
@@ -1069,7 +1121,8 @@ export async function installEslintPlugin(
   );
   const rulesToUpdate = getRulesNeedingUpdate(
     opts.selectedRules,
-    configuredIds
+    configuredIds,
+    arrayExpr
   );
 
   // Decide what rules to apply, respecting prompts.

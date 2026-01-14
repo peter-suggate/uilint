@@ -4,18 +4,18 @@ overview: Restore copying of selected ESLint rule source/test files into per-pac
 todos:
   - id: planner-no-silent-skip
     content: Update `createPlan` ESLint rule-copy logic to stop silently skipping copy when rule loading fails; surface a clear error instead.
-    status: pending
+    status: completed
   - id: rule-loader-js-copy
     content: Verify/fix `rule-loader` behavior for JS-only projects to load from `uilint-eslint/dist/rules/*.js` and produce actionable errors when missing.
-    status: pending
+    status: completed
   - id: update-integration-tests
     content: Update `install-eslint` integration tests (especially monorepo cases) to assert per-package `.uilint/rules/` outputs; add assertion for copying `.test.ts` when present.
-    status: pending
+    status: completed
     dependencies:
       - planner-no-silent-skip
   - id: update-unit-tests
     content: Update/add `plan.test.ts` assertions to cover TS/JS copy paths and `.test.ts` copying for a rule that has an upstream test file.
-    status: pending
+    status: completed
     dependencies:
       - planner-no-silent-skip
       - rule-loader-js-copy

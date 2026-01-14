@@ -395,33 +395,28 @@ export function createPlan(
       // Load and copy rule files into this target package
       // Detect if this package uses TypeScript
       const isTypeScript = pkgInfo?.isTypeScript ?? true; // Default to TypeScript for safety
-      try {
-        const ruleFiles = loadSelectedRules(
-          selectedRules.map((r) => r.id),
-          {
-            typescript: isTypeScript,
-          }
-        );
-        for (const ruleFile of ruleFiles) {
-          // Copy implementation file
+      const ruleFiles = loadSelectedRules(
+        selectedRules.map((r) => r.id),
+        {
+          typescript: isTypeScript,
+        }
+      );
+      for (const ruleFile of ruleFiles) {
+        // Copy implementation file
+        actions.push({
+          type: "create_file",
+          path: join(rulesDir, ruleFile.implementation.relativePath),
+          content: ruleFile.implementation.content,
+        });
+
+        // Copy test file if it exists (only for TypeScript projects)
+        if (ruleFile.test && isTypeScript) {
           actions.push({
             type: "create_file",
-            path: join(rulesDir, ruleFile.implementation.relativePath),
-            content: ruleFile.implementation.content,
+            path: join(rulesDir, ruleFile.test.relativePath),
+            content: ruleFile.test.content,
           });
-
-          // Copy test file if it exists (only for TypeScript projects)
-          if (ruleFile.test && isTypeScript) {
-            actions.push({
-              type: "create_file",
-              path: join(rulesDir, ruleFile.test.relativePath),
-              content: ruleFile.test.content,
-            });
-          }
         }
-      } catch {
-        // If rule loading fails, continue anyway - the inject will handle it.
-        // This allows install to proceed even if some rules can't be loaded.
       }
 
       // Install dependencies (still needed for utilities like createRule)

@@ -623,6 +623,87 @@ describe("createPlan - ESLint", () => {
       );
     }
   });
+
+  it("copies .test.ts files for TypeScript packages when rule has test file", () => {
+    const pkg = createMockPackage({
+      isTypeScript: true,
+    });
+    const state = createMockProjectState({ packages: [pkg] });
+    // Use consistent-dark-mode which has a test file
+    const choices = createMockChoices({
+      items: ["eslint"],
+      eslint: {
+        packagePaths: [pkg.path],
+        selectedRules: ruleRegistry.filter(
+          (r) => r.id === "consistent-dark-mode"
+        ),
+      },
+    });
+
+    const plan = createPlan(state, choices);
+
+    // Should copy implementation file
+    const implAction = plan.actions.find(
+      (a) =>
+        a.type === "create_file" &&
+        a.path.includes("consistent-dark-mode.ts") &&
+        !a.path.includes(".test.ts")
+    );
+    expect(implAction).toBeDefined();
+    if (implAction?.type === "create_file") {
+      expect(implAction.path).toContain(
+        ".uilint/rules/consistent-dark-mode.ts"
+      );
+    }
+
+    // Should copy test file
+    const testAction = plan.actions.find(
+      (a) =>
+        a.type === "create_file" &&
+        a.path.includes("consistent-dark-mode.test.ts")
+    );
+    expect(testAction).toBeDefined();
+    if (testAction?.type === "create_file") {
+      expect(testAction.path).toContain(
+        ".uilint/rules/consistent-dark-mode.test.ts"
+      );
+      expect(testAction.content).toContain("consistent-dark-mode");
+    }
+  });
+
+  it("does not copy .test.ts files for JavaScript-only packages", () => {
+    const pkg = createMockPackage({
+      isTypeScript: false,
+    });
+    const state = createMockProjectState({ packages: [pkg] });
+    // Use consistent-dark-mode which has a test file
+    const choices = createMockChoices({
+      items: ["eslint"],
+      eslint: {
+        packagePaths: [pkg.path],
+        selectedRules: ruleRegistry.filter(
+          (r) => r.id === "consistent-dark-mode"
+        ),
+      },
+    });
+
+    const plan = createPlan(state, choices);
+
+    // Should copy implementation file (.js)
+    const implAction = plan.actions.find(
+      (a) =>
+        a.type === "create_file" && a.path.includes("consistent-dark-mode.js")
+    );
+    expect(implAction).toBeDefined();
+
+    // Should NOT copy test file for JS projects
+    const testAction = plan.actions.find(
+      (a) =>
+        a.type === "create_file" &&
+        a.path.includes("consistent-dark-mode.test.ts")
+    );
+    expect(testAction).toBeUndefined();
+  });
 });
 
 // ============================================================================

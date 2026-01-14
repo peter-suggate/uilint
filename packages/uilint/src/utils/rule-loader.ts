@@ -14,14 +14,47 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const require = createRequire(import.meta.url);
 
+function findNodeModulesPackageRoot(
+  pkgName: string,
+  startDir: string
+): string | null {
+  let dir = startDir;
+  while (true) {
+    const candidate = join(dir, "node_modules", pkgName);
+    if (existsSync(join(candidate, "package.json"))) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
 function getUilintEslintPackageRoot(): string {
-  // `uilint-eslint` uses package.json "exports", so we cannot rely on
-  // require.resolve("uilint-eslint/package.json") (it throws ERR_PACKAGE_PATH_NOT_EXPORTED).
+  // Prefer a filesystem-based lookup first. This avoids Node resolution edge
+  // cases with package.json "exports" (especially ESM-only packages), and works
+  // well for monorepos + pnpm where node_modules contains symlinks.
   //
-  // Instead, resolve the entrypoint and walk up to the package root.
-  const entry = require.resolve("uilint-eslint"); // typically .../dist/index.js
-  const entryDir = dirname(entry); // typically .../dist
-  return dirname(entryDir); // package root
+  // Search upwards from process.cwd() (the user's project) and from this file
+  // location (for test/dev environments).
+  const fromCwd = findNodeModulesPackageRoot("uilint-eslint", process.cwd());
+  if (fromCwd) return fromCwd;
+
+  const fromHere = findNodeModulesPackageRoot("uilint-eslint", __dirname);
+  if (fromHere) return fromHere;
+
+  // Last resort: try resolver-based lookup.
+  try {
+    const entry = require.resolve("uilint-eslint"); // typically .../dist/index.js
+    const entryDir = dirname(entry); // typically .../dist
+    return dirname(entryDir); // package root
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(
+      `Unable to locate uilint-eslint in node_modules (searched upwards from cwd and uilint's install path).\n` +
+        `Resolver error: ${msg}\n` +
+        `Fix: ensure uilint-eslint is installed in the target project (or workspace) and try again.`
+    );
+  }
 }
 
 /**
@@ -188,7 +221,10 @@ export function loadRule(
 
     if (!existsSync(implPath)) {
       throw new Error(
-        `Rule "${ruleId}" not found at ${implPath}. Make sure uilint-eslint has been built.`
+        `Rule "${ruleId}" not found at ${implPath}. ` +
+          `For JavaScript-only projects, uilint-eslint must be built to include compiled rule files in dist/rules/. ` +
+          `If you're developing uilint-eslint, run 'pnpm build' in packages/uilint-eslint. ` +
+          `If you're using a published package, ensure it includes the dist/ directory.`
       );
     }
 
