@@ -134,8 +134,11 @@ export async function installUI(
         const { createPlan } = await import("./install/plan.js");
         const plan = createPlan(project, choices, { force: options.force });
 
-        // Execute the plan
-        const result = await execute(plan, executeOptions);
+        // Execute the plan with projectPath for prettier formatting
+        const result = await execute(plan, {
+          ...executeOptions,
+          projectPath: project.projectPath,
+        });
 
         // Display results
         if (result.success) {

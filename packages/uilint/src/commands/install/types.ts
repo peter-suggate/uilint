@@ -288,4 +288,8 @@ export interface ExecuteOptions {
   ) => Promise<void>;
   /** Suppress spinner/logging output */
   quiet?: boolean;
+  /** Project path for prettier formatting (optional) */
+  projectPath?: string;
+  /** Skip prettier formatting (default: false) */
+  skipPrettier?: boolean;
 }

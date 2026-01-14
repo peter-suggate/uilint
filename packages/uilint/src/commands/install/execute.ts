@@ -34,6 +34,7 @@ import { installReactUILintOverlay } from "../../utils/react-inject.js";
 import { installJsxLocPlugin } from "../../utils/next-config-inject.js";
 import { installViteJsxLocPlugin } from "../../utils/vite-config-inject.js";
 import { installNextUILintRoutes } from "../../utils/next-routes.js";
+import { formatFilesWithPrettier } from "../../utils/prettier.js";
 
 /**
  * Execute a single action and return the result
@@ -449,6 +450,84 @@ function buildSummary(
 }
 
 /**
+ * Collect files that should be formatted with prettier
+ * Includes source files (.ts, .tsx, .js, .jsx, .mjs, .cjs) but excludes markdown
+ */
+function collectFormattableFiles(actionsPerformed: ActionResult[]): string[] {
+  const formattableExtensions = new Set([
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".json",
+  ]);
+
+  const files: string[] = [];
+
+  for (const result of actionsPerformed) {
+    if (!result.success) continue;
+    const { action } = result;
+
+    let filePath: string | undefined;
+
+    switch (action.type) {
+      case "create_file":
+        filePath = action.path;
+        break;
+      case "merge_json":
+        filePath = action.path;
+        break;
+      case "append_to_file":
+        filePath = action.path;
+        break;
+      case "inject_eslint":
+        filePath = action.configPath;
+        break;
+      case "inject_next_config":
+      case "inject_vite_config":
+      case "inject_react":
+        // These modify files but we don't have the exact path here
+        // The injection utilities handle their own files
+        break;
+    }
+
+    if (filePath) {
+      const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
+      if (formattableExtensions.has(ext)) {
+        files.push(filePath);
+      }
+    }
+  }
+
+  return files;
+}
+
+/**
+ * Extract project path from actions
+ */
+function getProjectPathFromActions(
+  actionsPerformed: ActionResult[]
+): string | undefined {
+  for (const result of actionsPerformed) {
+    if (!result.success) continue;
+    const { action } = result;
+
+    switch (action.type) {
+      case "inject_eslint":
+        return action.packagePath;
+      case "inject_react":
+      case "inject_next_config":
+      case "inject_vite_config":
+      case "install_next_routes":
+        return action.projectPath;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Execute an install plan
  *
  * @param plan - The install plan to execute
@@ -459,8 +538,12 @@ export async function execute(
   plan: InstallPlan,
   options: ExecuteOptions = {}
 ): Promise<InstallResult> {
-  const { dryRun = false, installDependencies = defaultInstallDependencies } =
-    options;
+  const {
+    dryRun = false,
+    installDependencies = defaultInstallDependencies,
+    projectPath,
+    skipPrettier = false,
+  } = options;
 
   const actionsPerformed: ActionResult[] = [];
   const dependencyResults: DependencyResult[] = [];
@@ -498,6 +581,27 @@ export async function execute(
         success: false,
         error: error instanceof Error ? error.message : String(error),
       });
+    }
+  }
+
+  // Format modified files with prettier (if available)
+  if (!dryRun && !skipPrettier) {
+    const filesToFormat = collectFormattableFiles(actionsPerformed);
+    if (filesToFormat.length > 0) {
+      // Determine project path from options or from first dependency/action
+      const formatProjectPath =
+        projectPath ||
+        plan.dependencies[0]?.packagePath ||
+        getProjectPathFromActions(actionsPerformed);
+
+      if (formatProjectPath) {
+        // Run prettier silently - don't fail install if formatting fails
+        await formatFilesWithPrettier(filesToFormat, formatProjectPath).catch(
+          () => {
+            // Ignore formatting errors
+          }
+        );
+      }
     }
   }
 
