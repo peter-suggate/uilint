@@ -213,7 +213,7 @@ describe("Next.js installation - dry run", () => {
 // ============================================================================
 
 describe("Next.js installation - execute", () => {
-  it("injects UILintProvider into app layout and wraps next.config export", async () => {
+  it("injects uilint-devtools into app layout and wraps next.config export", async () => {
     fixture = useFixture("fresh-nextjs-app");
 
     const state = await analyze(fixture.path);
@@ -229,11 +229,8 @@ describe("Next.js installation - execute", () => {
     expect(result.success).toBe(true);
 
     const updatedLayout = fixture.readFile("app/layout.tsx");
-    expect(updatedLayout).toContain('from "uilint-react"');
-    expect(updatedLayout).toContain("<UILintProvider");
-    expect(updatedLayout).toContain(
-      'enabled={process.env.NODE_ENV !== "production"}'
-    );
+    expect(updatedLayout).toContain('import "uilint-react/devtools"');
+    expect(updatedLayout).toContain("<uilint-devtools");
 
     const updatedNextConfig = fixture.readFile("next.config.ts");
     expect(updatedNextConfig).toContain('from "jsx-loc-plugin"');

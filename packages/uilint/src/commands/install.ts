@@ -66,7 +66,7 @@ function displayResults(result: InstallResult): void {
       )}`
     );
     installedItems.push(
-      `${pc.cyan("Next Overlay")} → ${pc.dim("<UILintProvider> injected")}`
+      `${pc.cyan("Next Devtools")} → ${pc.dim("<uilint-devtools /> injected")}`
     );
     installedItems.push(
       `${pc.cyan("JSX Loc Plugin")} → ${pc.dim(
@@ -78,7 +78,7 @@ function displayResults(result: InstallResult): void {
   // Vite
   if (summary.viteApp) {
     installedItems.push(
-      `${pc.cyan("Vite Overlay")} → ${pc.dim("<UILintProvider> injected")}`
+      `${pc.cyan("Vite Devtools")} → ${pc.dim("<uilint-devtools /> injected")}`
     );
     installedItems.push(
       `${pc.cyan("JSX Loc Plugin")} → ${pc.dim(

@@ -81,7 +81,7 @@ describe("Vite overlay planning", () => {
 // ============================================================================
 
 describe("Vite installation - execute", () => {
-  it("injects UILintProvider into Vite entry and adds jsxLoc() to vite.config", async () => {
+  it("injects uilint-devtools into Vite entry and adds jsxLoc() to vite.config", async () => {
     fixture = useFixture("fresh-vite-react-app");
 
     const state = await analyze(fixture.path);
@@ -96,9 +96,8 @@ describe("Vite installation - execute", () => {
     expect(result.success).toBe(true);
 
     const updatedMain = fixture.readFile("src/main.tsx");
-    expect(updatedMain).toContain('from "uilint-react"');
-    expect(updatedMain).toContain("<UILintProvider");
-    expect(updatedMain).toContain('enabled={process.env.NODE_ENV !== "production"}');
+    expect(updatedMain).toContain('import "uilint-react/devtools"');
+    expect(updatedMain).toContain("<uilint-devtools");
 
     const updatedViteConfig = fixture.readFile("vite.config.ts");
     expect(updatedViteConfig).toContain('from "jsx-loc-plugin/vite"');

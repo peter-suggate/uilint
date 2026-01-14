@@ -92,12 +92,12 @@ export const cliPrompter: Prompter = {
         {
           value: "next",
           label: "UI overlay",
-          hint: "Installs routes + UILintProvider (Alt+Click to inspect)",
+          hint: "Installs routes + devtools (Alt+Click to inspect)",
         },
         {
           value: "vite",
           label: "UI overlay (Vite)",
-          hint: "Installs jsx-loc-plugin + UILintProvider (Alt+Click to inspect)",
+          hint: "Installs jsx-loc-plugin + devtools (Alt+Click to inspect)",
         },
         {
           value: "genstyleguide",

@@ -146,75 +146,85 @@ function ensureNamedImport(
   return { changed: true };
 }
 
-function hasUILintProviderJsx(program: any): boolean {
+function hasUILintDevtoolsJsx(program: any): boolean {
   let found = false;
   walkAst(program, (node) => {
     if (found) return;
     if (node.type !== "JSXElement") return;
     const name = node.openingElement?.name;
-    if (name?.type === "JSXIdentifier" && name.name === "UILintProvider") {
-      found = true;
+    // Check for both old UILintProvider and new uilint-devtools
+    if (name?.type === "JSXIdentifier") {
+      if (name.name === "UILintProvider" || name.name === "uilint-devtools") {
+        found = true;
+      }
     }
   });
   return found;
 }
 
-function wrapFirstChildrenExpressionWithProvider(program: any): {
+/**
+ * Add <uilint-devtools /> element as a sibling to {children} in Next.js layouts.
+ * This injects the devtools web component without wrapping the children.
+ */
+function addDevtoolsElementNextJs(program: any): {
   changed: boolean;
 } {
   if (!program || program.type !== "Program") return { changed: false };
-  if (hasUILintProviderJsx(program)) return { changed: false };
+  if (hasUILintDevtoolsJsx(program)) return { changed: false };
 
-  const providerMod = parseModule(
-    'const __uilint_provider = (<UILintProvider enabled={process.env.NODE_ENV !== "production"}>{children}</UILintProvider>);'
+  // Create the devtools JSX element: <uilint-devtools />
+  const devtoolsMod = parseModule(
+    'const __uilint_devtools = (<uilint-devtools />);'
   );
-  const providerJsx =
-    (providerMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
-  if (!providerJsx || providerJsx.type !== "JSXElement")
+  const devtoolsJsx =
+    (devtoolsMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
+  if (!devtoolsJsx || devtoolsJsx.type !== "JSXElement")
     return { changed: false };
 
-  let replaced = false;
+  // Find the return statement that contains {children} and add devtools as sibling
+  let added = false;
   walkAst(program, (node) => {
-    if (replaced) return;
-    if (
-      node.type === "JSXExpressionContainer" &&
-      node.expression?.type === "Identifier" &&
-      node.expression.name === "children"
-    ) {
-      // Replace `{children}` with `<UILintProvider ...>{children}</UILintProvider>`
-      // by replacing the expression container node with the provider JSX element.
-      Object.keys(node).forEach((k) => delete (node as any)[k]);
-      Object.assign(node, providerJsx);
-      replaced = true;
-    }
+    if (added) return;
+
+    // Look for JSX elements that contain {children}
+    if (node.type !== "JSXElement" && node.type !== "JSXFragment") return;
+
+    const children = node.children ?? [];
+    const childrenIndex = children.findIndex(
+      (child: any) =>
+        child?.type === "JSXExpressionContainer" &&
+        child.expression?.type === "Identifier" &&
+        child.expression.name === "children"
+    );
+
+    if (childrenIndex === -1) return;
+
+    // Add devtools element after {children}
+    children.splice(childrenIndex + 1, 0, devtoolsJsx);
+    added = true;
   });
 
-  if (!replaced) {
-    throw new Error("Could not find `{children}` in target file to wrap.");
+  if (!added) {
+    throw new Error("Could not find `{children}` in target file to add devtools.");
   }
   return { changed: true };
 }
 
-function wrapFirstRenderCallArgumentWithProvider(program: any): {
+/**
+ * Add <uilint-devtools /> element to Vite's render call.
+ * Wraps the existing render argument in a fragment with the devtools element.
+ */
+function addDevtoolsElementVite(program: any): {
   changed: boolean;
 } {
   if (!program || program.type !== "Program") return { changed: false };
-  if (hasUILintProviderJsx(program)) return { changed: false };
+  if (hasUILintDevtoolsJsx(program)) return { changed: false };
 
-  const providerMod = parseModule(
-    'const __uilint_provider = (<UILintProvider enabled={process.env.NODE_ENV !== "production"}></UILintProvider>);'
-  );
-  const providerJsx =
-    (providerMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
-  if (!providerJsx || providerJsx.type !== "JSXElement")
-    return { changed: false };
-
-  // Ensure it can accept children.
-  providerJsx.children = providerJsx.children ?? [];
-
-  let wrapped = false;
+  // Create a fragment containing the original content + devtools:
+  // <>...original...<uilint-devtools /></>
+  let added = false;
   walkAst(program, (node) => {
-    if (wrapped) return;
+    if (added) return;
     if (node.type !== "CallExpression") return;
     const callee = node.callee;
     // Match: something.render(<JSX />)
@@ -230,17 +240,70 @@ function wrapFirstRenderCallArgumentWithProvider(program: any): {
     if (!arg0) return;
     if (arg0.type !== "JSXElement" && arg0.type !== "JSXFragment") return;
 
-    // Wrap the JSX render root with provider.
-    providerJsx.children = [arg0];
-    node.arguments[0] = providerJsx;
-    wrapped = true;
+    // Create the devtools JSX element
+    const devtoolsMod = parseModule(
+      'const __uilint_devtools = (<uilint-devtools />);'
+    );
+    const devtoolsJsx =
+      (devtoolsMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
+    if (!devtoolsJsx) return;
+
+    // Create a fragment wrapping original + devtools
+    const fragmentMod = parseModule(
+      'const __fragment = (<></>);'
+    );
+    const fragmentJsx =
+      (fragmentMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
+    if (!fragmentJsx) return;
+
+    // Add original content and devtools as children of the fragment
+    fragmentJsx.children = [arg0, devtoolsJsx];
+    node.arguments[0] = fragmentJsx;
+    added = true;
   });
 
-  if (!wrapped) {
+  if (!added) {
     throw new Error(
-      'Could not find a `.render(<...>)` call to wrap. Expected a React entry like `createRoot(...).render(<App />)`.'
+      'Could not find a `.render(<...>)` call to add devtools. Expected a React entry like `createRoot(...).render(<App />)`.'
     );
   }
+  return { changed: true };
+}
+
+/**
+ * Ensure a side-effect import exists in the program.
+ * e.g., import "uilint-react/devtools";
+ */
+function ensureSideEffectImport(
+  program: any,
+  from: string
+): { changed: boolean } {
+  if (!program || program.type !== "Program") return { changed: false };
+
+  // Check if import already exists
+  const existing = findImportDeclaration(program, from);
+  if (existing) return { changed: false };
+
+  // Create a side-effect import
+  const importDecl = (
+    parseModule(`import "${from}";`).$ast as any
+  ).body?.[0];
+  if (!importDecl) return { changed: false };
+
+  const body = program.body ?? [];
+  let insertAt = 0;
+  // Skip "use client" directive
+  while (insertAt < body.length && isUseClientDirective(body[insertAt])) {
+    insertAt++;
+  }
+  // Skip over existing imports
+  while (
+    insertAt < body.length &&
+    body[insertAt]?.type === "ImportDeclaration"
+  ) {
+    insertAt++;
+  }
+  program.body.splice(insertAt, 0, importDecl);
   return { changed: true };
 }
 
@@ -281,24 +344,25 @@ export async function installReactUILintOverlay(
   }
 
   const program = mod.$ast;
+
+  // Check if already configured (either old UILintProvider or new devtools approach)
+  const hasDevtoolsImport = !!findImportDeclaration(program, "uilint-react/devtools");
+  const hasOldImport = !!findImportDeclaration(program, "uilint-react");
   const alreadyConfigured =
-    !!findImportDeclaration(program, "uilint-react") &&
-    hasUILintProviderJsx(program);
+    (hasDevtoolsImport || hasOldImport) && hasUILintDevtoolsJsx(program);
 
   let changed = false;
-  const importRes = ensureNamedImport(
-    program,
-    "uilint-react",
-    "UILintProvider"
-  );
+
+  // Add side-effect import for the devtools web component
+  const importRes = ensureSideEffectImport(program, "uilint-react/devtools");
   if (importRes.changed) changed = true;
 
   const mode = opts.mode ?? "next";
-  const wrapRes =
+  const addRes =
     mode === "vite"
-      ? wrapFirstRenderCallArgumentWithProvider(program)
-      : wrapFirstChildrenExpressionWithProvider(program);
-  if (wrapRes.changed) changed = true;
+      ? addDevtoolsElementVite(program)
+      : addDevtoolsElementNextJs(program);
+  if (addRes.changed) changed = true;
 
   const updated = changed ? generateCode(mod).code : original;
 

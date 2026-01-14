@@ -235,7 +235,7 @@ async function executeInjectReact(
     return {
       action,
       success: true,
-      wouldDo: `Inject UILintProvider into React app: ${action.projectPath}`,
+      wouldDo: `Inject <uilint-devtools /> into React app: ${action.projectPath}`,
     };
   }
 

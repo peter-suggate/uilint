@@ -177,7 +177,7 @@ export function createPlan(
       packages: ["uilint-react", "uilint-core", "jsx-loc-plugin"],
     });
 
-    // Inject UILintProvider into React
+    // Inject <uilint-devtools /> web component into React
     actions.push({
       type: "inject_react",
       projectPath,
@@ -204,7 +204,7 @@ export function createPlan(
       packages: ["uilint-react", "uilint-core", "jsx-loc-plugin"],
     });
 
-    // Inject UILintProvider into React entry
+    // Inject <uilint-devtools /> web component into React entry
     actions.push({
       type: "inject_react",
       projectPath,
