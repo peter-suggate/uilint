@@ -5,9 +5,6 @@
  * Use Alt+Click on any element to open the inspector sidebar.
  */
 
-// Main provider and context
-export { UILintProvider, useUILintContext } from "./UILintProvider";
-
 // Zustand store for direct access
 export { useUILintStore } from "./store";
 export type { UILintStore } from "./store";
@@ -51,8 +48,6 @@ export type {
   ScannedElement,
   SourceFile,
   UILintSettings,
-  UILintContextValue,
-  UILintProviderProps,
   SourceApiResponse,
   CachedSource,
   LocatorTarget,

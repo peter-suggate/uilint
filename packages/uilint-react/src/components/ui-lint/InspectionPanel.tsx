@@ -15,7 +15,6 @@ import React, {
   useRef,
 } from "react";
 import { createPortal } from "react-dom";
-import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import { getUILintPortalHost } from "./portal-host";
 import { fetchSourceWithWindow } from "./source-fetcher";
@@ -49,12 +48,16 @@ const POPOVER_MAX_HEIGHT = 450;
  * Main Inspection Panel Component - Floating Popover
  */
 export function InspectionPanel() {
-  const {
-    inspectedElement,
-    setInspectedElement,
-    elementIssuesCache,
-    autoScanState,
-  } = useUILintContext();
+  const inspectedElement = useUILintStore(
+    (s: UILintStore) => s.inspectedElement
+  );
+  const setInspectedElement = useUILintStore(
+    (s: UILintStore) => s.setInspectedElement
+  );
+  const elementIssuesCache = useUILintStore(
+    (s: UILintStore) => s.elementIssuesCache
+  );
+  const autoScanState = useUILintStore((s: UILintStore) => s.autoScanState);
   const fileIssuesCache = useUILintStore((s: UILintStore) => s.fileIssuesCache);
   const appRoot = useUILintStore((s: UILintStore) => s.appRoot);
   const workspaceRoot = useUILintStore((s: UILintStore) => s.workspaceRoot);

@@ -65,7 +65,7 @@ export function ScreenshotViewer({ show, onClose }: ScreenshotViewerProps) {
     : [];
 
   const handleDownload = useCallback(() => {
-    if (!selectedScreenshot || !currentRoute) return;
+    if (!selectedScreenshot || !currentRoute || !selectedScreenshot.dataUrl) return;
 
     const link = document.createElement("a");
     link.download = `uilint-screenshot-${currentRoute.replace(/\//g, "-")}-${

@@ -21,8 +21,15 @@ import type {
   ScannedElement,
   SourceFile,
   ESLintIssue,
+  AutoScanSettings,
+  ScreenshotCapture,
+  ScreenshotListResponse,
 } from "./types";
-import { DEFAULT_SETTINGS, DEFAULT_AUTO_SCAN_STATE } from "./types";
+import {
+  DEFAULT_SETTINGS,
+  DEFAULT_AUTO_SCAN_STATE,
+  DEFAULT_AUTO_SCAN_SETTINGS,
+} from "./types";
 import { scanDOMForSources, groupBySourceFile } from "./dom-utils";
 import type {
   VisionIssue,
@@ -132,6 +139,17 @@ export interface UILintStore {
   settings: UILintSettings;
   updateSettings: (partial: Partial<UILintSettings>) => void;
 
+  // ============ Auto-Scan Settings ============
+  /** Auto-scan settings (persisted to localStorage) */
+  autoScanSettings: AutoScanSettings;
+  /** Update auto-scan settings (persists to localStorage) */
+  updateAutoScanSettings: (
+    partial: Partial<{
+      eslint: Partial<AutoScanSettings["eslint"]>;
+      vision: Partial<AutoScanSettings["vision"]>;
+    }>
+  ) => void;
+
   // ============ Locator Mode ============
   altKeyHeld: boolean;
   setAltKeyHeld: (held: boolean) => void;
@@ -223,8 +241,10 @@ export interface UILintStore {
   visionResult: VisionAnalysisResult | null;
   /** Vision issues cache by route */
   visionIssuesCache: Map<string, VisionIssue[]>;
-  /** Screenshot history (route -> data URL) */
-  screenshotHistory: Map<string, { dataUrl: string; timestamp: number }>;
+  /** Screenshot gallery - captures with unique IDs, supports both full-page and region */
+  screenshotHistory: Map<string, ScreenshotCapture>;
+  /** Currently selected screenshot ID for gallery display */
+  selectedScreenshotId: string | null;
   /** Current route being analyzed or last analyzed */
   visionCurrentRoute: string | null;
   /** Highlighted vision issue element ID (for click-to-highlight) */
@@ -276,6 +296,12 @@ export interface UILintStore {
   setSelectedRegion: (
     region: { x: number; y: number; width: number; height: number } | null
   ) => void;
+  /** Set selected screenshot ID for gallery display */
+  setSelectedScreenshotId: (id: string | null) => void;
+  /** Whether persisted screenshots are being loaded */
+  loadingPersistedScreenshots: boolean;
+  /** Fetch persisted screenshots from disk (via API) */
+  fetchPersistedScreenshots: () => Promise<void>;
 
   // ============ Internal ============
   _setScanState: (state: Partial<AutoScanState>) => void;
@@ -405,6 +431,42 @@ function distributeIssuesToElements(
 /** Default WebSocket URL */
 const DEFAULT_WS_URL = "ws://localhost:9234";
 
+/** localStorage key for auto-scan settings */
+const AUTO_SCAN_SETTINGS_KEY = "uilint:autoScanSettings";
+
+/**
+ * Load auto-scan settings from localStorage
+ */
+function loadAutoScanSettings(): AutoScanSettings {
+  if (typeof window === "undefined") return DEFAULT_AUTO_SCAN_SETTINGS;
+  try {
+    const stored = localStorage.getItem(AUTO_SCAN_SETTINGS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Merge with defaults to handle missing keys from older versions
+      return {
+        eslint: { ...DEFAULT_AUTO_SCAN_SETTINGS.eslint, ...parsed.eslint },
+        vision: { ...DEFAULT_AUTO_SCAN_SETTINGS.vision, ...parsed.vision },
+      };
+    }
+  } catch (e) {
+    console.warn("[UILint] Failed to load auto-scan settings:", e);
+  }
+  return DEFAULT_AUTO_SCAN_SETTINGS;
+}
+
+/**
+ * Save auto-scan settings to localStorage
+ */
+function saveAutoScanSettings(settings: AutoScanSettings): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(AUTO_SCAN_SETTINGS_KEY, JSON.stringify(settings));
+  } catch (e) {
+    console.warn("[UILint] Failed to save auto-scan settings:", e);
+  }
+}
+
 /** Max reconnect attempts before giving up */
 const MAX_RECONNECT_ATTEMPTS = 5;
 
@@ -494,6 +556,18 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     set((state) => ({
       settings: { ...state.settings, ...partial },
     })),
+
+  // ============ Auto-Scan Settings ============
+  autoScanSettings: loadAutoScanSettings(),
+  updateAutoScanSettings: (partial) =>
+    set((state) => {
+      const newSettings: AutoScanSettings = {
+        eslint: { ...state.autoScanSettings.eslint, ...partial.eslint },
+        vision: { ...state.autoScanSettings.vision, ...partial.vision },
+      };
+      saveAutoScanSettings(newSettings);
+      return { autoScanSettings: newSettings };
+    }),
 
   // ============ Locator Mode ============
   altKeyHeld: false,
@@ -954,6 +1028,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   visionResult: null,
   visionIssuesCache: new Map(),
   screenshotHistory: new Map(),
+  selectedScreenshotId: null,
   visionCurrentRoute: null,
   highlightedVisionElementId: null,
   hoveredVisionIssue: null,
@@ -1043,15 +1118,23 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
 
       set({ visionProgressPhase: `Sending ${manifest.length} elements...` });
 
-      // Store screenshot
+      // Store screenshot in gallery with unique ID based on filename for persistence tracking
+      const captureId = `capture_${filename.replace(/\.[^.]+$/, "")}`;
+      const captureTimestamp = Date.now();
       if (screenshotDataUrl) {
+        const capture: ScreenshotCapture = {
+          id: captureId,
+          route,
+          dataUrl: screenshotDataUrl,
+          filename, // Store filename for persistence tracking
+          timestamp: captureTimestamp,
+          type: captureMode === "region" && selectedRegion ? "region" : "full",
+          region: captureMode === "region" && selectedRegion ? selectedRegion : undefined,
+        };
         set((state) => {
           const next = new Map(state.screenshotHistory);
-          next.set(route, {
-            dataUrl: screenshotDataUrl,
-            timestamp: Date.now(),
-          });
-          return { screenshotHistory: next };
+          next.set(captureId, capture);
+          return { screenshotHistory: next, selectedScreenshotId: captureId };
         });
       }
 
@@ -1092,10 +1175,18 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
         }
       );
 
-      // Store result
+      // Store result - issues go on the capture AND in cache (for badge display)
       set((state) => {
-        const next = new Map(state.visionIssuesCache);
-        next.set(route, result.issues);
+        const issuesCache = new Map(state.visionIssuesCache);
+        issuesCache.set(route, result.issues);
+
+        // Also store issues on the capture itself
+        const screenshots = new Map(state.screenshotHistory);
+        const capture = screenshots.get(captureId);
+        if (capture) {
+          screenshots.set(captureId, { ...capture, issues: result.issues });
+        }
+
         const lastError = result.error
           ? ({
               stage: "vision",
@@ -1106,10 +1197,14 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
           : null;
         return {
           visionResult: result,
-          visionIssuesCache: next,
+          visionIssuesCache: issuesCache,
+          screenshotHistory: screenshots,
           visionAnalyzing: false,
           visionProgressPhase: null,
           visionLastError: lastError,
+          // Reset capture mode after analysis completes
+          captureMode: "full" as const,
+          selectedRegion: null,
         };
       });
 
@@ -1154,6 +1249,9 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
           analysisTime: 0,
           error: msg,
         },
+        // Reset capture mode after error
+        captureMode: "full",
+        selectedRegion: null,
       });
     }
   },
@@ -1172,11 +1270,125 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   setCaptureMode: (mode) => set({ captureMode: mode }),
   setRegionSelectionActive: (active) => set({ regionSelectionActive: active }),
   setSelectedRegion: (region) => set({ selectedRegion: region }),
+  setSelectedScreenshotId: (id) => {
+    // When selecting a screenshot, sync its issues to visionIssuesCache for badge display
+    set((state) => {
+      if (!id) {
+        return { selectedScreenshotId: null };
+      }
+
+      const capture = state.screenshotHistory.get(id);
+      if (!capture) {
+        return { selectedScreenshotId: id };
+      }
+
+      // If the capture has issues, update the cache for the route
+      if (capture.issues && capture.issues.length > 0) {
+        const issuesCache = new Map(state.visionIssuesCache);
+        issuesCache.set(capture.route, capture.issues);
+        return {
+          selectedScreenshotId: id,
+          visionIssuesCache: issuesCache,
+        };
+      }
+
+      return { selectedScreenshotId: id };
+    });
+  },
+  loadingPersistedScreenshots: false,
+
+  fetchPersistedScreenshots: async () => {
+    // Avoid duplicate fetches
+    if (get().loadingPersistedScreenshots) return;
+
+    set({ loadingPersistedScreenshots: true });
+
+    try {
+      const response = await fetch("/api/.uilint/screenshots?list=true");
+      if (!response.ok) {
+        console.warn("[UILint] Failed to fetch screenshots:", response.statusText);
+        return;
+      }
+
+      const data: ScreenshotListResponse = await response.json();
+      const { screenshots } = data;
+
+      if (!screenshots || screenshots.length === 0) {
+        return;
+      }
+
+      // Convert persisted screenshots to ScreenshotCapture format
+      const persistedCaptures: ScreenshotCapture[] = [];
+
+      for (const item of screenshots) {
+        const { filename, metadata } = item;
+
+        // Use consistent ID format: capture_{filename_without_extension}
+        // This matches the ID format used when capturing new screenshots
+        const id = `capture_${filename.replace(/\.[^.]+$/, "")}`;
+
+        // Extract route from metadata
+        const route = metadata?.route || metadata?.analysisResult?.route || "/";
+
+        // Extract timestamp
+        const timestamp = metadata?.timestamp || Date.now();
+
+        // Extract issues for this capture (issues live on the capture now)
+        const issues = metadata?.issues || metadata?.analysisResult?.issues || [];
+
+        // Create the capture entry with issues
+        const capture: ScreenshotCapture = {
+          id,
+          route,
+          filename,
+          timestamp,
+          type: "full", // Default to full for persisted screenshots
+          persisted: true,
+          issues: issues.length > 0 ? issues : undefined,
+        };
+
+        persistedCaptures.push(capture);
+      }
+
+      // Sync with store: merge persisted screenshots with in-memory captures
+      // In-memory captures with dataUrl take precedence (they're fresher)
+      set((state) => {
+        const newHistory = new Map(state.screenshotHistory);
+        const newVisionCache = new Map(state.visionIssuesCache);
+
+        for (const capture of persistedCaptures) {
+          const existing = newHistory.get(capture.id);
+
+          // If we already have this capture in memory with a dataUrl, keep it
+          // Otherwise, use the persisted version (which will load from API)
+          if (!existing || !existing.dataUrl) {
+            newHistory.set(capture.id, capture);
+          }
+
+          // Also sync issues to cache if this capture has issues and cache doesn't have them for this route
+          if (capture.issues && capture.issues.length > 0 && !newVisionCache.has(capture.route)) {
+            newVisionCache.set(capture.route, capture.issues);
+          }
+        }
+
+        return {
+          screenshotHistory: newHistory,
+          visionIssuesCache: newVisionCache,
+        };
+      });
+    } catch (error) {
+      console.warn("[UILint] Error fetching persisted screenshots:", error);
+    } finally {
+      set({ loadingPersistedScreenshots: false });
+    }
+  },
 
   clearVisionResults: () =>
     set({
       visionResult: null,
       visionIssuesCache: new Map(),
+      screenshotHistory: new Map(),
+      selectedScreenshotId: null,
       visionAnalyzing: false,
       visionProgressPhase: null,
       highlightedVisionElementId: null,

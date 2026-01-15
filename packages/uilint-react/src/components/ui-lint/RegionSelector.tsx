@@ -31,7 +31,7 @@ interface RegionSelectorProps {
 const TOKENS = {
   overlayBg: "rgba(0, 0, 0, 0.5)", // Keep neutral overlay
   selectionBorder: "var(--uilint-accent)",
-  selectionBg: "var(--uilint-accent)", // Will have opacity applied
+  selectionBg: "transparent", // Transparent to see underlying content
   textBg: "var(--uilint-backdrop)",
   textColor: "var(--uilint-text-primary)",
   fontFamily: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,

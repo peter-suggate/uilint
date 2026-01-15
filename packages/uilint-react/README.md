@@ -4,7 +4,7 @@ React component for AI-powered UI consistency checking in running applications.
 
 ## Overview
 
-`uilint-react` provides the `UILintProvider` component that enables element inspection and LLM-powered code analysis in your React/Next.js application.
+`uilint-react` provides the `<uilint-devtools>` web component that enables element inspection and LLM-powered code analysis in your React/Next.js application.
 
 ## Installation
 
@@ -20,25 +20,40 @@ npx uilint install
 
 ## Usage in a Running App
 
-Wrap your app with the `UILintProvider` component:
+Add the devtools web component to your app:
 
 ### Next.js Setup
 
 ```tsx
 // app/layout.tsx
-import { UILintProvider } from "uilint-react";
+import "uilint-react/devtools";
 
 export default function RootLayout({ children }) {
   return (
     <html>
       <body>
-        <UILintProvider enabled={process.env.NODE_ENV !== "production"}>
-          {children}
-        </UILintProvider>
+        {children}
+        <uilint-devtools />
       </body>
     </html>
   );
 }
+```
+
+### Vite Setup
+
+```tsx
+// src/main.tsx
+import "uilint-react/devtools";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+
+createRoot(document.getElementById("root")!).render(
+  <>
+    <App />
+    <uilint-devtools />
+  </>
+);
 ```
 
 ### Features
@@ -50,11 +65,13 @@ export default function RootLayout({ children }) {
 - **Scan with LLM** - analyze the component for style issues
 - **Copy fix prompt** - paste into Cursor agent for automatic fixes
 
-### Props
+### Web Component Attributes
 
-| Prop      | Type      | Default | Description           |
-| --------- | --------- | ------- | --------------------- |
-| `enabled` | `boolean` | `true`  | Enable/disable UILint |
+| Attribute  | Type      | Default         | Description                           |
+| ---------- | --------- | --------------- | ------------------------------------- |
+| `enabled`  | `string`  | `"true"`        | Enable/disable UILint ("true"/"false")|
+| `position` | `string`  | `"bottom-left"` | Toolbar position                      |
+| `theme`    | `string`  | `"system"`      | Theme ("light", "dark", "system")     |
 
 ### API Routes
 
@@ -103,30 +120,17 @@ test("custom adapter usage", async () => {
 
 ## API
 
-### UILintProvider
+### Zustand Store (Direct Access)
+
+For advanced use cases, you can access the UILint state directly via the Zustand store:
 
 ```tsx
-interface UILintProviderProps {
-  enabled?: boolean;
-  children: React.ReactNode;
-}
+import { useUILintStore } from "uilint-react";
 
-function UILintProvider(props: UILintProviderProps): JSX.Element;
-```
-
-### useUILintContext
-
-```tsx
-function useUILintContext(): UILintContextValue;
-
-interface UILintContextValue {
-  settings: UILintSettings;
-  updateSettings: (settings: Partial<UILintSettings>) => void;
-  altKeyHeld: boolean;
-  locatorTarget: LocatorTarget | null;
-  inspectedElement: InspectedElement | null;
-  setInspectedElement: (element: InspectedElement | null) => void;
-  // ... additional context values
+function MyComponent() {
+  const settings = useUILintStore((s) => s.settings);
+  const inspectedElement = useUILintStore((s) => s.inspectedElement);
+  // ... use store state
 }
 ```
 

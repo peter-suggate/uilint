@@ -88,9 +88,18 @@ const DynamicToolbarExpandable = React.memo<DynamicToolbarExpandableProps>(
     const menuContainerRef = useRef<any>(null);
     const ref = useRef<HTMLDivElement>(null);
     const [maxWidth, setMaxWidth] = useState(0);
+    // Track if we've completed the open animation - after that, use auto height
+    const [hasOpenAnimationCompleted, setHasOpenAnimationCompleted] = useState(false);
 
     const heightContent = contentBounds.height;
     const widthContainer = menuBounds.width;
+
+    // Reset animation state when closing
+    useEffect(() => {
+      if (!isOpen) {
+        setHasOpenAnimationCompleted(false);
+      }
+    }, [isOpen]);
 
     const handleClickOutside = useCallback(() => {
       setIsOpen(false);
@@ -180,8 +189,8 @@ const DynamicToolbarExpandable = React.memo<DynamicToolbarExpandableProps>(
       if (!step) return null;
 
       return (
-        <div className="space-y-4 pb-3">
-          <div className="space-y-2">
+        <div className="flex flex-col h-full max-h-full min-h-0">
+          <div className="flex-shrink-0 space-y-2 pb-3">
             <h3 className="text-lg font-medium text-zinc-950 dark:text-zinc-50">
               {step.title}
             </h3>
@@ -189,7 +198,9 @@ const DynamicToolbarExpandable = React.memo<DynamicToolbarExpandableProps>(
               {step.description}
             </p>
           </div>
-          {step.content}
+          <div className="flex-1 min-h-0 flex flex-col">
+            {step.content}
+          </div>
         </div>
       );
     }, [active, steps]);
@@ -242,13 +253,19 @@ const DynamicToolbarExpandable = React.memo<DynamicToolbarExpandableProps>(
                     <motion.div
                       key="expanded-content"
                       initial={{ height: 0 }}
-                      animate={{ height: heightContent || 0 }}
+                      animate={{ height: hasOpenAnimationCompleted ? "auto" : (heightContent || 0) }}
                       exit={{ height: 0 }}
-                      className=""
+                      onAnimationComplete={() => {
+                        if (isOpen) setHasOpenAnimationCompleted(true);
+                      }}
+                      className="flex flex-col"
                     >
-                      <div ref={contentRef} className="px-2 sm:px-2">
-                        <div className="pb-1">
-                          <div className="shadow-[0px_1px_1px_0px_rgba(0,0,0,0.05),0px_1px_1px_0px_rgba(255,252,240,0.5)_inset,0px_0px_0px_1px_hsla(0,0%,100%,0.1)_inset,0px_0px_1px_0px_rgba(28,27,26,0.5)] dark:shadow-[0px_1px_1px_0px_rgba(0,0,0,0.2),0px_1px_1px_0px_rgba(255,255,255,0.05)_inset,0px_0px_0px_1px_hsla(0,0%,100%,0.05)_inset,0px_0px_1px_0px_rgba(0,0,0,0.8)] bg-zinc-100/50 rounded-[0.8rem] px-3 py-4 mt-3 mb-2 dark:bg-zinc-800/50">
+                      <div ref={contentRef} className="flex flex-col min-h-0 px-2 sm:px-2">
+                        <div className="flex flex-col min-h-0 pb-1">
+                          <div
+                            className="flex flex-col min-h-0 shadow-[0px_1px_1px_0px_rgba(0,0,0,0.05),0px_1px_1px_0px_rgba(255,252,240,0.5)_inset,0px_0px_0px_1px_hsla(0,0%,100%,0.1)_inset,0px_0px_1px_0px_rgba(28,27,26,0.5)] dark:shadow-[0px_1px_1px_0px_rgba(0,0,0,0.2),0px_1px_1px_0px_rgba(255,255,255,0.05)_inset,0px_0px_0px_1px_hsla(0,0%,100%,0.05)_inset,0px_0px_1px_0px_rgba(0,0,0,0.8)] bg-zinc-100/50 rounded-[0.8rem] px-3 py-4 mt-3 mb-2 dark:bg-zinc-800/50"
+                            style={{ maxHeight: "calc(80vh - 100px)" }}
+                          >
                             {renderContent()}
                           </div>
                         </div>

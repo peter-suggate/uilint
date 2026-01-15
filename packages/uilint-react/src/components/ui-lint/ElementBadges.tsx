@@ -9,7 +9,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import type { ScannedElement, ElementIssue, InspectedElement } from "./types";
 import { getUILintPortalHost } from "./portal-host";
@@ -157,8 +156,13 @@ function BadgeAnimationStyles() {
  * Main ElementBadges component
  */
 export function ElementBadges() {
-  const { autoScanState, elementIssuesCache, setInspectedElement } =
-    useUILintContext();
+  const autoScanState = useUILintStore((s: UILintStore) => s.autoScanState);
+  const elementIssuesCache = useUILintStore(
+    (s: UILintStore) => s.elementIssuesCache
+  );
+  const setInspectedElement = useUILintStore(
+    (s: UILintStore) => s.setInspectedElement
+  );
   const [mounted, setMounted] = useState(false);
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   const [badgePositions, setBadgePositions] = useState<BadgePosition[]>([]);
