@@ -14,6 +14,12 @@ import preferZustandStateManagement from "./rules/prefer-zustand-state-managemen
 import noMixedComponentLibraries from "./rules/no-mixed-component-libraries.js";
 import semantic from "./rules/semantic.js";
 import semanticVision from "./rules/semantic-vision.js";
+import enforceAbsoluteImports from "./rules/enforce-absolute-imports.js";
+import noAnyInProps from "./rules/no-any-in-props.js";
+import zustandUseSelectors from "./rules/zustand-use-selectors.js";
+import noPropDrillingDepth from "./rules/no-prop-drilling-depth.js";
+import noSecretsInCode from "./rules/no-secrets-in-code.js";
+import requireInputValidation from "./rules/require-input-validation.js";
 
 /**
  * All available rules
@@ -27,6 +33,12 @@ const rules = {
   "no-mixed-component-libraries": noMixedComponentLibraries,
   "semantic": semantic,
   "semantic-vision": semanticVision,
+  "enforce-absolute-imports": enforceAbsoluteImports,
+  "no-any-in-props": noAnyInProps,
+  "zustand-use-selectors": zustandUseSelectors,
+  "no-prop-drilling-depth": noPropDrillingDepth,
+  "no-secrets-in-code": noSecretsInCode,
+  "require-input-validation": requireInputValidation,
 };
 
 // Package version (injected at build time or fallback)
@@ -121,6 +133,63 @@ const recommendedConfig: Linter.Config = {
           ]
         }
       ]],
+    "uilint/enforce-absolute-imports": ["warn", ...[
+        {
+          "maxRelativeDepth": 1,
+          "aliasPrefix": "@/"
+        }
+      ]],
+    "uilint/no-any-in-props": ["error", ...[
+        {
+          "checkFCGenerics": true,
+          "allowInGenericDefaults": false
+        }
+      ]],
+    "uilint/zustand-use-selectors": ["warn", ...[
+        {
+          "storePattern": "^use\\w*Store$",
+          "allowShallow": true,
+          "requireNamedSelectors": false
+        }
+      ]],
+    "uilint/no-prop-drilling-depth": ["warn", ...[
+        {
+          "maxDepth": 2,
+          "ignoredProps": [
+            "className",
+            "style",
+            "children",
+            "key",
+            "ref",
+            "id"
+          ],
+          "ignoreComponents": []
+        }
+      ]],
+    "uilint/no-secrets-in-code": ["error", ...[
+        {
+          "checkVariableNames": true,
+          "minSecretLength": 16,
+          "allowInTestFiles": false
+        }
+      ]],
+    "uilint/require-input-validation": ["warn", ...[
+        {
+          "httpMethods": [
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "routePatterns": [
+            "route.ts",
+            "route.tsx",
+            "/api/",
+            "/app/api/"
+          ],
+          "allowManualValidation": false
+        }
+      ]],
   },
 };
 
@@ -196,6 +265,63 @@ const strictConfig: Linter.Config = {
         {
           "maxAgeMs": 3600000,
           "screenshotsPath": ".uilint/screenshots"
+        }
+      ]],
+    "uilint/enforce-absolute-imports": ["warn", ...[
+        {
+          "maxRelativeDepth": 1,
+          "aliasPrefix": "@/"
+        }
+      ]],
+    "uilint/no-any-in-props": ["error", ...[
+        {
+          "checkFCGenerics": true,
+          "allowInGenericDefaults": false
+        }
+      ]],
+    "uilint/zustand-use-selectors": ["warn", ...[
+        {
+          "storePattern": "^use\\w*Store$",
+          "allowShallow": true,
+          "requireNamedSelectors": false
+        }
+      ]],
+    "uilint/no-prop-drilling-depth": ["warn", ...[
+        {
+          "maxDepth": 2,
+          "ignoredProps": [
+            "className",
+            "style",
+            "children",
+            "key",
+            "ref",
+            "id"
+          ],
+          "ignoreComponents": []
+        }
+      ]],
+    "uilint/no-secrets-in-code": ["error", ...[
+        {
+          "checkVariableNames": true,
+          "minSecretLength": 16,
+          "allowInTestFiles": false
+        }
+      ]],
+    "uilint/require-input-validation": ["warn", ...[
+        {
+          "httpMethods": [
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "routePatterns": [
+            "route.ts",
+            "route.tsx",
+            "/api/",
+            "/app/api/"
+          ],
+          "allowManualValidation": false
         }
       ]],
   },

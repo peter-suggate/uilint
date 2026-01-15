@@ -26,6 +26,14 @@ import { meta as noMixedComponentLibraries } from "./rules/no-mixed-component-li
 import { meta as semantic } from "./rules/semantic.js";
 import { meta as semanticVision } from "./rules/semantic-vision.js";
 
+// New rules
+import { meta as enforceAbsoluteImports } from "./rules/enforce-absolute-imports.js";
+import { meta as noAnyInProps } from "./rules/no-any-in-props.js";
+import { meta as zustandUseSelectors } from "./rules/zustand-use-selectors.js";
+import { meta as noSecretsInCode } from "./rules/no-secrets-in-code.js";
+import { meta as requireInputValidation } from "./rules/require-input-validation.js";
+import { meta as noPropDrillingDepth } from "./rules/no-prop-drilling-depth.js";
+
 import type { RuleMeta } from "./utils/create-rule.js";
 
 /**
@@ -38,6 +46,7 @@ import type { RuleMeta } from "./utils/create-rule.js";
  * 4. Run `pnpm generate:index` to regenerate exports
  */
 export const ruleRegistry: RuleMeta[] = [
+  // Existing rules
   noArbitraryTailwind,
   consistentSpacing,
   consistentDarkMode,
@@ -46,6 +55,14 @@ export const ruleRegistry: RuleMeta[] = [
   noMixedComponentLibraries,
   semantic,
   semanticVision,
+  // New UI rules
+  enforceAbsoluteImports,
+  noAnyInProps,
+  zustandUseSelectors,
+  noPropDrillingDepth,
+  // New security rules
+  noSecretsInCode,
+  requireInputValidation,
 ];
 
 /**
