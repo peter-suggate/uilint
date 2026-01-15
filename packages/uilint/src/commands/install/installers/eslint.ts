@@ -1,24 +1,73 @@
 /**
  * ESLint installer - UILint ESLint plugin configuration
+ *
+ * Provides interactive rule selection and severity configuration during install.
  */
 
 import { join } from "path";
-import { ruleRegistry } from "uilint-eslint";
-import type { Installer, InstallTarget, InstallerConfig, ProgressEvent } from "./types.js";
-import type { ProjectState, InstallAction, DependencyInstall, EslintPackageInfo } from "../types.js";
-import type { RuleMetadata } from "uilint-eslint";
-import { createRequire } from "module";
-
-const require = createRequire(import.meta.url);
+import { ruleRegistry, getRulesByCategory, getRuleDocs } from "uilint-eslint";
+import type {
+  Installer,
+  InstallTarget,
+  InstallerConfig,
+  ProgressEvent,
+} from "./types.js";
+import type {
+  ProjectState,
+  InstallAction,
+  DependencyInstall,
+} from "../types.js";
+import type { RuleMeta } from "uilint-eslint";
+import * as prompts from "../../../utils/prompts.js";
 
 function toInstallSpecifier(pkgName: string): string {
-  // Simplified - just return package name for now
   return pkgName;
 }
 
+/**
+ * Configured rule with user-selected severity
+ */
+export interface ConfiguredRule {
+  /** Rule metadata */
+  rule: RuleMeta;
+  /** User-selected severity */
+  severity: "error" | "warn" | "off";
+  /** Custom options (if user configured them) */
+  options?: unknown[];
+}
+
 export interface ESLintInstallerConfig extends InstallerConfig {
-  /** Selected rules to install */
-  selectedRules: RuleMetadata[];
+  /** Selected rules with their configurations */
+  configuredRules: ConfiguredRule[];
+}
+
+/**
+ * Format rule for display in multiselect
+ */
+function formatRuleOption(rule: RuleMeta): {
+  value: string;
+  label: string;
+  hint: string;
+} {
+  const severityBadge =
+    rule.defaultSeverity === "error"
+      ? prompts.pc.red("error")
+      : prompts.pc.yellow("warn");
+  return {
+    value: rule.id,
+    label: `${rule.name}`,
+    hint: `${rule.description} [${severityBadge}]`,
+  };
+}
+
+/**
+ * Display rule documentation in a nice format
+ */
+function showRuleDoc(rule: RuleMeta): void {
+  prompts.note(
+    rule.docs.trim().slice(0, 500) + (rule.docs.length > 500 ? "..." : ""),
+    `📖 ${rule.name}`
+  );
 }
 
 export const eslintInstaller: Installer = {
@@ -28,7 +77,6 @@ export const eslintInstaller: Installer = {
   icon: "🔍",
 
   isApplicable(project: ProjectState): boolean {
-    // Applicable if there's at least one package with ESLint config
     return project.packages.some((pkg) => pkg.eslintConfigPath !== null);
   },
 
@@ -48,13 +96,147 @@ export const eslintInstaller: Installer = {
     targets: InstallTarget[],
     project: ProjectState
   ): Promise<ESLintInstallerConfig> {
-    // For now, just select all rules by default
-    // TODO: Add interactive rule selection via @clack/prompts
-    const selectedRules = ruleRegistry;
+    const staticRules = getRulesByCategory("static");
+    const semanticRules = getRulesByCategory("semantic");
 
-    return {
-      selectedRules,
-    };
+    // Step 1: Ask about installation mode
+    const installMode = await prompts.select({
+      message: "How would you like to configure UILint ESLint rules?",
+      options: [
+        {
+          value: "recommended",
+          label: "Recommended (static rules only)",
+          hint: "Best for most projects - fast and reliable",
+        },
+        {
+          value: "strict",
+          label: "Strict (all rules including semantic)",
+          hint: "Includes LLM-powered analysis - requires Ollama",
+        },
+        {
+          value: "custom",
+          label: "Custom selection",
+          hint: "Choose individual rules and configure severity",
+        },
+      ],
+    });
+
+    let selectedRuleIds: string[];
+    let configuredRules: ConfiguredRule[];
+
+    if (installMode === "recommended") {
+      // Use all static rules with default severity
+      configuredRules = staticRules.map((rule) => ({
+        rule,
+        severity: rule.defaultSeverity as "error" | "warn",
+        options: rule.defaultOptions,
+      }));
+    } else if (installMode === "strict") {
+      // Use all rules with default severity
+      configuredRules = ruleRegistry.map((rule) => ({
+        rule,
+        severity: rule.defaultSeverity as "error" | "warn",
+        options: rule.defaultOptions,
+      }));
+    } else {
+      // Custom selection flow
+      prompts.log(prompts.pc.dim("\n📋 Static rules (pattern-based, fast):"));
+
+      // Select static rules
+      const selectedStaticIds = await prompts.multiselect({
+        message: "Select static rules to enable:",
+        options: staticRules.map(formatRuleOption),
+        initialValues: staticRules.map((r) => r.id),
+      });
+
+      // Ask about semantic rules
+      const includeSemanticRules = await prompts.confirm({
+        message: `Include semantic rules? ${prompts.pc.dim(
+          "(requires Ollama for LLM analysis)"
+        )}`,
+        initialValue: false,
+      });
+
+      let selectedSemanticIds: string[] = [];
+      if (includeSemanticRules) {
+        prompts.log(
+          prompts.pc.dim("\n🧠 Semantic rules (LLM-powered, slower):")
+        );
+        selectedSemanticIds = await prompts.multiselect({
+          message: "Select semantic rules:",
+          options: semanticRules.map(formatRuleOption),
+          initialValues: semanticRules.map((r) => r.id),
+        });
+      }
+
+      selectedRuleIds = [...selectedStaticIds, ...selectedSemanticIds];
+
+      // Step 2: Configure severity for each selected rule
+      const configureSeverity = await prompts.confirm({
+        message: "Would you like to customize severity levels?",
+        initialValue: false,
+      });
+
+      configuredRules = [];
+
+      for (const ruleId of selectedRuleIds) {
+        const rule = ruleRegistry.find((r) => r.id === ruleId)!;
+
+        if (configureSeverity) {
+          const severity = await prompts.select({
+            message: `${rule.name} - severity:`,
+            options: [
+              {
+                value: rule.defaultSeverity,
+                label: `${rule.defaultSeverity} (default)`,
+              },
+              ...(rule.defaultSeverity !== "error"
+                ? [{ value: "error" as const, label: "error" }]
+                : []),
+              ...(rule.defaultSeverity !== "warn"
+                ? [{ value: "warn" as const, label: "warn" }]
+                : []),
+            ],
+            initialValue: rule.defaultSeverity,
+          });
+
+          configuredRules.push({
+            rule,
+            severity: severity as "error" | "warn",
+            options: rule.defaultOptions,
+          });
+        } else {
+          configuredRules.push({
+            rule,
+            severity: rule.defaultSeverity as "error" | "warn",
+            options: rule.defaultOptions,
+          });
+        }
+      }
+    }
+
+    // Summary
+    const errorCount = configuredRules.filter(
+      (r) => r.severity === "error"
+    ).length;
+    const warnCount = configuredRules.filter(
+      (r) => r.severity === "warn"
+    ).length;
+
+    prompts.log("");
+    prompts.note(
+      configuredRules
+        .map(
+          (cr) =>
+            `${cr.severity === "error" ? "🔴" : "🟡"} ${cr.rule.name} (${
+              cr.severity
+            })`
+        )
+        .join("\n"),
+      `Selected ${configuredRules.length} rules (${errorCount} errors, ${warnCount} warnings)`
+    );
+
+    return { configuredRules };
   },
 
   plan(
@@ -68,7 +250,14 @@ export const eslintInstaller: Installer = {
     const actions: InstallAction[] = [];
     const dependencies: DependencyInstall[] = [];
     const eslintConfig = config as ESLintInstallerConfig;
-    const { selectedRules } = eslintConfig;
+    const { configuredRules } = eslintConfig;
+
+    // Convert configuredRules to the format expected by inject_eslint
+    const rulesWithSeverity = configuredRules.map((cr) => ({
+      ...cr.rule,
+      defaultSeverity: cr.severity,
+      defaultOptions: cr.options,
+    }));
 
     for (const target of targets) {
       const pkgInfo = project.packages.find((p) => p.path === target.path);
@@ -93,7 +282,7 @@ export const eslintInstaller: Installer = {
         type: "inject_eslint",
         packagePath: target.path,
         configPath: pkgInfo.eslintConfigPath,
-        rules: selectedRules,
+        rules: rulesWithSeverity,
         hasExistingRules: pkgInfo.hasUilintRules,
       });
     }
@@ -131,7 +320,7 @@ export const eslintInstaller: Installer = {
 
       yield {
         type: "progress",
-        message: `Injecting ${eslintConfig.selectedRules.length} rules`,
+        message: `Injecting ${eslintConfig.configuredRules.length} rules`,
         detail: `→ ${target.hint}`,
       };
     }

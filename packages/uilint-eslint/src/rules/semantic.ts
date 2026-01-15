@@ -8,7 +8,7 @@
 import { existsSync, readFileSync } from "fs";
 import { spawnSync } from "child_process";
 import { dirname, join, relative } from "path";
-import { createRule } from "../utils/create-rule.js";
+import { createRule, defineRuleMeta } from "../utils/create-rule.js";
 import {
   getCacheEntry,
   hashContentSync,
@@ -26,6 +26,96 @@ type Options = [
     styleguidePath?: string;
   }
 ];
+
+/**
+ * Rule metadata - colocated with implementation for maintainability
+ */
+export const meta = defineRuleMeta({
+  id: "semantic",
+  name: "Semantic Analysis",
+  description: "LLM-powered semantic UI analysis using your styleguide",
+  defaultSeverity: "warn",
+  category: "semantic",
+  requiresStyleguide: true,
+  defaultOptions: [{ model: "qwen3-coder:30b", styleguidePath: ".uilint/styleguide.md" }],
+  optionSchema: {
+    fields: [
+      {
+        key: "model",
+        label: "Ollama model to use",
+        type: "text",
+        defaultValue: "qwen3-coder:30b",
+        placeholder: "qwen3-coder:30b",
+        description: "The Ollama model name for semantic analysis",
+      },
+      {
+        key: "styleguidePath",
+        label: "Path to styleguide file",
+        type: "text",
+        defaultValue: ".uilint/styleguide.md",
+        placeholder: ".uilint/styleguide.md",
+        description: "Relative path to the styleguide markdown file",
+      },
+    ],
+  },
+  docs: `
+## What it does
+
+Uses a local LLM (via Ollama) to analyze your React components against your project's
+styleguide. It catches semantic issues that pattern-based rules can't detect, like:
+- Using incorrect spacing that doesn't match your design system conventions
+- Inconsistent button styles across similar contexts
+- Missing accessibility patterns defined in your styleguide
+
+## Why it's useful
+
+- **Custom rules**: Enforces your project's unique conventions without writing custom ESLint rules
+- **Context-aware**: Understands component intent, not just syntax
+- **Evolving standards**: Update your styleguide, and the rule adapts automatically
+- **Local & private**: Runs entirely on your machine using Ollama
+
+## Prerequisites
+
+1. **Ollama installed**: \`brew install ollama\` or from ollama.ai
+2. **Model pulled**: \`ollama pull qwen3-coder:30b\` (or your preferred model)
+3. **Styleguide created**: Create \`.uilint/styleguide.md\` describing your conventions
+
+## Example Styleguide
+
+\`\`\`markdown
+# UI Style Guide
+
+## Spacing
+- Use gap-4 for spacing between card elements
+- Use py-2 px-4 for button padding
+
+## Colors
+- Primary actions: bg-primary text-primary-foreground
+- Destructive actions: bg-destructive text-destructive-foreground
+
+## Components
+- All forms must include a Cancel button
+- Modal headers should use text-lg font-semibold
+\`\`\`
+
+## Configuration
+
+\`\`\`js
+// eslint.config.js
+"uilint/semantic": ["warn", {
+  model: "qwen3-coder:30b",           // Ollama model name
+  styleguidePath: ".uilint/styleguide.md"  // Path to styleguide
+}]
+\`\`\`
+
+## Notes
+
+- Results are cached based on file content and styleguide hash
+- First run may be slow as the model loads; subsequent runs use cache
+- Works best with detailed, specific styleguide documentation
+- Set to "off" in CI to avoid slow builds (use pre-commit hooks locally)
+`,
+});
 
 export default createRule<Options, MessageIds>({
   name: "semantic",

@@ -13,7 +13,7 @@
 
 import { existsSync, readdirSync, readFileSync } from "fs";
 import { dirname, join, relative } from "path";
-import { createRule } from "../utils/create-rule.js";
+import { createRule, defineRuleMeta } from "../utils/create-rule.js";
 
 type MessageIds = "visionIssue" | "analysisStale";
 
@@ -25,6 +25,83 @@ type Options = [
     screenshotsPath?: string;
   }
 ];
+
+/**
+ * Rule metadata - colocated with implementation for maintainability
+ */
+export const meta = defineRuleMeta({
+  id: "semantic-vision",
+  name: "Vision Analysis",
+  description: "Report cached vision analysis results from UILint browser overlay",
+  defaultSeverity: "warn",
+  category: "semantic",
+  requiresStyleguide: false,
+  defaultOptions: [{ maxAgeMs: 3600000, screenshotsPath: ".uilint/screenshots" }],
+  optionSchema: {
+    fields: [
+      {
+        key: "maxAgeMs",
+        label: "Max cache age (milliseconds)",
+        type: "number",
+        defaultValue: 3600000,
+        placeholder: "3600000",
+        description: "Maximum age of cached results in milliseconds (default: 1 hour)",
+      },
+      {
+        key: "screenshotsPath",
+        label: "Screenshots directory path",
+        type: "text",
+        defaultValue: ".uilint/screenshots",
+        placeholder: ".uilint/screenshots",
+        description: "Relative path to the screenshots directory containing analysis results",
+      },
+    ],
+  },
+  docs: `
+## What it does
+
+Reports UI issues found by the UILint browser overlay's vision analysis. The overlay
+captures screenshots and analyzes them using vision AI, then caches the results.
+This ESLint rule reads those cached results and reports them as linting errors.
+
+## How it works
+
+1. **Browser overlay**: When running your dev server with the UILint overlay, it captures
+   screenshots and analyzes them using vision AI
+2. **Results cached**: Analysis results are saved to \`.uilint/screenshots/*.json\`
+3. **ESLint reports**: This rule reads cached results and reports issues at the correct
+   source locations using \`data-loc\` attributes
+
+## Why it's useful
+
+- **Visual issues**: Catches problems that can only be seen in rendered UI
+- **Continuous feedback**: Issues appear in your editor as you develop
+- **No manual review**: AI spots spacing, alignment, and consistency issues automatically
+
+## Prerequisites
+
+1. **UILint overlay installed**: Add the overlay component to your app
+2. **Run analysis**: Load pages in the browser with the overlay active
+3. **Results cached**: Wait for analysis to complete and cache results
+
+## Configuration
+
+\`\`\`js
+// eslint.config.js
+"uilint/semantic-vision": ["warn", {
+  maxAgeMs: 3600000,                    // Ignore results older than 1 hour
+  screenshotsPath: ".uilint/screenshots" // Where cached results are stored
+}]
+\`\`\`
+
+## Notes
+
+- If no cached results exist, the rule passes silently
+- Results are matched to source files using \`data-loc\` attributes
+- Stale results (older than \`maxAgeMs\`) are reported as warnings
+- Run the browser overlay to refresh cached analysis
+`,
+});
 
 /**
  * Vision analysis result structure stored in JSON files

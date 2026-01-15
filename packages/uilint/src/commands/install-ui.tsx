@@ -2,9 +2,9 @@
  * Install command with new Ink-based UI
  *
  * This is the new installer flow that shows:
- * 1. Project summary (what was detected)
+ * 1. Project selection (which Next.js/Vite app to configure)
  * 2. Feature selection (what to install)
- * 3. Installation progress (granular steps)
+ * 3. ESLint rule configuration (if ESLint selected)
  * 4. Completion summary
  */
 
@@ -24,17 +24,19 @@ import type {
   InstallerSelection,
   InstallTarget,
 } from "./install/installers/types.js";
+import type { ConfiguredRule } from "./install/components/RuleSelector.js";
 import { ruleRegistry } from "uilint-eslint";
 
 // Import installers to trigger registration
 import "./install/installers/index.js";
 
 /**
- * Convert installer selections to UserChoices for the execute phase
+ * Convert installer selections and configured rules to UserChoices for the execute phase
  */
 function selectionsToUserChoices(
   selections: InstallerSelection[],
-  project: ProjectState
+  project: ProjectState,
+  eslintRules?: ConfiguredRule[]
 ): UserChoices {
   const items: InstallItem[] = [];
   const choices: UserChoices = { items };
@@ -50,10 +52,18 @@ function selectionsToUserChoices(
       items.push("skill");
     } else if (installer.id === "eslint") {
       items.push("eslint");
-      // Add ESLint choices
+      // Add ESLint choices with configured rules
       choices.eslint = {
         packagePaths: targets.map((t: InstallTarget) => t.path),
-        selectedRules: ruleRegistry,
+        // Use configured rules if provided, otherwise fall back to all rules
+        selectedRules: eslintRules
+          ? eslintRules.map((cr) => ({
+              ...cr.rule,
+              // Override severity with user's selection
+              defaultSeverity: cr.severity,
+              defaultOptions: cr.options,
+            }))
+          : ruleRegistry,
       };
     } else if (installer.id === "next") {
       items.push("next");
@@ -120,10 +130,10 @@ export async function installUI(
   const { waitUntilExit } = render(
     <InstallApp
       projectPromise={projectPromise}
-      onComplete={async (selections) => {
+      onComplete={async (selections, eslintRules) => {
         // When user completes selection, proceed with installation
         const project = await projectPromise;
-        const choices = selectionsToUserChoices(selections, project);
+        const choices = selectionsToUserChoices(selections, project, eslintRules);
 
         if (choices.items.length === 0) {
           console.log("\nNo items selected for installation");

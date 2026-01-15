@@ -5,7 +5,7 @@
  * in components and suggests using Zustand stores for better state management.
  */
 
-import { createRule } from "../utils/create-rule.js";
+import { createRule, defineRuleMeta } from "../utils/create-rule.js";
 import type { TSESTree } from "@typescript-eslint/utils";
 
 type MessageIds = "excessiveStateHooks";
@@ -21,6 +21,119 @@ type Options = [
     countUseContext?: boolean;
   }?
 ];
+
+/**
+ * Rule metadata - colocated with implementation for maintainability
+ */
+export const meta = defineRuleMeta({
+  id: "prefer-zustand-state-management",
+  name: "Prefer Zustand State Management",
+  description: "Detect excessive useState/useReducer/useContext; suggest Zustand",
+  defaultSeverity: "warn",
+  category: "static",
+  defaultOptions: [
+    {
+      maxStateHooks: 3,
+      countUseState: true,
+      countUseReducer: true,
+      countUseContext: true,
+    },
+  ],
+  optionSchema: {
+    fields: [
+      {
+        key: "maxStateHooks",
+        label: "Max state hooks before warning",
+        type: "number",
+        defaultValue: 3,
+        placeholder: "3",
+        description: "Maximum number of state hooks allowed before warning",
+      },
+      {
+        key: "countUseState",
+        label: "Count useState hooks",
+        type: "boolean",
+        defaultValue: true,
+      },
+      {
+        key: "countUseReducer",
+        label: "Count useReducer hooks",
+        type: "boolean",
+        defaultValue: true,
+      },
+      {
+        key: "countUseContext",
+        label: "Count useContext hooks",
+        type: "boolean",
+        defaultValue: true,
+      },
+    ],
+  },
+  docs: `
+## What it does
+
+Detects components that use many React state hooks (\`useState\`, \`useReducer\`, \`useContext\`)
+and suggests consolidating state into a Zustand store for better maintainability.
+
+## Why it's useful
+
+- **Simplifies components**: Fewer hooks means less cognitive overhead
+- **Centralizes state**: Related state lives together in a store
+- **Better performance**: Zustand's selector pattern prevents unnecessary re-renders
+- **Easier testing**: Store logic can be tested independently of components
+
+## Examples
+
+### ❌ Incorrect (with default maxStateHooks: 3)
+
+\`\`\`tsx
+function UserProfile() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [avatar, setAvatar] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);  // 4 hooks = warning
+  // ...
+}
+\`\`\`
+
+### ✅ Correct
+
+\`\`\`tsx
+// Using a Zustand store
+const useUserStore = create((set) => ({
+  name: '',
+  email: '',
+  avatar: null,
+  isLoading: false,
+  setName: (name) => set({ name }),
+  // ...
+}));
+
+function UserProfile() {
+  const { name, email, avatar, isLoading } = useUserStore();
+  // Much cleaner!
+}
+\`\`\`
+
+## Configuration
+
+\`\`\`js
+// eslint.config.js
+"uilint/prefer-zustand-state-management": ["warn", {
+  maxStateHooks: 3,        // Warn when exceeding this count
+  countUseState: true,     // Include useState in count
+  countUseReducer: true,   // Include useReducer in count
+  countUseContext: true    // Include useContext in count
+}]
+\`\`\`
+
+## Notes
+
+- Custom hooks (starting with \`use\` lowercase) are exempt from this rule
+- Only counts hooks at the top level of the component, not in nested functions
+- Adjust \`maxStateHooks\` based on your team's preferences
+`,
+});
 
 interface ComponentInfo {
   name: string;

@@ -10,7 +10,7 @@
  */
 
 import type { TSESTree } from "@typescript-eslint/utils";
-import { createRule } from "../utils/create-rule.js";
+import { createRule, defineRuleMeta } from "../utils/create-rule.js";
 import {
   getComponentLibrary,
   type LibraryName,
@@ -25,6 +25,91 @@ type Options = [
     libraries?: LibraryName[];
   }
 ];
+
+/**
+ * Rule metadata - colocated with implementation for maintainability
+ */
+export const meta = defineRuleMeta({
+  id: "no-mixed-component-libraries",
+  name: "No Mixed Component Libraries",
+  description: "Forbid mixing component libraries (e.g., shadcn + MUI)",
+  defaultSeverity: "error",
+  category: "static",
+  defaultOptions: [{ preferred: "shadcn", libraries: ["shadcn", "mui"] }],
+  optionSchema: {
+    fields: [
+      {
+        key: "preferred",
+        label: "Preferred component library",
+        type: "select",
+        defaultValue: "shadcn",
+        options: [
+          { value: "shadcn", label: "shadcn/ui" },
+          { value: "mui", label: "MUI (Material-UI)" },
+          { value: "chakra", label: "Chakra UI" },
+          { value: "antd", label: "Ant Design" },
+        ],
+        description: "The preferred UI library. Components from other libraries will be flagged.",
+      },
+    ],
+  },
+  docs: `
+## What it does
+
+Detects and reports when components from non-preferred UI libraries are used in your codebase.
+This includes both direct imports and transitive usage through your own components that wrap
+non-preferred libraries internally.
+
+## Why it's useful
+
+- **Consistency**: Ensures a uniform look and feel across your application
+- **Bundle size**: Prevents accidentally including multiple UI frameworks
+- **Maintenance**: Reduces the number of styling systems to maintain
+- **Migration support**: Helps identify what needs to change when migrating UI libraries
+
+## Examples
+
+### ❌ Incorrect (with preferred: "shadcn")
+
+\`\`\`tsx
+// Direct MUI usage
+import { Button } from '@mui/material';
+<Button>Click me</Button>  // Error: Component <Button> is from mui
+
+// Transitive usage through local component
+import { MyCard } from './components/MyCard';  // MyCard uses MUI internally
+<MyCard />  // Error: Component <MyCard> internally uses mui components
+\`\`\`
+
+### ✅ Correct
+
+\`\`\`tsx
+// Using the preferred library
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+
+<Button>Click me</Button>
+<Card>Content</Card>
+\`\`\`
+
+## Configuration
+
+\`\`\`js
+// eslint.config.js
+"uilint/no-mixed-component-libraries": ["error", {
+  preferred: "shadcn",  // Your preferred library
+  libraries: ["shadcn", "mui", "chakra", "antd"]  // Libraries to detect
+}]
+\`\`\`
+
+## Supported Libraries
+
+- **shadcn**: shadcn/ui components (imports from \`@/components/ui/\`)
+- **mui**: Material-UI (\`@mui/material\`, \`@mui/joy\`)
+- **chakra**: Chakra UI (\`@chakra-ui/react\`)
+- **antd**: Ant Design (\`antd\`)
+`,
+});
 
 /**
  * Information about a component usage in the file

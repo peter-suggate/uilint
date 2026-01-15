@@ -4,7 +4,7 @@
  * Enforces use of spacing scale values in gap, padding, margin utilities.
  */
 
-import { createRule } from "../utils/create-rule.js";
+import { createRule, defineRuleMeta } from "../utils/create-rule.js";
 import type { TSESTree } from "@typescript-eslint/utils";
 
 type MessageIds = "invalidSpacing";
@@ -13,6 +13,71 @@ type Options = [
     scale?: number[];
   }
 ];
+
+/**
+ * Rule metadata - colocated with implementation for maintainability
+ */
+export const meta = defineRuleMeta({
+  id: "consistent-spacing",
+  name: "Consistent Spacing",
+  description: "Enforce spacing scale (no magic numbers in gap/padding)",
+  defaultSeverity: "warn",
+  category: "static",
+  defaultOptions: [{ scale: [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16] }],
+  optionSchema: {
+    fields: [
+      {
+        key: "scale",
+        label: "Allowed spacing values",
+        type: "text",
+        defaultValue: [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16],
+        placeholder: "0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16",
+        description: "Comma-separated list of allowed spacing values",
+      },
+    ],
+  },
+  docs: `
+## What it does
+
+Ensures all spacing utilities (padding, margin, gap, etc.) use values from a defined scale.
+This prevents "magic number" spacing values that create visual inconsistency.
+
+## Why it's useful
+
+- **Visual rhythm**: Consistent spacing creates a professional, cohesive feel
+- **Design system compliance**: Enforces your spacing tokens
+- **Easier maintenance**: Spacing changes can be made systematically
+
+## Examples
+
+### ❌ Incorrect
+
+\`\`\`tsx
+<div className="p-7">         // 7 isn't in the default scale
+<div className="gap-13">      // 13 isn't in the default scale
+<div className="mt-9">        // 9 isn't in the default scale
+\`\`\`
+
+### ✅ Correct
+
+\`\`\`tsx
+<div className="p-8">         // 8 is in the scale
+<div className="gap-12">      // 12 is in the scale
+<div className="mt-10">       // 10 is in the scale
+\`\`\`
+
+## Configuration
+
+\`\`\`js
+// eslint.config.js
+"uilint/consistent-spacing": ["warn", {
+  scale: [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24]
+}]
+\`\`\`
+
+The default scale is Tailwind's standard spacing values. Customize it to match your design system.
+`,
+});
 
 // Default Tailwind spacing scale
 const DEFAULT_SCALE = [

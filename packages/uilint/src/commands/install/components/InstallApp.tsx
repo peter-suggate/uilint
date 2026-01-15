@@ -1,38 +1,44 @@
 /**
  * InstallApp - Main Ink React component for the installer UI
  *
- * A beautiful configuration dashboard that shows:
- * - All available features grouped by category
- * - Current installation status
- * - Interactive toggle selection
- * - Progress during installation
+ * Three-phase installation flow:
+ * 1. Select a project (Next.js app, Vite app, etc.)
+ * 2. Select features to install
+ * 3. Configure ESLint rules (if ESLint selected)
  */
 
 import React, { useState, useEffect } from "react";
-import { Box, Text, useApp } from "ink";
+import { Box, Text, useApp, useInput } from "ink";
 import { Spinner } from "./Spinner.js";
+import { ProjectSelector, getDetectedProjects, type DetectedProject } from "./ProjectSelector.js";
 import { ConfigSelector, type ConfigItem } from "./MultiSelect.js";
-import { ProgressList, progressEventsToTasks } from "./ProgressList.js";
+import { RuleSelector, type ConfiguredRule } from "./RuleSelector.js";
 import type { ProjectState } from "../types.js";
-import type { InstallerSelection, ProgressEvent } from "../installers/types.js";
+import type { InstallerSelection } from "../installers/types.js";
 import { getAllInstallers } from "../installers/registry.js";
 
-type AppState = "scanning" | "configuring" | "executing" | "complete" | "error";
+type AppPhase =
+  | "scanning"
+  | "select-project"
+  | "configure-features"
+  | "configure-eslint"
+  | "error";
 
 export interface InstallAppProps {
   /** Project scan promise (resolves to ProjectState) */
   projectPromise: Promise<ProjectState>;
   /** Callback when installation is complete */
-  onComplete: (selections: InstallerSelection[]) => void;
+  onComplete: (selections: InstallerSelection[], eslintRules?: ConfiguredRule[]) => void;
   /** Callback when error occurs */
   onError?: (error: Error) => void;
 }
 
 /**
- * Convert installer selections to ConfigItems for the dashboard
+ * Build config items for a specific project
  */
-function buildConfigItems(
+function buildConfigItemsForProject(
   project: ProjectState,
+  selectedProject: DetectedProject,
   selections: InstallerSelection[]
 ): ConfigItem[] {
   const items: ConfigItem[] = [];
@@ -40,25 +46,77 @@ function buildConfigItems(
   for (const selection of selections) {
     const { installer, targets } = selection;
 
-    // Map installer IDs to categories
-    const categoryMap: Record<string, { name: string; icon: string }> = {
-      genstyleguide: { name: "Commands", icon: "📝" },
-      skill: { name: "Agent Skills", icon: "⚡" },
-      next: { name: "UI Overlay", icon: "🔷" },
-      vite: { name: "UI Overlay", icon: "⚡" },
-      eslint: { name: "ESLint Plugin", icon: "🔍" },
+    // Filter targets to those relevant to the selected project
+    const relevantTargets = targets.filter((target) => {
+      // For overlay installers, match by path
+      if (installer.id === "next" || installer.id === "vite") {
+        return target.path === selectedProject.path;
+      }
+      // For ESLint, match by package path
+      if (installer.id === "eslint") {
+        return target.path === selectedProject.path;
+      }
+      // Global features (genstyleguide, skill) always included
+      return true;
+    });
+
+    if (relevantTargets.length === 0) continue;
+
+    // Map installer IDs to display info
+    const displayInfo: Record<string, { category: string; icon: string }> = {
+      next: { category: "UI Analysis", icon: "🔍" },
+      vite: { category: "UI Analysis", icon: "🔍" },
+      eslint: { category: "ESLint Rules", icon: "📋" },
+      genstyleguide: { category: "Cursor Integration", icon: "📝" },
+      skill: { category: "Cursor Integration", icon: "⚡" },
     };
 
-    const category = categoryMap[installer.id] || { name: "Other", icon: "•" };
+    const info = displayInfo[installer.id] || { category: "Other", icon: "•" };
+
+    for (const target of relevantTargets) {
+      items.push({
+        id: `${installer.id}:${target.id}`,
+        label: installer.name,
+        hint: target.hint,
+        status: target.isInstalled ? "installed" : "not_installed",
+        category: info.category,
+        categoryIcon: info.icon,
+      });
+    }
+  }
+
+  return items;
+}
+
+/**
+ * Build config items for global features only (no project-specific items)
+ */
+function buildGlobalConfigItems(selections: InstallerSelection[]): ConfigItem[] {
+  const items: ConfigItem[] = [];
+
+  for (const selection of selections) {
+    const { installer, targets } = selection;
+
+    // Only include global installers
+    if (installer.id !== "genstyleguide" && installer.id !== "skill") {
+      continue;
+    }
+
+    const displayInfo: Record<string, { category: string; icon: string }> = {
+      genstyleguide: { category: "Cursor Integration", icon: "📝" },
+      skill: { category: "Cursor Integration", icon: "⚡" },
+    };
+
+    const info = displayInfo[installer.id] || { category: "Other", icon: "•" };
 
     for (const target of targets) {
       items.push({
         id: `${installer.id}:${target.id}`,
-        label: target.label,
+        label: installer.name,
         hint: target.hint,
         status: target.isInstalled ? "installed" : "not_installed",
-        category: category.name,
-        categoryIcon: category.icon,
+        category: info.category,
+        categoryIcon: info.icon,
       });
     }
   }
@@ -82,33 +140,54 @@ function Header({ subtitle }: { subtitle?: string }): React.ReactElement {
 }
 
 /**
- * Project context bar showing detected environment
+ * Feature configuration with back support
  */
-function ProjectContext({ project }: { project: ProjectState }): React.ReactElement {
-  const parts: string[] = [];
-
-  // Package manager
-  parts.push(project.packageManager);
-
-  // Framework detection
-  if (project.nextApps.length > 0) {
-    parts.push(`${project.nextApps.length} Next.js app${project.nextApps.length > 1 ? "s" : ""}`);
-  }
-  if (project.viteApps.length > 0) {
-    parts.push(`${project.viteApps.length} Vite app${project.viteApps.length > 1 ? "s" : ""}`);
-  }
-
-  // ESLint configs
-  const eslintCount = project.packages.filter((p) => p.eslintConfigPath).length;
-  if (eslintCount > 0) {
-    parts.push(`${eslintCount} ESLint config${eslintCount > 1 ? "s" : ""}`);
-  }
+function FeatureConfig({
+  selectedProject,
+  configItems,
+  canGoBack,
+  onSubmit,
+  onBack,
+  onCancel,
+}: {
+  selectedProject: DetectedProject | null;
+  configItems: ConfigItem[];
+  canGoBack: boolean;
+  onSubmit: (selectedIds: string[]) => void;
+  onBack: () => void;
+  onCancel: () => void;
+}): React.ReactElement {
+  useInput((input, key) => {
+    if ((input === "b" || key.leftArrow) && canGoBack) {
+      onBack();
+    }
+  });
 
   return (
-    <Box marginBottom={1}>
-      <Text dimColor>
-        Detected: {parts.join(" · ")}
-      </Text>
+    <Box flexDirection="column">
+      {/* Show selected project context */}
+      {selectedProject && (
+        <Box marginBottom={1}>
+          <Text dimColor>Project: </Text>
+          <Text bold color="cyan">{selectedProject.name}</Text>
+          <Text dimColor> ({selectedProject.hint})</Text>
+        </Box>
+      )}
+
+      <ConfigSelector
+        items={configItems}
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+      />
+
+      {/* Back hint if multiple projects */}
+      {canGoBack && (
+        <Box marginTop={1}>
+          <Text dimColor>
+            Press <Text color="cyan">b</Text> or <Text color="cyan">←</Text> to select a different project
+          </Text>
+        </Box>
+      )}
     </Box>
   );
 }
@@ -119,20 +198,29 @@ export function InstallApp({
   onError,
 }: InstallAppProps): React.ReactElement {
   const { exit } = useApp();
-  const [state, setState] = useState<AppState>("scanning");
+  const [phase, setPhase] = useState<AppPhase>("scanning");
   const [project, setProject] = useState<ProjectState | null>(null);
+  const [detectedProjects, setDetectedProjects] = useState<DetectedProject[]>([]);
+  const [selectedProject, setSelectedProject] = useState<DetectedProject | null>(null);
   const [selections, setSelections] = useState<InstallerSelection[]>([]);
   const [configItems, setConfigItems] = useState<ConfigItem[]>([]);
-  const [progressEvents] = useState<ProgressEvent[]>([]);
+  const [selectedFeatureIds, setSelectedFeatureIds] = useState<string[]>([]);
   const [error, setError] = useState<Error | null>(null);
 
-  // Phase 1: Scan project and build selections
+  // Check if ESLint is selected
+  const isEslintSelected = selectedFeatureIds.some((id) => id.startsWith("eslint:"));
+
+  // Phase 1: Scan project
   useEffect(() => {
-    if (state !== "scanning") return;
+    if (phase !== "scanning") return;
 
     projectPromise
       .then((proj) => {
         setProject(proj);
+
+        // Get detected projects
+        const projects = getDetectedProjects(proj);
+        setDetectedProjects(projects);
 
         // Build installer selections
         const installers = getAllInstallers();
@@ -147,26 +235,76 @@ export function InstallApp({
               selected: nonInstalledTargets.length > 0,
             };
           });
-
         setSelections(initialSelections);
 
-        // Build config items for the dashboard
-        const items = buildConfigItems(proj, initialSelections);
-        setConfigItems(items);
-
-        // Transition to configuring
-        setState("configuring");
+        // If only one project, skip project selection
+        if (projects.length === 1) {
+          const singleProject = projects[0]!;
+          setSelectedProject(singleProject);
+          const items = buildConfigItemsForProject(proj, singleProject, initialSelections);
+          setConfigItems(items);
+          setPhase("configure-features");
+        } else if (projects.length === 0) {
+          // No projects detected - go straight to global features
+          setPhase("configure-features");
+          const items = buildGlobalConfigItems(initialSelections);
+          setConfigItems(items);
+        } else {
+          setPhase("select-project");
+        }
       })
       .catch((err) => {
         setError(err as Error);
-        setState("error");
+        setPhase("error");
         onError?.(err as Error);
       });
-  }, [state, projectPromise, onError]);
+  }, [phase, projectPromise, onError]);
 
-  // Handle configuration submission
-  const handleConfigSubmit = (selectedIds: string[]) => {
-    // Convert selected IDs back to InstallerSelections
+  // Handle project selection
+  const handleProjectSelect = (selected: DetectedProject) => {
+    setSelectedProject(selected);
+    if (project) {
+      const items = buildConfigItemsForProject(project, selected, selections);
+      setConfigItems(items);
+    }
+    setPhase("configure-features");
+  };
+
+  // Handle back to project selection
+  const handleBackToProject = () => {
+    if (detectedProjects.length > 1) {
+      setSelectedProject(null);
+      setPhase("select-project");
+    }
+  };
+
+  // Handle feature selection submission
+  const handleFeatureSubmit = (selectedIds: string[]) => {
+    setSelectedFeatureIds(selectedIds);
+
+    // Check if ESLint is selected - if so, go to rule configuration
+    const eslintSelected = selectedIds.some((id) => id.startsWith("eslint:"));
+
+    if (eslintSelected) {
+      setPhase("configure-eslint");
+    } else {
+      // No ESLint, complete with current selections
+      finishInstallation(selectedIds, undefined);
+    }
+  };
+
+  // Handle ESLint rule configuration submission
+  const handleRuleSubmit = (configuredRules: ConfiguredRule[]) => {
+    finishInstallation(selectedFeatureIds, configuredRules);
+  };
+
+  // Handle back from ESLint config to feature selection
+  const handleBackToFeatures = () => {
+    setPhase("configure-features");
+  };
+
+  // Finalize installation with all selections
+  const finishInstallation = (selectedIds: string[], eslintRules?: ConfiguredRule[]) => {
     const selectedSet = new Set(selectedIds);
 
     const updatedSelections = selections.map((sel) => {
@@ -181,7 +319,7 @@ export function InstallApp({
     });
 
     setSelections(updatedSelections);
-    onComplete(updatedSelections);
+    onComplete(updatedSelections, eslintRules);
   };
 
   const handleCancel = () => {
@@ -189,7 +327,7 @@ export function InstallApp({
   };
 
   // Render: Scanning
-  if (state === "scanning") {
+  if (phase === "scanning") {
     return (
       <Box flexDirection="column">
         <Header subtitle="Install" />
@@ -202,7 +340,7 @@ export function InstallApp({
   }
 
   // Render: Error
-  if (state === "error") {
+  if (phase === "error") {
     return (
       <Box flexDirection="column">
         <Header />
@@ -214,41 +352,53 @@ export function InstallApp({
     );
   }
 
-  // Render: Configuration dashboard
-  if (state === "configuring" && project && configItems.length > 0) {
+  // Render: Project selection
+  if (phase === "select-project") {
     return (
       <Box flexDirection="column">
-        <Header subtitle="Configuration" />
-        <ProjectContext project={project} />
-        <ConfigSelector
-          items={configItems}
-          onSubmit={handleConfigSubmit}
+        <Header subtitle="Install" />
+        <ProjectSelector
+          projects={detectedProjects}
+          onSelect={handleProjectSelect}
           onCancel={handleCancel}
         />
       </Box>
     );
   }
 
-  // Render: Executing
-  if (state === "executing") {
-    const tasks = progressEventsToTasks(progressEvents);
+  // Render: Feature configuration
+  if (phase === "configure-features" && project && configItems.length > 0) {
     return (
       <Box flexDirection="column">
-        <Header subtitle="Installing" />
-        <ProgressList tasks={tasks} />
+        <Header subtitle="Features" />
+        <FeatureConfig
+          selectedProject={selectedProject}
+          configItems={configItems}
+          canGoBack={detectedProjects.length > 1}
+          onSubmit={handleFeatureSubmit}
+          onBack={handleBackToProject}
+          onCancel={handleCancel}
+        />
       </Box>
     );
   }
 
-  // Render: Complete
-  if (state === "complete") {
+  // Render: ESLint rule configuration
+  if (phase === "configure-eslint") {
     return (
       <Box flexDirection="column">
-        <Header />
-        <Box>
-          <Text color="green">✓ </Text>
-          <Text>Configuration applied successfully!</Text>
-        </Box>
+        <Header subtitle="ESLint Rules" />
+        {selectedProject && (
+          <Box marginBottom={1}>
+            <Text dimColor>Project: </Text>
+            <Text bold color="cyan">{selectedProject.name}</Text>
+          </Box>
+        )}
+        <RuleSelector
+          onSubmit={handleRuleSubmit}
+          onBack={handleBackToFeatures}
+          onCancel={handleCancel}
+        />
       </Box>
     );
   }

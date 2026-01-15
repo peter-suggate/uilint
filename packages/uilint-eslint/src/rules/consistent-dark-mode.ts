@@ -6,7 +6,7 @@
  * - Warning: When Tailwind color classes are used in a file but no dark: theming exists
  */
 
-import { createRule } from "../utils/create-rule.js";
+import { createRule, defineRuleMeta } from "../utils/create-rule.js";
 import type { TSESTree } from "@typescript-eslint/utils";
 
 type MessageIds = "inconsistentDarkMode" | "missingDarkMode";
@@ -16,6 +16,84 @@ type Options = [
     warnOnMissingDarkMode?: boolean;
   }?
 ];
+
+/**
+ * Rule metadata - colocated with implementation for maintainability
+ */
+export const meta = defineRuleMeta({
+  id: "consistent-dark-mode",
+  name: "Consistent Dark Mode",
+  description: "Ensure consistent dark: theming (error on mix, warn on missing)",
+  defaultSeverity: "error",
+  category: "static",
+  defaultOptions: [{ warnOnMissingDarkMode: true }],
+  optionSchema: {
+    fields: [
+      {
+        key: "warnOnMissingDarkMode",
+        label: "Warn when elements lack dark: variant",
+        type: "boolean",
+        defaultValue: true,
+        description: "Enable warnings for elements missing dark mode variants",
+      },
+    ],
+  },
+  docs: `
+## What it does
+
+Detects inconsistent dark mode theming in Tailwind CSS classes. Reports errors when
+some color classes in an element have \`dark:\` variants but others don't, and optionally
+warns when a file uses color classes without any dark mode theming.
+
+## Why it's useful
+
+- **Prevents broken dark mode**: Catches cases where some colors change in dark mode but others don't
+- **Encourages completeness**: Prompts you to add dark mode support where it's missing
+- **Supports semantic colors**: Automatically ignores shadcn/CSS variable colors that handle dark mode internally
+
+## Examples
+
+### ❌ Incorrect
+
+\`\`\`tsx
+// Some colors have dark variants, others don't
+<div className="bg-white dark:bg-slate-900 text-black">
+//                                          ^^^^^^^^^ missing dark: variant
+
+// Mix of themed and unthemed
+<button className="bg-blue-500 dark:bg-blue-600 border-gray-300">
+//                                               ^^^^^^^^^^^^^^^ missing dark: variant
+\`\`\`
+
+### ✅ Correct
+
+\`\`\`tsx
+// All color classes have dark variants
+<div className="bg-white dark:bg-slate-900 text-black dark:text-white">
+
+// Using semantic colors (automatically themed)
+<div className="bg-background text-foreground">
+
+// Consistent theming
+<button className="bg-blue-500 dark:bg-blue-600 border-gray-300 dark:border-gray-600">
+\`\`\`
+
+## Configuration
+
+\`\`\`js
+// eslint.config.js
+"uilint/consistent-dark-mode": ["error", {
+  warnOnMissingDarkMode: true  // Warn if file uses colors without any dark mode
+}]
+\`\`\`
+
+## Notes
+
+- Semantic colors (like shadcn's \`background\`, \`foreground\`, \`primary\`, etc.) are exempt
+- Transparent, inherit, and current values are exempt
+- Non-color utilities (like \`text-lg\`, \`border-2\`) are correctly ignored
+`,
+});
 
 // Color-related class prefixes that should have dark mode variants
 const COLOR_PREFIXES = [

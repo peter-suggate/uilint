@@ -267,7 +267,13 @@ export {
   ruleRegistry,
   getRuleMetadata,
   getRulesByCategory,
-  type RuleMetadata,
+  getRuleDocs,
+  getAllRuleIds,
+  type RuleMeta,
+  type RuleMetadata,  // Backward compatibility alias
   type OptionFieldSchema,
   type RuleOptionSchema,
 } from "./rule-registry.js";
+
+// Re-export defineRuleMeta for rule authors
+export { defineRuleMeta } from "./utils/create-rule.js";
