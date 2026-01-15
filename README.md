@@ -74,21 +74,20 @@ npx uilint --help
 
 ## Using UILint in a Running App
 
-Wrap your app with `<UILintProvider>` to enable the element inspector overlay:
+Add the `<uilint-devtools>` web component to enable the element inspector overlay:
 
 ### Setup
 
 ```tsx
 // app/layout.tsx (Next.js)
-import { UILintProvider } from "uilint-react";
+import "uilint-react/devtools";
 
 export default function RootLayout({ children }) {
   return (
     <html>
       <body>
-        <UILintProvider enabled={process.env.NODE_ENV !== "production"}>
-          {children}
-        </UILintProvider>
+        {children}
+        <uilint-devtools />
       </body>
     </html>
   );
@@ -102,11 +101,13 @@ export default function RootLayout({ children }) {
 - **Scan with LLM** to analyze the component for style issues
 - Copy the generated fix prompt and paste it into Cursor to auto-fix issues
 
-### Props
+### Web Component Attributes
 
-| Prop      | Type      | Default | Description           |
-| --------- | --------- | ------- | --------------------- |
-| `enabled` | `boolean` | `true`  | Enable/disable UILint |
+| Attribute  | Type     | Default         | Description                            |
+| ---------- | -------- | --------------- | -------------------------------------- |
+| `enabled`  | `string` | `"true"`        | Enable/disable UILint ("true"/"false") |
+| `position` | `string` | `"bottom-left"` | Toolbar position                       |
+| `theme`    | `string` | `"system"`      | Theme ("light", "dark", "system")      |
 
 ### Automatic Installation
 
@@ -120,7 +121,7 @@ This will:
 
 - Install the required dependencies (`uilint-react`, `uilint-core`)
 - Add the necessary API routes
-- Inject `<UILintProvider>` into your layout
+- Inject `<uilint-devtools>` into your layout
 
 ---
 

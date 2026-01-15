@@ -26,6 +26,7 @@
       "import": "./dist/node.js"
     },
     "./devtools": {
+      "types": "./dist/devtools-types.d.ts",
       "import": "./dist/devtools.js"
     }
   },
@@ -34,7 +35,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "vite build && vite build -c vite.devtools.config.ts",
+    "build": "vite build && vite build -c vite.devtools.config.ts && cp src/devtools-types.d.ts dist/",
     "dev": "vite build --watch",
     "test": "vitest run",
     "test:watch": "vitest --watch",

@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useCallback, useMemo } from "react";
-import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import { groupBySourceFile } from "./dom-utils";
 import { getCachedSource, fetchSource } from "./source-fetcher";
@@ -57,8 +56,7 @@ interface ScanResultsPopoverProps {
 }
 
 export function ScanResultsPopover({ onClose }: ScanResultsPopoverProps) {
-  const { autoScanState } = useUILintContext();
-
+  const autoScanState = useUILintStore((s: UILintStore) => s.autoScanState);
   const elementIssuesCache = useUILintStore(
     (s: UILintStore) => s.elementIssuesCache
   );

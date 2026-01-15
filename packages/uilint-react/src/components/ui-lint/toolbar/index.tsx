@@ -11,17 +11,15 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useUILintContext } from "../UILintProvider";
-import { useUILintStore } from "../store";
+import { useUILintStore, type UILintStore } from "../store";
 import { getUILintPortalHost } from "../portal-host";
 import { RegionSelector, type SelectedRegion } from "../RegionSelector";
 import { TabbedToolbar } from "./TabbedToolbar";
 import { TOKENS } from "./tokens";
 
 export function UILintToolbar() {
-  const { settings } = useUILintContext();
-
   // Store state
+  const settings = useUILintStore((s: UILintStore) => s.settings);
   const wsConnected = useUILintStore((s) => s.wsConnected);
   const showResults = useUILintStore((s) => s.showResultsPanel);
   const setShowResults = useUILintStore((s) => s.setShowResultsPanel);
@@ -30,6 +28,7 @@ export function UILintToolbar() {
     (s) => s.setRegionSelectionActive
   );
   const setSelectedRegion = useUILintStore((s) => s.setSelectedRegion);
+  const setCaptureMode = useUILintStore((s) => s.setCaptureMode);
   const triggerVisionAnalysis = useUILintStore((s) => s.triggerVisionAnalysis);
 
   // Local state
@@ -96,18 +95,20 @@ export function UILintToolbar() {
   const handleRegionSelected = useCallback(
     (region: SelectedRegion) => {
       setRegionSelectionActive(false);
-      // Store the selected region and trigger analysis
+      // Store the selected region, set capture mode, and trigger analysis
       setSelectedRegion(region);
+      setCaptureMode("region");
       triggerVisionAnalysis();
     },
-    [setRegionSelectionActive, setSelectedRegion, triggerVisionAnalysis]
+    [setRegionSelectionActive, setSelectedRegion, setCaptureMode, triggerVisionAnalysis]
   );
 
   const handleRegionCancel = useCallback(() => {
     setRegionSelectionActive(false);
-    // Clear any previously selected region
+    // Clear any previously selected region and reset capture mode
     setSelectedRegion(null);
-  }, [setRegionSelectionActive, setSelectedRegion]);
+    setCaptureMode("full");
+  }, [setRegionSelectionActive, setSelectedRegion, setCaptureMode]);
 
   // Prevent event propagation
   const handleUILintInteraction = useCallback(

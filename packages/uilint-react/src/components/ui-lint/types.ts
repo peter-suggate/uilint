@@ -2,6 +2,8 @@
  * Types for UILint Source Visualization
  */
 
+import type { VisionIssue } from "../../scanner/vision-capture";
+
 /**
  * Source location from data-loc attribute
  */
@@ -45,6 +47,94 @@ export interface SourceFile {
 export interface UILintSettings {
   hideNodeModules: boolean;
   autoScanEnabled: boolean;
+}
+
+/**
+ * Auto-scan settings for ESLint and Vision analysis
+ * Persisted to localStorage
+ */
+export interface AutoScanSettings {
+  eslint: {
+    /** Auto-scan when page first loads */
+    onPageLoad: boolean;
+    /** Re-scan when files change (existing behavior) */
+    onFileChange: boolean;
+  };
+  vision: {
+    /** Auto-capture and analyze on route change */
+    onRouteChange: boolean;
+    /** Auto-capture and analyze on initial page load */
+    onInitialLoad: boolean;
+  };
+}
+
+/**
+ * Default auto-scan settings
+ */
+export const DEFAULT_AUTO_SCAN_SETTINGS: AutoScanSettings = {
+  eslint: {
+    onPageLoad: false,
+    onFileChange: true,
+  },
+  vision: {
+    onRouteChange: false,
+    onInitialLoad: false,
+  },
+};
+
+/**
+ * Screenshot capture entry for the gallery
+ */
+export interface ScreenshotCapture {
+  /** Unique ID for this capture */
+  id: string;
+  /** Route where the capture was taken */
+  route: string;
+  /** Base64 data URL of the screenshot (for in-memory captures) */
+  dataUrl?: string;
+  /** Filename for persisted screenshots (used to fetch from API) */
+  filename?: string;
+  /** Unix timestamp when captured */
+  timestamp: number;
+  /** Type of capture */
+  type: "full" | "region";
+  /** Region bounds if type is 'region' */
+  region?: { x: number; y: number; width: number; height: number };
+  /** Whether this is a persisted screenshot loaded from disk */
+  persisted?: boolean;
+  /** Vision issues specific to this capture */
+  issues?: VisionIssue[];
+}
+
+/**
+ * Persisted screenshot metadata from the API
+ */
+export interface PersistedScreenshotMetadata {
+  filename: string;
+  timestamp: number;
+  screenshotFile: string;
+  route: string | null;
+  issues: VisionIssue[] | null;
+  manifest: unknown | null;
+  analysisResult: {
+    route: string;
+    timestamp: number;
+    issues: VisionIssue[];
+    analysisTime: number;
+    error?: string;
+  } | null;
+}
+
+/**
+ * API response for listing screenshots
+ */
+export interface ScreenshotListResponse {
+  screenshots: Array<{
+    filename: string;
+    metadata: PersistedScreenshotMetadata | null;
+  }>;
+  projectRoot: string;
+  screenshotsDir: string;
 }
 
 /**
@@ -109,40 +199,6 @@ export interface InspectedElement {
 export interface FileIssue {
   filePath: string;
   issues: ESLintIssue[];
-}
-
-/**
- * Context value provided by UILintProvider
- */
-export interface UILintContextValue {
-  settings: UILintSettings;
-  updateSettings: (settings: Partial<UILintSettings>) => void;
-  /** True when Alt/Option key is held down */
-  altKeyHeld: boolean;
-  /** Current element under cursor when Alt is held */
-  locatorTarget: LocatorTarget | null;
-  /** Element currently being inspected in sidebar */
-  inspectedElement: InspectedElement | null;
-  /** Set the element to inspect (opens sidebar) */
-  setInspectedElement: (element: InspectedElement | null) => void;
-  /** Whether live scanning is enabled */
-  liveScanEnabled: boolean;
-  /** Auto-scan state (for progress tracking) */
-  autoScanState: AutoScanState;
-  /** Cache of element issues from scanning */
-  elementIssuesCache: Map<string, ElementIssue>;
-  /** Enable live scanning */
-  enableLiveScan: () => void;
-  /** Disable live scanning */
-  disableLiveScan: () => void;
-}
-
-/**
- * Props for the UILintProvider component
- */
-export interface UILintProviderProps {
-  children: React.ReactNode;
-  enabled?: boolean;
 }
 
 /**

@@ -2,7 +2,6 @@
 
 import React, { useState, useCallback, useMemo } from "react";
 import { useUILintStore, type UILintStore } from "../../store";
-import { useUILintContext } from "../../UILintProvider";
 import { groupBySourceFile } from "../../dom-utils";
 import { FileTree, type FileWithIssues } from "../../scan-results/FileTree";
 import { SearchFilter } from "../../scan-results/SearchFilter";
@@ -38,7 +37,7 @@ function getDisambiguatedName(path: string, allPaths: string[]): string {
 }
 
 export function ESLintTab() {
-  const { autoScanState } = useUILintContext();
+  const autoScanState = useUILintStore((s: UILintStore) => s.autoScanState);
   const elementIssuesCache = useUILintStore((s) => s.elementIssuesCache);
   const fileIssuesCache = useUILintStore((s) => s.fileIssuesCache);
   const setLocatorTarget = useUILintStore((s) => s.setLocatorTarget);
@@ -215,13 +214,17 @@ export function ESLintTab() {
       : 0;
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col flex-1 min-h-0 gap-3">
+      {/* Search filter - fixed at top */}
       {allFilesWithIssues.length > 0 && (
-        <SearchFilter value={searchQuery} onChange={setSearchQuery} />
+        <div className="flex-shrink-0">
+          <SearchFilter value={searchQuery} onChange={setSearchQuery} />
+        </div>
       )}
 
+      {/* Scanning progress - fixed */}
       {isScanning && (
-        <div className="space-y-1 px-1">
+        <div className="flex-shrink-0 space-y-1 px-1">
           <div className="flex justify-between text-[10px] text-zinc-500">
             <span>Scanning...</span>
             <span>
@@ -237,7 +240,8 @@ export function ESLintTab() {
         </div>
       )}
 
-      <ScrollArea className="max-h-[300px] -mx-3">
+      {/* File tree - scrollable */}
+      <ScrollArea className="flex-1 min-h-0 max-h-[50vh] -mx-3">
         <div className="px-3" onMouseLeave={() => handleElementHover(null)}>
           {filteredFiles.length === 0 ? (
             <div className="py-8 text-center text-xs text-zinc-500">

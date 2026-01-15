@@ -9,7 +9,6 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useUILintContext } from "./UILintProvider";
 import { useUILintStore, type UILintStore } from "./store";
 import type { SourceLocation } from "./types";
 import { getUILintPortalHost } from "./portal-host";
@@ -27,7 +26,7 @@ function getFileName(path: string): string {
  * Main Locator Overlay Component
  */
 export function LocatorOverlay() {
-  const { locatorTarget } = useUILintContext();
+  const locatorTarget = useUILintStore((s: UILintStore) => s.locatorTarget);
   const [mounted, setMounted] = useState(false);
   const handleUILintInteraction = (
     e: React.MouseEvent | React.KeyboardEvent | React.PointerEvent
@@ -220,7 +219,9 @@ function InfoTooltip({ rect, source, componentName }: InfoTooltipProps) {
  * Highlight overlay for the inspected element (when sidebar is open)
  */
 export function InspectedElementHighlight() {
-  const { inspectedElement } = useUILintContext();
+  const inspectedElement = useUILintStore(
+    (s: UILintStore) => s.inspectedElement
+  );
   const [mounted, setMounted] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const handleUILintInteraction = (

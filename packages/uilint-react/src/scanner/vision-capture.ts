@@ -247,7 +247,7 @@ function rectIntersectsRegion(
  * with deduplication for repeated elements (e.g., list items).
  *
  * @param container - Container element to scan (default: document.body)
- * @param region - Optional region to filter elements (only include elements within this region)
+ * @param region - Optional region to filter elements (only include elements within this region, in viewport coordinates)
  */
 export function collectElementManifest(
   container: Element = document.body,
@@ -256,6 +256,10 @@ export function collectElementManifest(
   const manifest: ElementManifest[] = [];
   const dataLocCounts = new Map<string, number>();
   const dataLocInstances = new Map<string, ElementManifest[]>();
+
+  // Get scroll offset for converting viewport coords to document coords
+  const scrollX = window.scrollX || window.pageXOffset || 0;
+  const scrollY = window.scrollY || window.pageYOffset || 0;
 
   // Find all elements with data-loc
   const elements = container.querySelectorAll("[data-loc]");
@@ -271,6 +275,7 @@ export function collectElementManifest(
     if (!isElementVisible(element)) continue;
 
     // Skip elements outside the region (if region is specified)
+    // Region is in viewport coordinates, same as getBoundingClientRect
     const rect = element.getBoundingClientRect();
     if (region && !rectIntersectsRegion(rect, region)) continue;
 
@@ -296,16 +301,32 @@ export function collectElementManifest(
       element.getAttribute("data-ui-lint-id") ||
       `loc:${dataLoc}#${currentCount}`;
 
+    // For region captures, store coordinates relative to the region origin
+    // For full page captures, store document coordinates (viewport + scroll)
+    let entryRect: { x: number; y: number; width: number; height: number };
+    if (region) {
+      // Relative to the region's top-left corner
+      entryRect = {
+        x: rect.x - region.x,
+        y: rect.y - region.y,
+        width: rect.width,
+        height: rect.height,
+      };
+    } else {
+      // Document coordinates for full page
+      entryRect = {
+        x: rect.x + scrollX,
+        y: rect.y + scrollY,
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+
     const entry: ElementManifest = {
       id,
       text,
       dataLoc,
-      rect: {
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height,
-      },
+      rect: entryRect,
       tagName: element.tagName.toLowerCase(),
       role: inferRole(element),
     };
@@ -445,8 +466,21 @@ export async function captureScreenshotRegion(region: {
       },
     });
 
+    // The region coordinates are viewport-relative (from mouse events),
+    // but html-to-image captures the full document including scrolled content.
+    // We need to add the scroll offset to get the correct position in the full document.
+    const scrollX = window.scrollX || window.pageXOffset || 0;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+
+    const documentRegion = {
+      x: region.x + scrollX,
+      y: region.y + scrollY,
+      width: region.width,
+      height: region.height,
+    };
+
     // Crop the image to the selected region using canvas
-    return await cropImageToRegion(dataUrl, region);
+    return await cropImageToRegion(dataUrl, documentRegion);
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     const msg = err.message || "Unknown error";

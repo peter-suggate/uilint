@@ -2,13 +2,13 @@
 // This package exports React components/hooks, so consumers must treat it as client-side.
 "use client";
 
-// UILint Provider and Components
+// UILint Components
 export {
-  UILintProvider,
-  useUILintContext,
   UILintToolbar,
   InspectionPanel,
   LocatorOverlay,
+  // Zustand store for direct access
+  useUILintStore,
   // DOM utilities (data-loc based)
   scanDOMForSources,
   groupBySourceFile,
@@ -35,12 +35,11 @@ export type {
   ScannedElement,
   SourceFile,
   UILintSettings,
-  UILintContextValue,
-  UILintProviderProps,
   SourceApiResponse,
   CachedSource,
   LocatorTarget,
   InspectedElement,
+  UILintStore,
 } from "./components/ui-lint";
 
 // Consistency analysis
