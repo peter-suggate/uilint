@@ -134,19 +134,37 @@ export async function installUI(
   const { waitUntilExit } = render(
     <InstallApp
       projectPromise={projectPromise}
-      onComplete={async (selections, eslintRules, injectionPointConfig) => {
+      onComplete={async (selections, eslintRules, injectionPointConfig, uninstallSelections) => {
         // When user completes selection, proceed with installation
         const project = await projectPromise;
         const choices = selectionsToUserChoices(selections, project, eslintRules, injectionPointConfig);
 
-        if (choices.items.length === 0) {
-          console.log("\nNo items selected for installation");
+        const hasInstalls = choices.items.length > 0;
+        const hasUninstalls = uninstallSelections && uninstallSelections.length > 0;
+
+        if (!hasInstalls && !hasUninstalls) {
+          console.log("\nNo changes selected");
           process.exit(0);
         }
 
-        // Generate plan using existing plan logic
+        // Generate install plan using existing plan logic
         const { createPlan } = await import("./install/plan.js");
         const plan = createPlan(project, choices, { force: options.force });
+
+        // Generate uninstall plan actions
+        if (hasUninstalls && uninstallSelections) {
+          for (const selection of uninstallSelections) {
+            if (!selection.selected || selection.targets.length === 0) continue;
+            const { installer, targets } = selection;
+
+            // Call planUninstall if the installer supports it
+            if (installer.planUninstall) {
+              const uninstallPlan = installer.planUninstall(targets, project);
+              // Prepend uninstall actions to the plan (uninstall first, then install)
+              plan.actions = [...uninstallPlan.actions, ...plan.actions];
+            }
+          }
+        }
 
         // Execute the plan with projectPath for prettier formatting
         const result = await execute(plan, {
@@ -156,9 +174,15 @@ export async function installUI(
 
         // Display results
         if (result.success) {
-          console.log("\n✓ Installation completed successfully!");
+          if (hasInstalls && hasUninstalls) {
+            console.log("\n✓ Changes applied successfully!");
+          } else if (hasUninstalls) {
+            console.log("\n✓ Uninstallation completed successfully!");
+          } else {
+            console.log("\n✓ Installation completed successfully!");
+          }
         } else {
-          console.log("\n⚠ Installation completed with errors");
+          console.log("\n⚠ Operation completed with errors");
         }
 
         process.exit(result.success ? 0 : 1);

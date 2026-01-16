@@ -507,3 +507,37 @@ export async function installNextUILintRoutes(
     opts
   );
 }
+
+export interface UninstallNextRoutesOptions {
+  projectPath: string;
+  appRoot: string;
+}
+
+export interface UninstallNextRoutesResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Remove UILint API routes from Next.js app
+ */
+export async function uninstallNextUILintRoutes(
+  options: UninstallNextRoutesOptions
+): Promise<UninstallNextRoutesResult> {
+  const { projectPath, appRoot } = options;
+  const { rm } = await import("fs/promises");
+
+  const baseAbs = join(projectPath, appRoot, "api", ".uilint");
+
+  try {
+    if (existsSync(baseAbs)) {
+      await rm(baseAbs, { recursive: true, force: true });
+    }
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}

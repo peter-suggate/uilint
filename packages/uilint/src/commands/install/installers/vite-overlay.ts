@@ -112,4 +112,39 @@ export const viteOverlayInstaller: Installer = {
       message: "Vite overlay installed",
     };
   },
+
+  planUninstall(
+    targets: InstallTarget[],
+    project: ProjectState
+  ): {
+    actions: InstallAction[];
+  } {
+    const actions: InstallAction[] = [];
+
+    if (targets.length === 0) return { actions };
+
+    const target = targets[0]!;
+    const appInfo = project.viteApps.find(
+      (app) => app.projectPath === target.path
+    );
+    if (!appInfo) return { actions };
+
+    const { projectPath, detection } = appInfo;
+
+    // Remove React overlay injection
+    actions.push({
+      type: "remove_react",
+      projectPath,
+      appRoot: detection.entryRoot,
+      mode: "vite",
+    });
+
+    // Remove jsx-loc-plugin from vite.config
+    actions.push({
+      type: "remove_vite_config",
+      projectPath,
+    });
+
+    return { actions };
+  },
 };

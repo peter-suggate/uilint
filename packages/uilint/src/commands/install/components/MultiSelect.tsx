@@ -10,7 +10,8 @@ export type ItemStatus =
   | "not_installed"
   | "selected"
   | "partial"
-  | "upgradeable";
+  | "upgradeable"
+  | "uninstall";
 
 export interface ConfigItem {
   /** Unique ID */
@@ -31,11 +32,15 @@ export interface ConfigItem {
 
 export interface ConfigSelectorProps {
   items: ConfigItem[];
-  onSubmit: (selectedIds: string[]) => void;
+  onSubmit: (selectedIds: string[], uninstallIds: string[]) => void;
   onCancel?: () => void;
 }
 
-function StatusIndicator({ status, isSelected }: { status: ItemStatus; isSelected: boolean }): React.ReactElement {
+function StatusIndicator({ status, isSelected, isMarkedForUninstall }: { status: ItemStatus; isSelected: boolean; isMarkedForUninstall: boolean }): React.ReactElement {
+  // Show red X if item is marked for uninstall
+  if (isMarkedForUninstall) {
+    return <Text color="red">✗</Text>;
+  }
   if (status === "installed") {
     return <Text color="green">✓</Text>;
   }
@@ -52,7 +57,10 @@ function StatusIndicator({ status, isSelected }: { status: ItemStatus; isSelecte
   return <Text dimColor>○</Text>;
 }
 
-function StatusLabel({ status }: { status: ItemStatus }): React.ReactElement {
+function StatusLabel({ status, isMarkedForUninstall }: { status: ItemStatus; isMarkedForUninstall: boolean }): React.ReactElement {
+  if (isMarkedForUninstall) {
+    return <Text color="red" dimColor>uninstall</Text>;
+  }
   if (status === "installed") {
     return <Text color="green" dimColor>installed</Text>;
   }
@@ -80,6 +88,8 @@ export function ConfigSelector({
         .map((item) => item.id)
     );
   });
+  // Track installed items that are marked for uninstall
+  const [markedForUninstall, setMarkedForUninstall] = useState<Set<string>>(new Set());
 
   // Group items by category
   const categories = Array.from(new Set(items.map((item) => item.category)));
@@ -93,10 +103,23 @@ export function ConfigSelector({
 
   const handleToggle = useCallback(() => {
     const item = flatItems[cursor];
-    // Allow toggling for: not installed, upgradeable, partial, selected (but not fully "installed")
-    const canToggle = item && !item.disabled && item.status !== "installed";
-    if (!canToggle) return;
+    if (!item || item.disabled) return;
 
+    // Handle installed items - toggle them for uninstall
+    if (item.status === "installed") {
+      setMarkedForUninstall((prev) => {
+        const next = new Set(prev);
+        if (next.has(item.id)) {
+          next.delete(item.id);
+        } else {
+          next.add(item.id);
+        }
+        return next;
+      });
+      return;
+    }
+
+    // Handle non-installed items (including upgradeable, partial, not_installed)
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(item.id)) {
@@ -116,7 +139,7 @@ export function ConfigSelector({
     } else if (input === " ") {
       handleToggle();
     } else if (key.return) {
-      onSubmit(Array.from(selected));
+      onSubmit(Array.from(selected), Array.from(markedForUninstall));
     } else if (input === "q" || key.escape) {
       onCancel?.();
       exit();
@@ -129,9 +152,13 @@ export function ConfigSelector({
             .map((item) => item.id)
         )
       );
+      // Clear uninstall selections
+      setMarkedForUninstall(new Set());
     } else if (input === "n") {
       // Select none
       setSelected(new Set());
+      // Clear uninstall selections too
+      setMarkedForUninstall(new Set());
     }
   });
 
@@ -157,8 +184,9 @@ export function ConfigSelector({
               const itemIndex = globalIndex++;
               const isCursor = itemIndex === cursor;
               const isItemSelected = selected.has(item.id);
-              // Only fully installed (no upgrade) items are disabled
-              const isDisabled = item.disabled || item.status === "installed";
+              const isItemMarkedForUninstall = markedForUninstall.has(item.id);
+              // Items are only disabled if explicitly marked as such
+              const isDisabled = item.disabled === true;
 
               return (
                 <Box key={item.id} paddingLeft={2}>
@@ -169,14 +197,14 @@ export function ConfigSelector({
 
                   {/* Status checkbox */}
                   <Box width={2}>
-                    <StatusIndicator status={item.status} isSelected={isItemSelected} />
+                    <StatusIndicator status={item.status} isSelected={isItemSelected} isMarkedForUninstall={isItemMarkedForUninstall} />
                   </Box>
 
                   {/* Label */}
                   <Box width={28}>
                     <Text
-                      color={isDisabled ? undefined : isCursor ? "cyan" : undefined}
-                      dimColor={isDisabled}
+                      color={isItemMarkedForUninstall ? "red" : isDisabled ? undefined : isCursor ? "cyan" : undefined}
+                      dimColor={isDisabled && !isItemMarkedForUninstall}
                     >
                       {item.label}
                     </Text>
@@ -188,7 +216,7 @@ export function ConfigSelector({
                   </Box>
 
                   {/* Status */}
-                  <StatusLabel status={item.status} />
+                  <StatusLabel status={item.status} isMarkedForUninstall={isItemMarkedForUninstall} />
                 </Box>
               );
             })}
@@ -212,7 +240,14 @@ export function ConfigSelector({
       <Box marginTop={1}>
         <Text>
           <Text color="cyan">{selected.size}</Text>
-          <Text dimColor> item{selected.size !== 1 ? "s" : ""} selected</Text>
+          <Text dimColor> to install</Text>
+          {markedForUninstall.size > 0 && (
+            <>
+              <Text dimColor>, </Text>
+              <Text color="red">{markedForUninstall.size}</Text>
+              <Text dimColor> to uninstall</Text>
+            </>
+          )}
         </Text>
       </Box>
     </Box>

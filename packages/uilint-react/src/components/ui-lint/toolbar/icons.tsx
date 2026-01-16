@@ -384,4 +384,47 @@ export const Icons = {
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
   ),
+  Badge: (props: IconProps) => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <circle cx="12" cy="12" r="8" />
+      <text
+        x="12"
+        y="16"
+        textAnchor="middle"
+        fontSize="10"
+        fill="currentColor"
+        stroke="none"
+      >
+        3
+      </text>
+    </svg>
+  ),
+  Heatmap: (props: IconProps) => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <rect x="3" y="3" width="7" height="7" rx="1" opacity="0.3" />
+      <rect x="14" y="3" width="7" height="7" rx="1" opacity="0.6" />
+      <rect x="3" y="14" width="7" height="7" rx="1" opacity="0.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1" opacity="0.9" />
+    </svg>
+  ),
 };

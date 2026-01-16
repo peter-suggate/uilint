@@ -56,7 +56,8 @@ export interface InstallAppProps {
   onComplete: (
     selections: InstallerSelection[],
     eslintRules?: ConfiguredRule[],
-    injectionPointConfig?: InjectionPointConfig
+    injectionPointConfig?: InjectionPointConfig,
+    uninstallSelections?: InstallerSelection[]
   ) => void;
   /** Callback when error occurs */
   onError?: (error: Error) => void;
@@ -182,7 +183,7 @@ function FeatureConfig({
   selectedProject: DetectedProject | null;
   configItems: ConfigItem[];
   canGoBack: boolean;
-  onSubmit: (selectedIds: string[]) => void;
+  onSubmit: (selectedIds: string[], uninstallIds: string[]) => void;
   onBack: () => void;
   onCancel: () => void;
 }): React.ReactElement {
@@ -234,6 +235,7 @@ export function InstallApp({
   const [selections, setSelections] = useState<InstallerSelection[]>([]);
   const [configItems, setConfigItems] = useState<ConfigItem[]>([]);
   const [selectedFeatureIds, setSelectedFeatureIds] = useState<string[]>([]);
+  const [uninstallFeatureIds, setUninstallFeatureIds] = useState<string[]>([]);
   const [error, setError] = useState<Error | null>(null);
 
   // Injection point state
@@ -318,8 +320,9 @@ export function InstallApp({
   };
 
   // Handle feature selection submission
-  const handleFeatureSubmit = (selectedIds: string[]) => {
+  const handleFeatureSubmit = (selectedIds: string[], uninstallIds: string[]) => {
     setSelectedFeatureIds(selectedIds);
+    setUninstallFeatureIds(uninstallIds);
 
     // Check if Next.js overlay is selected - if so, check injection points
     const nextSelected = selectedIds.some((id) => id.startsWith("next:"));
@@ -409,7 +412,9 @@ export function InstallApp({
     injectionConfig?: InjectionPointConfig
   ) => {
     const selectedSet = new Set(selectedIds);
+    const uninstallSet = new Set(uninstallFeatureIds);
 
+    // Build install selections
     const updatedSelections = selections.map((sel) => {
       const selectedTargets = sel.targets.filter((t) =>
         selectedSet.has(`${sel.installer.id}:${t.id}`)
@@ -421,8 +426,20 @@ export function InstallApp({
       };
     });
 
+    // Build uninstall selections
+    const uninstallSelections = selections.map((sel) => {
+      const uninstallTargets = sel.targets.filter((t) =>
+        uninstallSet.has(`${sel.installer.id}:${t.id}`)
+      );
+      return {
+        ...sel,
+        targets: uninstallTargets,
+        selected: uninstallTargets.length > 0,
+      };
+    }).filter((sel) => sel.selected);
+
     setSelections(updatedSelections);
-    onComplete(updatedSelections, eslintRules, injectionConfig);
+    onComplete(updatedSelections, eslintRules, injectionConfig, uninstallSelections.length > 0 ? uninstallSelections : undefined);
   };
 
   const handleCancel = () => {

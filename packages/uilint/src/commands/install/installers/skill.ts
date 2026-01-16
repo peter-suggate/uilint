@@ -5,7 +5,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import type { Installer, InstallTarget, InstallerConfig, ProgressEvent } from "./types.js";
-import type { ProjectState, InstallAction, DependencyInstall } from "../types.js";
+import type { ProjectState, InstallAction } from "../types.js";
 import { loadSkill } from "../../../utils/skill-loader.js";
 
 export const skillInstaller: Installer = {
@@ -143,5 +143,23 @@ export const skillInstaller: Installer = {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  },
+
+  planUninstall(
+    targets: InstallTarget[],
+    project: ProjectState
+  ): {
+    actions: InstallAction[];
+  } {
+    const actions: InstallAction[] = [];
+
+    // Delete the skill directory
+    const skillDir = join(project.cursorDir.path, "skills", "ui-consistency-enforcer");
+    actions.push({
+      type: "remove_directory",
+      path: skillDir,
+    });
+
+    return { actions };
   },
 };

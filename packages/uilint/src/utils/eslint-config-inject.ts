@@ -1258,3 +1258,104 @@ export async function installEslintPlugin(
     configured: getUilintEslintConfigInfoFromSource(updated).configured,
   };
 }
+
+export interface UninstallEslintPluginOptions {
+  projectPath: string;
+}
+
+export interface UninstallEslintPluginResult {
+  success: boolean;
+  error?: string;
+  modifiedFiles?: string[];
+}
+
+/**
+ * Remove uilint-eslint rules from ESLint config
+ *
+ * This is a best-effort uninstall that:
+ * 1. Removes uilint rule imports
+ * 2. Removes uilint config blocks from the flat config array
+ * 3. Removes uilint-eslint package import
+ */
+export async function uninstallEslintPlugin(
+  options: UninstallEslintPluginOptions
+): Promise<UninstallEslintPluginResult> {
+  const { projectPath } = options;
+
+  const configPath = findEslintConfigFile(projectPath);
+  if (!configPath) {
+    return {
+      success: true, // Nothing to uninstall
+      modifiedFiles: [],
+    };
+  }
+
+  try {
+    const original = readFileSync(configPath, "utf-8");
+
+    // Simple regex-based removal for now
+    // Remove uilint rule imports (import { ... } from "./uilint-rules/..." or "./.uilint/rules/...")
+    let updated = original.replace(
+      /^import\s+\{[^}]*\}\s+from\s+["'][^"']*\.uilint\/rules[^"']*["'];?\s*$/gm,
+      ""
+    );
+
+    // Remove default imports from .uilint/rules (e.g., import RuleName from "./.uilint/rules/rule-name")
+    updated = updated.replace(
+      /^import\s+\w+\s+from\s+["'][^"']*\.uilint\/rules[^"']*["'];?\s*$/gm,
+      ""
+    );
+
+    // Remove uilint-eslint import
+    updated = updated.replace(
+      /^import\s+\{[^}]*\}\s+from\s+["']uilint-eslint["'];?\s*$/gm,
+      ""
+    );
+
+    // Remove createRule require
+    updated = updated.replace(
+      /^const\s+\{[^}]*createRule[^}]*\}\s*=\s*require\s*\(\s*["']uilint-eslint["']\s*\)\s*;?\s*$/gm,
+      ""
+    );
+
+    // Remove uilint rules from rules objects (e.g., "uilint/rule-name": "error")
+    updated = updated.replace(
+      /["']uilint\/[^"']+["']\s*:\s*["'][^"']+["']\s*,?\s*/g,
+      ""
+    );
+
+    // Remove uilint rules array form (e.g., "uilint/rule-name": ["error", {}])
+    updated = updated.replace(
+      /["']uilint\/[^"']+["']\s*:\s*\[[^\]]*\]\s*,?\s*/g,
+      ""
+    );
+
+    // Remove entire uilint config block from flat config array
+    // This matches: { plugins: { uilint: { rules: {...} } }, rules: {...} }
+    updated = updated.replace(
+      /\{\s*plugins:\s*\{\s*uilint:\s*\{[^}]*\}[^}]*\}[^}]*rules:\s*\{[^}]*\}[^}]*\}\s*,?\s*/gs,
+      ""
+    );
+
+    // Clean up empty lines
+    updated = updated.replace(/\n{3,}/g, "\n\n");
+
+    if (updated !== original) {
+      writeFileSync(configPath, updated, "utf-8");
+      return {
+        success: true,
+        modifiedFiles: [configPath],
+      };
+    }
+
+    return {
+      success: true,
+      modifiedFiles: [],
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}

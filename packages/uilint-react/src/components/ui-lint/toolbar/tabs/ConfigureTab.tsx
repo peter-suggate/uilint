@@ -171,6 +171,47 @@ export function ConfigureTab() {
           />
         </SettingsSection>
 
+        {/* Display Mode Toggle */}
+        <div className="space-y-2">
+          <span className="text-[10px] font-medium text-zinc-600 dark:text-zinc-400">
+            Display Mode
+          </span>
+          <div className="flex gap-1 p-1 rounded-lg bg-zinc-100 dark:bg-zinc-800">
+            <button
+              onClick={() =>
+                updateAutoScanSettings({ eslint: { displayMode: "badges" } })
+              }
+              className={cn(
+                "flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                autoScanSettings.eslint.displayMode === "badges"
+                  ? "bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-zinc-100"
+                  : "hover:bg-white/50 dark:hover:bg-zinc-700/50 text-zinc-600 dark:text-zinc-400"
+              )}
+            >
+              <span className="flex items-center justify-center gap-1.5">
+                <Icons.Badge className="w-3 h-3" />
+                Badges
+              </span>
+            </button>
+            <button
+              onClick={() =>
+                updateAutoScanSettings({ eslint: { displayMode: "heatmap" } })
+              }
+              className={cn(
+                "flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                autoScanSettings.eslint.displayMode === "heatmap"
+                  ? "bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-zinc-100"
+                  : "hover:bg-white/50 dark:hover:bg-zinc-700/50 text-zinc-600 dark:text-zinc-400"
+              )}
+            >
+              <span className="flex items-center justify-center gap-1.5">
+                <Icons.Heatmap className="w-3 h-3" />
+                Heatmap
+              </span>
+            </button>
+          </div>
+        </div>
+
         {/* Manual scan control */}
         <Button
           onClick={() =>

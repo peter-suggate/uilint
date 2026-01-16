@@ -30,7 +30,11 @@ import {
   DEFAULT_AUTO_SCAN_STATE,
   DEFAULT_AUTO_SCAN_SETTINGS,
 } from "./types";
-import { scanDOMForSources, groupBySourceFile } from "./dom-utils";
+import {
+  scanDOMForSources,
+  groupBySourceFile,
+  identifyTopLevelElements,
+} from "./dom-utils";
 import type {
   VisionIssue,
   VisionAnalysisResult,
@@ -302,6 +306,14 @@ export interface UILintStore {
   loadingPersistedScreenshots: boolean;
   /** Fetch persisted screenshots from disk (via API) */
   fetchPersistedScreenshots: () => Promise<void>;
+
+  // ============ Heatmap Display ============
+  /** Map of file path -> top-level element ID for that file (used for file-level issue display) */
+  topLevelElementsByFile: Map<string, string>;
+  /** Merged issue counts: element issues + file-level issues for top-level elements */
+  mergedIssueCounts: Map<string, number>;
+  /** Compute top-level elements and merged issue counts for heatmap display */
+  computeHeatmapData: () => void;
 
   // ============ Internal ============
   _setScanState: (state: Partial<AutoScanState>) => void;
@@ -586,6 +598,43 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   fileIssuesCache: new Map(),
   scanLock: false,
 
+  // ============ Heatmap Display ============
+  topLevelElementsByFile: new Map(),
+  mergedIssueCounts: new Map(),
+
+  computeHeatmapData: () => {
+    const state = get();
+    const elements = state.autoScanState.elements;
+
+    // Identify top-level elements per file
+    const topLevelByFile = identifyTopLevelElements(elements);
+
+    // Compute merged issue counts
+    const mergedCounts = new Map<string, number>();
+
+    for (const el of elements) {
+      const cached = state.elementIssuesCache.get(el.id);
+      const elementIssueCount = cached?.issues.length ?? 0;
+
+      // Start with the element's own issues
+      let totalCount = elementIssueCount;
+
+      // If this is the top-level element for its file, add file-level issues
+      const filePath = el.source.fileName;
+      if (topLevelByFile.get(filePath) === el.id) {
+        const fileIssues = state.fileIssuesCache.get(filePath) || [];
+        totalCount += fileIssues.length;
+      }
+
+      mergedCounts.set(el.id, totalCount);
+    }
+
+    set({
+      topLevelElementsByFile: topLevelByFile,
+      mergedIssueCounts: mergedCounts,
+    });
+  },
+
   _setScanState: (partial) =>
     set((state) => ({
       autoScanState: { ...state.autoScanState, ...partial },
@@ -659,6 +708,8 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       autoScanState: DEFAULT_AUTO_SCAN_STATE,
       elementIssuesCache: new Map(),
       fileIssuesCache: new Map(),
+      topLevelElementsByFile: new Map(),
+      mergedIssueCounts: new Map(),
     });
   },
 
@@ -728,6 +779,9 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       // Yield to browser
       await new Promise((resolve) => requestAnimationFrame(resolve));
     }
+
+    // Recompute heatmap data after scanning new elements
+    get().computeHeatmapData();
   },
 
   _runScanLoop: async (elements) => {
@@ -795,6 +849,9 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
         currentIndex: elements.length,
       },
     });
+
+    // Compute heatmap data after scan completes
+    get().computeHeatmapData();
   },
 
   // ============ DOM Observer ============

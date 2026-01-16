@@ -712,3 +712,78 @@ export async function installReactUILintOverlay(
     modifiedFiles: modified ? [absTarget] : [],
   };
 }
+
+export interface UninstallReactOverlayOptions {
+  projectPath: string;
+  appRoot: string;
+  mode?: "next" | "vite";
+}
+
+export interface UninstallReactOverlayResult {
+  success: boolean;
+  error?: string;
+  modifiedFiles?: string[];
+}
+
+/**
+ * Remove uilint-react devtools from React files
+ *
+ * This is a best-effort uninstall that:
+ * 1. Removes uilint-react/devtools import
+ * 2. Removes <uilint-devtools /> element
+ */
+export async function uninstallReactUILintOverlay(
+  options: UninstallReactOverlayOptions
+): Promise<UninstallReactOverlayResult> {
+  const { projectPath, appRoot, mode = "next" } = options;
+
+  const candidates = getDefaultCandidates(projectPath, appRoot);
+  const modifiedFiles: string[] = [];
+
+  for (const candidate of candidates) {
+    const absPath = join(projectPath, candidate);
+    if (!existsSync(absPath)) continue;
+
+    try {
+      const original = readFileSync(absPath, "utf-8");
+
+      // Remove uilint-react/devtools import
+      let updated = original.replace(
+        /^import\s+["']uilint-react\/devtools["'];?\s*$/gm,
+        ""
+      );
+
+      // Remove uilint-react import (legacy)
+      updated = updated.replace(
+        /^import\s+\{[^}]*UILintProvider[^}]*\}\s+from\s+["']uilint-react["'];?\s*$/gm,
+        ""
+      );
+
+      // Remove <uilint-devtools /> or <uilint-devtools></uilint-devtools>
+      updated = updated.replace(/<uilint-devtools\s*\/>/g, "");
+      updated = updated.replace(/<uilint-devtools><\/uilint-devtools>/g, "");
+      updated = updated.replace(/<uilint-devtools\s*>\s*<\/uilint-devtools>/g, "");
+
+      // Remove UILintProvider wrapper (legacy)
+      updated = updated.replace(
+        /<UILintProvider[^>]*>([\s\S]*?)<\/UILintProvider>/g,
+        "$1"
+      );
+
+      // Clean up empty lines
+      updated = updated.replace(/\n{3,}/g, "\n\n");
+
+      if (updated !== original) {
+        writeFileSync(absPath, updated, "utf-8");
+        modifiedFiles.push(absPath);
+      }
+    } catch {
+      // Skip files that fail to process
+    }
+  }
+
+  return {
+    success: true,
+    modifiedFiles,
+  };
+}

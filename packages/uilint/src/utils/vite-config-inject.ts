@@ -319,3 +319,80 @@ export async function installViteJsxLocPlugin(
 
   return { configFile: configFilename, modified: false, modifiedFiles: [] };
 }
+
+export interface UninstallViteJsxLocPluginOptions {
+  projectPath: string;
+}
+
+export interface UninstallViteJsxLocPluginResult {
+  success: boolean;
+  error?: string;
+  modifiedFiles?: string[];
+}
+
+/**
+ * Remove jsx-loc-plugin from vite.config
+ *
+ * This is a best-effort uninstall that:
+ * 1. Removes jsx-loc-plugin import
+ * 2. Removes jsxLoc() from plugins array
+ */
+export async function uninstallViteJsxLocPlugin(
+  options: UninstallViteJsxLocPluginOptions
+): Promise<UninstallViteJsxLocPluginResult> {
+  const { projectPath } = options;
+
+  const configPath = findViteConfigFile(projectPath);
+  if (!configPath) {
+    return {
+      success: true,
+      modifiedFiles: [],
+    };
+  }
+
+  try {
+    const original = readFileSync(configPath, "utf-8");
+
+    // Remove jsx-loc-plugin import
+    let updated = original.replace(
+      /^import\s+\{[^}]*jsxLoc[^}]*\}\s+from\s+["']jsx-loc-plugin\/vite["'];?\s*$/gm,
+      ""
+    );
+
+    // Remove jsx-loc-plugin default import
+    updated = updated.replace(
+      /^import\s+jsxLoc\s+from\s+["']jsx-loc-plugin\/vite["'];?\s*$/gm,
+      ""
+    );
+
+    // Remove jsx-loc-plugin require
+    updated = updated.replace(
+      /^const\s+\{[^}]*jsxLoc[^}]*\}\s*=\s*require\s*\(\s*["']jsx-loc-plugin\/vite["']\s*\)\s*;?\s*$/gm,
+      ""
+    );
+
+    // Remove jsxLoc() from plugins array
+    updated = updated.replace(/jsxLoc\s*\(\s*\)\s*,?\s*/g, "");
+
+    // Clean up empty lines
+    updated = updated.replace(/\n{3,}/g, "\n\n");
+
+    if (updated !== original) {
+      writeFileSync(configPath, updated, "utf-8");
+      return {
+        success: true,
+        modifiedFiles: [configPath],
+      };
+    }
+
+    return {
+      success: true,
+      modifiedFiles: [],
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}

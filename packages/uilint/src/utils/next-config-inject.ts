@@ -259,3 +259,83 @@ export async function installJsxLocPlugin(
 
   return { configFile: configFilename, modified: false, modifiedFiles: [] };
 }
+
+export interface UninstallJsxLocPluginOptions {
+  projectPath: string;
+}
+
+export interface UninstallJsxLocPluginResult {
+  success: boolean;
+  error?: string;
+  modifiedFiles?: string[];
+}
+
+/**
+ * Remove jsx-loc-plugin from next.config
+ *
+ * This is a best-effort uninstall that:
+ * 1. Removes jsx-loc-plugin import
+ * 2. Removes withJsxLoc wrapper
+ */
+export async function uninstallJsxLocPlugin(
+  options: UninstallJsxLocPluginOptions
+): Promise<UninstallJsxLocPluginResult> {
+  const { projectPath } = options;
+
+  const configPath = findNextConfigFile(projectPath);
+  if (!configPath) {
+    return {
+      success: true,
+      modifiedFiles: [],
+    };
+  }
+
+  try {
+    const original = readFileSync(configPath, "utf-8");
+
+    // Remove jsx-loc-plugin import
+    let updated = original.replace(
+      /^import\s+\{[^}]*withJsxLoc[^}]*\}\s+from\s+["']jsx-loc-plugin\/next["'];?\s*$/gm,
+      ""
+    );
+
+    // Remove jsx-loc-plugin require
+    updated = updated.replace(
+      /^const\s+\{[^}]*withJsxLoc[^}]*\}\s*=\s*require\s*\(\s*["']jsx-loc-plugin\/next["']\s*\)\s*;?\s*$/gm,
+      ""
+    );
+
+    // Remove withJsxLoc wrapper from export default
+    updated = updated.replace(
+      /export\s+default\s+withJsxLoc\s*\(\s*([\s\S]*?)\s*\)\s*;?/g,
+      "export default $1;"
+    );
+
+    // Remove withJsxLoc wrapper from module.exports
+    updated = updated.replace(
+      /module\.exports\s*=\s*withJsxLoc\s*\(\s*([\s\S]*?)\s*\)\s*;?/g,
+      "module.exports = $1;"
+    );
+
+    // Clean up empty lines
+    updated = updated.replace(/\n{3,}/g, "\n\n");
+
+    if (updated !== original) {
+      writeFileSync(configPath, updated, "utf-8");
+      return {
+        success: true,
+        modifiedFiles: [configPath],
+      };
+    }
+
+    return {
+      success: true,
+      modifiedFiles: [],
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}

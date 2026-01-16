@@ -235,6 +235,44 @@ export function updateElementRects(
 }
 
 /**
+ * Identify the top-level (first declared) element for each source file.
+ * The top-level element is determined by the earliest line number within each file.
+ * This is used to display file-level issues on the appropriate element in heatmap mode.
+ *
+ * @returns Map of filePath -> elementId for the top-level element
+ */
+export function identifyTopLevelElements(
+  elements: ScannedElement[]
+): Map<string, string> {
+  const topLevelByFile = new Map<string, string>();
+
+  // Group elements by file
+  const byFile = new Map<string, ScannedElement[]>();
+  for (const el of elements) {
+    const path = el.source.fileName;
+    const existing = byFile.get(path) || [];
+    existing.push(el);
+    byFile.set(path, existing);
+  }
+
+  // For each file, find the element with the earliest line number
+  for (const [filePath, fileElements] of byFile) {
+    if (fileElements.length === 0) continue;
+
+    // Sort by line number, then column number for determinism
+    const sorted = [...fileElements].sort((a, b) => {
+      const lineDiff = a.source.lineNumber - b.source.lineNumber;
+      if (lineDiff !== 0) return lineDiff;
+      return (a.source.columnNumber ?? 0) - (b.source.columnNumber ?? 0);
+    });
+
+    topLevelByFile.set(filePath, sorted[0].id);
+  }
+
+  return topLevelByFile;
+}
+
+/**
  * Build an "Open in Editor" URL
  * @param source - The source location (fileName may be relative or absolute)
  * @param editor - The editor to open in (cursor or vscode)

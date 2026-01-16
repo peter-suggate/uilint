@@ -4,7 +4,7 @@
 
 import { join } from "path";
 import type { Installer, InstallTarget, InstallerConfig, ProgressEvent } from "./types.js";
-import type { ProjectState, InstallAction, DependencyInstall } from "../types.js";
+import type { ProjectState, InstallAction } from "../types.js";
 import { GENSTYLEGUIDE_COMMAND_MD } from "../constants.js";
 
 export const genstyleguideInstaller: Installer = {
@@ -95,5 +95,23 @@ export const genstyleguideInstaller: Installer = {
       type: "complete",
       message: "Installed /genstyleguide command",
     };
+  },
+
+  planUninstall(
+    targets: InstallTarget[],
+    project: ProjectState
+  ): {
+    actions: InstallAction[];
+  } {
+    const actions: InstallAction[] = [];
+
+    // Delete the command file
+    const commandPath = join(project.cursorDir.path, "commands", "genstyleguide.md");
+    actions.push({
+      type: "delete_file",
+      path: commandPath,
+    });
+
+    return { actions };
   },
 };

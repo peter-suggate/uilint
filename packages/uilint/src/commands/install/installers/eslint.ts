@@ -371,4 +371,34 @@ export const eslintInstaller: Installer = {
       message: `ESLint plugin installed in ${targets.length} package(s)`,
     };
   },
+
+  planUninstall(
+    targets: InstallTarget[],
+    project: ProjectState
+  ): {
+    actions: InstallAction[];
+  } {
+    const actions: InstallAction[] = [];
+
+    for (const target of targets) {
+      const pkgInfo = project.packages.find((p) => p.path === target.path);
+      if (!pkgInfo || !pkgInfo.eslintConfigPath) continue;
+
+      // Remove ESLint rules from config
+      actions.push({
+        type: "remove_eslint",
+        packagePath: target.path,
+        configPath: pkgInfo.eslintConfigPath,
+      });
+
+      // Remove .uilint/rules directory
+      const rulesDir = join(target.path, ".uilint", "rules");
+      actions.push({
+        type: "remove_directory",
+        path: rulesDir,
+      });
+    }
+
+    return { actions };
+  },
 };

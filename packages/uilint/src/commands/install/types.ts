@@ -212,6 +212,44 @@ export interface AppendToFileAction {
   ifNotContains?: string;
 }
 
+// ============================================================================
+// Uninstall Actions
+// ============================================================================
+
+export interface RemoveEslintAction {
+  type: "remove_eslint";
+  packagePath: string;
+  configPath: string;
+}
+
+export interface RemoveReactAction {
+  type: "remove_react";
+  projectPath: string;
+  appRoot: string;
+  mode?: "next" | "vite";
+}
+
+export interface RemoveNextConfigAction {
+  type: "remove_next_config";
+  projectPath: string;
+}
+
+export interface RemoveViteConfigAction {
+  type: "remove_vite_config";
+  projectPath: string;
+}
+
+export interface RemoveNextRoutesAction {
+  type: "remove_next_routes";
+  projectPath: string;
+  appRoot: string;
+}
+
+export interface RemoveDirectoryAction {
+  type: "remove_directory";
+  path: string;
+}
+
 export type InstallAction =
   | CreateFileAction
   | MergeJsonAction
@@ -222,7 +260,13 @@ export type InstallAction =
   | InjectViteConfigAction
   | InstallNextRoutesAction
   | CreateDirectoryAction
-  | AppendToFileAction;
+  | AppendToFileAction
+  | RemoveEslintAction
+  | RemoveReactAction
+  | RemoveNextConfigAction
+  | RemoveViteConfigAction
+  | RemoveNextRoutesAction
+  | RemoveDirectoryAction;
 
 export interface DependencyInstall {
   packagePath: string;

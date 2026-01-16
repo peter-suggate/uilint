@@ -289,4 +289,46 @@ export const nextOverlayInstaller: Installer = {
       message: "Next.js overlay installed",
     };
   },
+
+  planUninstall(
+    targets: InstallTarget[],
+    project: ProjectState
+  ): {
+    actions: InstallAction[];
+  } {
+    const actions: InstallAction[] = [];
+
+    if (targets.length === 0) return { actions };
+
+    const target = targets[0]!;
+    const appInfo = project.nextApps.find(
+      (app) => app.projectPath === target.path
+    );
+    if (!appInfo) return { actions };
+
+    const { projectPath, detection } = appInfo;
+
+    // Remove React overlay injection
+    actions.push({
+      type: "remove_react",
+      projectPath,
+      appRoot: detection.appRoot,
+      mode: "next",
+    });
+
+    // Remove jsx-loc-plugin from next.config
+    actions.push({
+      type: "remove_next_config",
+      projectPath,
+    });
+
+    // Remove Next.js API routes
+    actions.push({
+      type: "remove_next_routes",
+      projectPath,
+      appRoot: detection.appRoot,
+    });
+
+    return { actions };
+  },
 };

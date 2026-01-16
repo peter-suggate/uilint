@@ -20,6 +20,9 @@ export function UILintUI() {
   const visionIssuesCache = useUILintStore(
     (s: UILintStore) => s.visionIssuesCache
   );
+  const displayMode = useUILintStore(
+    (s: UILintStore) => s.autoScanSettings.eslint.displayMode
+  );
 
   // Dynamically import components to avoid circular dependencies
   const [components, setComponents] = useState<{
@@ -29,6 +32,7 @@ export function UILintUI() {
     VisionIssueHighlight: React.ComponentType;
     InspectedHighlight: React.ComponentType;
     ElementBadges: React.ComponentType;
+    HeatmapOverlay: React.ComponentType;
     VisionIssueBadges: React.ComponentType;
   } | null>(null);
 
@@ -39,8 +43,9 @@ export function UILintUI() {
       import("./InspectionPanel"),
       import("./LocatorOverlay"),
       import("./ElementBadges"),
+      import("./HeatmapOverlay"),
       import("./VisionIssueBadge"),
-    ]).then(([toolbar, panel, locator, badges, visionBadges]) => {
+    ]).then(([toolbar, panel, locator, badges, heatmap, visionBadges]) => {
       setComponents({
         Toolbar: toolbar.UILintToolbar,
         Panel: panel.InspectionPanel,
@@ -48,6 +53,7 @@ export function UILintUI() {
         VisionIssueHighlight: locator.VisionIssueHighlight,
         InspectedHighlight: locator.InspectedElementHighlight,
         ElementBadges: badges.ElementBadges,
+        HeatmapOverlay: heatmap.HeatmapOverlay,
         VisionIssueBadges: visionBadges.VisionIssueBadges,
       });
     });
@@ -62,6 +68,7 @@ export function UILintUI() {
     VisionIssueHighlight,
     InspectedHighlight,
     ElementBadges,
+    HeatmapOverlay,
     VisionIssueBadges,
   } = components;
 
@@ -72,7 +79,8 @@ export function UILintUI() {
       <Toolbar />
       {(altKeyHeld || inspectedElement) && <LocatorOverlay />}
       <VisionIssueHighlight />
-      {liveScanEnabled && <ElementBadges />}
+      {liveScanEnabled && displayMode === "badges" && <ElementBadges />}
+      {liveScanEnabled && displayMode === "heatmap" && <HeatmapOverlay />}
       {hasVisionIssues && <VisionIssueBadges />}
       {inspectedElement && (
         <>

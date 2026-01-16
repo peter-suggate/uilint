@@ -12,6 +12,7 @@ import {
   readFileSync,
   unlinkSync,
   chmodSync,
+  rmSync,
 } from "fs";
 import { dirname } from "path";
 import type {
@@ -27,13 +28,19 @@ import type {
   InjectNextConfigAction,
   InjectViteConfigAction,
   InstallNextRoutesAction,
+  RemoveEslintAction,
+  RemoveReactAction,
+  RemoveNextConfigAction,
+  RemoveViteConfigAction,
+  RemoveNextRoutesAction,
+  RemoveDirectoryAction,
 } from "./types.js";
 import { installDependencies as defaultInstallDependencies } from "../../utils/package-manager.js";
-import { installEslintPlugin } from "../../utils/eslint-config-inject.js";
-import { installReactUILintOverlay } from "../../utils/react-inject.js";
-import { installJsxLocPlugin } from "../../utils/next-config-inject.js";
-import { installViteJsxLocPlugin } from "../../utils/vite-config-inject.js";
-import { installNextUILintRoutes } from "../../utils/next-routes.js";
+import { installEslintPlugin, uninstallEslintPlugin } from "../../utils/eslint-config-inject.js";
+import { installReactUILintOverlay, uninstallReactUILintOverlay } from "../../utils/react-inject.js";
+import { installJsxLocPlugin, uninstallJsxLocPlugin } from "../../utils/next-config-inject.js";
+import { installViteJsxLocPlugin, uninstallViteJsxLocPlugin } from "../../utils/vite-config-inject.js";
+import { installNextUILintRoutes, uninstallNextUILintRoutes } from "../../utils/next-routes.js";
 import { formatFilesWithPrettier, touchFiles } from "../../utils/prettier.js";
 
 /**
@@ -163,6 +170,31 @@ async function executeAction(
 
       case "install_next_routes": {
         return await executeInstallNextRoutes(action, options);
+      }
+
+      // Uninstall actions
+      case "remove_eslint": {
+        return await executeRemoveEslint(action, options);
+      }
+
+      case "remove_react": {
+        return await executeRemoveReact(action, options);
+      }
+
+      case "remove_next_config": {
+        return await executeRemoveNextConfig(action, options);
+      }
+
+      case "remove_vite_config": {
+        return await executeRemoveViteConfig(action, options);
+      }
+
+      case "remove_next_routes": {
+        return await executeRemoveNextRoutes(action, options);
+      }
+
+      case "remove_directory": {
+        return await executeRemoveDirectory(action, options);
       }
 
       default: {
@@ -351,6 +383,181 @@ async function executeInstallNextRoutes(
     appRoot: action.appRoot,
     force: false,
   });
+
+  return { action, success: true };
+}
+
+// ============================================================================
+// Uninstall action executors
+// ============================================================================
+
+/**
+ * Execute ESLint uninstallation
+ */
+async function executeRemoveEslint(
+  action: RemoveEslintAction,
+  options: ExecuteOptions
+): Promise<ActionResult> {
+  const { dryRun = false } = options;
+
+  if (dryRun) {
+    return {
+      action,
+      success: true,
+      wouldDo: `Remove uilint ESLint rules from: ${action.configPath}`,
+    };
+  }
+
+  const result = await uninstallEslintPlugin({
+    projectPath: action.packagePath,
+  });
+
+  return {
+    action,
+    success: result.success,
+    error: result.error,
+    modifiedFiles: result.modifiedFiles,
+  };
+}
+
+/**
+ * Execute React overlay removal
+ */
+async function executeRemoveReact(
+  action: RemoveReactAction,
+  options: ExecuteOptions
+): Promise<ActionResult> {
+  const { dryRun = false } = options;
+
+  if (dryRun) {
+    return {
+      action,
+      success: true,
+      wouldDo: `Remove <uilint-devtools /> from: ${action.projectPath}`,
+    };
+  }
+
+  const result = await uninstallReactUILintOverlay({
+    projectPath: action.projectPath,
+    appRoot: action.appRoot,
+    mode: action.mode,
+  });
+
+  return {
+    action,
+    success: result.success,
+    error: result.error,
+    modifiedFiles: result.modifiedFiles,
+  };
+}
+
+/**
+ * Execute Next.js config plugin removal
+ */
+async function executeRemoveNextConfig(
+  action: RemoveNextConfigAction,
+  options: ExecuteOptions
+): Promise<ActionResult> {
+  const { dryRun = false } = options;
+
+  if (dryRun) {
+    return {
+      action,
+      success: true,
+      wouldDo: `Remove jsx-loc-plugin from next.config: ${action.projectPath}`,
+    };
+  }
+
+  const result = await uninstallJsxLocPlugin({
+    projectPath: action.projectPath,
+  });
+
+  return {
+    action,
+    success: result.success,
+    error: result.error,
+    modifiedFiles: result.modifiedFiles,
+  };
+}
+
+/**
+ * Execute Vite config plugin removal
+ */
+async function executeRemoveViteConfig(
+  action: RemoveViteConfigAction,
+  options: ExecuteOptions
+): Promise<ActionResult> {
+  const { dryRun = false } = options;
+
+  if (dryRun) {
+    return {
+      action,
+      success: true,
+      wouldDo: `Remove jsx-loc-plugin from vite.config: ${action.projectPath}`,
+    };
+  }
+
+  const result = await uninstallViteJsxLocPlugin({
+    projectPath: action.projectPath,
+  });
+
+  return {
+    action,
+    success: result.success,
+    error: result.error,
+    modifiedFiles: result.modifiedFiles,
+  };
+}
+
+/**
+ * Execute Next.js routes removal
+ */
+async function executeRemoveNextRoutes(
+  action: RemoveNextRoutesAction,
+  options: ExecuteOptions
+): Promise<ActionResult> {
+  const { dryRun = false } = options;
+
+  if (dryRun) {
+    return {
+      action,
+      success: true,
+      wouldDo: `Remove Next.js API routes: ${action.projectPath}`,
+    };
+  }
+
+  const result = await uninstallNextUILintRoutes({
+    projectPath: action.projectPath,
+    appRoot: action.appRoot,
+  });
+
+  return {
+    action,
+    success: result.success,
+    error: result.error,
+  };
+}
+
+/**
+ * Execute directory removal
+ */
+async function executeRemoveDirectory(
+  action: RemoveDirectoryAction,
+  options: ExecuteOptions
+): Promise<ActionResult> {
+  const { dryRun = false } = options;
+
+  if (dryRun) {
+    return {
+      action,
+      success: true,
+      wouldDo: `Remove directory: ${action.path}`,
+    };
+  }
+
+  if (existsSync(action.path)) {
+    rmSync(action.path, { recursive: true, force: true });
+  }
 
   return { action, success: true };
 }

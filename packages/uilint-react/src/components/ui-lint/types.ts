@@ -5,6 +5,11 @@
 import type { VisionIssue } from "../../scanner/vision-capture";
 
 /**
+ * Display mode for ESLint issue visualization
+ */
+export type IssueDisplayMode = "badges" | "heatmap";
+
+/**
  * Source location from data-loc attribute
  */
 export interface SourceLocation {
@@ -59,6 +64,8 @@ export interface AutoScanSettings {
     onPageLoad: boolean;
     /** Re-scan when files change (existing behavior) */
     onFileChange: boolean;
+    /** Display mode for issue visualization */
+    displayMode: IssueDisplayMode;
   };
   vision: {
     /** Auto-capture and analyze on route change */
@@ -75,6 +82,7 @@ export const DEFAULT_AUTO_SCAN_SETTINGS: AutoScanSettings = {
   eslint: {
     onPageLoad: false,
     onFileChange: true,
+    displayMode: "badges",
   },
   vision: {
     onRouteChange: false,
