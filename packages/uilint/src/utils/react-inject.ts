@@ -562,6 +562,8 @@ export async function installReactUILintOverlay(
   createdFile?: string;
   /** Layout file modified to wrap children */
   layoutModified?: string;
+  /** Absolute paths of all files that were modified/created (for formatting) */
+  modifiedFiles: string[];
 }> {
   // Handle createProviders mode: create providers.tsx and modify layout
   if (opts.createProviders) {
@@ -569,11 +571,18 @@ export async function installReactUILintOverlay(
       opts.projectPath,
       opts.appRoot
     );
+    // Collect absolute paths of modified files
+    const modifiedFiles: string[] = [];
+    if (result.modified) {
+      modifiedFiles.push(join(opts.projectPath, result.providersFile));
+      modifiedFiles.push(join(opts.projectPath, result.layoutFile));
+    }
     return {
       targetFile: result.providersFile,
       modified: result.modified,
       createdFile: result.providersFile,
       layoutModified: result.layoutFile,
+      modifiedFiles,
     };
   }
 
@@ -609,6 +618,7 @@ export async function installReactUILintOverlay(
         targetFile: relTarget,
         modified: false,
         alreadyConfigured: true,
+        modifiedFiles: [],
       };
     }
 
@@ -633,6 +643,7 @@ export async function installReactUILintOverlay(
       targetFile: relTarget,
       modified,
       alreadyConfigured: false,
+      modifiedFiles: modified ? [absTarget] : [],
     };
   }
 
@@ -698,5 +709,6 @@ export async function installReactUILintOverlay(
     targetFile: chosen,
     modified,
     alreadyConfigured: alreadyConfigured && !modified,
+    modifiedFiles: modified ? [absTarget] : [],
   };
 }

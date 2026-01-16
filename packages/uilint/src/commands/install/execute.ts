@@ -34,7 +34,7 @@ import { installReactUILintOverlay } from "../../utils/react-inject.js";
 import { installJsxLocPlugin } from "../../utils/next-config-inject.js";
 import { installViteJsxLocPlugin } from "../../utils/vite-config-inject.js";
 import { installNextUILintRoutes } from "../../utils/next-routes.js";
-import { formatFilesWithPrettier } from "../../utils/prettier.js";
+import { formatFilesWithPrettier, touchFiles } from "../../utils/prettier.js";
 
 /**
  * Execute a single action and return the result
@@ -265,6 +265,7 @@ async function executeInjectReact(
     action,
     success,
     error: success ? undefined : "Failed to configure React overlay",
+    modifiedFiles: result.modifiedFiles,
   };
 }
 
@@ -294,6 +295,7 @@ async function executeInjectViteConfig(
     action,
     success: result.modified || result.configFile !== null,
     error: result.configFile === null ? "No vite.config found" : undefined,
+    modifiedFiles: result.modifiedFiles,
   };
 }
 
@@ -323,6 +325,7 @@ async function executeInjectNextConfig(
     action,
     success: result.modified || result.configFile !== null,
     error: result.configFile === null ? "No next.config found" : undefined,
+    modifiedFiles: result.modifiedFiles,
   };
 }
 
@@ -497,8 +500,7 @@ function collectFormattableFiles(actionsPerformed: ActionResult[]): string[] {
       case "inject_next_config":
       case "inject_vite_config":
       case "inject_react":
-        // These modify files but we don't have the exact path here
-        // The injection utilities handle their own files
+        // These actions now return modifiedFiles, which are collected below
         break;
     }
 
@@ -506,6 +508,16 @@ function collectFormattableFiles(actionsPerformed: ActionResult[]): string[] {
       const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
       if (formattableExtensions.has(ext)) {
         files.push(filePath);
+      }
+    }
+
+    // Also collect any modifiedFiles from injection actions
+    if (result.modifiedFiles) {
+      for (const modifiedPath of result.modifiedFiles) {
+        const ext = modifiedPath.slice(modifiedPath.lastIndexOf(".")).toLowerCase();
+        if (formattableExtensions.has(ext) && !files.includes(modifiedPath)) {
+          files.push(modifiedPath);
+        }
       }
     }
   }
@@ -610,6 +622,11 @@ export async function execute(
             // Ignore formatting errors
           }
         );
+
+        // Touch files to trigger IDE file watchers (for format-on-save)
+        // Small delay to ensure file system has flushed
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        touchFiles(filesToFormat);
       }
     }
   }

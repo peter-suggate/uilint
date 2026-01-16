@@ -163,6 +163,9 @@ importers:
       react:
         specifier: ^19.2.3
         version: 19.2.3
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
       uilint-core:
         specifier: workspace:*
         version: link:../uilint-core
@@ -198,9 +201,6 @@ importers:
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(@microsoft/api-extractor@7.55.2(@types/node@25.0.8))(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
       vitest:
         specifier: ^4.0.17
         version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.8)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2)

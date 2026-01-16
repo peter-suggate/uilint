@@ -5,7 +5,7 @@
  * Falls back gracefully if prettier is not installed.
  */
 
-import { existsSync } from "fs";
+import { existsSync, utimesSync } from "fs";
 import { spawn } from "child_process";
 import { join, dirname } from "path";
 import { detectPackageManager, type PackageManager } from "./package-manager.js";
@@ -223,4 +223,23 @@ export async function formatFilesWithPrettier(
       }
     });
   });
+}
+
+/**
+ * Touch files to update their modification time.
+ * This can trigger IDE file watchers which may invoke format-on-save.
+ *
+ * @param filePaths - Array of absolute file paths to touch
+ */
+export function touchFiles(filePaths: string[]): void {
+  const now = new Date();
+  for (const filePath of filePaths) {
+    try {
+      if (existsSync(filePath)) {
+        utimesSync(filePath, now, now);
+      }
+    } catch {
+      // Silently ignore touch failures - this is a best-effort operation
+    }
+  }
 }

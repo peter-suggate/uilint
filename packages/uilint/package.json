@@ -1,6 +1,6 @@
 {
   "name": "uilint",
-  "version": "0.2.18",
+  "version": "0.2.21",
   "description": "CLI for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -55,6 +55,7 @@
     "magicast": "^0.5.1",
     "picocolors": "^1.1.1",
     "react": "^19.2.3",
+    "typescript": "^5.9.3",
     "uilint-core": "workspace:*",
     "uilint-eslint": "workspace:*",
     "ws": "^8.19.0"
@@ -70,7 +71,6 @@
     "@types/react": "^19.2.8",
     "@types/ws": "^8.18.1",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3",
     "vitest": "^4.0.17"
   },
   "keywords": [

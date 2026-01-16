@@ -274,9 +274,14 @@ function ensurePluginsContainsJsxLoc(configObj: any): { changed: boolean } {
 
 export async function installViteJsxLocPlugin(
   opts: InstallViteJsxLocPluginOptions
-): Promise<{ configFile: string | null; modified: boolean }> {
+): Promise<{
+  configFile: string | null;
+  modified: boolean;
+  /** Absolute paths of all files that were modified (for formatting) */
+  modifiedFiles: string[];
+}> {
   const configPath = findViteConfigFile(opts.projectPath);
-  if (!configPath) return { configFile: null, modified: false };
+  if (!configPath) return { configFile: null, modified: false, modifiedFiles: [] };
 
   const configFilename = getViteConfigFilename(configPath);
   const original = readFileSync(configPath, "utf-8");
@@ -286,11 +291,11 @@ export async function installViteJsxLocPlugin(
   try {
     mod = parseModule(original);
   } catch {
-    return { configFile: configFilename, modified: false };
+    return { configFile: configFilename, modified: false, modifiedFiles: [] };
   }
 
   const found = findExportedConfigObjectExpression(mod);
-  if (!found) return { configFile: configFilename, modified: false };
+  if (!found) return { configFile: configFilename, modified: false, modifiedFiles: [] };
 
   let changed = false;
 
@@ -309,8 +314,8 @@ export async function installViteJsxLocPlugin(
   const updated = changed ? generateCode(mod).code : original;
   if (updated !== original) {
     writeFileSync(configPath, updated, "utf-8");
-    return { configFile: configFilename, modified: true };
+    return { configFile: configFilename, modified: true, modifiedFiles: [configPath] };
   }
 
-  return { configFile: configFilename, modified: false };
+  return { configFile: configFilename, modified: false, modifiedFiles: [] };
 }

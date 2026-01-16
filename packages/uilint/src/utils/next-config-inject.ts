@@ -210,11 +210,16 @@ function wrapCjsModuleExports(program: any): { changed: boolean } {
  */
 export async function installJsxLocPlugin(
   opts: InstallJsxLocPluginOptions
-): Promise<{ configFile: string | null; modified: boolean }> {
+): Promise<{
+  configFile: string | null;
+  modified: boolean;
+  /** Absolute paths of all files that were modified (for formatting) */
+  modifiedFiles: string[];
+}> {
   const configPath = findNextConfigFile(opts.projectPath);
 
   if (!configPath) {
-    return { configFile: null, modified: false };
+    return { configFile: null, modified: false, modifiedFiles: [] };
   }
 
   const configFilename = getNextConfigFilename(configPath);
@@ -224,7 +229,7 @@ export async function installJsxLocPlugin(
   try {
     mod = parseModule(original);
   } catch {
-    return { configFile: configFilename, modified: false };
+    return { configFile: configFilename, modified: false, modifiedFiles: [] };
   }
 
   const program = mod.$ast;
@@ -249,8 +254,8 @@ export async function installJsxLocPlugin(
 
   if (updated !== original) {
     writeFileSync(configPath, updated, "utf-8");
-    return { configFile: configFilename, modified: true };
+    return { configFile: configFilename, modified: true, modifiedFiles: [configPath] };
   }
 
-  return { configFile: configFilename, modified: false };
+  return { configFile: configFilename, modified: false, modifiedFiles: [] };
 }

@@ -245,6 +245,8 @@ export interface ActionResult {
   error?: string;
   /** For dry run, what would have been done */
   wouldDo?: string;
+  /** Absolute paths of files that were modified (for formatting) */
+  modifiedFiles?: string[];
 }
 
 export interface DependencyResult {
