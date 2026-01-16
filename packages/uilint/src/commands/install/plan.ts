@@ -162,7 +162,7 @@ export function createPlan(
   // Next.js Overlay Installation
   // =========================================================================
   if (items.includes("next") && choices.next) {
-    const { projectPath, detection } = choices.next;
+    const { projectPath, detection, targetFile, createProviders } = choices.next;
 
     // Install Next.js routes
     actions.push({
@@ -179,10 +179,13 @@ export function createPlan(
     });
 
     // Inject <uilint-devtools /> web component into React
+    // Use targetFile or createProviders if specified by the user
     actions.push({
       type: "inject_react",
       projectPath,
       appRoot: detection.appRoot,
+      targetFile,
+      createProviders,
     });
 
     // Inject jsx-loc-plugin into next.config

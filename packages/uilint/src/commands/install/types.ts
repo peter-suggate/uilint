@@ -98,6 +98,16 @@ export interface NextChoices {
   projectPath: string;
   /** Detection info for the selected app */
   detection: NextAppRouterDetection;
+  /**
+   * Specific file to inject devtools into (absolute path).
+   * If provided, injects into this client component instead of the layout.
+   */
+  targetFile?: string;
+  /**
+   * If true, create a new providers.tsx file and wrap the layout's children.
+   * Used when no existing client boundaries are found.
+   */
+  createProviders?: boolean;
 }
 
 export interface ViteChoices {

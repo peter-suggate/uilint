@@ -21,9 +21,26 @@ import type {
 import {
   traceClientBoundaries,
   providersFileExists,
-  type ClientBoundary,
   type TraceResult,
 } from "../../../utils/client-boundary-tracer.js";
+
+/**
+ * Represents an injection point option within a Next.js app
+ */
+export interface InjectionPoint {
+  /** Unique ID */
+  id: string;
+  /** Display label (e.g., "providers.tsx") */
+  label: string;
+  /** Hint text (e.g., "Recommended", "existing") */
+  hint?: string;
+  /** Absolute path to the file */
+  filePath?: string;
+  /** Whether to create a new providers.tsx */
+  createProviders?: boolean;
+  /** Whether this is the recommended option */
+  recommended?: boolean;
+}
 
 /**
  * Configuration returned by the configure() step
@@ -37,6 +54,108 @@ interface NextOverlayConfig extends InstallerConfig {
   createProviders?: boolean;
 }
 
+/**
+ * Get injection points for a specific Next.js app
+ * This is called after the user selects a Next.js app to configure
+ */
+export function getInjectionPoints(
+  projectPath: string,
+  appRoot: string
+): InjectionPoint[] {
+  const points: InjectionPoint[] = [];
+
+  const traceResult = traceClientBoundaries(projectPath, appRoot);
+
+  if (!traceResult) {
+    // No layout found - offer to create providers
+    points.push({
+      id: "create-providers",
+      label: "Create providers.tsx",
+      hint: "Recommended",
+      createProviders: true,
+      recommended: true,
+    });
+    return points;
+  }
+
+  if (traceResult.layoutIsClient) {
+    // Layout is already a client component - single option
+    points.push({
+      id: "layout",
+      label: "Root layout",
+      hint: "Already a client component",
+      filePath: traceResult.layoutFile,
+      recommended: true,
+    });
+    return points;
+  }
+
+  // Layout is a server component - offer client boundary choices
+  const existingProviders = providersFileExists(projectPath, appRoot);
+
+  // First option: create new providers.tsx (recommended if none exists)
+  if (!existingProviders) {
+    points.push({
+      id: "create-providers",
+      label: "Create providers.tsx",
+      hint: "Recommended",
+      createProviders: true,
+      recommended: true,
+    });
+  }
+
+  // Add existing client boundaries as options
+  for (const boundary of traceResult.clientBoundaries) {
+    const componentNames =
+      boundary.componentNames.length > 0
+        ? boundary.componentNames.join(", ")
+        : "default";
+
+    points.push({
+      id: boundary.relativePath,
+      label: boundary.relativePath,
+      hint: componentNames,
+      filePath: boundary.filePath,
+      // Mark existing providers as recommended if it exists
+      recommended: existingProviders === boundary.filePath,
+    });
+  }
+
+  // If existing providers file found and not in boundaries, add it
+  if (existingProviders) {
+    const relativePath = existingProviders
+      .replace(projectPath + "/", "")
+      .replace(projectPath, "");
+
+    const alreadyListed = traceResult.clientBoundaries.some(
+      (b) => b.filePath === existingProviders
+    );
+
+    if (!alreadyListed) {
+      points.push({
+        id: "existing-providers",
+        label: relativePath,
+        hint: "Existing providers",
+        filePath: existingProviders,
+        recommended: true,
+      });
+    }
+  }
+
+  // Fallback: if no options, offer to create providers
+  if (points.length === 0) {
+    points.push({
+      id: "create-providers",
+      label: "Create providers.tsx",
+      hint: "Recommended",
+      createProviders: true,
+      recommended: true,
+    });
+  }
+
+  return points;
+}
+
 export const nextOverlayInstaller: Installer = {
   id: "next",
   name: "Next.js overlay",
@@ -48,114 +167,15 @@ export const nextOverlayInstaller: Installer = {
   },
 
   getTargets(project: ProjectState): InstallTarget[] {
-    // For each Next.js app, trace client boundaries and create targets
-    const targets: InstallTarget[] = [];
-
-    for (const app of project.nextApps) {
-      const traceResult = traceClientBoundaries(
-        app.projectPath,
-        app.detection.appRoot
-      );
-
-      if (!traceResult) {
-        // No layout found - shouldn't happen but handle gracefully
-        targets.push({
-          id: `next-${app.projectPath}`,
-          label: app.projectPath.split("/").pop() || app.projectPath,
-          path: app.projectPath,
-          hint: "App Router (no layout found)",
-          isInstalled: false,
-        });
-        continue;
-      }
-
-      if (traceResult.layoutIsClient) {
-        // Layout is already a client component - can inject directly
-        targets.push({
-          id: `next-${app.projectPath}`,
-          label: app.projectPath.split("/").pop() || app.projectPath,
-          path: app.projectPath,
-          hint: "App Router",
-          isInstalled: false,
-          targetFile: traceResult.layoutFile,
-        });
-        continue;
-      }
-
-      // Layout is a server component - offer client boundary choices
-      const existingProviders = providersFileExists(
-        app.projectPath,
-        app.detection.appRoot
-      );
-
-      // First option: create new providers.tsx (recommended if none exists)
-      if (!existingProviders) {
-        targets.push({
-          id: `next-${app.projectPath}-create-providers`,
-          label: `${app.projectPath.split("/").pop() || app.projectPath}`,
-          path: app.projectPath,
-          hint: "Create providers.tsx (Recommended)",
-          isInstalled: false,
-          createProviders: true,
-        });
-      }
-
-      // Add existing client boundaries as options
-      for (const boundary of traceResult.clientBoundaries) {
-        const componentNames =
-          boundary.componentNames.length > 0
-            ? boundary.componentNames.join(", ")
-            : "default";
-
-        targets.push({
-          id: `next-${app.projectPath}-${boundary.relativePath}`,
-          label: `${app.projectPath.split("/").pop() || app.projectPath}`,
-          path: app.projectPath,
-          hint: `${boundary.relativePath} (${componentNames})`,
-          isInstalled: false,
-          targetFile: boundary.filePath,
-        });
-      }
-
-      // If existing providers file found, add it as an option
-      if (existingProviders) {
-        const relativePath = existingProviders
-          .replace(app.projectPath + "/", "")
-          .replace(app.projectPath, "");
-
-        // Check if it's already in the client boundaries list
-        const alreadyListed = traceResult.clientBoundaries.some(
-          (b) => b.filePath === existingProviders
-        );
-
-        if (!alreadyListed) {
-          targets.push({
-            id: `next-${app.projectPath}-existing-providers`,
-            label: `${app.projectPath.split("/").pop() || app.projectPath}`,
-            path: app.projectPath,
-            hint: `${relativePath} (existing)`,
-            isInstalled: false,
-            targetFile: existingProviders,
-          });
-        }
-      }
-
-      // If no options found at all, still offer to create providers
-      if (
-        targets.filter((t) => t.path === app.projectPath).length === 0
-      ) {
-        targets.push({
-          id: `next-${app.projectPath}-create-providers`,
-          label: `${app.projectPath.split("/").pop() || app.projectPath}`,
-          path: app.projectPath,
-          hint: "Create providers.tsx",
-          isInstalled: false,
-          createProviders: true,
-        });
-      }
-    }
-
-    return targets;
+    // Return a single target per Next.js app
+    // Injection point selection happens in a follow-up step
+    return project.nextApps.map((app) => ({
+      id: `next-${app.projectPath}`,
+      label: app.projectPath.split("/").pop() || app.projectPath,
+      path: app.projectPath,
+      hint: "App Router",
+      isInstalled: false,
+    }));
   },
 
   plan(
@@ -180,6 +200,11 @@ export const nextOverlayInstaller: Installer = {
 
     const { projectPath, detection } = appInfo;
 
+    // Get injection point from config (selected in follow-up UI)
+    const nextConfig = config as NextOverlayConfig;
+    const targetFile = nextConfig.selectedTargetFile;
+    const createProviders = nextConfig.createProviders;
+
     // Install Next.js routes
     actions.push({
       type: "install_next_routes",
@@ -195,14 +220,14 @@ export const nextOverlayInstaller: Installer = {
     });
 
     // Inject <uilint-devtools /> web component into React
-    // Use the target's specific file or createProviders flag
+    // Use the selected injection point from config
     actions.push({
       type: "inject_react",
       projectPath,
       appRoot: detection.appRoot,
       mode: "next",
-      targetFile: target.targetFile,
-      createProviders: target.createProviders,
+      targetFile,
+      createProviders,
     });
 
     // Inject jsx-loc-plugin into next.config
@@ -222,6 +247,7 @@ export const nextOverlayInstaller: Installer = {
     if (targets.length === 0) return;
 
     const target = targets[0]!;
+    const nextConfig = config as NextOverlayConfig;
 
     yield {
       type: "start",
@@ -240,10 +266,10 @@ export const nextOverlayInstaller: Installer = {
       detail: "→ uilint-react, uilint-core, jsx-loc-plugin",
     };
 
-    const injectDetail = target.createProviders
+    const injectDetail = nextConfig.createProviders
       ? "→ Creating providers.tsx"
-      : target.targetFile
-      ? `→ ${target.hint || "client component"}`
+      : nextConfig.selectedTargetFile
+      ? `→ ${nextConfig.selectedTargetFile.split("/").pop() || "client component"}`
       : "→ <uilint-devtools /> in root layout";
 
     yield {

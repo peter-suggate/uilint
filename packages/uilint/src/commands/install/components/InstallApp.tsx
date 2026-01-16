@@ -1,10 +1,11 @@
 /**
  * InstallApp - Main Ink React component for the installer UI
  *
- * Three-phase installation flow:
+ * Multi-phase installation flow:
  * 1. Select a project (Next.js app, Vite app, etc.)
  * 2. Select features to install
- * 3. Configure ESLint rules (if ESLint selected)
+ * 3. Configure injection point (if Next.js/Vite overlay selected with multiple options)
+ * 4. Configure ESLint rules (if ESLint selected)
  */
 
 import React, { useState, useEffect } from "react";
@@ -13,9 +14,11 @@ import { Spinner } from "./Spinner.js";
 import { ProjectSelector, getDetectedProjects, type DetectedProject } from "./ProjectSelector.js";
 import { ConfigSelector, type ConfigItem, type ItemStatus } from "./MultiSelect.js";
 import { RuleSelector, type ConfiguredRule } from "./RuleSelector.js";
+import { InjectionPointSelector } from "./InjectionPointSelector.js";
 import type { ProjectState } from "../types.js";
 import type { InstallerSelection, InstallTarget } from "../installers/types.js";
 import { getAllInstallers } from "../installers/registry.js";
+import { getInjectionPoints, type InjectionPoint } from "../installers/next-overlay.js";
 
 /**
  * Map InstallTarget to ConfigItem status
@@ -34,14 +37,27 @@ type AppPhase =
   | "scanning"
   | "select-project"
   | "configure-features"
+  | "configure-injection-point"
   | "configure-eslint"
   | "error";
+
+/**
+ * Selected injection point config to pass to installer
+ */
+export interface InjectionPointConfig {
+  targetFile?: string;
+  createProviders?: boolean;
+}
 
 export interface InstallAppProps {
   /** Project scan promise (resolves to ProjectState) */
   projectPromise: Promise<ProjectState>;
   /** Callback when installation is complete */
-  onComplete: (selections: InstallerSelection[], eslintRules?: ConfiguredRule[]) => void;
+  onComplete: (
+    selections: InstallerSelection[],
+    eslintRules?: ConfiguredRule[],
+    injectionPointConfig?: InjectionPointConfig
+  ) => void;
   /** Callback when error occurs */
   onError?: (error: Error) => void;
 }
@@ -220,8 +236,15 @@ export function InstallApp({
   const [selectedFeatureIds, setSelectedFeatureIds] = useState<string[]>([]);
   const [error, setError] = useState<Error | null>(null);
 
+  // Injection point state
+  const [injectionPoints, setInjectionPoints] = useState<InjectionPoint[]>([]);
+  const [selectedInjectionPoint, setSelectedInjectionPoint] = useState<InjectionPointConfig | undefined>(undefined);
+
   // Check if ESLint is selected
   const isEslintSelected = selectedFeatureIds.some((id) => id.startsWith("eslint:"));
+
+  // Check if Next.js overlay is selected
+  const isNextSelected = selectedFeatureIds.some((id) => id.startsWith("next:"));
 
   // Phase 1: Scan project
   useEffect(() => {
@@ -298,6 +321,51 @@ export function InstallApp({
   const handleFeatureSubmit = (selectedIds: string[]) => {
     setSelectedFeatureIds(selectedIds);
 
+    // Check if Next.js overlay is selected - if so, check injection points
+    const nextSelected = selectedIds.some((id) => id.startsWith("next:"));
+
+    if (nextSelected && project && selectedProject) {
+      // Find the Next.js app info
+      const appInfo = project.nextApps.find(
+        (app) => app.projectPath === selectedProject.path
+      );
+
+      if (appInfo) {
+        const points = getInjectionPoints(appInfo.projectPath, appInfo.detection.appRoot);
+
+        // If there's only one injection point, auto-select it
+        if (points.length === 1) {
+          const point = points[0]!;
+          setSelectedInjectionPoint({
+            targetFile: point.filePath,
+            createProviders: point.createProviders,
+          });
+          // Continue to next phase
+          proceedAfterInjectionPoint(selectedIds, {
+            targetFile: point.filePath,
+            createProviders: point.createProviders,
+          });
+          return;
+        }
+
+        // Multiple injection points - show selection UI
+        if (points.length > 1) {
+          setInjectionPoints(points);
+          setPhase("configure-injection-point");
+          return;
+        }
+      }
+    }
+
+    // No injection point selection needed, check ESLint
+    proceedAfterInjectionPoint(selectedIds, undefined);
+  };
+
+  // Proceed after injection point selection (or skip)
+  const proceedAfterInjectionPoint = (
+    selectedIds: string[],
+    injectionConfig?: InjectionPointConfig
+  ) => {
     // Check if ESLint is selected - if so, go to rule configuration
     const eslintSelected = selectedIds.some((id) => id.startsWith("eslint:"));
 
@@ -305,13 +373,28 @@ export function InstallApp({
       setPhase("configure-eslint");
     } else {
       // No ESLint, complete with current selections
-      finishInstallation(selectedIds, undefined);
+      finishInstallation(selectedIds, undefined, injectionConfig);
     }
+  };
+
+  // Handle injection point selection
+  const handleInjectionPointSubmit = (point: InjectionPoint) => {
+    const config: InjectionPointConfig = {
+      targetFile: point.filePath,
+      createProviders: point.createProviders,
+    };
+    setSelectedInjectionPoint(config);
+    proceedAfterInjectionPoint(selectedFeatureIds, config);
+  };
+
+  // Handle back from injection point selection
+  const handleBackFromInjectionPoint = () => {
+    setPhase("configure-features");
   };
 
   // Handle ESLint rule configuration submission
   const handleRuleSubmit = (configuredRules: ConfiguredRule[]) => {
-    finishInstallation(selectedFeatureIds, configuredRules);
+    finishInstallation(selectedFeatureIds, configuredRules, selectedInjectionPoint);
   };
 
   // Handle back from ESLint config to feature selection
@@ -320,7 +403,11 @@ export function InstallApp({
   };
 
   // Finalize installation with all selections
-  const finishInstallation = (selectedIds: string[], eslintRules?: ConfiguredRule[]) => {
+  const finishInstallation = (
+    selectedIds: string[],
+    eslintRules?: ConfiguredRule[],
+    injectionConfig?: InjectionPointConfig
+  ) => {
     const selectedSet = new Set(selectedIds);
 
     const updatedSelections = selections.map((sel) => {
@@ -335,7 +422,7 @@ export function InstallApp({
     });
 
     setSelections(updatedSelections);
-    onComplete(updatedSelections, eslintRules);
+    onComplete(updatedSelections, eslintRules, injectionConfig);
   };
 
   const handleCancel = () => {
@@ -393,6 +480,27 @@ export function InstallApp({
           canGoBack={detectedProjects.length > 1}
           onSubmit={handleFeatureSubmit}
           onBack={handleBackToProject}
+          onCancel={handleCancel}
+        />
+      </Box>
+    );
+  }
+
+  // Render: Injection point configuration
+  if (phase === "configure-injection-point" && injectionPoints.length > 0) {
+    return (
+      <Box flexDirection="column">
+        <Header subtitle="Injection Point" />
+        {selectedProject && (
+          <Box marginBottom={1}>
+            <Text dimColor>Project: </Text>
+            <Text bold color="cyan">{selectedProject.name}</Text>
+          </Box>
+        )}
+        <InjectionPointSelector
+          points={injectionPoints}
+          onSubmit={handleInjectionPointSubmit}
+          onBack={handleBackFromInjectionPoint}
           onCancel={handleCancel}
         />
       </Box>

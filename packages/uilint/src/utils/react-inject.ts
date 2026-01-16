@@ -183,8 +183,9 @@ function addDevtoolsElementNextJs(program: any): {
   if (hasUILintDevtoolsJsx(program)) return { changed: false };
 
   // Create the devtools JSX element: <uilint-devtools />
+  // Note: Parse without parentheses to avoid extra.parenthesized in AST
   const devtoolsMod = parseModule(
-    'const __uilint_devtools = (<uilint-devtools />);'
+    'const __uilint_devtools = <uilint-devtools />;'
   );
   const devtoolsJsx =
     (devtoolsMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
@@ -251,16 +252,18 @@ function addDevtoolsElementVite(program: any): {
     if (arg0.type !== "JSXElement" && arg0.type !== "JSXFragment") return;
 
     // Create the devtools JSX element
+    // Note: Parse without parentheses to avoid extra.parenthesized in AST
     const devtoolsMod = parseModule(
-      'const __uilint_devtools = (<uilint-devtools />);'
+      'const __uilint_devtools = <uilint-devtools />;'
     );
     const devtoolsJsx =
       (devtoolsMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
     if (!devtoolsJsx) return;
 
     // Create a fragment wrapping original + devtools
+    // Note: Parse without parentheses to avoid extra.parenthesized in AST
     const fragmentMod = parseModule(
-      'const __fragment = (<></>);'
+      'const __fragment = <></>;'
     );
     const fragmentJsx =
       (fragmentMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
@@ -328,8 +331,9 @@ function addDevtoolsToClientComponent(program: any): {
   if (hasUILintDevtoolsJsx(program)) return { changed: false };
 
   // Create the devtools JSX element
+  // Note: Parse without parentheses to avoid extra.parenthesized in AST
   const devtoolsMod = parseModule(
-    'const __uilint_devtools = (<uilint-devtools />);'
+    'const __uilint_devtools = <uilint-devtools />;'
   );
   const devtoolsJsx =
     (devtoolsMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
@@ -368,7 +372,8 @@ function addDevtoolsToClientComponent(program: any): {
     if (arg.type !== "JSXElement" && arg.type !== "JSXFragment") return;
 
     // Create a fragment wrapping original + devtools
-    const fragmentMod = parseModule('const __fragment = (<></>);');
+    // Note: Parse without parentheses to avoid extra.parenthesized in AST
+    const fragmentMod = parseModule('const __fragment = <></>;');
     const fragmentJsx =
       (fragmentMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
     if (!fragmentJsx) return;
@@ -454,8 +459,9 @@ function wrapChildrenWithProviders(
     if (childrenIndex === -1) return;
 
     // Create <Providers>{children}</Providers>
+    // Note: Parse without parentheses to avoid extra.parenthesized in AST
     const providersMod = parseModule(
-      'const __providers = (<Providers>{children}</Providers>);'
+      'const __providers = <Providers>{children}</Providers>;'
     );
     const providersJsx =
       (providersMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;

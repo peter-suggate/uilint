@@ -139,35 +139,42 @@ function getUilintEslintDistDir(): string {
 
 /**
  * Transform rule content to fix imports for copied location
- * Changes imports from "../utils/create-rule.js" to "uilint-eslint"
+ * Changes imports from "../utils/..." to "uilint-eslint"
  */
 function transformRuleContent(content: string): string {
-  // Replace relative imports to utils with uilint-eslint imports
-  // Pattern: import { ... } from "../utils/create-rule.js" or similar
   let transformed = content;
 
-  // Replace: import { createRule } from "../utils/create-rule.js"
-  transformed = transformed.replace(
-    /import\s+{\s*createRule\s*}\s+from\s+["']\.\.\/utils\/create-rule\.js["'];?/g,
-    'import { createRule } from "uilint-eslint";'
-  );
+  // All utilities that are exported from uilint-eslint and can be imported
+  const utilsFromPackage = [
+    "create-rule",
+    "cache",
+    "styleguide-loader",
+    "import-graph",
+    "component-parser",
+    "export-resolver",
+  ];
 
-  // Replace: import createRule from "../utils/create-rule.js"
-  transformed = transformed.replace(
-    /import\s+createRule\s+from\s+["']\.\.\/utils\/create-rule\.js["'];?/g,
-    'import { createRule } from "uilint-eslint";'
-  );
-
-  // Replace other utility imports (cache, styleguide-loader, etc.)
+  // Replace all relative utility imports with uilint-eslint imports
+  // Pattern: import { ... } from "../utils/create-rule.js" or similar
+  // This handles any combination of imports like { createRule, defineRuleMeta }
   transformed = transformed.replace(
     /import\s+{([^}]+)}\s+from\s+["']\.\.\/utils\/([^"']+)\.js["'];?/g,
     (match, imports, utilFile) => {
-      // Check if it's a utility that's exported from uilint-eslint
-      const utilsFromPackage = ["cache", "styleguide-loader", "import-graph"];
       if (utilsFromPackage.includes(utilFile)) {
         return `import {${imports}} from "uilint-eslint";`;
       }
       return match; // Keep original if not a known utility
+    }
+  );
+
+  // Also handle default imports: import createRule from "../utils/create-rule.js"
+  transformed = transformed.replace(
+    /import\s+(\w+)\s+from\s+["']\.\.\/utils\/([^"']+)\.js["'];?/g,
+    (match, importName, utilFile) => {
+      if (utilsFromPackage.includes(utilFile)) {
+        return `import { ${importName} } from "uilint-eslint";`;
+      }
+      return match;
     }
   );
 

@@ -10,7 +10,7 @@
 
 import React from "react";
 import { render } from "ink";
-import { InstallApp } from "./install/components/InstallApp.js";
+import { InstallApp, type InjectionPointConfig } from "./install/components/InstallApp.js";
 import { analyze } from "./install/analyze.js";
 import { execute } from "./install/execute.js";
 import type {
@@ -36,7 +36,8 @@ import "./install/installers/index.js";
 function selectionsToUserChoices(
   selections: InstallerSelection[],
   project: ProjectState,
-  eslintRules?: ConfiguredRule[]
+  eslintRules?: ConfiguredRule[],
+  injectionPointConfig?: InjectionPointConfig
 ): UserChoices {
   const items: InstallItem[] = [];
   const choices: UserChoices = { items };
@@ -76,6 +77,9 @@ function selectionsToUserChoices(
         choices.next = {
           projectPath: appInfo.projectPath,
           detection: appInfo.detection,
+          // Use injection point from follow-up UI selection
+          targetFile: injectionPointConfig?.targetFile,
+          createProviders: injectionPointConfig?.createProviders,
         };
       }
     } else if (installer.id === "vite") {
@@ -130,10 +134,10 @@ export async function installUI(
   const { waitUntilExit } = render(
     <InstallApp
       projectPromise={projectPromise}
-      onComplete={async (selections, eslintRules) => {
+      onComplete={async (selections, eslintRules, injectionPointConfig) => {
         // When user completes selection, proceed with installation
         const project = await projectPromise;
-        const choices = selectionsToUserChoices(selections, project, eslintRules);
+        const choices = selectionsToUserChoices(selections, project, eslintRules, injectionPointConfig);
 
         if (choices.items.length === 0) {
           console.log("\nNo items selected for installation");

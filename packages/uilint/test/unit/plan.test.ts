@@ -204,6 +204,7 @@ describe("createPlan - Agent Skill", () => {
 
 describe("createPlan - ESLint", () => {
   it("plans ESLint installation for selected packages", () => {
+    // Use .mjs ESLint config which should generate .js rule files
     const pkg = createMockPackage();
     const state = createMockProjectState({ packages: [pkg] });
     const choices = createMockChoices({
@@ -224,16 +225,16 @@ describe("createPlan - ESLint", () => {
       path: expect.stringContaining(".uilint/rules"),
     });
 
-    // Should copy rule files
+    // Should copy rule files (as .js since ESLint config is .mjs)
     const ruleFileAction = plan.actions.find(
       (a) =>
-        a.type === "create_file" && a.path.includes("no-arbitrary-tailwind.ts")
+        a.type === "create_file" && a.path.includes("no-arbitrary-tailwind.js")
     );
     expect(ruleFileAction).toBeDefined();
     if (ruleFileAction?.type === "create_file") {
-      // Default is TypeScript, so should be .ts
+      // .mjs ESLint config should produce .js rule files
       expect(ruleFileAction.path).toContain(
-        ".uilint/rules/no-arbitrary-tailwind.ts"
+        ".uilint/rules/no-arbitrary-tailwind.js"
       );
       expect(ruleFileAction.content).toContain("createRule");
     }
@@ -368,9 +369,12 @@ describe("createPlan - ESLint", () => {
     }
   });
 
-  it("copies .ts files for TypeScript packages", () => {
+  it("copies .ts files for TypeScript ESLint configs", () => {
+    // TypeScript rule files are generated when the ESLint config is .ts
     const pkg = createMockPackage({
       isTypeScript: true,
+      eslintConfigPath: "/test/project/eslint.config.ts",
+      eslintConfigFilename: "eslint.config.ts",
     });
     const state = createMockProjectState({ packages: [pkg] });
     const choices = createMockChoices({
@@ -397,9 +401,12 @@ describe("createPlan - ESLint", () => {
     }
   });
 
-  it("copies .test.ts files for TypeScript packages when rule has test file", () => {
+  it("copies .test.ts files for TypeScript ESLint configs when rule has test file", () => {
+    // Test files are only copied for TypeScript ESLint configs
     const pkg = createMockPackage({
       isTypeScript: true,
+      eslintConfigPath: "/test/project/eslint.config.ts",
+      eslintConfigFilename: "eslint.config.ts",
     });
     const state = createMockProjectState({ packages: [pkg] });
     // Use consistent-dark-mode which has a test file

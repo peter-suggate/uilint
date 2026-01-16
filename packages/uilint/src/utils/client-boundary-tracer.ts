@@ -48,13 +48,30 @@ function hasUseClientDirective(filePath: string): boolean {
 
     if (!program || program.type !== "Program") return false;
 
+    // Check program.directives array (where babel/magicast puts "use client")
+    const directives = (program as any).directives ?? [];
+    for (const directive of directives) {
+      if (
+        directive?.type === "Directive" &&
+        directive.value?.type === "DirectiveLiteral" &&
+        directive.value.value === "use client"
+      ) {
+        return true;
+      }
+    }
+
+    // Also check first statement as fallback (older parsing behavior)
     const firstStmt = (program as any).body?.[0];
-    return (
+    if (
       firstStmt?.type === "ExpressionStatement" &&
-      firstStmt.expression?.type === "StringLiteral" &&
-      (firstStmt.expression.value === "use client" ||
-        firstStmt.expression.value === "use client")
-    );
+      (firstStmt.expression?.type === "StringLiteral" ||
+        firstStmt.expression?.type === "Literal") &&
+      firstStmt.expression.value === "use client"
+    ) {
+      return true;
+    }
+
+    return false;
   } catch {
     return false;
   }
