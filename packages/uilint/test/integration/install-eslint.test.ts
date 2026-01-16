@@ -31,8 +31,14 @@ const mockInstallDependencies = async () => {
   // No-op - we don't want to actually run npm/pnpm install
 };
 
-function ruleFileExt(pkg: { isTypeScript?: boolean }): ".ts" | ".js" {
-  return pkg.isTypeScript ? ".ts" : ".js";
+// Rule file extension is based on ESLint config file extension (not project TypeScript status)
+function ruleFileExt(pkg: { eslintConfigPath?: string | null }): ".ts" | ".js" {
+  return pkg.eslintConfigPath?.endsWith(".ts") ? ".ts" : ".js";
+}
+
+// Import extension: TypeScript configs omit extension to avoid allowImportingTsExtensions requirement
+function ruleImportExt(pkg: { eslintConfigPath?: string | null }): "" | ".js" {
+  return pkg.eslintConfigPath?.endsWith(".ts") ? "" : ".js";
 }
 
 // ============================================================================
@@ -116,6 +122,7 @@ describe("ESLint installation - fresh config", () => {
     expect(pkg?.eslintConfigPath).toContain("eslint.config.ts");
     expect(pkg?.hasUilintRules).toBe(false);
     const ext = ruleFileExt(pkg!);
+    const importExt = ruleImportExt(pkg!);
 
     // Create choices
     const prompter = mockPrompter({
@@ -145,14 +152,15 @@ describe("ESLint installation - fresh config", () => {
     // Read updated config
     const updatedConfig = fixture.readFile("eslint.config.ts");
     expect(updatedConfig).toContain('from "uilint-eslint"');
+    // Note: TypeScript configs omit extension to avoid allowImportingTsExtensions requirement
     expect(updatedConfig).toMatch(
       new RegExp(
-        `from\\s+["']\\.\\/\\.uilint\\/rules\\/no-arbitrary-tailwind\\${ext}["']`
+        `from\\s+["']\\.\\/\\.uilint\\/rules\\/no-arbitrary-tailwind${importExt}["']`
       )
     );
     expect(updatedConfig).toMatch(
       new RegExp(
-        `from\\s+["']\\.\\/\\.uilint\\/rules\\/consistent-spacing\\${ext}["']`
+        `from\\s+["']\\.\\/\\.uilint\\/rules\\/consistent-spacing${importExt}["']`
       )
     );
     expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
@@ -944,13 +952,13 @@ describe("ESLint installation - JavaScript vs TypeScript file formats", () => {
     );
     expect(fixture.exists(".uilint/rules/consistent-spacing.js")).toBe(false);
 
-    // Verify config imports .ts files
+    // Verify config imports without .ts extension (to avoid allowImportingTsExtensions requirement)
     const updatedConfig = fixture.readFile("eslint.config.ts");
     expect(updatedConfig).toMatch(
-      /from\s+["']\.\/\.uilint\/rules\/no-arbitrary-tailwind\.ts["']/
+      /from\s+["']\.\/\.uilint\/rules\/no-arbitrary-tailwind["']/
     );
     expect(updatedConfig).toMatch(
-      /from\s+["']\.\/\.uilint\/rules\/consistent-spacing\.ts["']/
+      /from\s+["']\.\/\.uilint\/rules\/consistent-spacing["']/
     );
     expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     expect(updatedConfig).toContain("uilint/consistent-spacing");

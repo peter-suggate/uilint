@@ -11,11 +11,24 @@ import React, { useState, useEffect } from "react";
 import { Box, Text, useApp, useInput } from "ink";
 import { Spinner } from "./Spinner.js";
 import { ProjectSelector, getDetectedProjects, type DetectedProject } from "./ProjectSelector.js";
-import { ConfigSelector, type ConfigItem } from "./MultiSelect.js";
+import { ConfigSelector, type ConfigItem, type ItemStatus } from "./MultiSelect.js";
 import { RuleSelector, type ConfiguredRule } from "./RuleSelector.js";
 import type { ProjectState } from "../types.js";
-import type { InstallerSelection } from "../installers/types.js";
+import type { InstallerSelection, InstallTarget } from "../installers/types.js";
 import { getAllInstallers } from "../installers/registry.js";
+
+/**
+ * Map InstallTarget to ConfigItem status
+ */
+function getTargetStatus(target: InstallTarget): ItemStatus {
+  if (!target.isInstalled) {
+    return "not_installed";
+  }
+  if (target.canUpgrade) {
+    return "upgradeable";
+  }
+  return "installed";
+}
 
 type AppPhase =
   | "scanning"
@@ -78,7 +91,7 @@ function buildConfigItemsForProject(
         id: `${installer.id}:${target.id}`,
         label: installer.name,
         hint: target.hint,
-        status: target.isInstalled ? "installed" : "not_installed",
+        status: getTargetStatus(target),
         category: info.category,
         categoryIcon: info.icon,
       });
@@ -114,7 +127,7 @@ function buildGlobalConfigItems(selections: InstallerSelection[]): ConfigItem[] 
         id: `${installer.id}:${target.id}`,
         label: installer.name,
         hint: target.hint,
-        status: target.isInstalled ? "installed" : "not_installed",
+        status: getTargetStatus(target),
         category: info.category,
         categoryIcon: info.icon,
       });
@@ -228,11 +241,14 @@ export function InstallApp({
           .filter((installer) => installer.isApplicable(proj))
           .map((installer) => {
             const targets = installer.getTargets(proj);
-            const nonInstalledTargets = targets.filter((t) => !t.isInstalled);
+            // Select if there are non-installed targets OR upgradeable targets
+            const actionableTargets = targets.filter(
+              (t) => !t.isInstalled || t.canUpgrade
+            );
             return {
               installer,
               targets,
-              selected: nonInstalledTargets.length > 0,
+              selected: actionableTargets.length > 0,
             };
           });
         setSelections(initialSelections);

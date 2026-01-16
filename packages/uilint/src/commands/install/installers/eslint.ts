@@ -11,6 +11,7 @@ import type {
   InstallTarget,
   InstallerConfig,
   ProgressEvent,
+  UpgradeInfo,
 } from "./types.js";
 import type {
   ProjectState,
@@ -19,6 +20,32 @@ import type {
 } from "../types.js";
 import type { RuleMeta } from "uilint-eslint";
 import * as prompts from "../../../utils/prompts.js";
+import { detectPackageManager } from "../../../utils/package-manager.js";
+
+/**
+ * Calculate upgrade info for a package that already has uilint rules configured
+ */
+function getUpgradeInfo(configuredRuleIds: string[]): UpgradeInfo | undefined {
+  const configuredSet = new Set(configuredRuleIds);
+  const allRuleIds = ruleRegistry.map((r) => r.id);
+
+  // Find rules that are available but not configured
+  const missingRules = allRuleIds.filter((id) => !configuredSet.has(id));
+
+  if (missingRules.length === 0) {
+    return undefined;
+  }
+
+  const summary =
+    missingRules.length === 1
+      ? "1 new rule available"
+      : `${missingRules.length} new rules available`;
+
+  return {
+    missingRules,
+    summary,
+  };
+}
 
 function toInstallSpecifier(pkgName: string): string {
   return pkgName;
@@ -83,13 +110,27 @@ export const eslintInstaller: Installer = {
   getTargets(project: ProjectState): InstallTarget[] {
     return project.packages
       .filter((pkg) => pkg.eslintConfigPath !== null)
-      .map((pkg) => ({
-        id: `eslint-${pkg.name}`,
-        label: pkg.name,
-        path: pkg.path,
-        hint: pkg.eslintConfigFilename || "ESLint config detected",
-        isInstalled: pkg.hasUilintRules,
-      }));
+      .map((pkg) => {
+        const upgradeInfo = pkg.hasUilintRules
+          ? getUpgradeInfo(pkg.configuredRuleIds)
+          : undefined;
+
+        // Build hint showing config file and upgrade status
+        let hint = pkg.eslintConfigFilename || "ESLint config detected";
+        if (upgradeInfo?.summary) {
+          hint = `${hint} · ${upgradeInfo.summary}`;
+        }
+
+        return {
+          id: `eslint-${pkg.name}`,
+          label: pkg.name,
+          path: pkg.path,
+          hint,
+          isInstalled: pkg.hasUilintRules,
+          canUpgrade: upgradeInfo !== undefined,
+          upgradeInfo,
+        };
+      });
   },
 
   async configure(
@@ -270,10 +311,10 @@ export const eslintInstaller: Installer = {
         path: rulesDir,
       });
 
-      // Install dependencies
+      // Install dependencies using the package manager for this specific target
       dependencies.push({
         packagePath: target.path,
-        packageManager: project.packageManager,
+        packageManager: detectPackageManager(target.path),
         packages: [toInstallSpecifier("uilint-eslint"), "typescript-eslint"],
       });
 

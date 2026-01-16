@@ -22,6 +22,7 @@ import {
 } from "./constants.js";
 import { loadSkill } from "../../utils/skill-loader.js";
 import { loadSelectedRules } from "../../utils/rule-loader.js";
+import { detectPackageManager } from "../../utils/package-manager.js";
 
 const require = createRequire(import.meta.url);
 
@@ -170,10 +171,10 @@ export function createPlan(
       appRoot: detection.appRoot,
     });
 
-    // Install React overlay dependencies
+    // Install React overlay dependencies using the package manager for this specific target
     dependencies.push({
       packagePath: projectPath,
-      packageManager: state.packageManager,
+      packageManager: detectPackageManager(projectPath),
       packages: ["uilint-react", "uilint-core", "jsx-loc-plugin"],
     });
 
@@ -197,10 +198,10 @@ export function createPlan(
   if (items.includes("vite") && choices.vite) {
     const { projectPath, detection } = choices.vite;
 
-    // Install React overlay dependencies
+    // Install React overlay dependencies using the package manager for this specific target
     dependencies.push({
       packagePath: projectPath,
-      packageManager: state.packageManager,
+      packageManager: detectPackageManager(projectPath),
       packages: ["uilint-react", "uilint-core", "jsx-loc-plugin"],
     });
 
@@ -236,12 +237,13 @@ export function createPlan(
       });
 
       // Load and copy rule files into this target package
-      // Detect if this package uses TypeScript
-      const isTypeScript = pkgInfo?.isTypeScript ?? true; // Default to TypeScript for safety
+      // Use TypeScript rule files if the ESLint config is TypeScript (.ts)
+      // This ensures the imports match the actual rule files being copied
+      const isTypeScriptConfig = pkgInfo?.eslintConfigPath?.endsWith(".ts") ?? false;
       const ruleFiles = loadSelectedRules(
         selectedRules.map((r) => r.id),
         {
-          typescript: isTypeScript,
+          typescript: isTypeScriptConfig,
         }
       );
       for (const ruleFile of ruleFiles) {
@@ -252,8 +254,8 @@ export function createPlan(
           content: ruleFile.implementation.content,
         });
 
-        // Copy test file if it exists (only for TypeScript projects)
-        if (ruleFile.test && isTypeScript) {
+        // Copy test file if it exists (only for TypeScript configs)
+        if (ruleFile.test && isTypeScriptConfig) {
           actions.push({
             type: "create_file",
             path: join(rulesDir, ruleFile.test.relativePath),
@@ -262,10 +264,10 @@ export function createPlan(
         }
       }
 
-      // Install dependencies (still needed for utilities like createRule)
+      // Install dependencies using the package manager for this specific target
       dependencies.push({
         packagePath: pkgPath,
-        packageManager: state.packageManager,
+        packageManager: detectPackageManager(pkgPath),
         packages: [toInstallSpecifier("uilint-eslint"), "typescript-eslint"],
       });
 

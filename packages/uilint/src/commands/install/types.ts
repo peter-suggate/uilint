@@ -161,6 +161,16 @@ export interface InjectReactAction {
   appRoot: string;
   /** Injection mode: defaults to "next" for backwards compatibility */
   mode?: "next" | "vite";
+  /**
+   * Specific file to inject into (absolute path).
+   * If not provided, the installer will auto-detect or create a providers file.
+   */
+  targetFile?: string;
+  /**
+   * If true, create a new providers.tsx file and wrap the layout's children.
+   * Used when no existing client boundaries are found.
+   */
+  createProviders?: boolean;
 }
 
 export interface InjectNextConfigAction {

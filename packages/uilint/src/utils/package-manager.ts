@@ -4,6 +4,10 @@ import { dirname, join } from "path";
 
 export type PackageManager = "pnpm" | "yarn" | "npm" | "bun";
 
+/**
+ * Detect which package manager a project uses by looking for lockfiles.
+ * Walks up the directory tree to support monorepos.
+ */
 export function detectPackageManager(projectPath: string): PackageManager {
   // Monorepo-friendly detection: walk up to find the lockfile/workspace marker.
   let dir = projectPath;

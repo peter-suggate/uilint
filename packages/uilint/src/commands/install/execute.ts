@@ -232,11 +232,17 @@ async function executeInjectReact(
 ): Promise<ActionResult> {
   const { dryRun = false } = options;
 
+  const dryRunDescription = action.createProviders
+    ? `Create providers.tsx and inject <uilint-devtools /> in: ${action.projectPath}`
+    : action.targetFile
+    ? `Inject <uilint-devtools /> into: ${action.targetFile}`
+    : `Inject <uilint-devtools /> into React app: ${action.projectPath}`;
+
   if (dryRun) {
     return {
       action,
       success: true,
-      wouldDo: `Inject <uilint-devtools /> into React app: ${action.projectPath}`,
+      wouldDo: dryRunDescription,
     };
   }
 
@@ -245,8 +251,11 @@ async function executeInjectReact(
     appRoot: action.appRoot,
     mode: action.mode,
     force: false,
-    // Auto-select first choice for execute phase
-    confirmFileChoice: async (choices) => choices[0],
+    // Pass through targetFile and createProviders from the action
+    targetFile: action.targetFile,
+    createProviders: action.createProviders,
+    // Auto-select first choice for execute phase (fallback if no targetFile)
+    confirmFileChoice: async (choices) => choices[0]!,
   });
 
   // Success if modified OR already configured (goal achieved either way)

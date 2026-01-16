@@ -5,7 +5,12 @@
 import React, { useState, useCallback } from "react";
 import { Box, Text, useInput, useApp } from "ink";
 
-export type ItemStatus = "installed" | "not_installed" | "selected" | "partial";
+export type ItemStatus =
+  | "installed"
+  | "not_installed"
+  | "selected"
+  | "partial"
+  | "upgradeable";
 
 export interface ConfigItem {
   /** Unique ID */
@@ -34,6 +39,10 @@ function StatusIndicator({ status, isSelected }: { status: ItemStatus; isSelecte
   if (status === "installed") {
     return <Text color="green">✓</Text>;
   }
+  if (status === "upgradeable") {
+    // Upgradeable: show blue up arrow if selected, green check if not
+    return isSelected ? <Text color="blue">⬆</Text> : <Text color="green">✓</Text>;
+  }
   if (isSelected || status === "selected") {
     return <Text color="cyan">◉</Text>;
   }
@@ -46,6 +55,9 @@ function StatusIndicator({ status, isSelected }: { status: ItemStatus; isSelecte
 function StatusLabel({ status }: { status: ItemStatus }): React.ReactElement {
   if (status === "installed") {
     return <Text color="green" dimColor>installed</Text>;
+  }
+  if (status === "upgradeable") {
+    return <Text color="blue" dimColor>upgrade available</Text>;
   }
   if (status === "partial") {
     return <Text color="yellow" dimColor>partial</Text>;
@@ -61,7 +73,7 @@ export function ConfigSelector({
   const { exit } = useApp();
   const [cursor, setCursor] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(() => {
-    // Pre-select items that aren't installed
+    // Pre-select items that aren't fully installed (including upgradeable)
     return new Set(
       items
         .filter((item) => item.status !== "installed" && !item.disabled)
@@ -81,7 +93,9 @@ export function ConfigSelector({
 
   const handleToggle = useCallback(() => {
     const item = flatItems[cursor];
-    if (!item || item.disabled || item.status === "installed") return;
+    // Allow toggling for: not installed, upgradeable, partial, selected (but not fully "installed")
+    const canToggle = item && !item.disabled && item.status !== "installed";
+    if (!canToggle) return;
 
     setSelected((prev) => {
       const next = new Set(prev);
@@ -107,7 +121,7 @@ export function ConfigSelector({
       onCancel?.();
       exit();
     } else if (input === "a") {
-      // Select all non-installed
+      // Select all non-installed and upgradeable
       setSelected(
         new Set(
           items
@@ -143,6 +157,7 @@ export function ConfigSelector({
               const itemIndex = globalIndex++;
               const isCursor = itemIndex === cursor;
               const isItemSelected = selected.has(item.id);
+              // Only fully installed (no upgrade) items are disabled
               const isDisabled = item.disabled || item.status === "installed";
 
               return (

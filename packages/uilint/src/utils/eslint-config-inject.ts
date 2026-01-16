@@ -1170,19 +1170,11 @@ export async function installEslintPlugin(
     : workspaceRoot;
 
   // Always use local rules (they should have been copied by the plan phase)
-  // Detect file extension by checking what files exist
-  let fileExtension = ".js";
-  if (rulesToApply.length > 0) {
-    const firstRulePath = join(
-      rulesRoot,
-      ".uilint",
-      "rules",
-      `${rulesToApply[0]!.id}.ts`
-    );
-    if (existsSync(firstRulePath)) {
-      fileExtension = ".ts";
-    }
-  }
+  // For TypeScript configs, omit the extension (TypeScript will resolve .ts files)
+  // For JavaScript configs, use .js extension
+  // Note: We don't use .ts extension directly because it requires allowImportingTsExtensions
+  const isTypeScriptConfig = configPath.endsWith(".ts");
+  let fileExtension = isTypeScriptConfig ? "" : ".js";
 
   let ruleImportNames: Map<string, string> | undefined;
 

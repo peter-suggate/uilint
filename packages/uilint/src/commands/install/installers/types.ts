@@ -14,6 +14,18 @@
 import type { ProjectState, InstallAction, DependencyInstall } from "../types.js";
 
 /**
+ * Information about available upgrades for an installed target
+ */
+export interface UpgradeInfo {
+  /** Rules that are available but not yet configured */
+  missingRules?: string[];
+  /** Rules that have updated options/severity available */
+  outdatedRules?: string[];
+  /** Human-readable summary of the upgrade (e.g., "3 new rules available") */
+  summary?: string;
+}
+
+/**
  * Represents a specific installation target within an installer
  * For example, ESLint installer might have multiple targets (one per package)
  */
@@ -28,6 +40,20 @@ export interface InstallTarget {
   hint?: string;
   /** Whether this target is already installed/configured */
   isInstalled: boolean;
+  /** Whether an upgrade is available for this installed target */
+  canUpgrade?: boolean;
+  /** Details about what upgrades are available */
+  upgradeInfo?: UpgradeInfo;
+  /**
+   * For inject_react action: specific file to inject into (absolute path).
+   * Used when user selects a client boundary file.
+   */
+  targetFile?: string;
+  /**
+   * For inject_react action: if true, create a new providers.tsx file.
+   * Used when user chooses to create a new client boundary.
+   */
+  createProviders?: boolean;
 }
 
 /**

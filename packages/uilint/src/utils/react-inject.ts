@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import { join, relative, dirname, basename } from "path";
 import { parseModule, generateCode } from "magicast";
 
 export interface InstallReactOverlayOptions {
@@ -21,6 +21,16 @@ export interface InstallReactOverlayOptions {
    * If multiple candidates are found, prompt user to choose.
    */
   confirmFileChoice?: (choices: string[]) => Promise<string>;
+  /**
+   * Specific file to inject into (absolute path).
+   * If provided, skips candidate detection.
+   */
+  targetFile?: string;
+  /**
+   * If true, create a new providers.tsx file and wrap the layout's children.
+   * Used when no existing client boundaries are found.
+   */
+  createProviders?: boolean;
 }
 
 /**
@@ -307,13 +317,320 @@ function ensureSideEffectImport(
   return { changed: true };
 }
 
+/**
+ * Add <uilint-devtools /> to a client component file.
+ * Finds the main component's return statement and wraps JSX in a fragment.
+ */
+function addDevtoolsToClientComponent(program: any): {
+  changed: boolean;
+} {
+  if (!program || program.type !== "Program") return { changed: false };
+  if (hasUILintDevtoolsJsx(program)) return { changed: false };
+
+  // Create the devtools JSX element
+  const devtoolsMod = parseModule(
+    'const __uilint_devtools = (<uilint-devtools />);'
+  );
+  const devtoolsJsx =
+    (devtoolsMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
+  if (!devtoolsJsx || devtoolsJsx.type !== "JSXElement")
+    return { changed: false };
+
+  // First try: look for {children} pattern (common in provider components)
+  let added = false;
+  walkAst(program, (node) => {
+    if (added) return;
+    if (node.type !== "JSXElement" && node.type !== "JSXFragment") return;
+
+    const children = node.children ?? [];
+    const childrenIndex = children.findIndex(
+      (child: any) =>
+        child?.type === "JSXExpressionContainer" &&
+        child.expression?.type === "Identifier" &&
+        child.expression.name === "children"
+    );
+
+    if (childrenIndex !== -1) {
+      // Add devtools element after {children}
+      children.splice(childrenIndex + 1, 0, devtoolsJsx);
+      added = true;
+    }
+  });
+
+  if (added) return { changed: true };
+
+  // Second try: find the first return statement with JSX and wrap it in a fragment
+  walkAst(program, (node) => {
+    if (added) return;
+    if (node.type !== "ReturnStatement") return;
+    const arg = node.argument;
+    if (!arg) return;
+    if (arg.type !== "JSXElement" && arg.type !== "JSXFragment") return;
+
+    // Create a fragment wrapping original + devtools
+    const fragmentMod = parseModule('const __fragment = (<></>);');
+    const fragmentJsx =
+      (fragmentMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
+    if (!fragmentJsx) return;
+
+    // Add original content and devtools as children of the fragment
+    fragmentJsx.children = [arg, devtoolsJsx];
+    node.argument = fragmentJsx;
+    added = true;
+  });
+
+  if (!added) {
+    throw new Error(
+      "Could not find a suitable location to add devtools. Expected a component with JSX return or {children}."
+    );
+  }
+  return { changed: true };
+}
+
+/**
+ * Generate the content for a new providers.tsx file
+ */
+function generateProvidersContent(isTypeScript: boolean): string {
+  const ext = isTypeScript ? "tsx" : "jsx";
+  const typeAnnotation = isTypeScript
+    ? ": { children: React.ReactNode }"
+    : "";
+
+  return `"use client";
+
+import React from "react";
+import "uilint-react/devtools";
+
+export function Providers({ children }${typeAnnotation}) {
+  return (
+    <>
+      {children}
+      <uilint-devtools />
+    </>
+  );
+}
+`;
+}
+
+/**
+ * Wrap {children} in a layout file with a <Providers> component
+ */
+function wrapChildrenWithProviders(
+  program: any,
+  providersImportPath: string
+): { changed: boolean } {
+  if (!program || program.type !== "Program") return { changed: false };
+
+  // Check if Providers is already imported
+  let hasProvidersImport = false;
+  for (const stmt of (program as any).body ?? []) {
+    if (stmt?.type !== "ImportDeclaration") continue;
+    if (stmt.source?.value === providersImportPath) {
+      hasProvidersImport = true;
+      break;
+    }
+  }
+
+  // Add Providers import if not present
+  if (!hasProvidersImport) {
+    const importRes = ensureNamedImport(program, providersImportPath, "Providers");
+    if (!importRes.changed) return { changed: false };
+  }
+
+  // Find {children} and wrap with <Providers>
+  let wrapped = false;
+  walkAst(program, (node) => {
+    if (wrapped) return;
+    if (node.type !== "JSXElement" && node.type !== "JSXFragment") return;
+
+    const children = node.children ?? [];
+    const childrenIndex = children.findIndex(
+      (child: any) =>
+        child?.type === "JSXExpressionContainer" &&
+        child.expression?.type === "Identifier" &&
+        child.expression.name === "children"
+    );
+
+    if (childrenIndex === -1) return;
+
+    // Create <Providers>{children}</Providers>
+    const providersMod = parseModule(
+      'const __providers = (<Providers>{children}</Providers>);'
+    );
+    const providersJsx =
+      (providersMod.$ast as any).body?.[0]?.declarations?.[0]?.init ?? null;
+    if (!providersJsx) return;
+
+    // Replace {children} with <Providers>{children}</Providers>
+    children[childrenIndex] = providersJsx;
+    wrapped = true;
+  });
+
+  if (!wrapped) {
+    throw new Error(
+      "Could not find {children} in layout to wrap with Providers."
+    );
+  }
+
+  return { changed: true };
+}
+
+/**
+ * Find the layout file in the app root
+ */
+function findLayoutFile(projectPath: string, appRoot: string): string | null {
+  const extensions = [".tsx", ".jsx", ".ts", ".js"];
+  for (const ext of extensions) {
+    const layoutPath = join(projectPath, appRoot, `layout${ext}`);
+    if (existsSync(layoutPath)) return layoutPath;
+  }
+  return null;
+}
+
+/**
+ * Create providers.tsx file and modify the layout to use it
+ */
+async function createProvidersAndModifyLayout(
+  projectPath: string,
+  appRoot: string
+): Promise<{
+  providersFile: string;
+  layoutFile: string;
+  modified: boolean;
+}> {
+  // Find the layout file
+  const layoutPath = findLayoutFile(projectPath, appRoot);
+  if (!layoutPath) {
+    throw new Error(`Could not find layout file in ${appRoot}`);
+  }
+
+  // Determine if TypeScript based on layout extension
+  const isTypeScript = layoutPath.endsWith(".tsx") || layoutPath.endsWith(".ts");
+  const providersExt = isTypeScript ? ".tsx" : ".jsx";
+  const providersPath = join(projectPath, appRoot, `providers${providersExt}`);
+
+  // Check if providers already exists
+  if (existsSync(providersPath)) {
+    throw new Error(
+      `providers${providersExt} already exists. Please select it from the list instead.`
+    );
+  }
+
+  // Create the providers file
+  const providersContent = generateProvidersContent(isTypeScript);
+  writeFileSync(providersPath, providersContent, "utf-8");
+
+  // Modify the layout to import and use Providers
+  const layoutContent = readFileSync(layoutPath, "utf-8");
+  let layoutMod: any;
+  try {
+    layoutMod = parseModule(layoutContent);
+  } catch {
+    throw new Error(
+      `Unable to parse ${relative(projectPath, layoutPath)} as JavaScript/TypeScript.`
+    );
+  }
+
+  const layoutProgram = layoutMod.$ast;
+  const wrapRes = wrapChildrenWithProviders(layoutProgram, "./providers");
+
+  if (wrapRes.changed) {
+    const updatedLayout = generateCode(layoutMod).code;
+    writeFileSync(layoutPath, updatedLayout, "utf-8");
+  }
+
+  return {
+    providersFile: relative(projectPath, providersPath),
+    layoutFile: relative(projectPath, layoutPath),
+    modified: true,
+  };
+}
+
 export async function installReactUILintOverlay(
   opts: InstallReactOverlayOptions
 ): Promise<{
   targetFile: string;
   modified: boolean;
   alreadyConfigured?: boolean;
+  /** Additional file created (e.g., providers.tsx) */
+  createdFile?: string;
+  /** Layout file modified to wrap children */
+  layoutModified?: string;
 }> {
+  // Handle createProviders mode: create providers.tsx and modify layout
+  if (opts.createProviders) {
+    const result = await createProvidersAndModifyLayout(
+      opts.projectPath,
+      opts.appRoot
+    );
+    return {
+      targetFile: result.providersFile,
+      modified: result.modified,
+      createdFile: result.providersFile,
+      layoutModified: result.layoutFile,
+    };
+  }
+
+  // Handle targetFile mode: inject into a specific client component
+  if (opts.targetFile) {
+    const absTarget = opts.targetFile;
+    const relTarget = relative(opts.projectPath, absTarget);
+
+    if (!existsSync(absTarget)) {
+      throw new Error(`Target file not found: ${relTarget}`);
+    }
+
+    const original = readFileSync(absTarget, "utf-8");
+    let mod: any;
+    try {
+      mod = parseModule(original);
+    } catch {
+      throw new Error(
+        `Unable to parse ${relTarget} as JavaScript/TypeScript. Please update it manually.`
+      );
+    }
+
+    const program = mod.$ast;
+
+    // Check if already configured
+    const hasDevtoolsImport = !!findImportDeclaration(program, "uilint-react/devtools");
+    const hasOldImport = !!findImportDeclaration(program, "uilint-react");
+    const alreadyConfigured =
+      (hasDevtoolsImport || hasOldImport) && hasUILintDevtoolsJsx(program);
+
+    if (alreadyConfigured) {
+      return {
+        targetFile: relTarget,
+        modified: false,
+        alreadyConfigured: true,
+      };
+    }
+
+    let changed = false;
+
+    // Add side-effect import for the devtools web component
+    const importRes = ensureSideEffectImport(program, "uilint-react/devtools");
+    if (importRes.changed) changed = true;
+
+    // Use client component injection (handles both {children} and return JSX)
+    const addRes = addDevtoolsToClientComponent(program);
+    if (addRes.changed) changed = true;
+
+    const updated = changed ? generateCode(mod).code : original;
+    const modified = updated !== original;
+
+    if (modified) {
+      writeFileSync(absTarget, updated, "utf-8");
+    }
+
+    return {
+      targetFile: relTarget,
+      modified,
+      alreadyConfigured: false,
+    };
+  }
+
+  // Default mode: auto-detect candidates (original behavior)
   const candidates = getDefaultCandidates(opts.projectPath, opts.appRoot);
   if (!candidates.length) {
     throw new Error(
