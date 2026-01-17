@@ -807,7 +807,28 @@ function FileItem({
 }
 
 /**
+ * Helper to check if a loc string matches the filter value
+ * Handles both exact match and match without column
+ */
+function matchesLoc(loc: string, locValue: string): boolean {
+  if (loc === locValue) {
+    return true;
+  }
+  // Check if filter (without column) matches the loc's file:line portion
+  const lastIdx = loc.lastIndexOf(":");
+  const secondLastIdx = loc.lastIndexOf(":", lastIdx - 1);
+  if (secondLastIdx >= 0) {
+    const fileAndLine = loc.slice(0, lastIdx);
+    if (fileAndLine === locValue) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Check if an issue matches any of the active loc filters
+ * Uses the same matching logic as applyFilter in use-fuzzy-search.ts
  */
 function issueMatchesLocFilter(
   issue: IssueSearchData,
@@ -817,17 +838,27 @@ function issueMatchesLocFilter(
 
   for (const filter of locFilters) {
     const locValue = filter.value;
-    // Check if issue's filePath:line:column matches the filter value
-    if (issue.filePath && issue.issue.line) {
-      const issueLoc = `${issue.filePath}:${issue.issue.line}${issue.issue.column ? `:${issue.issue.column}` : ""}`;
-      if (issueLoc === locValue) {
+
+    // Method 1: Check if the issue's dataLoc matches the filter value
+    // dataLoc format is: filePath:line:column (element source location)
+    if (issue.issue.dataLoc && matchesLoc(issue.issue.dataLoc, locValue)) {
+      return true;
+    }
+
+    // Method 2: Check if the elementId contains the location
+    // elementId format is: loc:path:line:column#occurrence
+    if (issue.elementId) {
+      // Extract location from elementId (remove "loc:" prefix and "#occurrence" suffix)
+      const withoutPrefix = issue.elementId.replace(/^loc:/, "");
+      const withoutOccurrence = withoutPrefix.replace(/#\d+$/, "");
+      if (matchesLoc(withoutOccurrence, locValue)) {
         return true;
       }
-      // Also check file:line match (without column)
-      const issueLocNoCol = `${issue.filePath}:${issue.issue.line}`;
-      if (issueLocNoCol === locValue) {
-        return true;
-      }
+    }
+
+    // Method 3: For file-level issues, check the elementLoc (first element in file)
+    if (issue.elementLoc && matchesLoc(issue.elementLoc, locValue)) {
+      return true;
     }
   }
   return false;
@@ -872,7 +903,13 @@ function IssueItem({
     ? `${fileName}:${issue.issue.line}${issue.issue.column ? `:${issue.issue.column}` : ""}`
     : fileName;
 
+  // Check if this issue should be expanded (matches an active loc filter)
+  const isExpanded = issueMatchesLocFilter(issue, activeLocFilters);
+
   const handleClick = useCallback(() => {
+    // Don't add another filter if already expanded (already matches a loc filter)
+    if (isExpanded) return;
+
     // Add loc filter for any issue with a file path and location
     if (onAddFilter && issue.filePath && issue.issue.line) {
       // Value encodes the full location: filePath:line:column
@@ -883,10 +920,7 @@ function IssueItem({
         label: locationLabel,
       });
     }
-  }, [onAddFilter, issue.filePath, issue.issue.line, issue.issue.column, locationLabel]);
-
-  // Check if this issue should be expanded (matches an active loc filter)
-  const isExpanded = issueMatchesLocFilter(issue, activeLocFilters);
+  }, [onAddFilter, issue.filePath, issue.issue.line, issue.issue.column, locationLabel, isExpanded]);
 
   // Render expanded view when matching a loc filter
   if (isExpanded) {

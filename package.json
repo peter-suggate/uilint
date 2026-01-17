@@ -1,6 +1,6 @@
 {
   "name": "uilint-monorepo",
-  "version": "0.2.21",
+  "version": "0.2.22",
   "private": true,
   "description": "AI-powered UI consistency checker for Next.js applications",
   "author": "Peter Suggate",
