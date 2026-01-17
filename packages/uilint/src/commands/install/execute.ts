@@ -14,7 +14,7 @@ import {
   chmodSync,
   rmSync,
 } from "fs";
-import { dirname } from "path";
+import { dirname, join } from "path";
 import type {
   InstallPlan,
   InstallAction,
@@ -42,6 +42,7 @@ import { installJsxLocPlugin, uninstallJsxLocPlugin } from "../../utils/next-con
 import { installViteJsxLocPlugin, uninstallViteJsxLocPlugin } from "../../utils/vite-config-inject.js";
 import { installNextUILintRoutes, uninstallNextUILintRoutes } from "../../utils/next-routes.js";
 import { formatFilesWithPrettier, touchFiles } from "../../utils/prettier.js";
+import { findWorkspaceRoot } from "uilint-core/node";
 
 /**
  * Execute a single action and return the result
@@ -755,6 +756,58 @@ function getProjectPathFromActions(
   return undefined;
 }
 
+function normalizePnpmWorkspaceUilintSpecs(
+  packagePath: string,
+  packages: string[]
+): string[] {
+  // If we're in a pnpm workspace, prefer linking internal packages from the
+  // workspace to avoid registry mismatches during local dev.
+  const workspaceRoot = findWorkspaceRoot(packagePath);
+  if (!existsSync(join(workspaceRoot, "pnpm-workspace.yaml"))) return packages;
+
+  // Only attempt normalization when the install is touching uilint packages.
+  const touchesUilint = packages.some((p) => p === "uilint-eslint" || p.startsWith("uilint-"));
+  if (!touchesUilint) return packages;
+
+  const pkgJsonPath = join(packagePath, "package.json");
+  if (!existsSync(pkgJsonPath)) return packages;
+
+  let pkg: {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  } | null = null;
+  try {
+    pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8")) as typeof pkg;
+  } catch {
+    return packages;
+  }
+
+  const wanted = ["uilint-core", "uilint-eslint", "uilint-react"] as const;
+  const present = new Set<string>();
+  for (const name of wanted) {
+    const range =
+      pkg?.dependencies?.[name] ??
+      pkg?.devDependencies?.[name];
+    if (typeof range === "string") {
+      present.add(name);
+    }
+  }
+
+  if (present.size === 0) return packages;
+
+  // Remove any existing uilint-* specs, then re-add as workspace:* for packages
+  // that are already present in the target package.json.
+  const filtered = packages.filter(
+    (p) => !/^uilint-(core|eslint|react)(@.+)?$/.test(p)
+  );
+
+  for (const name of present) {
+    filtered.push(`${name}@workspace:*`);
+  }
+
+  return filtered;
+}
+
 /**
  * Execute an install plan
  *
@@ -794,13 +847,17 @@ export async function execute(
     }
 
     try {
+      const pkgs =
+        dep.packageManager === "pnpm"
+          ? normalizePnpmWorkspaceUilintSpecs(dep.packagePath, dep.packages)
+          : dep.packages;
       await installDependencies(
         dep.packageManager,
         dep.packagePath,
-        dep.packages
+        pkgs
       );
       dependencyResults.push({
-        install: dep,
+        install: { ...dep, packages: pkgs },
         success: true,
       });
     } catch (error) {

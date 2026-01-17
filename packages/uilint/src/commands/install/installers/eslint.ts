@@ -21,6 +21,7 @@ import type {
 import type { RuleMeta } from "uilint-eslint";
 import * as prompts from "../../../utils/prompts.js";
 import { detectPackageManager } from "../../../utils/package-manager.js";
+import { toInstallSpecifier } from "../versioning.js";
 
 /**
  * Calculate upgrade info for a package that already has uilint rules configured
@@ -45,10 +46,6 @@ function getUpgradeInfo(configuredRuleIds: string[]): UpgradeInfo | undefined {
     missingRules,
     summary,
   };
-}
-
-function toInstallSpecifier(pkgName: string): string {
-  return pkgName;
 }
 
 /**
@@ -315,7 +312,14 @@ export const eslintInstaller: Installer = {
       dependencies.push({
         packagePath: target.path,
         packageManager: detectPackageManager(target.path),
-        packages: [toInstallSpecifier("uilint-eslint"), "typescript-eslint"],
+        packages: [
+          toInstallSpecifier("uilint-eslint", {
+            preferWorkspaceProtocol: project.packageManager === "pnpm",
+            workspaceRoot: project.workspaceRoot,
+            targetProjectPath: target.path,
+          }),
+          "typescript-eslint",
+        ],
       });
 
       // Inject ESLint rules

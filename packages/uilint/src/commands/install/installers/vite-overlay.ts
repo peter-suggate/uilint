@@ -2,8 +2,18 @@
  * Vite overlay installer - UI devtools for Vite + React apps
  */
 
-import type { Installer, InstallTarget, InstallerConfig, ProgressEvent } from "./types.js";
-import type { ProjectState, InstallAction, DependencyInstall } from "../types.js";
+import type {
+  Installer,
+  InstallTarget,
+  InstallerConfig,
+  ProgressEvent,
+} from "./types.js";
+import type {
+  ProjectState,
+  InstallAction,
+  DependencyInstall,
+} from "../types.js";
+import { toInstallSpecifier } from "../versioning.js";
 
 export const viteOverlayInstaller: Installer = {
   id: "vite",
@@ -40,7 +50,9 @@ export const viteOverlayInstaller: Installer = {
     if (targets.length === 0) return { actions, dependencies };
 
     const target = targets[0];
-    const appInfo = project.viteApps.find((app) => app.projectPath === target.path);
+    const appInfo = project.viteApps.find(
+      (app) => app.projectPath === target.path
+    );
     if (!appInfo) return { actions, dependencies };
 
     const { projectPath, detection } = appInfo;
@@ -49,7 +61,19 @@ export const viteOverlayInstaller: Installer = {
     dependencies.push({
       packagePath: projectPath,
       packageManager: project.packageManager,
-      packages: ["uilint-react", "uilint-core", "jsx-loc-plugin"],
+      packages: [
+        toInstallSpecifier("uilint-react", {
+          preferWorkspaceProtocol: project.packageManager === "pnpm",
+          workspaceRoot: project.workspaceRoot,
+          targetProjectPath: projectPath,
+        }),
+        toInstallSpecifier("uilint-core", {
+          preferWorkspaceProtocol: project.packageManager === "pnpm",
+          workspaceRoot: project.workspaceRoot,
+          targetProjectPath: projectPath,
+        }),
+        "jsx-loc-plugin",
+      ],
     });
 
     // Inject <uilint-devtools /> web component into React entry

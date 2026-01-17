@@ -7,7 +7,6 @@
  */
 
 import { join } from "path";
-import { createRequire } from "module";
 import type { RuleMetadata } from "uilint-eslint";
 import type {
   ProjectState,
@@ -17,47 +16,11 @@ import type {
   DependencyInstall,
   PlanOptions,
 } from "./types.js";
-import {
-  GENSTYLEGUIDE_COMMAND_MD,
-} from "./constants.js";
+import { GENSTYLEGUIDE_COMMAND_MD } from "./constants.js";
+import { toInstallSpecifier } from "./versioning.js";
 import { loadSkill } from "../../utils/skill-loader.js";
 import { loadSelectedRules } from "../../utils/rule-loader.js";
 import { detectPackageManager } from "../../utils/package-manager.js";
-
-const require = createRequire(import.meta.url);
-
-/**
- * Get the version range for a dependency from uilint's package.json
- */
-function getSelfDependencyVersionRange(pkgName: string): string | null {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const pkgJson = require("uilint/package.json") as Record<string, unknown>;
-    const deps = pkgJson?.dependencies as Record<string, string> | undefined;
-    const optDeps = pkgJson?.optionalDependencies as
-      | Record<string, string>
-      | undefined;
-    const peerDeps = pkgJson?.peerDependencies as
-      | Record<string, string>
-      | undefined;
-    const v = deps?.[pkgName] ?? optDeps?.[pkgName] ?? peerDeps?.[pkgName];
-    return typeof v === "string" ? v : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Convert package name to install specifier with version
- */
-function toInstallSpecifier(pkgName: string): string {
-  const range = getSelfDependencyVersionRange(pkgName);
-  if (!range) return pkgName;
-  if (range.startsWith("workspace:")) return pkgName;
-  if (range.startsWith("file:")) return pkgName;
-  if (range.startsWith("link:")) return pkgName;
-  return `${pkgName}@${range}`;
-}
 
 /**
  * Create the install plan from project state and user choices
@@ -80,8 +43,7 @@ export function createPlan(
 
   // Ensure .cursor directory exists if needed
   const needsCursorDir =
-    items.includes("genstyleguide") ||
-    items.includes("skill");
+    items.includes("genstyleguide") || items.includes("skill");
 
   if (needsCursorDir && !state.cursorDir.exists) {
     actions.push({
@@ -162,7 +124,8 @@ export function createPlan(
   // Next.js Overlay Installation
   // =========================================================================
   if (items.includes("next") && choices.next) {
-    const { projectPath, detection, targetFile, createProviders } = choices.next;
+    const { projectPath, detection, targetFile, createProviders } =
+      choices.next;
 
     // Install Next.js routes
     actions.push({
@@ -175,7 +138,19 @@ export function createPlan(
     dependencies.push({
       packagePath: projectPath,
       packageManager: detectPackageManager(projectPath),
-      packages: ["uilint-react", "uilint-core", "jsx-loc-plugin"],
+      packages: [
+        toInstallSpecifier("uilint-react", {
+          preferWorkspaceProtocol: state.packageManager === "pnpm",
+          workspaceRoot: state.workspaceRoot,
+          targetProjectPath: projectPath,
+        }),
+        toInstallSpecifier("uilint-core", {
+          preferWorkspaceProtocol: state.packageManager === "pnpm",
+          workspaceRoot: state.workspaceRoot,
+          targetProjectPath: projectPath,
+        }),
+        "jsx-loc-plugin",
+      ],
     });
 
     // Inject <uilint-devtools /> web component into React
@@ -205,7 +180,19 @@ export function createPlan(
     dependencies.push({
       packagePath: projectPath,
       packageManager: detectPackageManager(projectPath),
-      packages: ["uilint-react", "uilint-core", "jsx-loc-plugin"],
+      packages: [
+        toInstallSpecifier("uilint-react", {
+          preferWorkspaceProtocol: state.packageManager === "pnpm",
+          workspaceRoot: state.workspaceRoot,
+          targetProjectPath: projectPath,
+        }),
+        toInstallSpecifier("uilint-core", {
+          preferWorkspaceProtocol: state.packageManager === "pnpm",
+          workspaceRoot: state.workspaceRoot,
+          targetProjectPath: projectPath,
+        }),
+        "jsx-loc-plugin",
+      ],
     });
 
     // Inject <uilint-devtools /> web component into React entry
@@ -242,7 +229,8 @@ export function createPlan(
       // Load and copy rule files into this target package
       // Use TypeScript rule files if the ESLint config is TypeScript (.ts)
       // This ensures the imports match the actual rule files being copied
-      const isTypeScriptConfig = pkgInfo?.eslintConfigPath?.endsWith(".ts") ?? false;
+      const isTypeScriptConfig =
+        pkgInfo?.eslintConfigPath?.endsWith(".ts") ?? false;
       const ruleFiles = loadSelectedRules(
         selectedRules.map((r) => r.id),
         {
@@ -271,7 +259,14 @@ export function createPlan(
       dependencies.push({
         packagePath: pkgPath,
         packageManager: detectPackageManager(pkgPath),
-        packages: [toInstallSpecifier("uilint-eslint"), "typescript-eslint"],
+        packages: [
+          toInstallSpecifier("uilint-eslint", {
+            preferWorkspaceProtocol: state.packageManager === "pnpm",
+            workspaceRoot: state.workspaceRoot,
+            targetProjectPath: pkgPath,
+          }),
+          "typescript-eslint",
+        ],
       });
 
       // Inject ESLint rules (will reference local .uilint/rules/ files)

@@ -43,15 +43,50 @@ function spawnAsync(
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
-      stdio: "inherit",
+      // Capture output so we can surface it in installer summaries, while still
+      // streaming to the user for a good UX.
+      stdio: ["ignore", "pipe", "pipe"],
       shell: process.platform === "win32",
     });
 
-    child.on("error", reject);
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    const MAX_CAPTURE = 64 * 1024; // keep last 64KB per stream
+
+    child.stdout?.on("data", (chunk: Buffer) => {
+      process.stdout.write(chunk);
+      stdoutChunks.push(chunk);
+      // keep bounded
+      while (Buffer.concat(stdoutChunks).length > MAX_CAPTURE) stdoutChunks.shift();
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      process.stderr.write(chunk);
+      stderrChunks.push(chunk);
+      while (Buffer.concat(stderrChunks).length > MAX_CAPTURE) stderrChunks.shift();
+    });
+
+    child.on("error", (err) => {
+      reject(err);
+    });
+
     child.on("close", (code) => {
-      if (code === 0) resolve();
-      else
-        reject(new Error(`${command} ${args.join(" ")} exited with ${code}`));
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      const cmd = `${command} ${args.join(" ")}`.trim();
+      const stdout = Buffer.concat(stdoutChunks).toString("utf-8").trim();
+      const stderr = Buffer.concat(stderrChunks).toString("utf-8").trim();
+      const snippet = (stderr || stdout).trim();
+
+      reject(
+        new Error(
+          `${cmd} exited with ${code}${
+            snippet ? `\n\n--- output ---\n${snippet}\n--- end output ---` : ""
+          }`
+        )
+      );
     });
   });
 }

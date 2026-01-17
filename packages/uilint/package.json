@@ -1,6 +1,6 @@
 {
   "name": "uilint",
-  "version": "0.2.23",
+  "version": "0.2.24",
   "description": "CLI for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -71,6 +71,7 @@
     "@types/react": "^19.2.8",
     "@types/ws": "^8.18.1",
     "tsup": "^8.5.1",
+    "uilint-react": "workspace:*",
     "vitest": "^4.0.17"
   },
   "keywords": [

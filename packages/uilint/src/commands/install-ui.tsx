@@ -26,9 +26,109 @@ import type {
 } from "./install/installers/types.js";
 import type { ConfiguredRule } from "./install/components/RuleSelector.js";
 import { ruleRegistry } from "uilint-eslint";
+import { pc } from "../utils/prompts.js";
 
 // Import installers to trigger registration
 import "./install/installers/index.js";
+
+function limitList(items: string[], max: number): string[] {
+  if (items.length <= max) return items;
+  return [...items.slice(0, max), pc.dim(`…and ${items.length - max} more`)];
+}
+
+function printInstallReport(result: Awaited<ReturnType<typeof execute>>): void {
+  const failedDeps = result.dependencyResults.filter((r) => !r.success);
+  const okDeps = result.dependencyResults.filter((r) => r.success);
+  const failedActions = result.actionsPerformed.filter((r) => !r.success);
+  const okActions = result.actionsPerformed.filter((r) => r.success);
+
+  // High-level header
+  if (result.success) {
+    console.log(`\n${pc.green("✓")} Operation completed successfully`);
+  } else {
+    console.log(`\n${pc.yellow("⚠")} Operation completed with errors`);
+  }
+
+  // What was installed/changed (summary)
+  const { summary } = result;
+  const installed = summary.installedItems.map((x) => String(x));
+  const created = summary.filesCreated;
+  const modified = summary.filesModified;
+  const deleted = summary.filesDeleted;
+
+  if (installed.length > 0) {
+    console.log(`\n${pc.bold("Installed:")}`);
+    for (const item of installed) console.log(`- ${pc.green("✓")} ${item}`);
+  }
+
+  if (summary.eslintTargets.length > 0) {
+    console.log(`\n${pc.bold("ESLint configured:")}`);
+    for (const t of summary.eslintTargets) {
+      console.log(
+        `- ${pc.green("✓")} ${t.displayName} ${pc.dim(`(${t.configFile})`)}`
+      );
+    }
+  }
+
+  if (created.length + modified.length + deleted.length > 0) {
+    console.log(`\n${pc.bold("Files:")}`);
+    for (const p of limitList(created, 20))
+      console.log(`- ${pc.green("+")} ${p}`);
+    for (const p of limitList(modified, 20))
+      console.log(`- ${pc.yellow("~")} ${p}`);
+    for (const p of limitList(deleted, 20))
+      console.log(`- ${pc.red("-")} ${p}`);
+  }
+
+  if (summary.dependenciesInstalled.length > 0) {
+    console.log(`\n${pc.bold("Dependencies installed:")}`);
+    for (const d of summary.dependenciesInstalled) {
+      console.log(
+        `- ${pc.green("✓")} ${d.packagePath} ${pc.dim(`← ${d.packages.join(", ")}`)}`
+      );
+    }
+  }
+
+  // Failures (include error info)
+  if (failedDeps.length > 0 || failedActions.length > 0) {
+    console.log(`\n${pc.bold(pc.red("Failures:"))}`);
+  }
+
+  if (failedDeps.length > 0) {
+    console.log(`\n${pc.bold("Dependency installs failed:")}`);
+    for (const dep of failedDeps) {
+      const pkgs = dep.install.packages.join(", ");
+      console.log(
+        `- ${pc.red("✗")} ${dep.install.packageManager} in ${dep.install.packagePath} ${pc.dim(`← ${pkgs}`)}`
+      );
+      if (dep.error) console.log(pc.dim(dep.error.split("\n").slice(0, 30).join("\n")));
+    }
+  }
+
+  if (failedActions.length > 0) {
+    console.log(`\n${pc.bold("Actions failed:")}`);
+    for (const a of failedActions) {
+      const action = a.action as Record<string, unknown>;
+      const type = String(action.type || "unknown");
+      const pathish =
+        (typeof action.path === "string" && action.path) ||
+        (typeof action.projectPath === "string" && action.projectPath) ||
+        (typeof action.packagePath === "string" && action.packagePath) ||
+        "";
+
+      console.error(`- ${type}${pathish ? ` (${pathish})` : ""}`);
+      if (a.error) console.error(`  ${a.error}`);
+    }
+  }
+
+  // Quick stats (useful for CI logs)
+  console.log(
+    pc.dim(
+      `\nSummary: ${okActions.length} action(s) ok, ${failedActions.length} failed · ` +
+        `${okDeps.length} dep install(s) ok, ${failedDeps.length} failed`
+    )
+  );
+}
 
 /**
  * Convert installer selections and configured rules to UserChoices for the execute phase
@@ -173,17 +273,7 @@ export async function installUI(
         });
 
         // Display results
-        if (result.success) {
-          if (hasInstalls && hasUninstalls) {
-            console.log("\n✓ Changes applied successfully!");
-          } else if (hasUninstalls) {
-            console.log("\n✓ Uninstallation completed successfully!");
-          } else {
-            console.log("\n✓ Installation completed successfully!");
-          }
-        } else {
-          console.log("\n⚠ Operation completed with errors");
-        }
+        printInstallReport(result);
 
         process.exit(result.success ? 0 : 1);
       }}
