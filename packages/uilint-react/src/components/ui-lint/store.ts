@@ -50,6 +50,12 @@ export type VisionErrorInfo = {
   timestamp: number;
 };
 
+/** Floating icon position (pixel coordinates) */
+export type FloatingIconPosition = {
+  x: number;
+  y: number;
+};
+
 /**
  * WebSocket message types (client -> server)
  */
@@ -138,6 +144,12 @@ interface RulesMetadataMessage {
   }>;
 }
 
+interface ConfigUpdateMessage {
+  type: "config:update";
+  key: string;
+  value: unknown;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
@@ -145,7 +157,8 @@ type ServerMessage =
   | WorkspaceInfoMessage
   | VisionResultMessage
   | VisionProgressMessage
-  | RulesMetadataMessage;
+  | RulesMetadataMessage
+  | ConfigUpdateMessage;
 
 /**
  * UILint Store State and Actions
@@ -165,6 +178,12 @@ export interface UILintStore {
       vision: Partial<AutoScanSettings["vision"]>;
     }>
   ) => void;
+
+  // ============ Floating Icon Position ============
+  /** Floating icon position (null = default top-center) */
+  floatingIconPosition: FloatingIconPosition | null;
+  /** Set floating icon position and persist to localStorage */
+  setFloatingIconPosition: (position: FloatingIconPosition) => void;
 
   // ============ Locator Mode ============
   altKeyHeld: boolean;
@@ -491,6 +510,9 @@ const DEFAULT_WS_URL = "ws://localhost:9234";
 /** localStorage key for auto-scan settings */
 const AUTO_SCAN_SETTINGS_KEY = "uilint:autoScanSettings";
 
+/** localStorage key for floating icon position */
+const FLOATING_ICON_POSITION_KEY = "uilint:floatingIconPosition";
+
 /**
  * Load auto-scan settings from localStorage
  */
@@ -524,6 +546,37 @@ function saveAutoScanSettings(settings: AutoScanSettings): void {
   }
 }
 
+/**
+ * Load floating icon position from localStorage
+ */
+function loadFloatingIconPosition(): FloatingIconPosition | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(FLOATING_ICON_POSITION_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (typeof parsed.x === "number" && typeof parsed.y === "number") {
+        return parsed as FloatingIconPosition;
+      }
+    }
+  } catch (e) {
+    console.warn("[UILint] Failed to load floating icon position:", e);
+  }
+  return null;
+}
+
+/**
+ * Save floating icon position to localStorage
+ */
+function saveFloatingIconPosition(position: FloatingIconPosition): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(FLOATING_ICON_POSITION_KEY, JSON.stringify(position));
+  } catch (e) {
+    console.warn("[UILint] Failed to save floating icon position:", e);
+  }
+}
+
 /** Max reconnect attempts before giving up */
 const MAX_RECONNECT_ATTEMPTS = 5;
 
@@ -536,7 +589,9 @@ function filterIssuesByDisabledRules(
   disabledRules: Set<string>
 ): ESLintIssue[] {
   if (disabledRules.size === 0) return issues;
-  return issues.filter((issue) => !issue.ruleId || !disabledRules.has(issue.ruleId));
+  return issues.filter(
+    (issue) => !issue.ruleId || !disabledRules.has(issue.ruleId)
+  );
 }
 
 /** Reconnect delay in ms (exponential backoff) */
@@ -637,6 +692,13 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       saveAutoScanSettings(newSettings);
       return { autoScanSettings: newSettings };
     }),
+
+  // ============ Floating Icon Position ============
+  floatingIconPosition: loadFloatingIconPosition(),
+  setFloatingIconPosition: (position) => {
+    saveFloatingIconPosition(position);
+    set({ floatingIconPosition: position });
+  },
 
   // ============ Locator Mode ============
   altKeyHeld: false,
@@ -1252,7 +1314,10 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
           filename, // Store filename for persistence tracking
           timestamp: captureTimestamp,
           type: captureMode === "region" && selectedRegion ? "region" : "full",
-          region: captureMode === "region" && selectedRegion ? selectedRegion : undefined,
+          region:
+            captureMode === "region" && selectedRegion
+              ? selectedRegion
+              : undefined,
         };
         set((state) => {
           const next = new Map(state.screenshotHistory);
@@ -1428,7 +1493,10 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     try {
       const response = await fetch("/api/.uilint/screenshots?list=true");
       if (!response.ok) {
-        console.warn("[UILint] Failed to fetch screenshots:", response.statusText);
+        console.warn(
+          "[UILint] Failed to fetch screenshots:",
+          response.statusText
+        );
         return;
       }
 
@@ -1456,7 +1524,8 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
         const timestamp = metadata?.timestamp || Date.now();
 
         // Extract issues for this capture (issues live on the capture now)
-        const issues = metadata?.issues || metadata?.analysisResult?.issues || [];
+        const issues =
+          metadata?.issues || metadata?.analysisResult?.issues || [];
 
         // Create the capture entry with issues
         const capture: ScreenshotCapture = {
@@ -1488,7 +1557,11 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
           }
 
           // Also sync issues to cache if this capture has issues and cache doesn't have them for this route
-          if (capture.issues && capture.issues.length > 0 && !newVisionCache.has(capture.route)) {
+          if (
+            capture.issues &&
+            capture.issues.length > 0 &&
+            !newVisionCache.has(capture.route)
+          ) {
             newVisionCache.set(capture.route, capture.issues);
           }
         }
@@ -1555,11 +1628,9 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   setCommandPaletteSelectedIndex: (index) =>
     set({ commandPaletteSelectedIndex: index }),
 
-  setExpandedItemId: (id) =>
-    set({ expandedItemId: id }),
+  setExpandedItemId: (id) => set({ expandedItemId: id }),
 
-  setHighlightedRuleId: (ruleId) =>
-    set({ highlightedRuleId: ruleId }),
+  setHighlightedRuleId: (ruleId) => set({ highlightedRuleId: ruleId }),
 
   setHoveredCommandPaletteItemId: (id) =>
     set({ hoveredCommandPaletteItemId: id }),
@@ -1797,6 +1868,22 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       case "vision:progress": {
         const { phase } = data;
         set({ visionProgressPhase: phase });
+        break;
+      }
+
+      case "config:update": {
+        const { key, value } = data;
+        console.log("[UILint] config:update", key, value);
+
+        // Handle specific config keys
+        if (key === "floatingIconPosition") {
+          const pos = value as FloatingIconPosition | null;
+          if (pos && typeof pos.x === "number" && typeof pos.y === "number") {
+            // Update store and persist to localStorage
+            saveFloatingIconPosition(pos);
+            set({ floatingIconPosition: pos });
+          }
+        }
         break;
       }
     }

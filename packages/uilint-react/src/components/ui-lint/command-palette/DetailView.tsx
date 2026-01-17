@@ -105,6 +105,7 @@ function SourceCodePreview({
     relativePath: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [contextLines, setContextLines] = useState(3);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,7 +119,7 @@ function SourceCodePreview({
             lineNumber,
             columnNumber,
           },
-          3 // Show 3 lines of context above and below
+          contextLines
         );
         if (!cancelled && result) {
           setSourceData(result);
@@ -136,7 +137,7 @@ function SourceCodePreview({
     return () => {
       cancelled = true;
     };
-  }, [filePath, lineNumber, columnNumber]);
+  }, [filePath, lineNumber, columnNumber, contextLines]);
 
   if (loading) {
     return (
@@ -165,8 +166,42 @@ function SourceCodePreview({
         "border border-zinc-200/80 dark:border-zinc-700/80"
       )}
     >
+      {/* Context controls */}
+      <div className="flex items-center justify-end gap-1 px-2 py-1.5 border-b border-zinc-200/50 dark:border-zinc-700/50">
+        <button
+          onClick={() => setContextLines((c) => Math.max(1, c - 2))}
+          disabled={contextLines <= 1}
+          className={cn(
+            "w-5 h-5 rounded flex items-center justify-center text-xs font-medium",
+            "transition-colors duration-100",
+            contextLines <= 1
+              ? "text-zinc-300 dark:text-zinc-600 cursor-not-allowed"
+              : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50"
+          )}
+          title="Show less context"
+        >
+          −
+        </button>
+        <span className="text-[10px] text-zinc-400 dark:text-zinc-500 w-4 text-center tabular-nums">
+          {contextLines}
+        </span>
+        <button
+          onClick={() => setContextLines((c) => Math.min(15, c + 2))}
+          disabled={contextLines >= 15}
+          className={cn(
+            "w-5 h-5 rounded flex items-center justify-center text-xs font-medium",
+            "transition-colors duration-100",
+            contextLines >= 15
+              ? "text-zinc-300 dark:text-zinc-600 cursor-not-allowed"
+              : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50"
+          )}
+          title="Show more context"
+        >
+          +
+        </button>
+      </div>
       {/* Code content */}
-      <div className="overflow-x-auto">
+      <div className="overflow-auto max-h-64">
         <pre className="text-[11px] leading-5 font-mono">
           {sourceData.lines.map((line, idx) => {
             const lineNum = sourceData.startLine + idx;
@@ -471,10 +506,8 @@ function RuleIssueItem({
       className={cn(
         "group px-3 py-2 rounded-lg cursor-pointer",
         "bg-zinc-50 dark:bg-zinc-800/50",
-        "border border-transparent",
-        "hover:border-zinc-300 dark:hover:border-zinc-600",
-        "hover:bg-zinc-100 dark:hover:bg-zinc-800",
-        "transition-all duration-100"
+        "hover:bg-zinc-100/80 dark:hover:bg-zinc-700/50",
+        "transition-colors duration-75"
       )}
       onMouseEnter={() => onHover(id)}
       onMouseLeave={() => onHover(null)}

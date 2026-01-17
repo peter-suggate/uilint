@@ -14,7 +14,9 @@ type DevtoolsPosition =
   | "bottom-left"
   | "bottom-right"
   | "top-left"
-  | "top-right";
+  | "top-right"
+  | "top-center"
+  | "bottom-center";
 
 type DevtoolsTheme = "light" | "dark" | "system";
 
@@ -166,9 +168,12 @@ export function defineUILintDevtoolsElement() {
         case "top-left":
         case "top-right":
         case "bottom-left":
+        case "top-center":
+        case "bottom-center":
           return raw;
         default:
-          return "bottom-left";
+          // Default to top-center (matches FloatingIcon default)
+          return "top-center";
       }
     }
 

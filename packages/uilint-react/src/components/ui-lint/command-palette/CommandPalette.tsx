@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useCallback, useMemo, useEffect } from "react";
+import React, { useCallback, useMemo, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
-import { useUILintStore, type UILintStore } from "../store";
+import { useUILintStore, type UILintStore, type FloatingIconPosition } from "../store";
 import { getUILintPortalHost } from "../portal-host";
 import { CommandPaletteInput } from "./CommandPaletteInput";
 import { CommandPaletteResults } from "./CommandPaletteResults";
@@ -21,6 +21,44 @@ import type {
   IssueSearchData,
 } from "./types";
 import { DATA_UILINT_ID } from "../types";
+
+/** Palette dimensions */
+const PALETTE_WIDTH = 560;
+const PALETTE_HEIGHT_ESTIMATE = 400; // approximate height for positioning
+const VIEWPORT_PADDING = 16;
+
+/** Calculate palette position based on floating icon position
+ * The palette opens directly at/over the icon position, with smart alignment
+ * based on available screen space.
+ */
+function calculatePalettePosition(iconPos: FloatingIconPosition | null): {
+  left: number;
+  top: number;
+} {
+  if (typeof window === "undefined") {
+    return { left: 400, top: 80 };
+  }
+
+  // Default to top-center if no icon position
+  const defaultPos = { x: window.innerWidth / 2, y: 20 };
+  const pos = iconPos || defaultPos;
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  // Vertical: align top of palette with icon, clamp to viewport
+  let top = pos.y;
+  top = Math.max(VIEWPORT_PADDING, Math.min(viewportHeight - PALETTE_HEIGHT_ESTIMATE - VIEWPORT_PADDING, top));
+
+  // Horizontal: try to center on icon, but clamp to keep fully visible
+  const halfWidth = PALETTE_WIDTH / 2;
+  let left = pos.x;
+  const minLeft = halfWidth + VIEWPORT_PADDING;
+  const maxLeft = viewportWidth - halfWidth - VIEWPORT_PADDING;
+  left = Math.max(minLeft, Math.min(maxLeft, left));
+
+  return { left, top };
+}
 
 /**
  * Build suggested action items based on current state
@@ -117,6 +155,21 @@ export function CommandPalette() {
   const screenshotHistory = useUILintStore(
     (s: UILintStore) => s.screenshotHistory
   );
+  const floatingIconPosition = useUILintStore(
+    (s: UILintStore) => s.floatingIconPosition
+  );
+
+  // Calculate palette position based on floating icon
+  const [palettePosition, setPalettePosition] = useState(() =>
+    calculatePalettePosition(floatingIconPosition)
+  );
+
+  // Update position when icon position changes or palette opens
+  useEffect(() => {
+    if (isOpen) {
+      setPalettePosition(calculatePalettePosition(floatingIconPosition));
+    }
+  }, [isOpen, floatingIconPosition]);
 
   // Map elementId -> filePath based on the latest scanned elements.
   // (Element issues in the cache don't currently carry source info.)
@@ -441,11 +494,16 @@ export function CommandPalette() {
   return createPortal(
     <div
       className={cn(
-        // Position: top center, command palette style
-        "fixed top-20 left-1/2 -translate-x-1/2 z-[100000]",
+        // Position: dynamic based on floating icon
+        "fixed z-[100000]",
         // Size
         "w-[560px] max-w-[calc(100vw-32px)]"
       )}
+      style={{
+        left: `${palettePosition.left}px`,
+        top: `${palettePosition.top}px`,
+        transform: "translateX(-50%)",
+      }}
       data-command-palette
       data-ui-lint
     >
@@ -458,10 +516,10 @@ export function CommandPalette() {
 
       {/* Panel with glass effect */}
       <motion.div
-        initial={{ opacity: 0, y: -16, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -8, scale: 0.98 }}
-        transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.98 }}
+        transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
         className={cn(
           // Glass/frosted effect
           "bg-white/70 dark:bg-zinc-900/70",
@@ -490,7 +548,7 @@ export function CommandPalette() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
-              className="min-h-[300px] max-h-[480px] flex flex-col"
+              className="min-h-[300px] max-h-[680px] flex flex-col"
             >
               <DetailView
                 item={selectedItem}

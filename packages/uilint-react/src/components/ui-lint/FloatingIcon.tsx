@@ -4,22 +4,52 @@
  * FloatingIcon - Minimal floating trigger for command palette
  *
  * Features:
+ * - Draggable to any position on screen
  * - Small icon with scanning animation when active
  * - Cmd+K shortcut hint
  * - Click to open command palette
- * - Respects data-position attribute for placement
+ * - Position persists across sessions
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useUILintStore, type UILintStore } from "./store";
+import { motion, AnimatePresence } from "motion/react";
+import { useUILintStore, type FloatingIconPosition } from "./store";
 import { getUILintPortalHost } from "./portal-host";
 import { cn } from "@/lib/utils";
 import { Icons } from "./command-palette/icons";
 import { RegionSelector, type SelectedRegion } from "./RegionSelector";
 
+/** Default position: top-center of the viewport */
+function getDefaultPosition(): FloatingIconPosition {
+  if (typeof window === "undefined") return { x: 400, y: 20 };
+  return { x: window.innerWidth / 2, y: 20 };
+}
+
+/** Minimum pixels mouse must move before drag starts */
+const DRAG_THRESHOLD = 8;
+
+/** Clamp position to viewport bounds */
+function clampToViewport(
+  pos: FloatingIconPosition,
+  buttonWidth: number,
+  buttonHeight: number
+): FloatingIconPosition {
+  if (typeof window === "undefined") return pos;
+  // Minimal padding - just keep the icon fully visible
+  const minX = buttonWidth / 2;
+  const maxX = window.innerWidth - buttonWidth / 2;
+  const minY = buttonHeight / 2;
+  const maxY = window.innerHeight - buttonHeight / 2;
+  return {
+    x: Math.max(minX, Math.min(maxX, pos.x)),
+    y: Math.max(minY, Math.min(maxY, pos.y)),
+  };
+}
+
 export function FloatingIcon() {
   const openCommandPalette = useUILintStore((s) => s.openCommandPalette);
+  const commandPaletteOpen = useUILintStore((s) => s.commandPaletteOpen);
   const wsConnected = useUILintStore((s) => s.wsConnected);
   const liveScanEnabled = useUILintStore((s) => s.liveScanEnabled);
   const regionSelectionActive = useUILintStore((s) => s.regionSelectionActive);
@@ -27,6 +57,8 @@ export function FloatingIcon() {
   const setSelectedRegion = useUILintStore((s) => s.setSelectedRegion);
   const setCaptureMode = useUILintStore((s) => s.setCaptureMode);
   const triggerVisionAnalysis = useUILintStore((s) => s.triggerVisionAnalysis);
+  const floatingIconPosition = useUILintStore((s) => s.floatingIconPosition);
+  const setFloatingIconPosition = useUILintStore((s) => s.setFloatingIconPosition);
 
   // Get total issue count for badge
   const elementIssuesCache = useUILintStore((s) => s.elementIssuesCache);
@@ -43,50 +75,135 @@ export function FloatingIcon() {
 
   // Local state
   const [mounted, setMounted] = useState(false);
-  const [nextjsOverlayVisible, setNextjsOverlayVisible] = useState(false);
+  const [isPendingDrag, setIsPendingDrag] = useState(false); // Mouse down but threshold not met
+  const [isDragging, setIsDragging] = useState(false); // Threshold met, actively dragging
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [localPosition, setLocalPosition] = useState<FloatingIconPosition | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
   // Platform detection for shortcut display
   const isMac =
     typeof navigator !== "undefined" && navigator.platform?.includes("Mac");
   const shortcutKey = isMac ? "⌘" : "Ctrl+";
 
-  // Detect Next.js overlay
+  // Initialize local position from store or default
   useEffect(() => {
-    const checkForNextOverlay = () => {
-      const overlaySelectors = [
-        "nextjs-portal",
-        "[data-nextjs-dialog]",
-        "[data-nextjs-dialog-overlay]",
-        "#__next-build-watcher",
-        "[data-nextjs-toast]",
-      ];
-
-      const hasOverlay = overlaySelectors.some((selector) => {
-        const el = document.querySelector(selector);
-        if (!el) return false;
-        const style = window.getComputedStyle(el);
-        return style.display !== "none" && style.visibility !== "hidden";
-      });
-
-      setNextjsOverlayVisible(hasOverlay);
-    };
-
-    checkForNextOverlay();
-    const observer = new MutationObserver(checkForNextOverlay);
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["style", "class"],
-    });
-
-    return () => observer.disconnect();
-  }, []);
+    if (mounted && !localPosition) {
+      setLocalPosition(floatingIconPosition || getDefaultPosition());
+    }
+  }, [mounted, floatingIconPosition, localPosition]);
 
   // Mount state for portal
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Handle window resize - clamp position to new viewport
+  useEffect(() => {
+    if (!mounted) return;
+
+    const handleResize = () => {
+      setLocalPosition((prev) => {
+        if (!prev) return prev;
+        const buttonWidth = buttonRef.current?.offsetWidth || 100;
+        const buttonHeight = buttonRef.current?.offsetHeight || 40;
+        return clampToViewport(prev, buttonWidth, buttonHeight);
+      });
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [mounted]);
+
+  // Drag handlers
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      // Only start drag on left mouse button
+      if (e.button !== 0) return;
+
+      // Record start position to detect drag vs click
+      dragStartPosRef.current = { x: e.clientX, y: e.clientY };
+
+      // Calculate offset: difference between mouse click and icon's current center position
+      // This offset will be used to keep the icon at the same relative position under the cursor
+      if (localPosition) {
+        setDragOffset({
+          x: e.clientX - localPosition.x,
+          y: e.clientY - localPosition.y,
+        });
+      }
+
+      // Start in pending state - actual drag begins after threshold
+      setIsPendingDrag(true);
+      e.preventDefault();
+    },
+    [localPosition]
+  );
+
+  // Document-level mouse move and up handlers
+  useEffect(() => {
+    if (!isPendingDrag && !isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const startPos = dragStartPosRef.current;
+      if (!startPos) return;
+
+      const dx = Math.abs(e.clientX - startPos.x);
+      const dy = Math.abs(e.clientY - startPos.y);
+
+      // Check if we've exceeded the drag threshold
+      if (isPendingDrag && !isDragging) {
+        if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+          // Threshold exceeded - start actual drag
+          setIsPendingDrag(false);
+          setIsDragging(true);
+          // Fall through to update position immediately (no return)
+        } else {
+          return; // Don't move yet while pending and threshold not met
+        }
+      }
+
+      // Actually dragging - update position
+      const buttonWidth = buttonRef.current?.offsetWidth || 100;
+      const buttonHeight = buttonRef.current?.offsetHeight || 40;
+
+      const newPos = clampToViewport(
+        {
+          x: e.clientX - dragOffset.x,
+          y: e.clientY - dragOffset.y,
+        },
+        buttonWidth,
+        buttonHeight
+      );
+
+      setLocalPosition(newPos);
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      const wasDragging = isDragging;
+      setIsPendingDrag(false);
+      setIsDragging(false);
+
+      if (wasDragging && localPosition) {
+        // Save position to store (persists to localStorage)
+        setFloatingIconPosition(localPosition);
+      } else {
+        // It was a click (threshold never exceeded) - open command palette
+        openCommandPalette();
+      }
+
+      dragStartPosRef.current = null;
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isPendingDrag, isDragging, dragOffset, localPosition, setFloatingIconPosition, openCommandPalette]);
 
   // Handlers
   const handleRegionSelected = useCallback(
@@ -105,119 +222,123 @@ export function FloatingIcon() {
     setCaptureMode("full");
   }, [setRegionSelectionActive, setSelectedRegion, setCaptureMode]);
 
-  // Prevent event propagation
+  // Prevent event propagation (but allow drag to work)
   const handleUILintInteraction = useCallback(
-    (e: React.MouseEvent | React.KeyboardEvent | React.PointerEvent) => {
+    (e: React.KeyboardEvent | React.PointerEvent) => {
       e.stopPropagation();
     },
     []
   );
 
-  if (!mounted) return null;
+  if (!mounted || !localPosition) return null;
 
-  const bottomPosition = nextjsOverlayVisible ? "80px" : "20px";
-  const devtoolPosition =
-    typeof document !== "undefined"
-      ? (document
-          .querySelector<HTMLElement>(".dev-tool-root")
-          ?.getAttribute("data-position") as
-          | "bottom-left"
-          | "bottom-right"
-          | "top-left"
-          | "top-right"
-          | null) ?? "bottom-left"
-      : "bottom-left";
+  // Hide the static icon when command palette is open
+  const showStaticIcon = !commandPaletteOpen;
 
   const content = (
     <div
       data-ui-lint
-      onMouseDown={handleUILintInteraction}
       onPointerDown={handleUILintInteraction}
-      onClick={handleUILintInteraction}
       onKeyDown={handleUILintInteraction}
       style={{
         position: "fixed",
-        ...(devtoolPosition.startsWith("top")
-          ? { top: "20px", bottom: "auto" }
-          : { bottom: bottomPosition, top: "auto" }),
-        ...(devtoolPosition.endsWith("right")
-          ? { right: "20px", left: "auto" }
-          : { left: "20px", right: "auto" }),
+        left: 0,
+        top: 0,
         zIndex: 99999,
         fontFamily:
           'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        transition: "bottom 0.3s ease",
         pointerEvents: "none",
       }}
     >
-      {/* Floating icon button */}
-      <button
-        type="button"
-        onClick={() => openCommandPalette()}
-        className={cn(
-          "relative flex items-center gap-2 px-3 py-2.5 rounded-full",
-          "bg-white/80 dark:bg-zinc-900/80",
-          "backdrop-blur-xl",
-          "border border-white/30 dark:border-white/10",
-          "shadow-lg shadow-black/10 dark:shadow-black/30",
-          "text-zinc-700 dark:text-zinc-200",
-          "hover:bg-white dark:hover:bg-zinc-800",
-          "transition-all duration-200",
-          "group"
-        )}
-        style={{ pointerEvents: "auto" }}
-        aria-label="Open command palette"
-      >
-        {/* Logo/Icon with scanning animation */}
-        <div className="relative">
-          <Icons.Scan
-            className={cn(
-              "w-4 h-4",
-              liveScanEnabled && "text-emerald-500",
-              !wsConnected && "text-zinc-400"
-            )}
-          />
-          {/* Scanning pulse animation */}
-          {liveScanEnabled && (
-            <span
-              className={cn(
-                "absolute inset-0 rounded-full",
-                "bg-emerald-400/30 dark:bg-emerald-500/20",
-                "animate-ping"
-              )}
-              style={{ animationDuration: "2s" }}
-            />
-          )}
-        </div>
-
-        {/* Issue badge */}
-        {totalIssueCount > 0 && (
-          <span
-            className={cn(
-              "inline-flex items-center justify-center",
-              "min-w-[18px] h-[18px] px-1",
-              "text-[10px] font-semibold",
-              "rounded-full",
-              "bg-amber-100 dark:bg-amber-900/50",
-              "text-amber-700 dark:text-amber-300"
-            )}
+      {/* Static floating icon button */}
+      <AnimatePresence>
+        {showStaticIcon && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              position: "fixed",
+              left: `${localPosition.x}px`,
+              top: `${localPosition.y}px`,
+              transform: "translate(-50%, -50%)",
+              transition: isDragging ? "none" : "left 0.1s ease, top 0.1s ease",
+            }}
           >
-            {totalIssueCount > 99 ? "99+" : totalIssueCount}
-          </span>
-        )}
+            <button
+              ref={buttonRef}
+              type="button"
+              onMouseDown={handleMouseDown}
+              className={cn(
+                "relative flex items-center gap-2 px-3 py-2.5 rounded-full",
+                "bg-white/80 dark:bg-zinc-900/80",
+                "backdrop-blur-xl",
+                "border border-white/30 dark:border-white/10",
+                "shadow-lg shadow-black/10 dark:shadow-black/30",
+                "text-zinc-700 dark:text-zinc-200",
+                "hover:bg-white dark:hover:bg-zinc-800",
+                "transition-all duration-200",
+                "group",
+                isDragging && "cursor-grabbing scale-105",
+                !isDragging && "cursor-grab"
+              )}
+              style={{ pointerEvents: "auto" }}
+              aria-label="Open command palette (drag to move)"
+            >
+              {/* Logo/Icon with scanning animation */}
+              <div className="relative">
+                <Icons.Scan
+                  className={cn(
+                    "w-4 h-4",
+                    liveScanEnabled && "text-emerald-500",
+                    !wsConnected && "text-zinc-400"
+                  )}
+                />
+                {/* Scanning pulse animation */}
+                {liveScanEnabled && (
+                  <span
+                    className={cn(
+                      "absolute inset-0 rounded-full",
+                      "bg-emerald-400/30 dark:bg-emerald-500/20",
+                      "animate-ping"
+                    )}
+                    style={{ animationDuration: "2s" }}
+                  />
+                )}
+              </div>
 
-        {/* Shortcut hint */}
-        <kbd
-          className={cn(
-            "px-1.5 py-0.5 rounded",
-            "bg-zinc-100/80 dark:bg-zinc-800/80",
-            "text-[10px] font-medium text-zinc-500 dark:text-zinc-400",
-            "opacity-60 group-hover:opacity-100 transition-opacity"
-          )}
-        >
-          {shortcutKey}K
-        </kbd>
-      </button>
+              {/* Issue badge */}
+              {totalIssueCount > 0 && (
+                <span
+                  className={cn(
+                    "inline-flex items-center justify-center",
+                    "min-w-[18px] h-[18px] px-1",
+                    "text-[10px] font-semibold",
+                    "rounded-full",
+                    "bg-amber-100 dark:bg-amber-900/50",
+                    "text-amber-700 dark:text-amber-300"
+                  )}
+                >
+                  {totalIssueCount > 99 ? "99+" : totalIssueCount}
+                </span>
+              )}
+
+              {/* Shortcut hint */}
+              <kbd
+                className={cn(
+                  "px-1.5 py-0.5 rounded",
+                  "bg-zinc-100/80 dark:bg-zinc-800/80",
+                  "text-[10px] font-medium text-zinc-500 dark:text-zinc-400",
+                  "opacity-60 group-hover:opacity-100 transition-opacity"
+                )}
+              >
+                {shortcutKey}K
+              </kbd>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Region selector overlay */}
       <RegionSelector

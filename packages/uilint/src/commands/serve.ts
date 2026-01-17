@@ -9,11 +9,13 @@
  * - Client -> Server: { type: 'subscribe:file', filePath: string }
  * - Client -> Server: { type: 'cache:invalidate', filePath?: string }
  * - Client -> Server: { type: 'vision:analyze', route: string, timestamp: number, screenshot?: string, screenshotFile?: string, manifest: ElementManifest[], requestId?: string }
+ * - Client -> Server: { type: 'config:set', key: string, value: any }
  * - Server -> Client: { type: 'lint:result', filePath: string, issues: Issue[], requestId?: string }
  * - Server -> Client: { type: 'lint:progress', filePath: string, phase: string, requestId?: string }
  * - Server -> Client: { type: 'file:changed', filePath: string }
  * - Server -> Client: { type: 'vision:result', route: string, issues: VisionIssue[], analysisTime: number, error?: string, requestId?: string }
  * - Server -> Client: { type: 'vision:progress', route: string, phase: string, requestId?: string }
+ * - Server -> Client: { type: 'config:update', key: string, value: any }
  */
 
 import { existsSync, statSync, readdirSync, readFileSync } from "fs";
@@ -89,12 +91,19 @@ interface VisionAnalyzeMessage {
   requestId?: string;
 }
 
+interface ConfigSetMessage {
+  type: "config:set";
+  key: string;
+  value: unknown;
+}
+
 type ClientMessage =
   | LintFileMessage
   | LintElementMessage
   | SubscribeFileMessage
   | CacheInvalidateMessage
-  | VisionAnalyzeMessage;
+  | VisionAnalyzeMessage
+  | ConfigSetMessage;
 
 interface LintResultMessage {
   type: "lint:result";
@@ -153,6 +162,12 @@ interface RulesMetadataMessage {
   }>;
 }
 
+interface ConfigUpdateMessage {
+  type: "config:update";
+  key: string;
+  value: unknown;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
@@ -160,7 +175,8 @@ type ServerMessage =
   | WorkspaceInfoMessage
   | VisionResultMessage
   | VisionProgressMessage
-  | RulesMetadataMessage;
+  | RulesMetadataMessage
+  | ConfigUpdateMessage;
 
 function pickAppRoot(params: { cwd: string; workspaceRoot: string }): string {
   const { cwd, workspaceRoot } = params;
@@ -634,6 +650,8 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
     );
   } else if (message.type === "vision:analyze") {
     // Logged in handler for more detailed output
+  } else if (message.type === "config:set") {
+    // Logged in handler
   }
 
   switch (message.type) {
@@ -936,6 +954,12 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       }
       break;
     }
+
+    case "config:set": {
+      const { key, value } = message;
+      handleConfigSet(key, value);
+      break;
+    }
   }
 }
 
@@ -976,6 +1000,31 @@ function handleFileChange(filePath: string): void {
   }
 }
 
+// In-memory config store (runtime only, for broadcasting to clients)
+const configStore = new Map<string, unknown>();
+
+// Track connected clients for broadcasting
+let connectedClientsSet = new Set<WebSocket>();
+
+/**
+ * Broadcast config update to all connected clients
+ */
+function broadcastConfigUpdate(key: string, value: unknown): void {
+  const message: ConfigUpdateMessage = { type: "config:update", key, value };
+  for (const ws of connectedClientsSet) {
+    sendMessage(ws, message);
+  }
+}
+
+/**
+ * Handle config:set message
+ */
+function handleConfigSet(key: string, value: unknown): void {
+  configStore.set(key, value);
+  logInfo(`${pc.dim("[ws]")} config:set ${pc.bold(key)} = ${pc.dim(JSON.stringify(value))}`);
+  broadcastConfigUpdate(key, value);
+}
+
 /**
  * Start the WebSocket server
  */
@@ -1005,6 +1054,7 @@ export async function serve(options: ServeOptions): Promise<void> {
 
   wss.on("connection", (ws) => {
     connectedClients += 1;
+    connectedClientsSet.add(ws);
     logInfo(`Client connected (${connectedClients} total)`);
 
     // Send workspace info to client on connect
@@ -1027,12 +1077,18 @@ export async function serve(options: ServeOptions): Promise<void> {
       })),
     });
 
+    // Send current config state to new client
+    for (const [key, value] of configStore) {
+      sendMessage(ws, { type: "config:update", key, value });
+    }
+
     ws.on("message", (data) => {
       handleMessage(ws, data.toString());
     });
 
     ws.on("close", () => {
       connectedClients = Math.max(0, connectedClients - 1);
+      connectedClientsSet.delete(ws);
       logInfo(`Client disconnected (${connectedClients} total)`);
       handleDisconnect(ws);
     });

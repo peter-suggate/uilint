@@ -360,8 +360,7 @@ function RuleItem({
     <div
       className={cn(
         "group",
-        isSelected && "bg-zinc-100 dark:bg-zinc-800",
-        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50 ring-inset bg-zinc-100/50 dark:bg-zinc-800/50"
+        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50 ring-inset"
       )}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
@@ -461,16 +460,16 @@ function CaptureItem({
     <div
       className={cn(
         "group",
-        isSelected && "bg-zinc-100 dark:bg-zinc-800",
-        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50 ring-inset bg-zinc-100/50 dark:bg-zinc-800/50"
+        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50 ring-inset"
       )}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
       <div
         className={cn(
-          "flex items-center gap-3 px-4 py-2 cursor-pointer",
-          "hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+          "flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors duration-75",
+          "hover:bg-zinc-100/80 dark:hover:bg-zinc-700/50",
+          isSelected && "bg-zinc-100/80 dark:bg-zinc-700/50"
         )}
         onClick={onClick}
       >
@@ -563,8 +562,7 @@ function FileItem({
     <div
       className={cn(
         "group",
-        isSelected && "bg-zinc-100 dark:bg-zinc-800",
-        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50 ring-inset bg-zinc-100/50 dark:bg-zinc-800/50"
+        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50 ring-inset"
       )}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
@@ -625,8 +623,7 @@ function IssueItem({
     <div
       className={cn(
         "group",
-        isSelected && "bg-zinc-100 dark:bg-zinc-800",
-        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50 ring-inset bg-zinc-100/50 dark:bg-zinc-800/50"
+        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50 ring-inset"
       )}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

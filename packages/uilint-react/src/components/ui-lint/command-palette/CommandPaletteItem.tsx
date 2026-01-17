@@ -31,10 +31,9 @@ export function CommandPaletteItem({
     <div
       className={cn(
         "px-4 py-2.5 cursor-pointer transition-colors duration-75",
-        // Selected state with glass effect
-        isSelected && "bg-white/40 dark:bg-white/10",
-        // Hover state (when not selected)
-        !isSelected && "hover:bg-white/20 dark:hover:bg-white/5"
+        // Hover and selected states - consistent subtle highlight
+        "hover:bg-zinc-100/80 dark:hover:bg-zinc-700/50",
+        isSelected && "bg-zinc-100/80 dark:bg-zinc-700/50"
       )}
       onClick={(e) => {
         e.preventDefault();

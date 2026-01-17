@@ -9,6 +9,7 @@ import { consistency } from "./commands/consistency.js";
 import { update } from "./commands/update.js";
 import { serve } from "./commands/serve.js";
 import { vision } from "./commands/vision.js";
+import { config } from "./commands/config.js";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -236,5 +237,18 @@ program
     });
   });
 
+// Config command
+program
+  .command("config")
+  .description("Get or set UILint configuration options")
+  .argument("<action>", "Action: set or get")
+  .argument("<key>", "Config key (e.g., position)")
+  .argument("[value]", "Value to set (for set action)")
+  .option("-p, --port <number>", "WebSocket server port", "9234")
+  .action(async (action, key, value, options) => {
+    await config(action, key, value, {
+      port: parseInt(options.port, 10),
+    });
+  });
 
 program.parse();
