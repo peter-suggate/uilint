@@ -124,6 +124,20 @@ function applyFilter(
         return false;
       };
 
+      // Parse filePath:line:column from a loc string
+      const parseLocParts = (loc: string): { filePath: string; line: number; column?: number } | null => {
+        const lastIdx = loc.lastIndexOf(":");
+        const secondLastIdx = loc.lastIndexOf(":", lastIdx - 1);
+        if (secondLastIdx < 0) return null;
+
+        const filePath = loc.slice(0, secondLastIdx);
+        const line = parseInt(loc.slice(secondLastIdx + 1, lastIdx), 10);
+        const column = parseInt(loc.slice(lastIdx + 1), 10);
+
+        if (isNaN(line)) return null;
+        return { filePath, line, column: isNaN(column) ? undefined : column };
+      };
+
       return items.filter((item) => {
         if (item.type === "issue") {
           const issueData = item.data as IssueSearchData;
@@ -148,6 +162,20 @@ function applyFilter(
           // Method 3: For file-level issues, check the elementLoc (first element in file)
           if (issueData.elementLoc && matchesLoc(issueData.elementLoc)) {
             return true;
+          }
+
+          // Method 4: Check if the issue's own line:column matches the filter value
+          // The issue has its own line/column (where the issue occurs within the element)
+          // which may differ from the element's dataLoc (where the element starts)
+          const filterParts = parseLocParts(locValue);
+          if (filterParts && issueData.issue.line === filterParts.line) {
+            // Check if filePath matches
+            if (issueData.filePath === filterParts.filePath) {
+              // If filter has column, check column match too
+              if (filterParts.column === undefined || issueData.issue.column === filterParts.column) {
+                return true;
+              }
+            }
           }
 
           return false;

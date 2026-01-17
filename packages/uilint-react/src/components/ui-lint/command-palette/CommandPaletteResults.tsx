@@ -779,6 +779,22 @@ function matchesLoc(loc: string, locValue: string): boolean {
 }
 
 /**
+ * Parse filePath:line:column from a loc string
+ */
+function parseLocParts(loc: string): { filePath: string; line: number; column?: number } | null {
+  const lastIdx = loc.lastIndexOf(":");
+  const secondLastIdx = loc.lastIndexOf(":", lastIdx - 1);
+  if (secondLastIdx < 0) return null;
+
+  const filePath = loc.slice(0, secondLastIdx);
+  const line = parseInt(loc.slice(secondLastIdx + 1, lastIdx), 10);
+  const column = parseInt(loc.slice(lastIdx + 1), 10);
+
+  if (isNaN(line)) return null;
+  return { filePath, line, column: isNaN(column) ? undefined : column };
+}
+
+/**
  * Check if an issue matches any of the active loc filters
  * Uses the same matching logic as applyFilter in use-fuzzy-search.ts
  */
@@ -811,6 +827,20 @@ function issueMatchesLocFilter(
     // Method 3: For file-level issues, check the elementLoc (first element in file)
     if (issue.elementLoc && matchesLoc(issue.elementLoc, locValue)) {
       return true;
+    }
+
+    // Method 4: Check if the issue's own line:column matches the filter value
+    // The issue has its own line/column (where the issue occurs within the element)
+    // which may differ from the element's dataLoc (where the element starts)
+    const filterParts = parseLocParts(locValue);
+    if (filterParts && issue.issue.line === filterParts.line) {
+      // Check if filePath matches
+      if (issue.filePath === filterParts.filePath) {
+        // If filter has column, check column match too
+        if (filterParts.column === undefined || issue.issue.column === filterParts.column) {
+          return true;
+        }
+      }
     }
   }
   return false;

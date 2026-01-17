@@ -18,6 +18,7 @@ import type {
   InstallAction,
   DependencyInstall,
 } from "../types.js";
+import { toInstallSpecifier } from "../versioning.js";
 import {
   traceClientBoundaries,
   providersFileExists,
@@ -216,7 +217,19 @@ export const nextOverlayInstaller: Installer = {
     dependencies.push({
       packagePath: projectPath,
       packageManager: project.packageManager,
-      packages: ["uilint-react", "uilint-core", "jsx-loc-plugin"],
+      packages: [
+        toInstallSpecifier("uilint-react", {
+          preferWorkspaceProtocol: project.packageManager === "pnpm",
+          workspaceRoot: project.workspaceRoot,
+          targetProjectPath: projectPath,
+        }),
+        toInstallSpecifier("uilint-core", {
+          preferWorkspaceProtocol: project.packageManager === "pnpm",
+          workspaceRoot: project.workspaceRoot,
+          targetProjectPath: projectPath,
+        }),
+        "jsx-loc-plugin",
+      ],
     });
 
     // Inject <uilint-devtools /> web component into React
@@ -269,7 +282,9 @@ export const nextOverlayInstaller: Installer = {
     const injectDetail = nextConfig.createProviders
       ? "→ Creating providers.tsx"
       : nextConfig.selectedTargetFile
-      ? `→ ${nextConfig.selectedTargetFile.split("/").pop() || "client component"}`
+      ? `→ ${
+          nextConfig.selectedTargetFile.split("/").pop() || "client component"
+        }`
       : "→ <uilint-devtools /> in root layout";
 
     yield {

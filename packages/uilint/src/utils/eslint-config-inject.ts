@@ -353,6 +353,15 @@ function collectTopLevelBindings(program: any): Set<string> {
   if (!program || program.type !== "Program") return names;
 
   for (const stmt of program.body ?? []) {
+    if (stmt?.type === "ImportDeclaration") {
+      for (const spec of stmt.specifiers ?? []) {
+        const local = spec?.local;
+        if (local?.type === "Identifier" && typeof local.name === "string") {
+          names.add(local.name);
+        }
+      }
+      continue;
+    }
     if (stmt?.type === "VariableDeclaration") {
       for (const decl of stmt.declarations ?? []) {
         const id = decl?.id;
@@ -374,6 +383,27 @@ function chooseUniqueIdentifier(base: string, used: Set<string>): string {
   let i = 2;
   while (used.has(`${base}${i}`)) i++;
   return `${base}${i}`;
+}
+
+function findExistingDefaultImportLocalName(
+  program: any,
+  from: string
+): string | null {
+  if (!program || program.type !== "Program") return null;
+  for (const stmt of program.body ?? []) {
+    if (stmt?.type !== "ImportDeclaration") continue;
+    const src = stmt.source?.value;
+    if (typeof src !== "string" || src !== from) continue;
+    for (const spec of stmt.specifiers ?? []) {
+      if (spec?.type === "ImportDefaultSpecifier") {
+        const local = spec.local;
+        if (local?.type === "Identifier" && typeof local.name === "string") {
+          return local.name;
+        }
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -403,6 +433,17 @@ function addLocalRuleImportsAst(
   const used = collectTopLevelBindings(mod.$ast);
 
   for (const rule of selectedRules) {
+    const rulePath = `${normalizedRulesPath}/${rule.id}${fileExtension}`;
+
+    // If the import already exists (possibly with a different local name),
+    // reuse it. Magicast can't always rename existing imports.
+    const existingLocal = findExistingDefaultImportLocalName(mod.$ast, rulePath);
+    if (existingLocal) {
+      importNames.set(rule.id, existingLocal);
+      used.add(existingLocal);
+      continue;
+    }
+
     // Generate a safe import name (e.g., noArbitraryTailwindRule)
     const importName = chooseUniqueIdentifier(
       `${rule.id
@@ -414,7 +455,6 @@ function addLocalRuleImportsAst(
     used.add(importName);
 
     // Add import statement
-    const rulePath = `${normalizedRulesPath}/${rule.id}${fileExtension}`;
     mod.imports.$add({
       imported: "default",
       local: importName,

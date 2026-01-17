@@ -4,6 +4,9 @@ import path from "node:path";
 const ROOT = path.resolve(process.cwd());
 const PACKAGES_DIR = path.join(ROOT, "packages");
 
+// Note: We intentionally keep internal deps as "workspace:*" (except peers)
+// so local monorepo development always links to the latest workspace version.
+
 function readJSON(filePath) {
   const raw = fs.readFileSync(filePath, "utf-8");
   return JSON.parse(raw);
