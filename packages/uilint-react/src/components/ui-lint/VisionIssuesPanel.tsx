@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { useUILintStore, type UILintStore } from "./store";
 import type { VisionIssue } from "../../scanner/vision-capture";
 import { getUILintPortalHost } from "./portal-host";
+import { DATA_UILINT_ID } from "./types";
 
 /**
  * Design tokens - uses CSS variables for theme support
@@ -474,8 +475,12 @@ export function VisionIssuesPanel({
       // Highlight the element
       setHighlightedVisionElementId(issue.elementId || null);
 
-      // Scroll to element
-      const element = document.querySelector(`[data-loc="${issue.dataLoc}"]`);
+      // Scroll to element - try both formats (source location and runtime ID)
+      let element = document.querySelector(`[${DATA_UILINT_ID}="${issue.dataLoc}"]`);
+      if (!element) {
+        // Try with "loc:" prefix for runtime IDs
+        element = document.querySelector(`[${DATA_UILINT_ID}^="loc:${issue.dataLoc}"]`);
+      }
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "center" });
       }

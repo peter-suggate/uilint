@@ -11,6 +11,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUILintStore, type UILintStore } from "./store";
 import type { SourceLocation } from "./types";
+import { DATA_UILINT_ID } from "./types";
 import { getUILintPortalHost } from "./portal-host";
 import { cn } from "@/lib/utils";
 
@@ -110,9 +111,15 @@ export function VisionIssueHighlight() {
     }
 
     const updateRect = () => {
-      const element = document.querySelector(
-        `[data-loc="${hoveredVisionIssue.dataLoc}"]`
+      // Try both formats (source location and runtime ID)
+      let element = document.querySelector(
+        `[${DATA_UILINT_ID}="${hoveredVisionIssue.dataLoc}"]`
       );
+      if (!element) {
+        element = document.querySelector(
+          `[${DATA_UILINT_ID}^="loc:${hoveredVisionIssue.dataLoc}"]`
+        );
+      }
       if (element) {
         setRect(element.getBoundingClientRect());
       } else {

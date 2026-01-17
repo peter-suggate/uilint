@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { useUILintStore, type UILintStore } from "./store";
 import type { VisionIssue } from "../../scanner/vision-capture";
 import { getUILintPortalHost } from "./portal-host";
+import { DATA_UILINT_ID } from "./types";
 
 /**
  * Design tokens for vision badges - uses CSS variables for theme support
@@ -204,7 +205,14 @@ export function VisionIssueBadges() {
       const dataLoc = issues[0]?.dataLoc;
       if (!dataLoc) return;
 
-      const element = document.querySelector(`[data-loc="${dataLoc}"]`);
+      // Try both formats (source location and runtime ID)
+      let element = document.querySelector(`[${DATA_UILINT_ID}="${dataLoc}"]`);
+      if (!element) {
+        // Try with "loc:" prefix for runtime IDs
+        element = document.querySelector(
+          `[${DATA_UILINT_ID}^="loc:${dataLoc}"]`
+        );
+      }
       if (element && !element.closest("[data-ui-lint]")) {
         result.push({ element, issues, elementId });
       }

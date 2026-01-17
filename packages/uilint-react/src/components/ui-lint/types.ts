@@ -265,7 +265,7 @@ export const DEFAULT_AUTO_SCAN_STATE: AutoScanState = {
 /**
  * Data attribute used to mark scanned elements
  */
-export const DATA_UILINT_ID = "data-ui-lint-id";
+export const DATA_UILINT_ID = "data-loc";
 
 /**
  * Re-export vision types for convenience

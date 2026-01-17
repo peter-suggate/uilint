@@ -7,8 +7,7 @@
 
 import type { SourceLocation, ScannedElement, SourceFile } from "./types";
 
-// Data attribute used to mark scanned elements
-const DATA_ATTR = "data-ui-lint-id";
+import { DATA_UILINT_ID } from "./types";
 
 // Color palette for source file differentiation
 const COLORS = [
@@ -41,11 +40,22 @@ const SKIP_TAGS = new Set([
 /**
  * Parse source location from data-loc attribute
  * Format: "path/to/file.tsx:line:column" (injected by jsx-loc-plugin)
- * Also supports legacy format: "path/to/file.tsx:line"
+ * Also supports:
+ * - Legacy format: "path/to/file.tsx:line"
+ * - Runtime ID format: "loc:path/to/file.tsx:line:column#occurrence"
  */
 export function getSourceFromDataLoc(element: Element): SourceLocation | null {
-  const loc = element.getAttribute("data-loc");
+  let loc = element.getAttribute(DATA_UILINT_ID);
   if (!loc) return null;
+
+  // Handle runtime ID format: "loc:path:line:column#occurrence"
+  if (loc.startsWith("loc:")) {
+    loc = loc.slice(4); // Remove "loc:" prefix
+    const hashIndex = loc.lastIndexOf("#");
+    if (hashIndex !== -1) {
+      loc = loc.slice(0, hashIndex); // Remove "#occurrence" suffix
+    }
+  }
 
   // Split by colon - need to handle paths that may contain colons (Windows)
   // Format is: path:line:column or path:line
@@ -136,11 +146,11 @@ export function scanDOMForSources(
   // stable, unique per-instance id.
   const occurrenceByDataLoc = new Map<string, number>();
 
-  // Clean up previous scan
+  // Clean up previous scan - reset IDs to source locations only
   cleanupDataAttributes();
 
   // Query all elements with data-loc attribute
-  const locElements = root.querySelectorAll("[data-loc]");
+  const locElements = root.querySelectorAll(`[${DATA_UILINT_ID}]`);
 
   for (const el of locElements) {
     if (shouldSkipElement(el)) continue;
@@ -153,12 +163,23 @@ export function scanDOMForSources(
       continue;
     }
 
-    const dataLoc = el.getAttribute("data-loc")!;
+    // Get the raw source location from the attribute (before any runtime modification)
+    let dataLoc = el.getAttribute(DATA_UILINT_ID)!;
+    // If it's already a runtime ID, extract the source location
+    if (dataLoc.startsWith("loc:")) {
+      dataLoc = dataLoc.slice(4);
+      const hashIndex = dataLoc.lastIndexOf("#");
+      if (hashIndex !== -1) {
+        dataLoc = dataLoc.slice(0, hashIndex);
+      }
+    }
+
     const occurrence = (occurrenceByDataLoc.get(dataLoc) ?? 0) + 1;
     occurrenceByDataLoc.set(dataLoc, occurrence);
     const id = `loc:${dataLoc}#${occurrence}`;
 
-    el.setAttribute(DATA_ATTR, id);
+    // Update the attribute with the unique runtime ID
+    el.setAttribute(DATA_UILINT_ID, id);
 
     elements.push({
       id,
@@ -208,18 +229,30 @@ export function groupBySourceFile(elements: ScannedElement[]): SourceFile[] {
 }
 
 /**
- * Clean up data attributes from previous scans
+ * Clean up runtime IDs from previous scans, restoring to source location only
+ * Elements with data-loc in "loc:..." format will have the ID reset
  */
 export function cleanupDataAttributes(): void {
-  const elements = document.querySelectorAll(`[${DATA_ATTR}]`);
-  elements.forEach((el) => el.removeAttribute(DATA_ATTR));
+  const elements = document.querySelectorAll(`[${DATA_UILINT_ID}]`);
+  elements.forEach((el) => {
+    const value = el.getAttribute(DATA_UILINT_ID);
+    if (value && value.startsWith("loc:")) {
+      // Extract source location and reset to original format
+      let loc = value.slice(4); // Remove "loc:" prefix
+      const hashIndex = loc.lastIndexOf("#");
+      if (hashIndex !== -1) {
+        loc = loc.slice(0, hashIndex); // Remove "#occurrence" suffix
+      }
+      el.setAttribute(DATA_UILINT_ID, loc);
+    }
+  });
 }
 
 /**
  * Get an element by its UILint ID
  */
 export function getElementById(id: string): Element | null {
-  return document.querySelector(`[${DATA_ATTR}="${id}"]`);
+  return document.querySelector(`[${DATA_UILINT_ID}="${id}"]`);
 }
 
 /**

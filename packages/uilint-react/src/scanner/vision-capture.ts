@@ -5,11 +5,13 @@
  * Uses html-to-image for DOM-to-image capture.
  */
 
+import { DATA_UILINT_ID } from "../components/ui-lint/types";
+
 /**
  * Element manifest entry for vision analysis
  */
 export interface ElementManifest {
-  /** Unique ID (data-ui-lint-id if present, otherwise generated) */
+  /** Unique ID (data-loc if present, otherwise generated) */
   id: string;
   /** Visible text content (truncated to 100 chars) */
   text: string;
@@ -262,7 +264,7 @@ export function collectElementManifest(
   const scrollY = window.scrollY || window.pageYOffset || 0;
 
   // Find all elements with data-loc
-  const elements = container.querySelectorAll("[data-loc]");
+  const elements = container.querySelectorAll(`[${DATA_UILINT_ID}]`);
 
   for (const element of elements) {
     // Skip UILint's own elements
@@ -279,8 +281,19 @@ export function collectElementManifest(
     const rect = element.getBoundingClientRect();
     if (region && !rectIntersectsRegion(rect, region)) continue;
 
-    const dataLoc = element.getAttribute("data-loc");
+    // Get the data-loc which contains source location
+    // Format is either "path:line:column" (from jsx plugin) or "loc:path:line:column#N" (runtime ID)
+    let dataLoc = element.getAttribute(DATA_UILINT_ID);
     if (!dataLoc) continue;
+
+    // Normalize runtime ID format to source location format
+    if (dataLoc.startsWith("loc:")) {
+      dataLoc = dataLoc.slice(4);
+      const hashIndex = dataLoc.lastIndexOf("#");
+      if (hashIndex !== -1) {
+        dataLoc = dataLoc.slice(0, hashIndex);
+      }
+    }
 
     // Track instance count
     const currentCount = dataLocCounts.get(dataLoc) || 0;
@@ -298,8 +311,7 @@ export function collectElementManifest(
 
     const text = getVisibleText(element);
     const id =
-      element.getAttribute("data-ui-lint-id") ||
-      `loc:${dataLoc}#${currentCount}`;
+      element.getAttribute(DATA_UILINT_ID) || `loc:${dataLoc}#${currentCount}`;
 
     // For region captures, store coordinates relative to the region origin
     // For full page captures, store document coordinates (viewport + scroll)

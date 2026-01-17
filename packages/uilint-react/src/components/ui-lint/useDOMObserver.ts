@@ -15,6 +15,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useUILintStore, type UILintStore } from "./store";
 import { scanDOMForSources } from "./dom-utils";
 import type { ScannedElement } from "./types";
+import { DATA_UILINT_ID } from "./types";
 
 /** Debounce delay for reconciliation (handles streaming/suspense) */
 const RECONCILE_DEBOUNCE_MS = 100;
@@ -128,12 +129,12 @@ export function useDOMObserver(enabled: boolean = true): void {
         for (const node of mutation.addedNodes) {
           if (node instanceof Element) {
             // Check the node itself
-            if (node.hasAttribute("data-loc")) {
+            if (node.hasAttribute(DATA_UILINT_ID)) {
               hasRelevantChanges = true;
               break;
             }
             // Check descendant elements
-            if (node.querySelector("[data-loc]")) {
+            if (node.querySelector(`[${DATA_UILINT_ID}]`)) {
               hasRelevantChanges = true;
               break;
             }
@@ -146,8 +147,8 @@ export function useDOMObserver(enabled: boolean = true): void {
         for (const node of mutation.removedNodes) {
           if (node instanceof Element) {
             if (
-              node.hasAttribute("data-loc") ||
-              node.querySelector("[data-loc]")
+              node.hasAttribute(DATA_UILINT_ID) ||
+              node.querySelector(`[${DATA_UILINT_ID}]`)
             ) {
               hasRelevantChanges = true;
               break;
@@ -187,5 +188,5 @@ export function useDOMObserver(enabled: boolean = true): void {
  */
 export function getDataLocElementCount(): number {
   if (typeof document === "undefined") return 0;
-  return document.querySelectorAll("[data-loc]").length;
+  return document.querySelectorAll(`[${DATA_UILINT_ID}]`).length;
 }

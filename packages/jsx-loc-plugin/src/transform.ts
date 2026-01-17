@@ -115,15 +115,20 @@ export function shouldSkipElement(elementName: string | null): boolean {
 }
 
 /**
+ * The data attribute name used to mark elements with source location
+ */
+const DATA_ATTR = "data-loc";
+
+/**
  * Check if an element already has a data-loc attribute
  */
-function hasDataLocAttribute(node: any): boolean {
+function hasDataAttribute(node: any): boolean {
   if (!node.attributes) return false;
   return node.attributes.some(
     (attr: any) =>
       attr.type === "JSXAttribute" &&
       attr.name?.type === "JSXIdentifier" &&
-      attr.name.name === "data-loc"
+      attr.name.name === DATA_ATTR
   );
 }
 
@@ -231,7 +236,7 @@ export function transformJsxCode(
       const elementName = getElementName(node);
 
       // Skip fragments, providers, and elements that already have data-loc
-      if (!shouldSkipElement(elementName) && !hasDataLocAttribute(node)) {
+      if (!shouldSkipElement(elementName) && !hasDataAttribute(node)) {
         const loc = node.loc;
         if (loc && loc.start) {
           const line = loc.start.line;
@@ -242,7 +247,7 @@ export function transformJsxCode(
           const insertPos = findInsertionPoint(node, source);
 
           // Insert the data-loc attribute
-          magicString.appendLeft(insertPos, ` data-loc="${locValue}"`);
+          magicString.appendLeft(insertPos, ` ${DATA_ATTR}="${locValue}"`);
           hasChanges = true;
         }
       }
