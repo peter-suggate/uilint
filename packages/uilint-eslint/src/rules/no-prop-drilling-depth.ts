@@ -13,11 +13,6 @@
 
 import type { TSESTree } from "@typescript-eslint/utils";
 import { createRule, defineRuleMeta } from "../utils/create-rule.js";
-import {
-  resolveImportPath,
-  parseFile,
-  clearResolverCaches,
-} from "../utils/export-resolver.js";
 
 type MessageIds = "propDrilling";
 type Options = [
@@ -157,7 +152,6 @@ const componentPropCache = new Map<string, ComponentPropInfo>();
  */
 export function clearPropCache(): void {
   componentPropCache.clear();
-  clearResolverCaches();
 }
 
 /**

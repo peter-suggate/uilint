@@ -56,6 +56,15 @@ importers:
       tailwind-merge:
         specifier: ^2.5.5
         version: 2.6.0
+      uilint-core:
+        specifier: ^0.2.22
+        version: 0.2.22
+      uilint-eslint:
+        specifier: ^0.2.22
+        version: 0.2.22(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+      uilint-react:
+        specifier: ^0.2.22
+        version: 0.2.22(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(eslint@9.39.2(jiti@2.6.1))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4.1.18
@@ -4112,6 +4121,23 @@ packages:
 
   ufo@1.6.2:
     resolution: {integrity: sha512-heMioaxBcG9+Znsda5Q8sQbWnLJSl98AFDXTO80wELWEzX3hordXsTdxrIfMQoO9IY1MEnoGoPjpoKpMj+Yx0Q==}
+
+  uilint-core@0.2.22:
+    resolution: {integrity: sha512-hMq2uhyLAq1MJSC1uYWWtFoWNNPvIRpTchu/4TUQsNvqseaLDEsmUbEfQC0xyUQUHDrNdrzfLWdOsXhWPQ5xTw==}
+    engines: {node: '>=20.0.0'}
+
+  uilint-eslint@0.2.22:
+    resolution: {integrity: sha512-az7VnEhQrG7ZahCuAC1oUfA6JDhhfOdSVZU7jB6dGAQc7NKwZwDrw46vrGM0+axS0Dmeteq4xS8LNo29rfa0qA==}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      eslint: '>=8.0.0'
+
+  uilint-react@0.2.22:
+    resolution: {integrity: sha512-e5/PRIjXUkcv45iTJmrRDbP/8cNSxfjuLarNNgA3vg9QoBS1kS3p9WvCx6exyBncL+KkaZD3SD/ofdXynZhrIQ==}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      react: ^19.0.0
+      react-dom: ^19.0.0
 
   unbox-primitive@1.1.0:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
@@ -8464,6 +8490,63 @@ snapshots:
   typescript@5.9.3: {}
 
   ufo@1.6.2: {}
+
+  uilint-core@0.2.22:
+    dependencies:
+      jiti: 2.6.1
+      jsdom: 27.4.0
+      picocolors: 1.1.1
+      tailwindcss: 4.1.18
+    transitivePeerDependencies:
+      - '@exodus/crypto'
+      - bufferutil
+      - canvas
+      - supports-color
+      - utf-8-validate
+
+  uilint-eslint@0.2.22(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3):
+    dependencies:
+      '@typescript-eslint/typescript-estree': 8.53.0(typescript@5.9.3)
+      '@typescript-eslint/utils': 8.53.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+      eslint: 9.39.2(jiti@2.6.1)
+      oxc-resolver: 11.16.2
+      uilint-core: 0.2.22
+      xxhash-wasm: 1.1.0
+    transitivePeerDependencies:
+      - '@exodus/crypto'
+      - bufferutil
+      - canvas
+      - supports-color
+      - typescript
+      - utf-8-validate
+
+  uilint-react@0.2.22(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(eslint@9.39.2(jiti@2.6.1))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3):
+    dependencies:
+      '@emotion/is-prop-valid': 1.4.0
+      '@radix-ui/react-scroll-area': 1.2.10(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@radix-ui/react-slot': 1.2.4(@types/react@19.2.8)(react@19.2.3)
+      class-variance-authority: 0.7.1
+      html-to-image: 1.11.13
+      lucide-react: 0.562.0(react@19.2.3)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
+      react-use-measure: 2.1.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      tw-animate-css: 1.4.0
+      uilint-core: 0.2.22
+      uilint-eslint: 0.2.22(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+      zustand: 5.0.10(@types/react@19.2.8)(react@19.2.3)
+    transitivePeerDependencies:
+      - '@exodus/crypto'
+      - '@types/react'
+      - '@types/react-dom'
+      - bufferutil
+      - canvas
+      - eslint
+      - immer
+      - supports-color
+      - typescript
+      - use-sync-external-store
+      - utf-8-validate
 
   unbox-primitive@1.1.0:
     dependencies:
