@@ -12,7 +12,7 @@ import {
 import { getUILintPortalHost } from "../portal-host";
 import { CommandPaletteInput } from "./CommandPaletteInput";
 import { CommandPaletteResults } from "./CommandPaletteResults";
-import { DetailView } from "./DetailView";
+import { ActionTilesGrid } from "./ActionTilesGrid";
 import {
   useKeyboardNavigation,
   useCommandPaletteShortcut,
@@ -22,7 +22,6 @@ import type {
   SearchableItem,
   ActionSearchData,
   CommandPaletteFilter,
-  IssueSearchData,
 } from "./types";
 
 /** Palette dimensions */
@@ -239,114 +238,61 @@ export function CommandPalette() {
     commandPaletteFilters
   );
 
-  // Check if we have a loc filter active - if so, show DetailView for that location
-  const activeLocFilter = commandPaletteFilters.find((f) => f.type === "loc");
-  const locDetailItem = useMemo(() => {
-    if (!activeLocFilter) return null;
+  // Get active loc filters for expanded issue rendering
+  const activeLocFilters = useMemo(
+    () => commandPaletteFilters.filter((f) => f.type === "loc"),
+    [commandPaletteFilters]
+  );
 
-    // Parse the location value: "filePath:line:column" or "filePath:line"
-    const locValue = activeLocFilter.value;
-    const lastColonIdx = locValue.lastIndexOf(":");
-    const secondLastColonIdx = locValue.lastIndexOf(":", lastColonIdx - 1);
+  // Compute which action tiles should be highlighted based on search query
+  const highlightedActions = useMemo(() => {
+    const highlighted = new Set<string>();
+    if (!query.trim()) return highlighted;
 
-    let filePath: string;
-    let line: number;
-    let column: number | undefined;
-
-    // Try to parse line and column from the end
-    const afterLastColon = locValue.slice(lastColonIdx + 1);
-    const afterSecondLastColon =
-      secondLastColonIdx >= 0
-        ? locValue.slice(secondLastColonIdx + 1, lastColonIdx)
-        : "";
-
+    const q = query.toLowerCase();
+    // Scan tile matches
     if (
-      !isNaN(Number(afterLastColon)) &&
-      !isNaN(Number(afterSecondLastColon))
+      "scan".includes(q) ||
+      "eslint".includes(q) ||
+      "lint".includes(q) ||
+      q.includes("scan") ||
+      q.includes("eslint") ||
+      q.includes("lint")
     ) {
-      // Format: filePath:line:column
-      filePath = locValue.slice(0, secondLastColonIdx);
-      line = Number(afterSecondLastColon);
-      column = Number(afterLastColon);
-    } else if (!isNaN(Number(afterLastColon))) {
-      // Format: filePath:line
-      filePath = locValue.slice(0, lastColonIdx);
-      line = Number(afterLastColon);
-    } else {
-      // Can't parse location
-      return null;
+      highlighted.add("scan");
     }
-
-    // Find the matching issue from either elementIssuesCache or fileIssuesCache
-    let matchingIssue: { issue: any; elementId?: string } | null = null;
-
-    // Check element issues first
-    for (const [elementId, elementIssue] of elementIssuesCache.entries()) {
-      const element = autoScanState.elements.find((el) => el.id === elementId);
-      if (!element || element.source.fileName !== filePath) continue;
-
-      const issue = elementIssue.issues.find(
-        (i) => i.line === line && (column === undefined || i.column === column)
-      );
-      if (issue) {
-        matchingIssue = { issue, elementId };
-        break;
-      }
+    // Capture full page matches
+    if (
+      "capture".includes(q) ||
+      "full".includes(q) ||
+      "page".includes(q) ||
+      "screenshot".includes(q) ||
+      q.includes("capture") ||
+      q.includes("full") ||
+      q.includes("screenshot")
+    ) {
+      highlighted.add("capture-full");
     }
-
-    // Check file issues if not found in elements
-    if (!matchingIssue) {
-      const fileIssues = fileIssuesCache.get(filePath);
-      if (fileIssues) {
-        const issue = fileIssues.find(
-          (i) =>
-            i.line === line && (column === undefined || i.column === column)
-        );
-        if (issue) {
-          matchingIssue = { issue };
-        }
-      }
+    // Capture region matches
+    if (
+      "capture".includes(q) ||
+      "region".includes(q) ||
+      "area".includes(q) ||
+      "select".includes(q) ||
+      q.includes("capture") ||
+      q.includes("region") ||
+      q.includes("area")
+    ) {
+      highlighted.add("capture-region");
     }
+    return highlighted;
+  }, [query]);
 
-    if (!matchingIssue) return null;
-
-    // Extract filename for display
-    const fileName = filePath.split("/").pop() || filePath;
-
-    // Build the SearchableItem for DetailView
-    const item: SearchableItem = {
-      type: "issue",
-      category: "issues",
-      id: `issue:${locValue}`,
-      searchText: matchingIssue.issue.message,
-      title: matchingIssue.issue.message,
-      subtitle: `${fileName}:${line}${column ? `:${column}` : ""}`,
-      data: {
-        type: "issue",
-        issue: matchingIssue.issue,
-        elementId: matchingIssue.elementId,
-        filePath,
-      } as IssueSearchData,
-    };
-
-    return item;
-  }, [
-    activeLocFilter,
-    autoScanState.elements,
-    elementIssuesCache,
-    fileIssuesCache,
-  ]);
-
-  // Handle going back from detail view (remove loc filter)
-  const handleDetailViewBack = useCallback(() => {
-    // Find and remove the loc filter
-    const locFilterIndex = commandPaletteFilters.findIndex(
-      (f) => f.type === "loc"
-    );
-    if (locFilterIndex !== -1) {
-      removeCommandPaletteFilter(locFilterIndex);
-    }
-  }, [commandPaletteFilters, removeCommandPaletteFilter]);
+  // Filter out actions from search results (they're shown as tiles now)
+  const filteredSearchResults = useMemo(
+    () => searchResults.filter((r) => r.item.type !== "action"),
+    [searchResults]
+  );
 
   // Sync visible result IDs to store for heatmap filtering
   useEffect(() => {
@@ -356,53 +302,36 @@ export function CommandPalette() {
     }
   }, [isOpen, searchResults, setVisibleCommandPaletteResultIds]);
 
-  // Total item count for keyboard navigation
-  const itemCount = searchResults.length;
+  // Total item count for keyboard navigation (excluding action tiles)
+  const itemCount = filteredSearchResults.length;
 
-  // Handle item selection (click) - only for actions
+  // Tile action handlers
+  const handleToggleScan = useCallback(() => {
+    if (liveScanEnabled) {
+      disableLiveScan();
+    } else {
+      enableLiveScan(true);
+    }
+  }, [liveScanEnabled, enableLiveScan, disableLiveScan]);
+
+  const handleCaptureFullPage = useCallback(() => {
+    triggerVisionAnalysis();
+    closeCommandPalette();
+  }, [triggerVisionAnalysis, closeCommandPalette]);
+
+  const handleCaptureRegion = useCallback(() => {
+    setRegionSelectionActive(true);
+    closeCommandPalette();
+  }, [setRegionSelectionActive, closeCommandPalette]);
+
+  // Handle item selection (click) - actions are now in tiles, this only handles list items
   const handleSelect = useCallback(
     (index: number) => {
-      const result = searchResults[index];
+      const result = filteredSearchResults[index];
       if (!result) return;
-
-      const item = result.item;
-
-      // Only handle actions - other items add filters
-      if (item.type === "action") {
-        const actionData = item.data as ActionSearchData;
-        switch (actionData.actionType) {
-          case "connect":
-            connectWebSocket();
-            closeCommandPalette();
-            break;
-          case "start-scan":
-            enableLiveScan(true);
-            closeCommandPalette();
-            break;
-          case "stop-scan":
-            disableLiveScan();
-            closeCommandPalette();
-            break;
-          case "capture-full":
-            triggerVisionAnalysis();
-            closeCommandPalette();
-            break;
-          case "capture-region":
-            setRegionSelectionActive(true);
-            closeCommandPalette();
-            break;
-        }
-      }
+      // List items don't have direct selection behavior - they add filters via onAddFilter
     },
-    [
-      searchResults,
-      closeCommandPalette,
-      connectWebSocket,
-      enableLiveScan,
-      disableLiveScan,
-      triggerVisionAnalysis,
-      setRegionSelectionActive,
-    ]
+    [filteredSearchResults]
   );
 
   // Handle adding a filter
@@ -435,14 +364,14 @@ export function CommandPalette() {
       }
 
       // Find the item for rule-specific highlighting
-      const result = searchResults.find((r) => r.item.id === itemId);
+      const result = filteredSearchResults.find((r) => r.item.id === itemId);
       if (result?.item.type === "rule") {
         setHighlightedRuleId(result.item.id);
       } else {
         setHighlightedRuleId(null);
       }
     },
-    [searchResults, setHighlightedRuleId, setHoveredCommandPaletteItemId]
+    [filteredSearchResults, setHighlightedRuleId, setHoveredCommandPaletteItemId]
   );
 
   // Keyboard navigation
@@ -533,33 +462,38 @@ export function CommandPalette() {
         )}
         data-ui-lint
       >
-        {/* Input with connection status and filter chips - hidden when showing loc detail */}
-        {!locDetailItem && (
-          <CommandPaletteInput
-            value={query}
-            onChange={setCommandPaletteQuery}
-            placeholder="Search actions, rules, files, issues..."
-            isConnected={wsConnected}
-            filters={commandPaletteFilters}
-            onRemoveFilter={handleRemoveFilter}
-          />
-        )}
+        {/* Input with connection status and filter chips */}
+        <CommandPaletteInput
+          value={query}
+          onChange={setCommandPaletteQuery}
+          placeholder="Search actions, rules, files, issues..."
+          isConnected={wsConnected}
+          filters={commandPaletteFilters}
+          onRemoveFilter={handleRemoveFilter}
+        />
 
-        {/* Show DetailView when loc filter is active, otherwise show results */}
-        {locDetailItem ? (
-          <DetailView item={locDetailItem} onBack={handleDetailViewBack} />
-        ) : (
-          <CommandPaletteResults
-            results={searchResults}
-            selectedIndex={selectedIndex}
-            selectedItemId={selectedCommandPaletteItemId}
-            onSelect={handleSelect}
-            onHover={handleHover}
-            onToggleRule={toggleRule}
-            disabledRules={disabledRules}
-            onAddFilter={handleAddFilter}
-          />
-        )}
+        {/* Action tiles grid (scan toggle, capture actions) */}
+        <ActionTilesGrid
+          liveScanEnabled={liveScanEnabled}
+          wsConnected={wsConnected}
+          onToggleScan={handleToggleScan}
+          onCaptureFullPage={handleCaptureFullPage}
+          onCaptureRegion={handleCaptureRegion}
+          highlightedActions={highlightedActions}
+        />
+
+        {/* Results list (excluding actions - they're shown as tiles) */}
+        <CommandPaletteResults
+          results={filteredSearchResults}
+          selectedIndex={selectedIndex}
+          selectedItemId={selectedCommandPaletteItemId}
+          onSelect={handleSelect}
+          onHover={handleHover}
+          onToggleRule={toggleRule}
+          disabledRules={disabledRules}
+          onAddFilter={handleAddFilter}
+          activeLocFilters={activeLocFilters}
+        />
 
         {/* Footer hint */}
         <div

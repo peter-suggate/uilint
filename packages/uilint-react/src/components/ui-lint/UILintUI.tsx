@@ -39,21 +39,29 @@ export function UILintUI() {
     Promise.all([
       import("./FloatingIcon"),
       import("./command-palette"),
-      import("./LocatorOverlay"),
       import("./ElementBadges"),
       import("./HeatmapOverlay"),
       import("./VisionIssueBadge"),
-    ]).then(([floatingIcon, commandPalette, locator, badges, heatmap, visionBadges]) => {
-      setComponents({
-        FloatingIcon: floatingIcon.FloatingIcon,
-        CommandPalette: commandPalette.CommandPalette,
-        VisionIssueHighlight: locator.VisionIssueHighlight,
-        InspectedHighlight: locator.InspectedElementHighlight,
-        ElementBadges: badges.ElementBadges,
-        HeatmapOverlay: heatmap.HeatmapOverlay,
-        VisionIssueBadges: visionBadges.VisionIssueBadges,
-      });
-    });
+    ]).then(
+      ([
+        floatingIcon,
+        commandPalette,
+        locator,
+        badges,
+        heatmap,
+        visionBadges,
+      ]) => {
+        setComponents({
+          FloatingIcon: floatingIcon.FloatingIcon,
+          CommandPalette: commandPalette.CommandPalette,
+          VisionIssueHighlight: locator.VisionIssueHighlight,
+          InspectedHighlight: locator.InspectedElementHighlight,
+          ElementBadges: badges.ElementBadges,
+          HeatmapOverlay: heatmap.HeatmapOverlay,
+          VisionIssueBadges: visionBadges.VisionIssueBadges,
+        });
+      }
+    );
   }, []);
 
   if (!components) return null;

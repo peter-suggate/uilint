@@ -8,6 +8,7 @@ import {
   CommandPaletteItem,
   CommandPaletteSectionHeader,
 } from "./CommandPaletteItem";
+import { SourceCodePreview } from "./SourceCodePreview";
 import type {
   ScoredSearchResult,
   CategoryType,
@@ -30,6 +31,8 @@ interface CommandPaletteResultsProps {
   disabledRules: Set<string>;
   /** Called when a filter should be added (e.g., clicking a rule adds rule filter) */
   onAddFilter?: (filter: CommandPaletteFilter) => void;
+  /** Active loc filters - issues matching these should be expanded */
+  activeLocFilters?: CommandPaletteFilter[];
 }
 
 /**
@@ -57,6 +60,7 @@ export function CommandPaletteResults({
   onToggleRule,
   disabledRules,
   onAddFilter,
+  activeLocFilters = [],
 }: CommandPaletteResultsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -130,6 +134,7 @@ export function CommandPaletteResults({
                   onToggleRule={onToggleRule}
                   disabledRules={disabledRules}
                   onAddFilter={onAddFilter}
+                  activeLocFilters={activeLocFilters}
                 />
               ))}
             </React.Fragment>
@@ -153,6 +158,7 @@ function ResultItem({
   onToggleRule,
   disabledRules,
   onAddFilter,
+  activeLocFilters = [],
 }: {
   result: ScoredSearchResult;
   index: number;
@@ -164,6 +170,7 @@ function ResultItem({
   onToggleRule: (ruleId: string) => void;
   disabledRules: Set<string>;
   onAddFilter?: (filter: CommandPaletteFilter) => void;
+  activeLocFilters?: CommandPaletteFilter[];
 }) {
   const { item } = result;
 
@@ -263,6 +270,7 @@ function ResultItem({
             onMouseEnter={() => onHover(item.id)}
             onMouseLeave={() => onHover(null)}
             onAddFilter={onAddFilter}
+            activeLocFilters={activeLocFilters}
           />
         </div>
       );
@@ -581,7 +589,35 @@ function FileItem({
 }
 
 /**
+ * Check if an issue matches any of the active loc filters
+ */
+function issueMatchesLocFilter(
+  issue: IssueSearchData,
+  locFilters: CommandPaletteFilter[]
+): boolean {
+  if (locFilters.length === 0) return false;
+
+  for (const filter of locFilters) {
+    const locValue = filter.value;
+    // Check if issue's filePath:line:column matches the filter value
+    if (issue.filePath && issue.issue.line) {
+      const issueLoc = `${issue.filePath}:${issue.issue.line}${issue.issue.column ? `:${issue.issue.column}` : ""}`;
+      if (issueLoc === locValue) {
+        return true;
+      }
+      // Also check file:line match (without column)
+      const issueLocNoCol = `${issue.filePath}:${issue.issue.line}`;
+      if (issueLocNoCol === locValue) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Individual issue item - click adds filter
+ * When matching an active loc filter, renders expanded detail view
  */
 function IssueItem({
   id,
@@ -593,6 +629,7 @@ function IssueItem({
   onMouseEnter,
   onMouseLeave,
   onAddFilter,
+  activeLocFilters = [],
 }: {
   id: string;
   title: string;
@@ -603,6 +640,7 @@ function IssueItem({
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   onAddFilter?: (filter: CommandPaletteFilter) => void;
+  activeLocFilters?: CommandPaletteFilter[];
 }) {
   // Build cursor:// URL for opening in Cursor
   const cursorUrl =
@@ -629,6 +667,24 @@ function IssueItem({
     }
   }, [onAddFilter, issue.filePath, issue.issue.line, issue.issue.column, locationLabel]);
 
+  // Check if this issue should be expanded (matches an active loc filter)
+  const isExpanded = issueMatchesLocFilter(issue, activeLocFilters);
+
+  // Render expanded view when matching a loc filter
+  if (isExpanded) {
+    return (
+      <ExpandedIssueItem
+        issue={issue}
+        isSelected={isSelected}
+        isPinned={isPinned}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        cursorUrl={cursorUrl}
+      />
+    );
+  }
+
+  // Render compact view
   return (
     <div
       className={cn(
@@ -661,6 +717,109 @@ function IssueItem({
         isSelected={isSelected}
         onClick={handleClick}
       />
+    </div>
+  );
+}
+
+/**
+ * Expanded issue item showing full detail content inline
+ * Displays when an issue matches an active loc filter
+ */
+function ExpandedIssueItem({
+  issue,
+  isSelected,
+  isPinned,
+  onMouseEnter,
+  onMouseLeave,
+  cursorUrl,
+}: {
+  issue: IssueSearchData;
+  isSelected: boolean;
+  isPinned: boolean;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+  cursorUrl: string | null;
+}) {
+  const { issue: eslintIssue, filePath } = issue;
+
+  return (
+    <div
+      className={cn(
+        "mx-2 my-1 rounded-lg overflow-hidden",
+        "border border-zinc-200/50 dark:border-zinc-700/50",
+        "bg-zinc-50/50 dark:bg-zinc-800/30",
+        isSelected && "ring-2 ring-zinc-400/50 dark:ring-zinc-500/50",
+        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50"
+      )}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {/* Header */}
+      <div className="flex items-start gap-3 p-3 pb-2">
+        <div
+          className={cn(
+            "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0",
+            "bg-zinc-100 dark:bg-zinc-800"
+          )}
+        >
+          <Icons.AlertTriangle className="w-3.5 h-3.5 text-zinc-500" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-snug">
+            {eslintIssue.message}
+          </p>
+        </div>
+      </div>
+
+      {/* Location */}
+      <div className="flex items-center gap-2 px-3 pb-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <Icons.File className="w-3.5 h-3.5 flex-shrink-0" />
+        <span className="truncate font-mono text-[11px]">{filePath}</span>
+        <span className="text-zinc-300 dark:text-zinc-600">:</span>
+        <span className="font-mono">{eslintIssue.line}</span>
+        {eslintIssue.column && (
+          <>
+            <span className="text-zinc-300 dark:text-zinc-600">:</span>
+            <span className="font-mono">{eslintIssue.column}</span>
+          </>
+        )}
+      </div>
+
+      {/* Source code preview */}
+      {filePath && eslintIssue.line && (
+        <div className="px-3 pb-3">
+          <SourceCodePreview
+            filePath={filePath}
+            lineNumber={eslintIssue.line}
+            columnNumber={eslintIssue.column}
+            maxHeightClass="max-h-48"
+          />
+        </div>
+      )}
+
+      {/* Footer with rule ID and actions */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-zinc-100/50 dark:bg-zinc-800/50 border-t border-zinc-200/30 dark:border-zinc-700/30">
+        {eslintIssue.ruleId && (
+          <code className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-200/50 dark:bg-zinc-700/50">
+            {eslintIssue.ruleId}
+          </code>
+        )}
+        {cursorUrl && (
+          <a
+            href={cursorUrl}
+            onClick={(e) => e.stopPropagation()}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md",
+              "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900",
+              "hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors",
+              "text-xs font-medium"
+            )}
+          >
+            <Icons.ExternalLink className="w-3 h-3" />
+            Open in Cursor
+          </a>
+        )}
+      </div>
     </div>
   );
 }

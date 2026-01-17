@@ -194,6 +194,8 @@ function applyFilter(
 
 /**
  * Apply all filters to items
+ * - Filters of the SAME type use UNION (OR) logic
+ * - Filters of DIFFERENT types use INTERSECTION (AND) logic
  */
 function applyFilters(
   items: SearchableItem[],
@@ -201,11 +203,31 @@ function applyFilters(
 ): SearchableItem[] {
   if (filters.length === 0) return items;
 
-  // Apply each filter in sequence (AND logic)
-  let filteredItems = items;
+  // Group filters by type
+  const filtersByType = new Map<CommandPaletteFilter["type"], CommandPaletteFilter[]>();
   for (const filter of filters) {
-    filteredItems = applyFilter(filteredItems, filter);
+    const existing = filtersByType.get(filter.type) || [];
+    existing.push(filter);
+    filtersByType.set(filter.type, existing);
   }
+
+  // Apply union logic within each type, intersection across types
+  let filteredItems = items;
+  for (const [, typeFilters] of filtersByType) {
+    if (typeFilters.length === 1) {
+      // Single filter of this type - apply directly
+      filteredItems = applyFilter(filteredItems, typeFilters[0]);
+    } else {
+      // Multiple filters of same type - union (OR) logic
+      const unionResults = new Set<SearchableItem>();
+      for (const filter of typeFilters) {
+        const matchingItems = applyFilter(filteredItems, filter);
+        matchingItems.forEach((item) => unionResults.add(item));
+      }
+      filteredItems = Array.from(unionResults);
+    }
+  }
+
   return filteredItems;
 }
 
