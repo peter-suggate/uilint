@@ -11,6 +11,7 @@
  */
 
 import { createRule, defineRuleMeta } from "../utils/create-rule.js";
+import type { TSESTree } from "@typescript-eslint/utils";
 
 type MessageIds = "preferAbsoluteImport";
 type Options = [
@@ -180,7 +181,7 @@ export default createRule<Options, MessageIds>({
      */
     function checkImportSource(
       source: string,
-      node: { loc?: { start: { line: number; column: number } } }
+      node: TSESTree.StringLiteral
     ): void {
       // Skip non-relative imports (node_modules, aliases, etc.)
       if (!isRelativeImport(source)) {
@@ -196,7 +197,7 @@ export default createRule<Options, MessageIds>({
 
       if (depth > maxRelativeDepth) {
         context.report({
-          node: node as Parameters<typeof context.report>[0]["node"],
+          node,
           messageId: "preferAbsoluteImport",
           data: {
             depth: String(depth),

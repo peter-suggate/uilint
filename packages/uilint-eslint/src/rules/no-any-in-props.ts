@@ -205,9 +205,12 @@ function containsAnyType(
         }
       }
       for (const param of node.params) {
+        // Skip TSParameterProperty (doesn't have typeAnnotation) and RestElement
         if (
-          param.typeAnnotation?.typeAnnotation &&
-          param.type !== "RestElement"
+          param.type !== "RestElement" &&
+          param.type !== "TSParameterProperty" &&
+          "typeAnnotation" in param &&
+          param.typeAnnotation?.typeAnnotation
         ) {
           const result = containsAnyType(
             param.typeAnnotation.typeAnnotation,

@@ -60,9 +60,9 @@ export const meta = defineRuleMeta({
       {
         key: "ignoredProps",
         label: "Ignored props",
-        type: "array",
-        defaultValue: ["className", "style", "children", "key", "ref", "id"],
-        description: "Prop names to ignore (common pass-through props)",
+        type: "text",
+        defaultValue: "className, style, children, key, ref, id",
+        description: "Comma-separated prop names to ignore (common pass-through props)",
       },
     ],
   },
@@ -295,7 +295,7 @@ function analyzeJSXPropPassing(
     // Recurse into children
     for (const key of Object.keys(node)) {
       if (key === "parent" || key === "loc" || key === "range") continue;
-      const child = (node as Record<string, unknown>)[key];
+      const child = (node as unknown as Record<string, unknown>)[key];
       if (Array.isArray(child)) {
         for (const item of child) {
           if (item && typeof item === "object") {
