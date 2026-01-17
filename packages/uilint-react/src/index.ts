@@ -6,7 +6,6 @@
 export {
   FloatingIcon,
   CommandPalette,
-  LocatorOverlay,
   // Zustand store for direct access
   useUILintStore,
   // DOM utilities (data-loc based)

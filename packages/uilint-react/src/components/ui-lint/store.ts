@@ -35,6 +35,7 @@ import {
   groupBySourceFile,
   identifyTopLevelElements,
 } from "./dom-utils";
+import type { CommandPaletteFilter } from "./command-palette/types";
 import type {
   VisionIssue,
   VisionAnalysisResult,
@@ -367,6 +368,10 @@ export interface UILintStore {
     category: "static" | "semantic";
     defaultSeverity: "error" | "warn" | "off";
   }>;
+  /** Active filters for the command palette (shown as chips) */
+  commandPaletteFilters: CommandPaletteFilter[];
+  /** IDs of visible results in command palette (for heatmap sync) */
+  visibleCommandPaletteResultIds: Set<string>;
 
   // Command Palette actions
   openCommandPalette: () => void;
@@ -378,6 +383,16 @@ export interface UILintStore {
   setHoveredCommandPaletteItemId: (id: string | null) => void;
   setSelectedCommandPaletteItemId: (id: string | null) => void;
   toggleRule: (ruleId: string) => void;
+  /** Add a filter to the command palette */
+  addCommandPaletteFilter: (filter: CommandPaletteFilter) => void;
+  /** Remove a filter at the specified index */
+  removeCommandPaletteFilter: (index: number) => void;
+  /** Clear all command palette filters */
+  clearCommandPaletteFilters: () => void;
+  /** Open command palette with a specific filter applied */
+  openCommandPaletteWithFilter: (filter: CommandPaletteFilter) => void;
+  /** Update visible result IDs (called by CommandPalette when results change) */
+  setVisibleCommandPaletteResultIds: (ids: Set<string>) => void;
 
   // ============ Internal ============
   _setScanState: (state: Partial<AutoScanState>) => void;
@@ -1601,6 +1616,8 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   selectedCommandPaletteItemId: null,
   disabledRules: new Set(),
   availableRules: [],
+  commandPaletteFilters: [],
+  visibleCommandPaletteResultIds: new Set(),
 
   openCommandPalette: () =>
     set({
@@ -1617,6 +1634,8 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       commandPaletteSelectedIndex: 0,
       expandedItemId: null,
       highlightedRuleId: null,
+      commandPaletteFilters: [],
+      visibleCommandPaletteResultIds: new Set(),
     }),
 
   setCommandPaletteQuery: (query) =>
@@ -1651,6 +1670,38 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     // Recompute heatmap data to reflect the new disabled rules
     get().computeHeatmapData();
   },
+
+  addCommandPaletteFilter: (filter) =>
+    set((state) => ({
+      commandPaletteFilters: [...state.commandPaletteFilters, filter],
+      commandPaletteSelectedIndex: 0,
+    })),
+
+  removeCommandPaletteFilter: (index) =>
+    set((state) => ({
+      commandPaletteFilters: state.commandPaletteFilters.filter(
+        (_, i) => i !== index
+      ),
+      commandPaletteSelectedIndex: 0,
+    })),
+
+  clearCommandPaletteFilters: () =>
+    set({
+      commandPaletteFilters: [],
+      commandPaletteSelectedIndex: 0,
+    }),
+
+  openCommandPaletteWithFilter: (filter) =>
+    set({
+      commandPaletteOpen: true,
+      commandPaletteQuery: "",
+      commandPaletteSelectedIndex: 0,
+      expandedItemId: null,
+      commandPaletteFilters: [filter],
+    }),
+
+  setVisibleCommandPaletteResultIds: (ids) =>
+    set({ visibleCommandPaletteResultIds: ids }),
 
   _handleWsMessage: (data: ServerMessage) => {
     switch (data.type) {

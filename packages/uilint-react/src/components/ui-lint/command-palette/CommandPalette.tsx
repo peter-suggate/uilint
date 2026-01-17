@@ -4,7 +4,11 @@ import React, { useCallback, useMemo, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
-import { useUILintStore, type UILintStore, type FloatingIconPosition } from "../store";
+import {
+  useUILintStore,
+  type UILintStore,
+  type FloatingIconPosition,
+} from "../store";
 import { getUILintPortalHost } from "../portal-host";
 import { CommandPaletteInput } from "./CommandPaletteInput";
 import { CommandPaletteResults } from "./CommandPaletteResults";
@@ -17,10 +21,9 @@ import { useFuzzySearch, buildSearchableItems } from "./use-fuzzy-search";
 import type {
   SearchableItem,
   ActionSearchData,
-  RuleSearchData,
+  CommandPaletteFilter,
   IssueSearchData,
 } from "./types";
-import { DATA_UILINT_ID } from "../types";
 
 /** Palette dimensions */
 const PALETTE_WIDTH = 560;
@@ -48,7 +51,10 @@ function calculatePalettePosition(iconPos: FloatingIconPosition | null): {
 
   // Vertical: align top of palette with icon, clamp to viewport
   let top = pos.y;
-  top = Math.max(VIEWPORT_PADDING, Math.min(viewportHeight - PALETTE_HEIGHT_ESTIMATE - VIEWPORT_PADDING, top));
+  top = Math.max(
+    VIEWPORT_PADDING,
+    Math.min(viewportHeight - PALETTE_HEIGHT_ESTIMATE - VIEWPORT_PADDING, top)
+  );
 
   // Horizontal: try to center on icon, but clamp to keep fully visible
   const halfWidth = PALETTE_WIDTH / 2;
@@ -142,7 +148,6 @@ export function CommandPalette() {
   const selectedIndex = useUILintStore(
     (s: UILintStore) => s.commandPaletteSelectedIndex
   );
-  const expandedItemId = useUILintStore((s: UILintStore) => s.expandedItemId);
   const disabledRules = useUILintStore((s: UILintStore) => s.disabledRules);
   const wsConnected = useUILintStore((s: UILintStore) => s.wsConnected);
   const liveScanEnabled = useUILintStore((s: UILintStore) => s.liveScanEnabled);
@@ -158,6 +163,10 @@ export function CommandPalette() {
   const floatingIconPosition = useUILintStore(
     (s: UILintStore) => s.floatingIconPosition
   );
+  // Filter state for filter-based search
+  const commandPaletteFilters = useUILintStore(
+    (s: UILintStore) => s.commandPaletteFilters
+  );
 
   // Calculate palette position based on floating icon
   const [palettePosition, setPalettePosition] = useState(() =>
@@ -170,16 +179,6 @@ export function CommandPalette() {
       setPalettePosition(calculatePalettePosition(floatingIconPosition));
     }
   }, [isOpen, floatingIconPosition]);
-
-  // Map elementId -> filePath based on the latest scanned elements.
-  // (Element issues in the cache don't currently carry source info.)
-  const elementIdToFilePath = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const el of autoScanState.elements) {
-      map.set(el.id, el.source.fileName);
-    }
-    return map;
-  }, [autoScanState.elements]);
 
   const {
     openCommandPalette,
@@ -195,6 +194,9 @@ export function CommandPalette() {
     triggerVisionAnalysis,
     setRegionSelectionActive,
     connectWebSocket,
+    addCommandPaletteFilter,
+    removeCommandPaletteFilter,
+    setVisibleCommandPaletteResultIds,
   } = useUILintStore.getState();
 
   // Track selected item for persistent heatmap display
@@ -230,107 +232,134 @@ export function CommandPalette() {
     actionItems,
   ]);
 
-  // Fuzzy search
-  const searchResults = useFuzzySearch(query, searchableItems);
+  // Fuzzy search with filters
+  const searchResults = useFuzzySearch(
+    query,
+    searchableItems,
+    commandPaletteFilters
+  );
 
-  // Total item count for keyboard navigation
-  const itemCount = searchResults.length;
+  // Check if we have a loc filter active - if so, show DetailView for that location
+  const activeLocFilter = commandPaletteFilters.find((f) => f.type === "loc");
+  const locDetailItem = useMemo(() => {
+    if (!activeLocFilter) return null;
 
-  // Find the selected item object for detail view
-  // This also handles dynamically constructed issue IDs from rule detail view
-  const selectedItem = useMemo((): SearchableItem | null => {
-    if (!selectedCommandPaletteItemId) return null;
+    // Parse the location value: "filePath:line:column" or "filePath:line"
+    const locValue = activeLocFilter.value;
+    const lastColonIdx = locValue.lastIndexOf(":");
+    const secondLastColonIdx = locValue.lastIndexOf(":", lastColonIdx - 1);
 
-    // First try to find in search results
-    const result = searchResults.find(
-      (r) => r.item.id === selectedCommandPaletteItemId
-    );
-    if (result) return result.item;
+    let filePath: string;
+    let line: number;
+    let column: number | undefined;
 
-    // If not found and it's an issue ID, construct the item from the cache
-    if (selectedCommandPaletteItemId.startsWith("issue:")) {
-      // Parse the issue ID to find it in the cache
-      // Format: issue:${elementId}:${ruleId}:${line}:${column} or issue:file:${filePath}:${ruleId}:${line}:${column}
-      const parts = selectedCommandPaletteItemId.split(":");
+    // Try to parse line and column from the end
+    const afterLastColon = locValue.slice(lastColonIdx + 1);
+    const afterSecondLastColon =
+      secondLastColonIdx >= 0
+        ? locValue.slice(secondLastColonIdx + 1, lastColonIdx)
+        : "";
 
-      if (parts[1] === "file") {
-        // File-level issue: issue:file:${filePath}:${ruleId}:${line}:${column}
-        const filePath = parts[2];
-        const fileIssues = fileIssuesCache.get(filePath);
-        if (fileIssues) {
-          // Find matching issue by ruleId, line, column
-          const ruleId = parts.slice(3, -2).join(":"); // ruleId might contain colons
-          const line = parseInt(parts[parts.length - 2], 10);
-          const column = parseInt(parts[parts.length - 1], 10);
-          const issue = fileIssues.find(
-            (i) => i.ruleId === ruleId && i.line === line && i.column === column
-          );
-          if (issue) {
-            return {
-              type: "issue",
-              category: "issues",
-              id: selectedCommandPaletteItemId,
-              searchText: issue.message,
-              title: issue.message,
-              subtitle: `${filePath.split("/").pop()}:${issue.line}`,
-              data: { type: "issue", issue, filePath } as IssueSearchData,
-            };
-          }
-        }
-      } else {
-        // Element-level issue: issue:${elementId}:${ruleId}:${line}:${column}
-        // Parse carefully - elementId format is like "loc:path:line:column#occurrence"
-        // Need to find where ruleId starts (it starts with "uilint/")
-        const fullId = selectedCommandPaletteItemId.substring(6); // Remove "issue:"
-        const uilintIndex = fullId.indexOf("uilint/");
-        if (uilintIndex > 0) {
-          const elementId = fullId.substring(0, uilintIndex - 1); // -1 for the colon
-          const rest = fullId.substring(uilintIndex);
-          const restParts = rest.split(":");
-          const ruleId = restParts[0];
-          const line = parseInt(restParts[1], 10);
-          const column = parseInt(restParts[2], 10);
+    if (
+      !isNaN(Number(afterLastColon)) &&
+      !isNaN(Number(afterSecondLastColon))
+    ) {
+      // Format: filePath:line:column
+      filePath = locValue.slice(0, secondLastColonIdx);
+      line = Number(afterSecondLastColon);
+      column = Number(afterLastColon);
+    } else if (!isNaN(Number(afterLastColon))) {
+      // Format: filePath:line
+      filePath = locValue.slice(0, lastColonIdx);
+      line = Number(afterLastColon);
+    } else {
+      // Can't parse location
+      return null;
+    }
 
-          const elementIssue = elementIssuesCache.get(elementId);
-          if (elementIssue) {
-            const filePath = elementIdToFilePath.get(elementId) || "";
-            const issue = elementIssue.issues.find(
-              (i) =>
-                i.ruleId === ruleId && i.line === line && i.column === column
-            );
-            if (issue) {
-              return {
-                type: "issue",
-                category: "issues",
-                id: selectedCommandPaletteItemId,
-                searchText: issue.message,
-                title: issue.message,
-                subtitle: filePath
-                  ? `${filePath.split("/").pop()}:${issue.line}`
-                  : `Unknown file:${issue.line}`,
-                data: {
-                  type: "issue",
-                  issue,
-                  elementId,
-                  filePath,
-                } as IssueSearchData,
-              };
-            }
-          }
+    // Find the matching issue from either elementIssuesCache or fileIssuesCache
+    let matchingIssue: { issue: any; elementId?: string } | null = null;
+
+    // Check element issues first
+    for (const [elementId, elementIssue] of elementIssuesCache.entries()) {
+      const element = autoScanState.elements.find((el) => el.id === elementId);
+      if (!element || element.source.fileName !== filePath) continue;
+
+      const issue = elementIssue.issues.find(
+        (i) => i.line === line && (column === undefined || i.column === column)
+      );
+      if (issue) {
+        matchingIssue = { issue, elementId };
+        break;
+      }
+    }
+
+    // Check file issues if not found in elements
+    if (!matchingIssue) {
+      const fileIssues = fileIssuesCache.get(filePath);
+      if (fileIssues) {
+        const issue = fileIssues.find(
+          (i) =>
+            i.line === line && (column === undefined || i.column === column)
+        );
+        if (issue) {
+          matchingIssue = { issue };
         }
       }
     }
 
-    return null;
+    if (!matchingIssue) return null;
+
+    // Extract filename for display
+    const fileName = filePath.split("/").pop() || filePath;
+
+    // Build the SearchableItem for DetailView
+    const item: SearchableItem = {
+      type: "issue",
+      category: "issues",
+      id: `issue:${locValue}`,
+      searchText: matchingIssue.issue.message,
+      title: matchingIssue.issue.message,
+      subtitle: `${fileName}:${line}${column ? `:${column}` : ""}`,
+      data: {
+        type: "issue",
+        issue: matchingIssue.issue,
+        elementId: matchingIssue.elementId,
+        filePath,
+      } as IssueSearchData,
+    };
+
+    return item;
   }, [
-    selectedCommandPaletteItemId,
-    searchResults,
+    activeLocFilter,
+    autoScanState.elements,
     elementIssuesCache,
     fileIssuesCache,
-    elementIdToFilePath,
   ]);
 
-  // Handle item selection (click) - zooms into detail view
+  // Handle going back from detail view (remove loc filter)
+  const handleDetailViewBack = useCallback(() => {
+    // Find and remove the loc filter
+    const locFilterIndex = commandPaletteFilters.findIndex(
+      (f) => f.type === "loc"
+    );
+    if (locFilterIndex !== -1) {
+      removeCommandPaletteFilter(locFilterIndex);
+    }
+  }, [commandPaletteFilters, removeCommandPaletteFilter]);
+
+  // Sync visible result IDs to store for heatmap filtering
+  useEffect(() => {
+    if (isOpen) {
+      const ids = new Set(searchResults.map((r) => r.item.id));
+      setVisibleCommandPaletteResultIds(ids);
+    }
+  }, [isOpen, searchResults, setVisibleCommandPaletteResultIds]);
+
+  // Total item count for keyboard navigation
+  const itemCount = searchResults.length;
+
+  // Handle item selection (click) - only for actions
   const handleSelect = useCallback(
     (index: number) => {
       const result = searchResults[index];
@@ -338,67 +367,35 @@ export function CommandPalette() {
 
       const item = result.item;
 
-      // Handle based on item type
-      switch (item.type) {
-        case "action": {
-          const actionData = item.data as ActionSearchData;
-          switch (actionData.actionType) {
-            case "connect":
-              connectWebSocket();
-              closeCommandPalette();
-              break;
-            case "start-scan":
-              enableLiveScan(true);
-              closeCommandPalette();
-              break;
-            case "stop-scan":
-              disableLiveScan();
-              closeCommandPalette();
-              break;
-            case "capture-full":
-              triggerVisionAnalysis();
-              closeCommandPalette();
-              break;
-            case "capture-region":
-              setRegionSelectionActive(true);
-              closeCommandPalette();
-              break;
-          }
-          break;
-        }
-
-        case "rule":
-        case "file":
-        case "capture":
-        case "issue": {
-          // Zoom into detail view - set as selected (shows heatmap + detail)
-          setSelectedCommandPaletteItemId(item.id);
-
-          // Also scroll to element for issues
-          if (item.type === "issue") {
-            const issueData = item.data;
-            if (issueData.type === "issue" && issueData.issue.dataLoc) {
-              // Try both formats (source location and runtime ID)
-              let element = document.querySelector(
-                `[${DATA_UILINT_ID}="${issueData.issue.dataLoc}"]`
-              );
-              if (!element) {
-                element = document.querySelector(
-                  `[${DATA_UILINT_ID}^="loc:${issueData.issue.dataLoc}"]`
-                );
-              }
-              if (element) {
-                element.scrollIntoView({ behavior: "smooth", block: "center" });
-              }
-            }
-          }
-          break;
+      // Only handle actions - other items add filters
+      if (item.type === "action") {
+        const actionData = item.data as ActionSearchData;
+        switch (actionData.actionType) {
+          case "connect":
+            connectWebSocket();
+            closeCommandPalette();
+            break;
+          case "start-scan":
+            enableLiveScan(true);
+            closeCommandPalette();
+            break;
+          case "stop-scan":
+            disableLiveScan();
+            closeCommandPalette();
+            break;
+          case "capture-full":
+            triggerVisionAnalysis();
+            closeCommandPalette();
+            break;
+          case "capture-region":
+            setRegionSelectionActive(true);
+            closeCommandPalette();
+            break;
         }
       }
     },
     [
       searchResults,
-      setSelectedCommandPaletteItemId,
       closeCommandPalette,
       connectWebSocket,
       enableLiveScan,
@@ -408,11 +405,23 @@ export function CommandPalette() {
     ]
   );
 
-  // Handle going back from detail view to list
-  const handleBack = useCallback(() => {
-    setSelectedCommandPaletteItemId(null);
-    setHoveredCommandPaletteItemId(null);
-  }, [setSelectedCommandPaletteItemId, setHoveredCommandPaletteItemId]);
+  // Handle adding a filter
+  const handleAddFilter = useCallback(
+    (filter: CommandPaletteFilter) => {
+      addCommandPaletteFilter(filter);
+      // Also set as selected for heatmap highlighting
+      setSelectedCommandPaletteItemId(`${filter.type}:${filter.value}`);
+    },
+    [addCommandPaletteFilter, setSelectedCommandPaletteItemId]
+  );
+
+  // Handle removing a filter
+  const handleRemoveFilter = useCallback(
+    (index: number) => {
+      removeCommandPaletteFilter(index);
+    },
+    [removeCommandPaletteFilter]
+  );
 
   // Handle item hover (for transient highlighting)
   const handleHover = useCallback(
@@ -436,30 +445,15 @@ export function CommandPalette() {
     [searchResults, setHighlightedRuleId, setHoveredCommandPaletteItemId]
   );
 
-  // Keyboard navigation - disable when in detail view
+  // Keyboard navigation
   useKeyboardNavigation({
-    isOpen: isOpen && !selectedItem,
+    isOpen,
     itemCount,
     selectedIndex,
     onSelect: handleSelect,
     onIndexChange: setCommandPaletteSelectedIndex,
     onClose: closeCommandPalette,
   });
-
-  // Handle Escape/Backspace in detail view to go back
-  useEffect(() => {
-    if (!isOpen || !selectedItem) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "Backspace") {
-        e.preventDefault();
-        handleBack();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, selectedItem, handleBack]);
 
   // Cmd+K shortcut
   useCommandPaletteShortcut(() => {
@@ -539,96 +533,70 @@ export function CommandPalette() {
         )}
         data-ui-lint
       >
-        <AnimatePresence mode="wait">
-          {selectedItem ? (
-            /* Detail view - zoomed in item */
-            <motion.div
-              key="detail"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
-              className="min-h-[300px] max-h-[680px] flex flex-col"
-            >
-              <DetailView
-                item={selectedItem}
-                onBack={handleBack}
-                onToggleRule={toggleRule}
-                isRuleEnabled={
-                  selectedItem.type === "rule"
-                    ? !disabledRules.has(
-                        (selectedItem.data as RuleSearchData).rule.id
-                      )
-                    : true
-                }
-                onSelectIssue={(issueId) => {
-                  // Navigate to the issue by setting it as selected
-                  setSelectedCommandPaletteItemId(issueId);
-                }}
-              />
-            </motion.div>
-          ) : (
-            /* List view - search results */
-            <motion.div
-              key="list"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
-            >
-              {/* Input with connection status */}
-              <CommandPaletteInput
-                value={query}
-                onChange={setCommandPaletteQuery}
-                placeholder="Search actions, rules, files, issues..."
-                isConnected={wsConnected}
-              />
+        {/* Input with connection status and filter chips - hidden when showing loc detail */}
+        {!locDetailItem && (
+          <CommandPaletteInput
+            value={query}
+            onChange={setCommandPaletteQuery}
+            placeholder="Search actions, rules, files, issues..."
+            isConnected={wsConnected}
+            filters={commandPaletteFilters}
+            onRemoveFilter={handleRemoveFilter}
+          />
+        )}
 
-              {/* Results */}
-              <CommandPaletteResults
-                results={searchResults}
-                selectedIndex={selectedIndex}
-                expandedItemId={expandedItemId}
-                selectedItemId={selectedCommandPaletteItemId}
-                onSelect={handleSelect}
-                onHover={handleHover}
-                onToggleRule={toggleRule}
-                disabledRules={disabledRules}
-              />
+        {/* Show DetailView when loc filter is active, otherwise show results */}
+        {locDetailItem ? (
+          <DetailView item={locDetailItem} onBack={handleDetailViewBack} />
+        ) : (
+          <CommandPaletteResults
+            results={searchResults}
+            selectedIndex={selectedIndex}
+            selectedItemId={selectedCommandPaletteItemId}
+            onSelect={handleSelect}
+            onHover={handleHover}
+            onToggleRule={toggleRule}
+            disabledRules={disabledRules}
+            onAddFilter={handleAddFilter}
+          />
+        )}
 
-              {/* Footer hint */}
-              <div
-                className={cn(
-                  "px-4 py-2",
-                  "text-[10px] text-zinc-500 dark:text-zinc-400",
-                  "border-t border-white/10 dark:border-white/5",
-                  "bg-black/5 dark:bg-white/5",
-                  "flex items-center gap-4"
-                )}
-                data-ui-lint
-              >
-                <span>
-                  <kbd className="px-1 py-0.5 rounded bg-white/50 dark:bg-white/10">
-                    ↑↓
-                  </kbd>{" "}
-                  Navigate
-                </span>
-                <span>
-                  <kbd className="px-1 py-0.5 rounded bg-white/50 dark:bg-white/10">
-                    ⏎
-                  </kbd>{" "}
-                  Select
-                </span>
-                <span>
-                  <kbd className="px-1 py-0.5 rounded bg-white/50 dark:bg-white/10">
-                    esc
-                  </kbd>{" "}
-                  Close
-                </span>
-              </div>
-            </motion.div>
+        {/* Footer hint */}
+        <div
+          className={cn(
+            "px-4 py-2",
+            "text-[10px] text-zinc-500 dark:text-zinc-400",
+            "border-t border-white/10 dark:border-white/5",
+            "bg-black/5 dark:bg-white/5",
+            "flex items-center gap-4"
           )}
-        </AnimatePresence>
+          data-ui-lint
+        >
+          <span>
+            <kbd className="px-1 py-0.5 rounded bg-white/50 dark:bg-white/10">
+              ↑↓
+            </kbd>{" "}
+            Navigate
+          </span>
+          <span>
+            <kbd className="px-1 py-0.5 rounded bg-white/50 dark:bg-white/10">
+              ⏎
+            </kbd>{" "}
+            Filter
+          </span>
+          <span>
+            <kbd className="px-1 py-0.5 rounded bg-white/50 dark:bg-white/10">
+              ⌫
+            </kbd>{" "}
+            Remove filter
+          </span>
+          <span>
+            <kbd className="px-1 py-0.5 rounded bg-white/50 dark:bg-white/10">
+              esc
+            </kbd>{" "}
+            Close
+          </span>
+        </div>
       </motion.div>
     </div>,
     portalHost

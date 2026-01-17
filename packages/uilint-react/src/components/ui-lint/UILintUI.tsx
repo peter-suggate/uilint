@@ -12,7 +12,6 @@ import { useUILintStore, type UILintStore } from "./store";
  * UI components rendered when UILint is active
  */
 export function UILintUI() {
-  const altKeyHeld = useUILintStore((s: UILintStore) => s.altKeyHeld);
   const inspectedElement = useUILintStore(
     (s: UILintStore) => s.inspectedElement
   );
@@ -28,7 +27,6 @@ export function UILintUI() {
   const [components, setComponents] = useState<{
     FloatingIcon: React.ComponentType;
     CommandPalette: React.ComponentType;
-    LocatorOverlay: React.ComponentType;
     VisionIssueHighlight: React.ComponentType;
     InspectedHighlight: React.ComponentType;
     ElementBadges: React.ComponentType;
@@ -49,7 +47,6 @@ export function UILintUI() {
       setComponents({
         FloatingIcon: floatingIcon.FloatingIcon,
         CommandPalette: commandPalette.CommandPalette,
-        LocatorOverlay: locator.LocatorOverlay,
         VisionIssueHighlight: locator.VisionIssueHighlight,
         InspectedHighlight: locator.InspectedElementHighlight,
         ElementBadges: badges.ElementBadges,
@@ -64,7 +61,6 @@ export function UILintUI() {
   const {
     FloatingIcon,
     CommandPalette,
-    LocatorOverlay,
     VisionIssueHighlight,
     InspectedHighlight,
     ElementBadges,
@@ -78,11 +74,10 @@ export function UILintUI() {
     <>
       <FloatingIcon />
       <CommandPalette />
-      {(altKeyHeld || inspectedElement) && <LocatorOverlay />}
       <VisionIssueHighlight />
       {liveScanEnabled && displayMode === "badges" && <ElementBadges />}
       {/* HeatmapOverlay is always rendered when live scan is enabled -
-          it internally shows/hides based on command palette selection */}
+          it internally shows/hides based on command palette selection or Alt key */}
       {liveScanEnabled && <HeatmapOverlay />}
       {hasVisionIssues && <VisionIssueBadges />}
       {inspectedElement && <InspectedHighlight />}

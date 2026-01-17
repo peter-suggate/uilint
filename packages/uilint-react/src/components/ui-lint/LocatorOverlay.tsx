@@ -1,93 +1,18 @@
 "use client";
 
 /**
- * Locator Overlay - Shows element info when Alt/Option key is held
- * Inspired by LocatorJS for a quick "hover to find source" experience
+ * Vision and Inspection Overlays
  *
- * Uses data-loc attributes only (no React Fiber).
+ * Contains highlight components for vision issues and inspected elements.
+ * The main locator functionality is now handled by HeatmapOverlay.
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useUILintStore, type UILintStore } from "./store";
-import type { SourceLocation } from "./types";
 import { DATA_UILINT_ID } from "./types";
 import { getUILintPortalHost } from "./portal-host";
 import { cn } from "@/lib/utils";
-
-/**
- * Get the display name from a file path
- */
-function getFileName(path: string): string {
-  const parts = path.split("/");
-  return parts[parts.length - 1] || path;
-}
-
-/**
- * Main Locator Overlay Component
- */
-export function LocatorOverlay() {
-  const locatorTarget = useUILintStore((s: UILintStore) => s.locatorTarget);
-  const [mounted, setMounted] = useState(false);
-  const handleUILintInteraction = (
-    e: React.MouseEvent | React.KeyboardEvent | React.PointerEvent
-  ) => {
-    e.stopPropagation();
-  };
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Get the source from locator target
-  const currentSource = useMemo<SourceLocation | null>(() => {
-    if (!locatorTarget) return null;
-    return locatorTarget.source;
-  }, [locatorTarget]);
-
-  // Current element name (tag name)
-  const currentName = useMemo(() => {
-    if (!locatorTarget) return "";
-    return locatorTarget.element.tagName.toLowerCase();
-  }, [locatorTarget]);
-
-  // Early return after all hooks
-  if (!mounted || !locatorTarget) return null;
-
-  const { rect } = locatorTarget;
-
-  const content = (
-    <div
-      data-ui-lint
-      onMouseDown={handleUILintInteraction}
-      onPointerDown={handleUILintInteraction}
-      onClick={handleUILintInteraction}
-      onKeyDown={handleUILintInteraction}
-      className="pointer-events-none"
-    >
-      {/* Element highlight border */}
-      <div
-        className="fixed border-2 border-blue-500 rounded ring-2 ring-blue-500/30 animate-in fade-in duration-100"
-        style={{
-          top: rect.top - 2,
-          left: rect.left - 2,
-          width: rect.width + 4,
-          height: rect.height + 4,
-          zIndex: 99997,
-        }}
-      />
-
-      {/* Info tooltip */}
-      <InfoTooltip
-        rect={rect}
-        source={currentSource}
-        componentName={currentName}
-      />
-    </div>
-  );
-
-  return createPortal(content, getUILintPortalHost());
-}
 
 /**
  * Highlight for a hovered vision issue
@@ -160,65 +85,6 @@ export function VisionIssueHighlight() {
       }}
     />,
     getUILintPortalHost()
-  );
-}
-
-/**
- * Info tooltip showing element name and file location
- */
-interface InfoTooltipProps {
-  rect: DOMRect;
-  source: SourceLocation | null;
-  componentName: string;
-}
-
-function InfoTooltip({ rect, source, componentName }: InfoTooltipProps) {
-  // Position the tooltip above or below the element
-  const viewportHeight = window.innerHeight;
-  const spaceAbove = rect.top;
-  const spaceBelow = viewportHeight - rect.bottom;
-  const positionAbove = spaceAbove > 100 || spaceBelow < 100;
-
-  const tooltipStyle: React.CSSProperties = {
-    position: "fixed",
-    left: Math.max(8, Math.min(rect.left, window.innerWidth - 320)),
-    zIndex: 99999,
-  };
-
-  if (positionAbove) {
-    tooltipStyle.bottom = viewportHeight - rect.top + 8;
-  } else {
-    tooltipStyle.top = rect.bottom + 8;
-  }
-
-  return (
-    <div
-      style={tooltipStyle}
-      className="flex flex-col gap-1.5 p-2.5 px-3 rounded-lg bg-zinc-900/95 dark:bg-zinc-950/95 backdrop-blur-xl border border-zinc-700 dark:border-zinc-600 shadow-lg max-w-80 pointer-events-auto animate-in fade-in duration-150"
-    >
-      {/* Element name */}
-      <div className="flex items-center gap-2">
-        <span className="text-[13px] font-semibold text-blue-400">
-          {"<"}
-          {componentName}
-          {" />"}
-        </span>
-      </div>
-
-      {/* File path and line number */}
-      {source && (
-        <div className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-300">
-          <span>{getFileName(source.fileName)}</span>
-          <span className="text-zinc-500">:</span>
-          <span className="text-blue-400">{source.lineNumber}</span>
-        </div>
-      )}
-
-      {/* Click hint */}
-      <div className="flex items-center gap-3 text-[10px] text-zinc-500 border-t border-zinc-700/50 pt-2 mt-0.5">
-        <span>Click to inspect</span>
-      </div>
-    </div>
   );
 }
 

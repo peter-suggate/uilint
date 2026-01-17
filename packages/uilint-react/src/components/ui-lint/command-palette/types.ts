@@ -104,6 +104,8 @@ export interface IssueSearchData {
   issue: ESLintIssue;
   elementId?: string;
   filePath: string;
+  /** For file-level issues, the loc of the first element in the file (used for loc filter matching) */
+  elementLoc?: string;
 }
 
 /**
@@ -174,4 +176,14 @@ export interface ElementContext {
   issues: ESLintIssue[];
   filePath: string;
   lineNumber: number;
+}
+
+/**
+ * Filter chip for the command palette search
+ * Allows filtering by rule, issue, loc (source location), file, or capture
+ */
+export interface CommandPaletteFilter {
+  type: "rule" | "issue" | "loc" | "file" | "capture";
+  value: string;
+  label: string;
 }

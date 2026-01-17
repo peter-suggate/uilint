@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Icons } from "./icons";
@@ -15,18 +15,21 @@ import type {
   ActionSearchData,
   CaptureSearchData,
   IssueSearchData,
+  FileSearchData,
+  CommandPaletteFilter,
 } from "./types";
 
 interface CommandPaletteResultsProps {
   results: ScoredSearchResult[];
   selectedIndex: number;
-  expandedItemId: string | null;
   /** ID of the currently selected/pinned item (persists across interactions) */
   selectedItemId: string | null;
   onSelect: (index: number) => void;
   onHover: (itemId: string | null) => void;
   onToggleRule: (ruleId: string) => void;
   disabledRules: Set<string>;
+  /** Called when a filter should be added (e.g., clicking a rule adds rule filter) */
+  onAddFilter?: (filter: CommandPaletteFilter) => void;
 }
 
 /**
@@ -48,12 +51,12 @@ const CATEGORY_ORDER: CategoryType[] = ["actions", "rules", "captures", "files",
 export function CommandPaletteResults({
   results,
   selectedIndex,
-  expandedItemId,
   selectedItemId,
   onSelect,
   onHover,
   onToggleRule,
   disabledRules,
+  onAddFilter,
 }: CommandPaletteResultsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -121,12 +124,12 @@ export function CommandPaletteResults({
                   result={result}
                   index={index}
                   isSelected={selectedIndex === index}
-                  isExpanded={expandedItemId === result.item.id}
                   isPinned={selectedItemId === result.item.id}
                   onSelect={onSelect}
                   onHover={onHover}
                   onToggleRule={onToggleRule}
                   disabledRules={disabledRules}
+                  onAddFilter={onAddFilter}
                 />
               ))}
             </React.Fragment>
@@ -144,23 +147,23 @@ function ResultItem({
   result,
   index,
   isSelected,
-  isExpanded,
   isPinned,
   onSelect,
   onHover,
   onToggleRule,
   disabledRules,
+  onAddFilter,
 }: {
   result: ScoredSearchResult;
   index: number;
   isSelected: boolean;
-  isExpanded: boolean;
   /** Whether this item is pinned/selected (persists, shows heatmap) */
   isPinned: boolean;
   onSelect: (index: number) => void;
   onHover: (itemId: string | null) => void;
   onToggleRule: (ruleId: string) => void;
   disabledRules: Set<string>;
+  onAddFilter?: (filter: CommandPaletteFilter) => void;
 }) {
   const { item } = result;
 
@@ -195,13 +198,12 @@ function ResultItem({
             issueCount={item.issueCount}
             rule={ruleData.rule}
             isSelected={isSelected}
-            isExpanded={isExpanded}
             isPinned={isPinned}
-            onClick={() => onSelect(index)}
             onMouseEnter={() => onHover(item.id)}
             onMouseLeave={() => onHover(null)}
             onToggle={onToggleRule}
             isEnabled={!disabledRules.has(ruleData.rule.id)}
+            onAddFilter={onAddFilter}
           />
         </div>
       );
@@ -217,19 +219,18 @@ function ResultItem({
             subtitle={item.subtitle}
             issueCount={item.issueCount}
             capture={captureData.capture}
-            issues={captureData.issues}
             isSelected={isSelected}
-            isExpanded={isExpanded}
             isPinned={isPinned}
-            onClick={() => onSelect(index)}
             onMouseEnter={() => onHover(item.id)}
             onMouseLeave={() => onHover(null)}
+            onAddFilter={onAddFilter}
           />
         </div>
       );
     }
 
     case "file": {
+      const fileData = item.data as FileSearchData;
       return (
         <div data-index={index}>
           <FileItem
@@ -237,31 +238,31 @@ function ResultItem({
             title={item.title}
             subtitle={item.subtitle}
             issueCount={item.issueCount}
+            sourceFile={fileData.sourceFile}
             isSelected={isSelected}
-            isExpanded={isExpanded}
             isPinned={isPinned}
-            onClick={() => onSelect(index)}
             onMouseEnter={() => onHover(item.id)}
             onMouseLeave={() => onHover(null)}
+            onAddFilter={onAddFilter}
           />
         </div>
       );
     }
 
     case "issue": {
+      const issueData = item.data as IssueSearchData;
       return (
         <div data-index={index}>
           <IssueItem
             id={item.id}
             title={item.title}
             subtitle={item.subtitle}
-            issue={item.data as IssueSearchData}
+            issue={issueData}
             isSelected={isSelected}
-            isExpanded={isExpanded}
             isPinned={isPinned}
-            onClick={() => onSelect(index)}
             onMouseEnter={() => onHover(item.id)}
             onMouseLeave={() => onHover(null)}
+            onAddFilter={onAddFilter}
           />
         </div>
       );
@@ -325,7 +326,7 @@ function ActionItem({
 }
 
 /**
- * Rule item with expandable details
+ * Rule item - click adds filter
  */
 function RuleItem({
   id,
@@ -334,13 +335,12 @@ function RuleItem({
   issueCount = 0,
   rule,
   isSelected,
-  isExpanded,
   isPinned,
-  onClick,
   onMouseEnter,
   onMouseLeave,
   onToggle,
   isEnabled,
+  onAddFilter,
 }: {
   id: string;
   title: string;
@@ -348,14 +348,23 @@ function RuleItem({
   issueCount?: number;
   rule: RuleSearchData["rule"];
   isSelected: boolean;
-  isExpanded: boolean;
   isPinned: boolean;
-  onClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   onToggle: (ruleId: string) => void;
   isEnabled: boolean;
+  onAddFilter?: (filter: CommandPaletteFilter) => void;
 }) {
+  const handleClick = useCallback(() => {
+    if (onAddFilter && issueCount > 0) {
+      onAddFilter({
+        type: "rule",
+        value: rule.id,
+        label: rule.name,
+      });
+    }
+  }, [onAddFilter, issueCount, rule.id, rule.name]);
+
   return (
     <div
       className={cn(
@@ -370,35 +379,22 @@ function RuleItem({
           <span
             className={cn(
               "w-2 h-2 rounded-full",
-              rule.category === "static" ? "bg-zinc-600 dark:bg-zinc-400" : "bg-zinc-400 dark:bg-zinc-500"
+              rule.category === "static"
+                ? "bg-zinc-600 dark:bg-zinc-400"
+                : "bg-zinc-400 dark:bg-zinc-500"
             )}
           />
         }
         title={title}
-        subtitle={!isExpanded ? subtitle : undefined}
+        subtitle={subtitle}
         rightElement={
-          issueCount > 0 ? (
-            <IssueCountBadge count={issueCount} />
-          ) : (
-            <span className="text-[10px] text-zinc-400">0</span>
-          )
-        }
-        isSelected={isSelected}
-        onClick={onClick}
-      />
-
-      {/* Expanded details */}
-      {isExpanded && (
-        <div className="px-4 pb-3 space-y-2">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-            {rule.description}
-          </p>
-
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-zinc-400 uppercase">
-              {rule.category} rule
-            </span>
-
+          <div className="flex items-center gap-2">
+            {issueCount > 0 ? (
+              <IssueCountBadge count={issueCount} />
+            ) : (
+              <span className="text-[10px] text-zinc-400">0</span>
+            )}
+            {/* Toggle button */}
             <button
               type="button"
               onClick={(e) => {
@@ -406,23 +402,25 @@ function RuleItem({
                 onToggle(rule.id);
               }}
               className={cn(
-                "px-2 py-1 rounded text-[10px] font-medium transition-colors",
+                "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
                 isEnabled
-                  ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200"
-                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                  ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600"
+                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
               )}
             >
-              {isEnabled ? "Enabled" : "Disabled"}
+              {isEnabled ? "On" : "Off"}
             </button>
           </div>
-        </div>
-      )}
+        }
+        isSelected={isSelected}
+        onClick={handleClick}
+      />
     </div>
   );
 }
 
 /**
- * Capture/screenshot item with thumbnail
+ * Capture/screenshot item with thumbnail - click adds filter
  */
 function CaptureItem({
   id,
@@ -430,31 +428,39 @@ function CaptureItem({
   subtitle,
   issueCount = 0,
   capture,
-  issues,
   isSelected,
-  isExpanded,
   isPinned,
-  onClick,
   onMouseEnter,
   onMouseLeave,
+  onAddFilter,
 }: {
   id: string;
   title: string;
   subtitle?: string;
   issueCount?: number;
   capture: CaptureSearchData["capture"];
-  issues: CaptureSearchData["issues"];
   isSelected: boolean;
-  isExpanded: boolean;
   isPinned: boolean;
-  onClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onAddFilter?: (filter: CommandPaletteFilter) => void;
 }) {
   // Get image source
-  const imageSrc = capture.dataUrl || (capture.filename
-    ? `/api/.uilint/screenshots?filename=${encodeURIComponent(capture.filename)}`
-    : undefined);
+  const imageSrc =
+    capture.dataUrl ||
+    (capture.filename
+      ? `/api/.uilint/screenshots?filename=${encodeURIComponent(capture.filename)}`
+      : undefined);
+
+  const handleClick = useCallback(() => {
+    if (onAddFilter) {
+      onAddFilter({
+        type: "capture",
+        value: capture.id,
+        label: capture.route,
+      });
+    }
+  }, [onAddFilter, capture.id, capture.route]);
 
   return (
     <div
@@ -471,7 +477,7 @@ function CaptureItem({
           "hover:bg-zinc-100/80 dark:hover:bg-zinc-700/50",
           isSelected && "bg-zinc-100/80 dark:bg-zinc-700/50"
         )}
-        onClick={onClick}
+        onClick={handleClick}
       >
         {/* Thumbnail */}
         <div className="flex-shrink-0 w-10 h-10 rounded overflow-hidden bg-zinc-100 dark:bg-zinc-800">
@@ -499,65 +505,56 @@ function CaptureItem({
         </div>
 
         {/* Issue badge */}
-        {issueCount > 0 ? (
-          <IssueCountBadge count={issueCount} />
-        ) : (
-          <span className="flex items-center justify-center w-5 h-5 rounded-full bg-zinc-100 dark:bg-zinc-800">
-            <Icons.Check className="w-3 h-3 text-zinc-600 dark:text-zinc-400" />
-          </span>
-        )}
-      </div>
-
-      {/* Expanded: show issues */}
-      {isExpanded && issues.length > 0 && (
-        <div className="px-4 pb-3">
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {issues.slice(0, 5).map((issue, i) => (
-              <div
-                key={i}
-                className="text-xs text-zinc-500 dark:text-zinc-400 truncate py-1 px-2 rounded bg-zinc-50 dark:bg-zinc-800/50"
-              >
-                {issue.message}
-              </div>
-            ))}
-            {issues.length > 5 && (
-              <div className="text-[10px] text-zinc-400 px-2">
-                +{issues.length - 5} more
-              </div>
-            )}
-          </div>
+        <div className="flex items-center gap-2">
+          {issueCount > 0 ? (
+            <IssueCountBadge count={issueCount} />
+          ) : (
+            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <Icons.Check className="w-3 h-3 text-zinc-600 dark:text-zinc-400" />
+            </span>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
 /**
- * File item with issue count
+ * File item with issue count - click adds filter
  */
 function FileItem({
   id,
   title,
   subtitle,
   issueCount = 0,
+  sourceFile,
   isSelected,
-  isExpanded,
   isPinned,
-  onClick,
   onMouseEnter,
   onMouseLeave,
+  onAddFilter,
 }: {
   id: string;
   title: string;
   subtitle?: string;
   issueCount?: number;
+  sourceFile: FileSearchData["sourceFile"];
   isSelected: boolean;
-  isExpanded: boolean;
   isPinned: boolean;
-  onClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onAddFilter?: (filter: CommandPaletteFilter) => void;
 }) {
+  const handleClick = useCallback(() => {
+    if (onAddFilter && issueCount > 0) {
+      onAddFilter({
+        type: "file",
+        value: sourceFile.path,
+        label: sourceFile.displayName,
+      });
+    }
+  }, [onAddFilter, issueCount, sourceFile.path, sourceFile.displayName]);
+
   return (
     <div
       className={cn(
@@ -571,25 +568,20 @@ function FileItem({
         icon={<Icons.File className="w-4 h-4 text-zinc-500" />}
         title={title}
         subtitle={subtitle}
-        rightElement={<IssueCountBadge count={issueCount} />}
+        rightElement={
+          <div className="flex items-center gap-2">
+            <IssueCountBadge count={issueCount} />
+          </div>
+        }
         isSelected={isSelected}
-        onClick={onClick}
+        onClick={handleClick}
       />
-
-      {/* Expanded: could show file's issues here */}
-      {isExpanded && (
-        <div className="px-4 pb-3">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {issueCount} issue{issueCount !== 1 ? "s" : ""} in this file
-          </p>
-        </div>
-      )}
     </div>
   );
 }
 
 /**
- * Individual issue item with expandable detail panel
+ * Individual issue item - click adds filter
  */
 function IssueItem({
   id,
@@ -597,27 +589,45 @@ function IssueItem({
   subtitle,
   issue,
   isSelected,
-  isExpanded,
   isPinned,
-  onClick,
   onMouseEnter,
   onMouseLeave,
+  onAddFilter,
 }: {
   id: string;
   title: string;
   subtitle?: string;
   issue: IssueSearchData;
   isSelected: boolean;
-  isExpanded: boolean;
   isPinned: boolean;
-  onClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onAddFilter?: (filter: CommandPaletteFilter) => void;
 }) {
   // Build cursor:// URL for opening in Cursor
-  const cursorUrl = issue.filePath && issue.issue.line
-    ? `cursor://file/${issue.filePath}:${issue.issue.line}${issue.issue.column ? `:${issue.issue.column}` : ""}`
-    : null;
+  const cursorUrl =
+    issue.filePath && issue.issue.line
+      ? `cursor://file/${issue.filePath}:${issue.issue.line}${issue.issue.column ? `:${issue.issue.column}` : ""}`
+      : null;
+
+  // Extract filename for display label
+  const fileName = issue.filePath?.split("/").pop() || issue.filePath;
+  const locationLabel = issue.issue.line
+    ? `${fileName}:${issue.issue.line}${issue.issue.column ? `:${issue.issue.column}` : ""}`
+    : fileName;
+
+  const handleClick = useCallback(() => {
+    // Add loc filter for any issue with a file path and location
+    if (onAddFilter && issue.filePath && issue.issue.line) {
+      // Value encodes the full location: filePath:line:column
+      const locValue = `${issue.filePath}:${issue.issue.line}${issue.issue.column ? `:${issue.issue.column}` : ""}`;
+      onAddFilter({
+        type: "loc",
+        value: locValue,
+        label: locationLabel,
+      });
+    }
+  }, [onAddFilter, issue.filePath, issue.issue.line, issue.issue.column, locationLabel]);
 
   return (
     <div
@@ -631,61 +641,26 @@ function IssueItem({
       <CommandPaletteItem
         icon={<Icons.AlertTriangle className="w-4 h-4 text-zinc-500" />}
         title={title}
-        subtitle={!isExpanded ? subtitle : undefined}
+        subtitle={subtitle}
+        rightElement={
+          cursorUrl ? (
+            <a
+              href={cursorUrl}
+              onClick={(e) => e.stopPropagation()}
+              className={cn(
+                "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
+                "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400",
+                "hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+              )}
+            >
+              <Icons.ExternalLink className="w-3 h-3" />
+              Open
+            </a>
+          ) : undefined
+        }
         isSelected={isSelected}
-        onClick={onClick}
+        onClick={handleClick}
       />
-
-      {/* Expanded detail panel */}
-      {isExpanded && (
-        <div className="px-4 pb-3 space-y-3">
-          {/* Issue message */}
-          <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-            {issue.issue.message}
-          </p>
-
-          {/* Location info */}
-          <div className="flex items-center gap-2 text-[10px] text-zinc-500 dark:text-zinc-400">
-            <Icons.File className="w-3 h-3" />
-            <span className="truncate">{issue.filePath}</span>
-            <span className="text-zinc-400">:</span>
-            <span>{issue.issue.line}</span>
-            {issue.issue.column && (
-              <>
-                <span className="text-zinc-400">:</span>
-                <span>{issue.issue.column}</span>
-              </>
-            )}
-          </div>
-
-          {/* Rule ID */}
-          {issue.issue.ruleId && (
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono">
-                {issue.issue.ruleId}
-              </span>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex items-center gap-2 pt-1">
-            {cursorUrl && (
-              <a
-                href={cursorUrl}
-                onClick={(e) => e.stopPropagation()}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium",
-                  "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900",
-                  "hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors"
-                )}
-              >
-                <Icons.ExternalLink className="w-3 h-3" />
-                Open in Cursor
-              </a>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

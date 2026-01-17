@@ -11,6 +11,7 @@ import type {
   CaptureSearchData,
   IssueSearchData,
   CategoryType,
+  CommandPaletteFilter,
 } from "./types";
 import type { ScannedElement, ElementIssue, ESLintIssue, ScreenshotCapture } from "../types";
 import { groupBySourceFile } from "../dom-utils";
@@ -71,19 +72,161 @@ function fuzzyScore(text: string, query: string): number {
 }
 
 /**
- * Hook to perform fuzzy search over items
+ * Apply a single filter to items
+ */
+function applyFilter(
+  items: SearchableItem[],
+  filter: CommandPaletteFilter
+): SearchableItem[] {
+  switch (filter.type) {
+    case "rule": {
+      // Filter to items with this ruleId OR issues from that rule
+      const fullRuleId = filter.value.startsWith("uilint/")
+        ? filter.value
+        : `uilint/${filter.value}`;
+      return items.filter((item) => {
+        if (item.type === "rule") {
+          const ruleData = item.data as RuleSearchData;
+          return (
+            ruleData.rule.id === filter.value ||
+            `uilint/${ruleData.rule.id}` === fullRuleId
+          );
+        }
+        if (item.type === "issue") {
+          const issueData = item.data as IssueSearchData;
+          return issueData.issue.ruleId === fullRuleId;
+        }
+        return false;
+      });
+    }
+
+    case "loc": {
+      // Filter to items at a specific source location (filePath:line:column)
+      // This matches issues that belong to elements at that source location
+      // The filter value format is: filePath:line or filePath:line:column
+      const locValue = filter.value;
+
+      // Helper to check if a loc string matches the filter value
+      // Handles both exact match and match without column
+      const matchesLoc = (loc: string): boolean => {
+        if (loc === locValue) {
+          return true;
+        }
+        // Check if filter (without column) matches the loc's file:line portion
+        const lastIdx = loc.lastIndexOf(":");
+        const secondLastIdx = loc.lastIndexOf(":", lastIdx - 1);
+        if (secondLastIdx >= 0) {
+          const fileAndLine = loc.slice(0, lastIdx);
+          if (fileAndLine === locValue) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      return items.filter((item) => {
+        if (item.type === "issue") {
+          const issueData = item.data as IssueSearchData;
+
+          // Method 1: Check if the issue's dataLoc matches the filter value
+          // dataLoc format is: filePath:line:column
+          if (issueData.issue.dataLoc && matchesLoc(issueData.issue.dataLoc)) {
+            return true;
+          }
+
+          // Method 2: Check if the elementId contains the location
+          // elementId format is: loc:path:line:column#occurrence
+          if (issueData.elementId) {
+            // Extract location from elementId (remove "loc:" prefix and "#occurrence" suffix)
+            const withoutPrefix = issueData.elementId.replace(/^loc:/, "");
+            const withoutOccurrence = withoutPrefix.replace(/#\d+$/, "");
+            if (matchesLoc(withoutOccurrence)) {
+              return true;
+            }
+          }
+
+          // Method 3: For file-level issues, check the elementLoc (first element in file)
+          if (issueData.elementLoc && matchesLoc(issueData.elementLoc)) {
+            return true;
+          }
+
+          return false;
+        }
+        return false;
+      });
+    }
+
+    case "file": {
+      // Filter to items from a specific file
+      return items.filter((item) => {
+        if (item.type === "file") {
+          const fileData = item.data as FileSearchData;
+          return fileData.sourceFile.path === filter.value;
+        }
+        if (item.type === "issue") {
+          const issueData = item.data as IssueSearchData;
+          return issueData.filePath === filter.value;
+        }
+        return false;
+      });
+    }
+
+    case "issue": {
+      // Filter to a specific issue (show expanded)
+      return items.filter((item) => item.id === `issue:${filter.value}`);
+    }
+
+    case "capture": {
+      // Filter to a specific capture and its issues
+      return items.filter((item) => {
+        if (item.type === "capture") {
+          const captureData = item.data as CaptureSearchData;
+          return captureData.capture.id === filter.value;
+        }
+        return false;
+      });
+    }
+
+    default:
+      return items;
+  }
+}
+
+/**
+ * Apply all filters to items
+ */
+function applyFilters(
+  items: SearchableItem[],
+  filters: CommandPaletteFilter[]
+): SearchableItem[] {
+  if (filters.length === 0) return items;
+
+  // Apply each filter in sequence (AND logic)
+  let filteredItems = items;
+  for (const filter of filters) {
+    filteredItems = applyFilter(filteredItems, filter);
+  }
+  return filteredItems;
+}
+
+/**
+ * Hook to perform fuzzy search over items with optional filters
  * When query is empty, returns items grouped by category
  */
 export function useFuzzySearch(
   query: string,
-  items: SearchableItem[]
+  items: SearchableItem[],
+  filters: CommandPaletteFilter[] = []
 ): ScoredSearchResult[] {
   return useMemo(() => {
+    // First apply filters
+    const filteredItems = applyFilters(items, filters);
+
     if (!query.trim()) {
       // No query - return all items sorted by category priority
       const categoryOrder: CategoryType[] = ["actions", "rules", "captures", "files", "issues"];
 
-      return items
+      return filteredItems
         .map((item) => ({ item, score: 1 }))
         .sort((a, b) => {
           const aOrder = categoryOrder.indexOf(a.item.category);
@@ -93,7 +236,7 @@ export function useFuzzySearch(
     }
 
     // Score all items
-    const scored = items
+    const scored = filteredItems
       .map((item) => ({
         item,
         score: fuzzyScore(item.searchText, query),
@@ -102,7 +245,7 @@ export function useFuzzySearch(
       .sort((a, b) => b.score - a.score);
 
     return scored;
-  }, [query, items]);
+  }, [query, items, filters]);
 }
 
 /**
@@ -263,7 +406,27 @@ export function buildSearchableItems(
   }
 
   // Add file-level issues
+  // For loc filter matching, find the first element in each file to use as the display location
+  const firstElementByFile = new Map<string, ScannedElement>();
+  for (const element of elements) {
+    const existing = firstElementByFile.get(element.source.fileName);
+    if (
+      !existing ||
+      element.source.lineNumber < existing.source.lineNumber ||
+      (element.source.lineNumber === existing.source.lineNumber &&
+        (element.source.columnNumber || 0) < (existing.source.columnNumber || 0))
+    ) {
+      firstElementByFile.set(element.source.fileName, element);
+    }
+  }
+
   for (const [filePath, issues] of fileIssuesCache) {
+    // Get the first element's location for this file (used for loc filter matching)
+    const firstElement = firstElementByFile.get(filePath);
+    const elementLoc = firstElement
+      ? `${firstElement.source.fileName}:${firstElement.source.lineNumber}${firstElement.source.columnNumber ? `:${firstElement.source.columnNumber}` : ""}`
+      : undefined;
+
     for (const issue of issues) {
       items.push({
         type: "issue",
@@ -276,6 +439,7 @@ export function buildSearchableItems(
           type: "issue",
           issue,
           filePath,
+          elementLoc,
         } as IssueSearchData,
       });
     }

@@ -10,7 +10,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useUILintStore, type UILintStore } from "./store";
-import type { ScannedElement, InspectedElement } from "./types";
+import type { ScannedElement } from "./types";
 import { getUILintPortalHost } from "./portal-host";
 import {
   getElementVisibleRect,
@@ -62,13 +62,16 @@ export function HeatmapOverlay() {
     (s: UILintStore) => s.selectedFilePath
   );
 
-  // Command palette selection state - heatmaps only show when an item is selected
-  const selectedCommandPaletteItemId = useUILintStore(
-    (s: UILintStore) => s.selectedCommandPaletteItemId
+  // Command palette state - heatmaps show when command palette is open
+  const commandPaletteOpen = useUILintStore(
+    (s: UILintStore) => s.commandPaletteOpen
   );
-  const hoveredCommandPaletteItemId = useUILintStore(
-    (s: UILintStore) => s.hoveredCommandPaletteItemId
+  const visibleCommandPaletteResultIds = useUILintStore(
+    (s: UILintStore) => s.visibleCommandPaletteResultIds
   );
+
+  // Alt key state - when held, show all heatmap items for selection
+  const altKeyHeld = useUILintStore((s: UILintStore) => s.altKeyHeld);
 
   useEffect(() => {
     setMounted(true);
@@ -153,17 +156,19 @@ export function HeatmapOverlay() {
     };
   }, [autoScanState.status, autoScanState.elements, mergedIssueCounts]);
 
-  // Determine which item to highlight (selected takes precedence over hovered)
-  const activeItemId = selectedCommandPaletteItemId || hoveredCommandPaletteItemId;
-
-  // Filter elements based on active command palette selection
+  // Filter elements based on command palette visible results
   const visibleElements = useMemo(() => {
-    // If no item is active (selected or hovered), show nothing
-    if (!activeItemId) return [];
+    // If alt key is held, show ALL heatmap elements for selection
+    if (altKeyHeld) return heatmapElements;
 
-    let filteredElements = heatmapElements;
+    // If command palette is not open, show nothing
+    if (!commandPaletteOpen) return [];
+
+    // If no visible results, show nothing
+    if (visibleCommandPaletteResultIds.size === 0) return [];
 
     // Filter by file path (existing behavior)
+    let filteredElements = heatmapElements;
     const activeFilePath = selectedFilePath || hoveredFilePath;
     if (activeFilePath) {
       filteredElements = filteredElements.filter(
@@ -171,77 +176,90 @@ export function HeatmapOverlay() {
       );
     }
 
-    // Filter by rule if a rule is selected in the command palette
-    if (activeItemId.startsWith("rule:")) {
-      const ruleId = activeItemId.replace("rule:", "");
-      filteredElements = filteredElements.filter((el) => {
-        const cached = elementIssuesCache.get(el.element.id);
-        if (!cached) return false;
-        // Check if this element has any issues from the selected rule
-        return cached.issues.some((issue) => issue.ruleId === ruleId);
-      });
-    }
+    // Filter to elements that match visible command palette results
+    // Visible result IDs include: rule:X, file:X, issue:X, capture:X
+    // We need to match elements that have issues from visible rules/files/issues
+    return filteredElements.filter((el) => {
+      const cached = elementIssuesCache.get(el.element.id);
+      if (!cached) return false;
 
-    // Filter by file if a file is selected in the command palette
-    if (activeItemId.startsWith("file:")) {
-      const filePath = activeItemId.replace("file:", "");
-      filteredElements = filteredElements.filter(
-        (el) => el.element.source.fileName === filePath
-      );
-    }
-
-    // Filter by specific issue if an issue is selected
-    // Issue ID format: issue:${elementId}:${ruleId}:${line}:${column} or issue:file:${filePath}:${ruleId}:${line}:${column}
-    if (activeItemId.startsWith("issue:")) {
-      const parts = activeItemId.split(":");
-
-      if (parts[1] === "file") {
-        // File-level issue: issue:file:${filePath}:${ruleId}:${line}:${column}
-        // These don't map to specific elements, so show all elements in that file
-        const filePath = parts[2];
-        filteredElements = filteredElements.filter(
-          (el) => el.element.source.fileName === filePath
-        );
-      } else {
-        // Element-level issue: issue:${elementId}:${ruleId}:${line}:${column}
-        // The elementId is at parts[1], which is like "loc:path:line:column#occurrence"
-        // We need to reconstruct it carefully since it contains colons
-        const elementIdParts = [];
-        let i = 1;
-        // The elementId starts with "loc:" and ends before the ruleId (which starts with "uilint/")
-        while (i < parts.length && !parts[i].startsWith("uilint")) {
-          elementIdParts.push(parts[i]);
-          i++;
+      // Check each visible result ID to see if this element matches
+      for (const resultId of visibleCommandPaletteResultIds) {
+        // Match rule results - show elements with issues from this rule
+        if (resultId.startsWith("rule:")) {
+          const ruleId = resultId.replace("rule:", "");
+          const fullRuleId = `uilint/${ruleId}`;
+          if (cached.issues.some((issue) => issue.ruleId === fullRuleId)) {
+            return true;
+          }
         }
-        const targetElementId = elementIdParts.join(":");
 
-        // Show only the specific element this issue belongs to
-        filteredElements = filteredElements.filter(
-          (el) => el.element.id === targetElementId || el.element.id.startsWith(targetElementId)
-        );
+        // Match file results - show elements from this file
+        if (resultId.startsWith("file:")) {
+          const filePath = resultId.replace("file:", "");
+          if (el.element.source.fileName === filePath) {
+            return true;
+          }
+        }
+
+        // Match issue results - show element that has this specific issue
+        if (resultId.startsWith("issue:")) {
+          const parts = resultId.split(":");
+
+          if (parts[1] === "file") {
+            // File-level issue - show all elements in that file
+            const filePath = parts[2];
+            if (el.element.source.fileName === filePath) {
+              return true;
+            }
+          } else {
+            // Element-level issue - extract elementId
+            const elementIdParts = [];
+            let i = 1;
+            while (i < parts.length && !parts[i].startsWith("uilint")) {
+              elementIdParts.push(parts[i]);
+              i++;
+            }
+            const targetElementId = elementIdParts.join(":");
+            if (el.element.id === targetElementId || el.element.id.startsWith(targetElementId)) {
+              return true;
+            }
+          }
+        }
       }
-    }
 
-    return filteredElements;
+      return false;
+    });
   }, [
     heatmapElements,
-    activeItemId,
+    commandPaletteOpen,
+    visibleCommandPaletteResultIds,
+    altKeyHeld,
     selectedFilePath,
     hoveredFilePath,
     elementIssuesCache,
   ]);
 
+  // Get openCommandPaletteWithFilter from store
+  const openCommandPaletteWithFilter = useUILintStore(
+    (s: UILintStore) => s.openCommandPaletteWithFilter
+  );
+
   const handleClick = useCallback(
     (element: ScannedElement) => {
-      const inspected: InspectedElement = {
-        element: element.element,
-        source: element.source,
-        rect: element.element.getBoundingClientRect(),
-        scannedElementId: element.id,
-      };
-      setInspectedElement(inspected);
+      // Open command palette with loc filter
+      const displayName = element.source.fileName.split("/").pop() || element.source.fileName;
+      const { fileName, lineNumber, columnNumber } = element.source;
+      const label = `${displayName}:${lineNumber}${columnNumber ? `:${columnNumber}` : ""}`;
+      const locValue = `${fileName}:${lineNumber}${columnNumber ? `:${columnNumber}` : ""}`;
+
+      openCommandPaletteWithFilter({
+        type: "loc",
+        value: locValue,
+        label,
+      });
     },
-    [setInspectedElement]
+    [openCommandPaletteWithFilter]
   );
 
   // Event handlers to prevent UILint interactions from propagating to the app

@@ -8,7 +8,7 @@
 import { useEffect, useCallback } from "react";
 import { useUILintStore, type UILintStore } from "../store";
 import { getSourceFromDataLoc, isNodeModulesPath } from "../dom-utils";
-import type { LocatorTarget } from "../types";
+import type { LocatorTarget, SourceLocation } from "../types";
 
 /**
  * Check if we're in a browser environment
@@ -34,6 +34,15 @@ export function useDevToolEventHandlers(enabled: boolean) {
   );
   const setInspectedElement = useUILintStore(
     (s: UILintStore) => s.setInspectedElement
+  );
+  const openCommandPaletteWithFilter = useUILintStore(
+    (s: UILintStore) => s.openCommandPaletteWithFilter
+  );
+  const commandPaletteOpen = useUILintStore(
+    (s: UILintStore) => s.commandPaletteOpen
+  );
+  const closeCommandPalette = useUILintStore(
+    (s: UILintStore) => s.closeCommandPalette
   );
 
   /**
@@ -96,7 +105,7 @@ export function useDevToolEventHandlers(enabled: boolean) {
   );
 
   /**
-   * Handle click in locator mode - open sidebar
+   * Handle click in locator mode - open command palette with loc filter
    * Only active when Alt key is held down
    */
   const handleLocatorClick = useCallback(
@@ -111,17 +120,23 @@ export function useDevToolEventHandlers(enabled: boolean) {
       e.preventDefault();
       e.stopPropagation();
 
-      // Open the inspection panel sidebar
-      setInspectedElement({
-        element: locatorTarget.element,
-        source: locatorTarget.source,
-        rect: locatorTarget.rect,
+      // Open command palette with loc filter
+      const source = locatorTarget.source;
+      const displayName = source.fileName.split("/").pop() || source.fileName;
+      const { fileName, lineNumber, columnNumber } = source;
+      const label = `${displayName}:${lineNumber}${columnNumber ? `:${columnNumber}` : ""}`;
+      const locValue = `${fileName}:${lineNumber}${columnNumber ? `:${columnNumber}` : ""}`;
+
+      openCommandPaletteWithFilter({
+        type: "loc",
+        value: locValue,
+        label,
       });
 
       // Reset locator state
       setLocatorTarget(null);
     },
-    [altKeyHeld, locatorTarget, setInspectedElement, setLocatorTarget]
+    [altKeyHeld, locatorTarget, openCommandPaletteWithFilter, setLocatorTarget]
   );
 
   /**
@@ -179,18 +194,22 @@ export function useDevToolEventHandlers(enabled: boolean) {
   }, [enabled, altKeyHeld, handleMouseMove, handleLocatorClick]);
 
   /**
-   * Escape key to close sidebar
+   * Escape key to close sidebar or command palette
    */
   useEffect(() => {
     if (!isBrowser() || !enabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && inspectedElement) {
-        setInspectedElement(null);
+      if (e.key === "Escape") {
+        if (commandPaletteOpen) {
+          closeCommandPalette();
+        } else if (inspectedElement) {
+          setInspectedElement(null);
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [enabled, inspectedElement, setInspectedElement]);
+  }, [enabled, inspectedElement, setInspectedElement, commandPaletteOpen, closeCommandPalette]);
 }

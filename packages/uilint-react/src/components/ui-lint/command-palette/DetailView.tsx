@@ -24,6 +24,7 @@ import type {
   FileSearchData,
   IssueSearchData,
   CaptureSearchData,
+  ElementSearchData,
 } from "./types";
 import type { ESLintIssue, ElementIssue } from "../types";
 
@@ -303,6 +304,12 @@ export function DetailView({
             <IssueDetailContent
               item={item}
               data={item.data as IssueSearchData}
+            />
+          )}
+          {item.type === "element" && (
+            <ElementDetailContent
+              item={item}
+              data={item.data as ElementSearchData}
             />
           )}
           {item.type === "capture" && (
@@ -674,6 +681,128 @@ function IssueDetailContent({
           <code className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800">
             {issue.ruleId}
           </code>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="pt-1">
+        {cursorUrl && (
+          <a
+            href={cursorUrl}
+            className={cn(
+              "inline-flex items-center gap-2 px-3 py-2 rounded-lg",
+              "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900",
+              "hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors",
+              "text-xs font-medium"
+            )}
+          >
+            <Icons.ExternalLink className="w-3.5 h-3.5" />
+            Open in Cursor
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Element detail content with source code preview and issues list
+ */
+function ElementDetailContent({
+  item,
+  data,
+}: {
+  item: SearchableItem;
+  data: ElementSearchData;
+}) {
+  const { element, issues } = data;
+  const { source, tagName, className } = element;
+
+  // Build cursor:// URL
+  const cursorUrl = source.fileName
+    ? `cursor://file/${source.fileName}:${source.lineNumber}${source.columnNumber ? `:${source.columnNumber}` : ""}`
+    : null;
+
+  // Extract filename from path
+  const fileName = source.fileName.split("/").pop() || source.fileName;
+
+  // Build display name for the element
+  const displayName = className
+    ? `<${tagName.toLowerCase()} className="${className.slice(0, 40)}${className.length > 40 ? "..." : ""}">`
+    : `<${tagName.toLowerCase()}>`;
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div
+          className={cn(
+            "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
+            "bg-purple-100 dark:bg-purple-900/30"
+          )}
+        >
+          <Icons.Box className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100 font-mono leading-snug">
+            {displayName}
+          </h3>
+          <p className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mt-0.5">
+            Element
+          </p>
+        </div>
+      </div>
+
+      {/* Location */}
+      <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <Icons.File className="w-3.5 h-3.5" />
+        <span className="truncate font-mono text-[11px]">{fileName}</span>
+        <span className="text-zinc-300 dark:text-zinc-600">:</span>
+        <span className="font-mono">{source.lineNumber}</span>
+        {source.columnNumber && (
+          <>
+            <span className="text-zinc-300 dark:text-zinc-600">:</span>
+            <span className="font-mono">{source.columnNumber}</span>
+          </>
+        )}
+      </div>
+
+      {/* Source code preview */}
+      {source.fileName && source.lineNumber && (
+        <SourceCodePreview
+          filePath={source.fileName}
+          lineNumber={source.lineNumber}
+          columnNumber={source.columnNumber}
+        />
+      )}
+
+      {/* Issues list */}
+      {issues.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wide font-medium">
+            {issues.length} issue{issues.length !== 1 ? "s" : ""}
+          </p>
+          <div className="space-y-1 max-h-48 overflow-y-auto">
+            {issues.map((issue, idx) => (
+              <div
+                key={`${issue.ruleId}-${issue.line}-${issue.column}-${idx}`}
+                className={cn(
+                  "px-3 py-2 rounded-lg",
+                  "bg-zinc-50 dark:bg-zinc-800/50",
+                  "border border-zinc-200/50 dark:border-zinc-700/50"
+                )}
+              >
+                <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                  {issue.message}
+                </p>
+                {issue.ruleId && (
+                  <code className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 mt-1 block">
+                    {issue.ruleId}
+                  </code>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
