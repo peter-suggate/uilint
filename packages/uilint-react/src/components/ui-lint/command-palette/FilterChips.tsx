@@ -25,29 +25,29 @@ const FILTER_TYPE_COLORS: Record<
   { bg: string; text: string; border: string }
 > = {
   rule: {
-    bg: "bg-blue-500/10 dark:bg-blue-400/10",
-    text: "text-blue-600 dark:text-blue-400",
-    border: "border-blue-500/20 dark:border-blue-400/20",
+    bg: "bg-accent/10",
+    text: "text-accent",
+    border: "border-accent/20",
   },
   issue: {
-    bg: "bg-amber-500/10 dark:bg-amber-400/10",
-    text: "text-amber-600 dark:text-amber-400",
-    border: "border-amber-500/20 dark:border-amber-400/20",
+    bg: "bg-warning-bg",
+    text: "text-warning",
+    border: "border-warning/20",
   },
   loc: {
-    bg: "bg-purple-500/10 dark:bg-purple-400/10",
-    text: "text-purple-600 dark:text-purple-400",
-    border: "border-purple-500/20 dark:border-purple-400/20",
+    bg: "bg-accent/10",
+    text: "text-accent",
+    border: "border-accent/20",
   },
   file: {
-    bg: "bg-zinc-500/10 dark:bg-zinc-400/10",
-    text: "text-zinc-600 dark:text-zinc-400",
-    border: "border-zinc-500/20 dark:border-zinc-400/20",
+    bg: "bg-muted",
+    text: "text-muted-foreground",
+    border: "border-border",
   },
   capture: {
-    bg: "bg-teal-500/10 dark:bg-teal-400/10",
-    text: "text-teal-600 dark:text-teal-400",
-    border: "border-teal-500/20 dark:border-teal-400/20",
+    bg: "bg-success-bg",
+    text: "text-success",
+    border: "border-success/20",
   },
 };
 
@@ -78,7 +78,7 @@ function FilterChip({
       <span className={cn("font-semibold", colors.text)}>{filter.type}:</span>
 
       {/* Label */}
-      <span className="text-zinc-700 dark:text-zinc-300 max-w-[120px] truncate">
+      <span className="text-foreground max-w-[120px] truncate">
         {filter.label}
       </span>
 
@@ -91,9 +91,8 @@ function FilterChip({
         }}
         className={cn(
           "ml-0.5 p-0.5 rounded-sm",
-          "text-zinc-400 hover:text-zinc-600",
-          "dark:text-zinc-500 dark:hover:text-zinc-300",
-          "hover:bg-black/5 dark:hover:bg-white/10",
+          "text-muted-foreground hover:text-foreground",
+          "hover:bg-hover",
           "transition-colors"
         )}
       >

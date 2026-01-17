@@ -28,28 +28,40 @@ interface CommandPaletteResultsProps {
   onSelect: (index: number) => void;
   onHover: (itemId: string | null) => void;
   onToggleRule: (ruleId: string) => void;
+  /** Callback for toggling ESLint scan on/off */
+  onToggleScan: () => void;
+  /** Current state of ESLint live scanning */
+  liveScanEnabled: boolean;
   disabledRules: Set<string>;
   /** Called when a filter should be added (e.g., clicking a rule adds rule filter) */
   onAddFilter?: (filter: CommandPaletteFilter) => void;
   /** Active loc filters - issues matching these should be expanded */
   activeLocFilters?: CommandPaletteFilter[];
+  /** Category ID to scroll to (e.g., "rules" or "file:/path/to/file.tsx") */
+  scrollToCategory?: string | null;
+  /** Called after scrolling to category completes */
+  onScrollComplete?: () => void;
 }
 
 /**
  * Category display names and order
  */
 const CATEGORY_CONFIG: Record<CategoryType, { name: string; icon: React.ReactNode }> = {
-  actions: { name: "Suggested Actions", icon: <Icons.Zap className="w-3.5 h-3.5" /> },
+  settings: { name: "Settings", icon: <Icons.Settings className="w-3.5 h-3.5" /> },
+  vision: { name: "Vision", icon: <Icons.Eye className="w-3.5 h-3.5" /> },
+  actions: { name: "Actions", icon: <Icons.Play className="w-3.5 h-3.5" /> },
   rules: { name: "Rules", icon: <Icons.Settings className="w-3.5 h-3.5" /> },
   captures: { name: "Captures", icon: <Icons.Camera className="w-3.5 h-3.5" /> },
   files: { name: "Files", icon: <Icons.File className="w-3.5 h-3.5" /> },
   issues: { name: "Issues", icon: <Icons.AlertTriangle className="w-3.5 h-3.5" /> },
 };
 
-const CATEGORY_ORDER: CategoryType[] = ["actions", "rules", "captures", "files", "issues"];
+// Categories that get their own section headers (not issues - they're grouped by file)
+const STANDARD_CATEGORIES: CategoryType[] = ["settings", "vision", "files", "captures", "rules"];
 
 /**
  * Results list for command palette - unified view with category sections
+ * Issues are grouped by file with per-file headers
  */
 export function CommandPaletteResults({
   results,
@@ -58,9 +70,13 @@ export function CommandPaletteResults({
   onSelect,
   onHover,
   onToggleRule,
+  onToggleScan,
+  liveScanEnabled,
   disabledRules,
   onAddFilter,
   activeLocFilters = [],
+  scrollToCategory,
+  onScrollComplete,
 }: CommandPaletteResultsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -75,25 +91,60 @@ export function CommandPaletteResults({
     }
   }, [selectedIndex]);
 
-  // Group results by category
-  const groupedResults = useMemo(() => {
-    const groups = new Map<CategoryType, Array<{ result: ScoredSearchResult; index: number }>>();
+  // Scroll to category when requested
+  useEffect(() => {
+    if (!scrollToCategory) return;
+    const container = scrollRef.current;
+    if (!container) return;
 
-    // Initialize empty groups
-    for (const cat of CATEGORY_ORDER) {
-      groups.set(cat, []);
+    const categoryEl = container.querySelector(`[data-category-id="${scrollToCategory}"]`);
+    if (categoryEl) {
+      categoryEl.scrollIntoView({ block: "start", behavior: "smooth" });
     }
 
-    // Group results by category, preserving their global index
+    // Notify parent that scroll is complete
+    onScrollComplete?.();
+  }, [scrollToCategory, onScrollComplete]);
+
+  // Group results: standard categories + issues grouped by file
+  const { standardGroups, issuesByFile } = useMemo(() => {
+    const standardGroups = new Map<CategoryType, Array<{ result: ScoredSearchResult; index: number }>>();
+    const issuesByFile = new Map<string, {
+      fileName: string;
+      directory: string;
+      items: Array<{ result: ScoredSearchResult; index: number }>
+    }>();
+
+    // Initialize standard groups
+    for (const cat of STANDARD_CATEGORIES) {
+      standardGroups.set(cat, []);
+    }
+
+    // Group results
     results.forEach((result, index) => {
-      const category = result.item.category;
-      const group = groups.get(category);
-      if (group) {
-        group.push({ result, index });
+      if (result.item.type === "issue") {
+        // Group issues by file
+        const issueData = result.item.data as IssueSearchData;
+        const filePath = issueData.filePath || "unknown";
+
+        if (!issuesByFile.has(filePath)) {
+          const parts = filePath.split("/");
+          const fileName = parts[parts.length - 1] || filePath;
+          const directory = parts.length >= 2 ? parts.slice(0, -1).join("/") : "";
+          issuesByFile.set(filePath, { fileName, directory, items: [] });
+        }
+        issuesByFile.get(filePath)!.items.push({ result, index });
+      } else {
+        // Standard category
+        const category = result.item.category;
+        const group = standardGroups.get(category);
+        if (group) {
+          group.push({ result, index });
+        }
       }
     });
 
-    return groups;
+    return { standardGroups, issuesByFile };
   }, [results]);
 
   // Check if all categories are empty
@@ -101,45 +152,172 @@ export function CommandPaletteResults({
 
   if (isEmpty) {
     return (
-      <div className="py-8">
+      <div className="py-8 flex-1">
         <EmptyState message="No results found" />
       </div>
     );
   }
 
   return (
-    <ScrollArea className="max-h-[400px]" ref={scrollRef}>
-      <div className="py-1">
-        {CATEGORY_ORDER.map((category) => {
-          const items = groupedResults.get(category) || [];
-          if (items.length === 0) return null;
+    <ScrollArea className="max-h-[400px] flex-1" ref={scrollRef}>
+      <div className="py-2">
+        {/* 1. File-grouped issues - FIRST (most important) */}
+        {Array.from(issuesByFile.entries()).map(([filePath, { fileName, directory, items }]) => (
+          <div key={filePath} className="mb-2">
+            <CommandPaletteSectionHeader
+              icon={<Icons.File className="w-3.5 h-3.5" />}
+              categoryId={`file:${filePath}`}
+            >
+              <span className="flex items-center gap-2">
+                <span>{fileName}</span>
+                {directory && (
+                  <span className="text-muted-foreground font-normal normal-case tracking-normal">
+                    {directory}
+                  </span>
+                )}
+                <span className="text-muted-foreground">({items.length})</span>
+              </span>
+            </CommandPaletteSectionHeader>
 
-          const config = CATEGORY_CONFIG[category];
+            {items.map(({ result, index }) => (
+              <ResultItem
+                key={result.item.id}
+                result={result}
+                index={index}
+                isSelected={selectedIndex === index}
+                isPinned={selectedItemId === result.item.id}
+                onSelect={onSelect}
+                onHover={onHover}
+                onToggleRule={onToggleRule}
+                onToggleScan={onToggleScan}
+                liveScanEnabled={liveScanEnabled}
+                disabledRules={disabledRules}
+                onAddFilter={onAddFilter}
+                activeLocFilters={activeLocFilters}
+              />
+            ))}
+          </div>
+        ))}
 
-          return (
-            <React.Fragment key={category}>
-              <CommandPaletteSectionHeader icon={config.icon}>
-                {config.name} ({items.length})
-              </CommandPaletteSectionHeader>
+        {/* 2. Captures section (screenshots) */}
+        {(standardGroups.get("captures")?.length ?? 0) > 0 && (
+          <div className="mb-2">
+            <CommandPaletteSectionHeader
+              icon={CATEGORY_CONFIG.captures.icon}
+              categoryId="captures"
+            >
+              {CATEGORY_CONFIG.captures.name} ({standardGroups.get("captures")!.length})
+            </CommandPaletteSectionHeader>
 
-              {items.map(({ result, index }) => (
-                <ResultItem
-                  key={result.item.id}
-                  result={result}
-                  index={index}
-                  isSelected={selectedIndex === index}
-                  isPinned={selectedItemId === result.item.id}
-                  onSelect={onSelect}
-                  onHover={onHover}
-                  onToggleRule={onToggleRule}
-                  disabledRules={disabledRules}
-                  onAddFilter={onAddFilter}
-                  activeLocFilters={activeLocFilters}
-                />
-              ))}
-            </React.Fragment>
-          );
-        })}
+            {standardGroups.get("captures")!.map(({ result, index }) => (
+              <ResultItem
+                key={result.item.id}
+                result={result}
+                index={index}
+                isSelected={selectedIndex === index}
+                isPinned={selectedItemId === result.item.id}
+                onSelect={onSelect}
+                onHover={onHover}
+                onToggleRule={onToggleRule}
+                onToggleScan={onToggleScan}
+                liveScanEnabled={liveScanEnabled}
+                disabledRules={disabledRules}
+                onAddFilter={onAddFilter}
+                activeLocFilters={activeLocFilters}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* 3. Vision section (capture actions) */}
+        {(standardGroups.get("vision")?.length ?? 0) > 0 && (
+          <div className="mb-2">
+            <CommandPaletteSectionHeader
+              icon={CATEGORY_CONFIG.vision.icon}
+              categoryId="vision"
+            >
+              {CATEGORY_CONFIG.vision.name} ({standardGroups.get("vision")!.length})
+            </CommandPaletteSectionHeader>
+
+            {standardGroups.get("vision")!.map(({ result, index }) => (
+              <ResultItem
+                key={result.item.id}
+                result={result}
+                index={index}
+                isSelected={selectedIndex === index}
+                isPinned={selectedItemId === result.item.id}
+                onSelect={onSelect}
+                onHover={onHover}
+                onToggleRule={onToggleRule}
+                onToggleScan={onToggleScan}
+                liveScanEnabled={liveScanEnabled}
+                disabledRules={disabledRules}
+                onAddFilter={onAddFilter}
+                activeLocFilters={activeLocFilters}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* 4. Rules section */}
+        {(standardGroups.get("rules")?.length ?? 0) > 0 && (
+          <div className="mb-2">
+            <CommandPaletteSectionHeader
+              icon={CATEGORY_CONFIG.rules.icon}
+              categoryId="rules"
+            >
+              {CATEGORY_CONFIG.rules.name} ({standardGroups.get("rules")!.length})
+            </CommandPaletteSectionHeader>
+
+            {standardGroups.get("rules")!.map(({ result, index }) => (
+              <ResultItem
+                key={result.item.id}
+                result={result}
+                index={index}
+                isSelected={selectedIndex === index}
+                isPinned={selectedItemId === result.item.id}
+                onSelect={onSelect}
+                onHover={onHover}
+                onToggleRule={onToggleRule}
+                onToggleScan={onToggleScan}
+                liveScanEnabled={liveScanEnabled}
+                disabledRules={disabledRules}
+                onAddFilter={onAddFilter}
+                activeLocFilters={activeLocFilters}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* 5. Settings section - LAST */}
+        {(standardGroups.get("settings")?.length ?? 0) > 0 && (
+          <div className="mb-2">
+            <CommandPaletteSectionHeader
+              icon={CATEGORY_CONFIG.settings.icon}
+              categoryId="settings"
+            >
+              {CATEGORY_CONFIG.settings.name} ({standardGroups.get("settings")!.length})
+            </CommandPaletteSectionHeader>
+
+            {standardGroups.get("settings")!.map(({ result, index }) => (
+              <ResultItem
+                key={result.item.id}
+                result={result}
+                index={index}
+                isSelected={selectedIndex === index}
+                isPinned={selectedItemId === result.item.id}
+                onSelect={onSelect}
+                onHover={onHover}
+                onToggleRule={onToggleRule}
+                onToggleScan={onToggleScan}
+                liveScanEnabled={liveScanEnabled}
+                disabledRules={disabledRules}
+                onAddFilter={onAddFilter}
+                activeLocFilters={activeLocFilters}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </ScrollArea>
   );
@@ -156,6 +334,8 @@ function ResultItem({
   onSelect,
   onHover,
   onToggleRule,
+  onToggleScan,
+  liveScanEnabled,
   disabledRules,
   onAddFilter,
   activeLocFilters = [],
@@ -168,6 +348,8 @@ function ResultItem({
   onSelect: (index: number) => void;
   onHover: (itemId: string | null) => void;
   onToggleRule: (ruleId: string) => void;
+  onToggleScan: () => void;
+  liveScanEnabled: boolean;
   disabledRules: Set<string>;
   onAddFilter?: (filter: CommandPaletteFilter) => void;
   activeLocFilters?: CommandPaletteFilter[];
@@ -189,6 +371,8 @@ function ResultItem({
             onClick={() => onSelect(index)}
             onMouseEnter={() => onHover(item.id)}
             onMouseLeave={() => onHover(null)}
+            onToggleScan={onToggleScan}
+            liveScanEnabled={liveScanEnabled}
           />
         </div>
       );
@@ -282,7 +466,7 @@ function ResultItem({
 }
 
 /**
- * Action item (connect, start scan, capture, etc.)
+ * Action item (connect, toggle scan, capture, etc.)
  */
 function ActionItem({
   id,
@@ -293,6 +477,8 @@ function ActionItem({
   onClick,
   onMouseEnter,
   onMouseLeave,
+  onToggleScan,
+  liveScanEnabled,
 }: {
   id: string;
   title: string;
@@ -302,23 +488,55 @@ function ActionItem({
   onClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  onToggleScan: () => void;
+  liveScanEnabled: boolean;
 }) {
   const icon = useMemo(() => {
     switch (actionType) {
       case "connect":
-        return <Icons.Plug className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />;
-      case "start-scan":
-        return <Icons.Scan className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />;
-      case "stop-scan":
-        return <Icons.X className="w-4 h-4 text-zinc-500" />;
+        return <Icons.Plug className="w-4 h-4 text-text-secondary" />;
+      case "toggle-scan":
+        return <Icons.Scan className="w-4 h-4 text-text-secondary" />;
       case "capture-full":
-        return <Icons.Camera className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />;
+        return <Icons.Camera className="w-4 h-4 text-text-secondary" />;
       case "capture-region":
-        return <Icons.Crop className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />;
+        return <Icons.Crop className="w-4 h-4 text-text-secondary" />;
       default:
-        return <Icons.Zap className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />;
+        return <Icons.Zap className="w-4 h-4 text-text-secondary" />;
     }
   }, [actionType]);
+
+  // For toggle-scan, show On/Off button like rules
+  if (actionType === "toggle-scan") {
+    return (
+      <CommandPaletteItem
+        icon={icon}
+        title={title}
+        subtitle={subtitle}
+        isSelected={isSelected}
+        onClick={onClick}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        rightElement={
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleScan();
+            }}
+            className={cn(
+              "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+              liveScanEnabled
+                ? "bg-surface-elevated text-foreground hover:bg-hover"
+                : "bg-surface text-text-disabled hover:bg-hover"
+            )}
+          >
+            {liveScanEnabled ? "On" : "Off"}
+          </button>
+        }
+      />
+    );
+  }
 
   return (
     <CommandPaletteItem
@@ -377,7 +595,7 @@ function RuleItem({
     <div
       className={cn(
         "group",
-        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50 ring-inset"
+        isPinned && "ring-1 ring-border ring-inset"
       )}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
@@ -388,8 +606,8 @@ function RuleItem({
             className={cn(
               "w-2 h-2 rounded-full",
               rule.category === "static"
-                ? "bg-zinc-600 dark:bg-zinc-400"
-                : "bg-zinc-400 dark:bg-zinc-500"
+                ? "bg-text-secondary"
+                : "bg-muted-foreground"
             )}
           />
         }
@@ -400,7 +618,7 @@ function RuleItem({
             {issueCount > 0 ? (
               <IssueCountBadge count={issueCount} />
             ) : (
-              <span className="text-[10px] text-zinc-400">0</span>
+              <span className="text-[10px] text-text-disabled">0</span>
             )}
             {/* Toggle button */}
             <button
@@ -412,8 +630,8 @@ function RuleItem({
               className={cn(
                 "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
                 isEnabled
-                  ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600"
-                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                  ? "bg-surface-elevated text-foreground hover:bg-hover"
+                  : "bg-surface text-text-disabled hover:bg-hover"
               )}
             >
               {isEnabled ? "On" : "Off"}
@@ -474,7 +692,7 @@ function CaptureItem({
     <div
       className={cn(
         "group",
-        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50 ring-inset"
+        isPinned && "ring-1 ring-border ring-inset"
       )}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
@@ -482,13 +700,13 @@ function CaptureItem({
       <div
         className={cn(
           "flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors duration-75",
-          "hover:bg-zinc-100/80 dark:hover:bg-zinc-700/50",
-          isSelected && "bg-zinc-100/80 dark:bg-zinc-700/50"
+          "hover:bg-hover",
+          isSelected && "bg-hover"
         )}
         onClick={handleClick}
       >
         {/* Thumbnail */}
-        <div className="flex-shrink-0 w-10 h-10 rounded overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+        <div className="flex-shrink-0 w-10 h-10 rounded overflow-hidden bg-surface-elevated">
           {imageSrc ? (
             <img
               src={imageSrc}
@@ -497,17 +715,17 @@ function CaptureItem({
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <Icons.Image className="w-4 h-4 text-zinc-400" />
+              <Icons.Image className="w-4 h-4 text-text-disabled" />
             </div>
           )}
         </div>
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+          <div className="text-sm font-medium text-foreground truncate">
             {title}
           </div>
-          <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+          <div className="text-xs text-muted-foreground truncate">
             {subtitle}
           </div>
         </div>
@@ -517,8 +735,8 @@ function CaptureItem({
           {issueCount > 0 ? (
             <IssueCountBadge count={issueCount} />
           ) : (
-            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-zinc-100 dark:bg-zinc-800">
-              <Icons.Check className="w-3 h-3 text-zinc-600 dark:text-zinc-400" />
+            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-surface-elevated">
+              <Icons.Check className="w-3 h-3 text-text-secondary" />
             </span>
           )}
         </div>
@@ -567,13 +785,13 @@ function FileItem({
     <div
       className={cn(
         "group",
-        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50 ring-inset"
+        isPinned && "ring-1 ring-border ring-inset"
       )}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
       <CommandPaletteItem
-        icon={<Icons.File className="w-4 h-4 text-zinc-500" />}
+        icon={<Icons.File className="w-4 h-4 text-muted-foreground" />}
         title={title}
         subtitle={subtitle}
         rightElement={
@@ -689,13 +907,13 @@ function IssueItem({
     <div
       className={cn(
         "group",
-        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50 ring-inset"
+        isPinned && "ring-1 ring-border ring-inset"
       )}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
       <CommandPaletteItem
-        icon={<Icons.AlertTriangle className="w-4 h-4 text-zinc-500" />}
+        icon={<Icons.AlertTriangle className="w-4 h-4 text-muted-foreground" />}
         title={title}
         subtitle={subtitle}
         rightElement={
@@ -705,8 +923,8 @@ function IssueItem({
               onClick={(e) => e.stopPropagation()}
               className={cn(
                 "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
-                "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400",
-                "hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                "bg-surface-elevated text-text-secondary",
+                "hover:bg-hover transition-colors"
               )}
             >
               <Icons.ExternalLink className="w-3 h-3" />
@@ -746,10 +964,10 @@ function ExpandedIssueItem({
     <div
       className={cn(
         "mx-2 my-1 rounded-lg overflow-hidden",
-        "border border-zinc-200/50 dark:border-zinc-700/50",
-        "bg-zinc-50/50 dark:bg-zinc-800/30",
-        isSelected && "ring-2 ring-zinc-400/50 dark:ring-zinc-500/50",
-        isPinned && "ring-1 ring-zinc-400/50 dark:ring-zinc-500/50"
+        "border border-border",
+        "bg-surface-elevated",
+        isSelected && "ring-2 ring-border",
+        isPinned && "ring-1 ring-border"
       )}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
@@ -759,27 +977,27 @@ function ExpandedIssueItem({
         <div
           className={cn(
             "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0",
-            "bg-zinc-100 dark:bg-zinc-800"
+            "bg-muted"
           )}
         >
-          <Icons.AlertTriangle className="w-3.5 h-3.5 text-zinc-500" />
+          <Icons.AlertTriangle className="w-3.5 h-3.5 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-snug">
+          <p className="text-sm font-medium text-foreground leading-snug">
             {eslintIssue.message}
           </p>
         </div>
       </div>
 
       {/* Location */}
-      <div className="flex items-center gap-2 px-3 pb-2 text-xs text-zinc-500 dark:text-zinc-400">
+      <div className="flex items-center gap-2 px-3 pb-2 text-xs text-muted-foreground">
         <Icons.File className="w-3.5 h-3.5 flex-shrink-0" />
         <span className="truncate font-mono text-[11px]">{filePath}</span>
-        <span className="text-zinc-300 dark:text-zinc-600">:</span>
+        <span className="text-text-disabled">:</span>
         <span className="font-mono">{eslintIssue.line}</span>
         {eslintIssue.column && (
           <>
-            <span className="text-zinc-300 dark:text-zinc-600">:</span>
+            <span className="text-text-disabled">:</span>
             <span className="font-mono">{eslintIssue.column}</span>
           </>
         )}
@@ -798,9 +1016,9 @@ function ExpandedIssueItem({
       )}
 
       {/* Footer with rule ID and actions */}
-      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-zinc-100/50 dark:bg-zinc-800/50 border-t border-zinc-200/30 dark:border-zinc-700/30">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted border-t border-border">
         {eslintIssue.ruleId && (
-          <code className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-200/50 dark:bg-zinc-700/50">
+          <code className="text-[10px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-surface">
             {eslintIssue.ruleId}
           </code>
         )}
@@ -810,8 +1028,8 @@ function ExpandedIssueItem({
             onClick={(e) => e.stopPropagation()}
             className={cn(
               "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md",
-              "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900",
-              "hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors",
+              "bg-accent text-accent-foreground",
+              "hover:bg-accent/90 transition-colors",
               "text-xs font-medium"
             )}
           >
@@ -836,8 +1054,8 @@ function IssueCountBadge({ count }: { count: number }) {
         "text-[10px] font-semibold",
         "rounded-full",
         count > 0
-          ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300"
-          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
+          ? "bg-surface-elevated text-foreground"
+          : "bg-surface text-muted-foreground"
       )}
     >
       {count}
@@ -851,8 +1069,8 @@ function IssueCountBadge({ count }: { count: number }) {
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center">
-      <Icons.Search className="w-8 h-8 mb-2 text-zinc-300 dark:text-zinc-600" />
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">{message}</p>
+      <Icons.Search className="w-8 h-8 mb-2 text-text-disabled" />
+      <p className="text-sm text-muted-foreground">{message}</p>
     </div>
   );
 }

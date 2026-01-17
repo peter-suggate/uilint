@@ -11,7 +11,7 @@ import type { VisionIssue } from "../../../scanner/vision-capture";
 /**
  * Categories for organizing items in the unified list
  */
-export type CategoryType = "actions" | "rules" | "captures" | "files" | "issues";
+export type CategoryType = "settings" | "vision" | "actions" | "rules" | "captures" | "files" | "issues";
 
 /**
  * Result types that can appear in search
@@ -54,7 +54,7 @@ export interface SearchableItem {
  */
 export type ActionType =
   | "connect"
-  | "disconnect"
+  | "toggle-scan"
   | "start-scan"
   | "stop-scan"
   | "capture-full"
@@ -143,7 +143,8 @@ export interface KeyboardNavigationOptions {
  * Grouped search results by category
  */
 export interface GroupedSearchResults {
-  actions: ScoredSearchResult[];
+  settings: ScoredSearchResult[];
+  vision: ScoredSearchResult[];
   rules: ScoredSearchResult[];
   captures: ScoredSearchResult[];
   files: ScoredSearchResult[];

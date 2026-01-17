@@ -63,7 +63,7 @@ export function CommandPaletteInput({
     <div
       className={cn(
         "flex flex-col",
-        "border-b border-white/10 dark:border-white/5"
+        "border-b border-border"
       )}
       data-ui-lint
     >
@@ -71,7 +71,7 @@ export function CommandPaletteInput({
       <div
         className={cn(
           "flex items-center gap-3 px-4 py-3",
-          "bg-white/30 dark:bg-black/20",
+          "bg-surface-elevated",
           hasFilters && "flex-wrap"
         )}
       >
@@ -80,9 +80,9 @@ export function CommandPaletteInput({
           className={cn(
             "px-1.5 py-0.5",
             "text-[10px] font-medium",
-            "bg-white/50 dark:bg-white/10",
-            "rounded border border-white/30 dark:border-white/10",
-            "text-zinc-500 dark:text-zinc-400",
+            "bg-muted",
+            "rounded border border-border",
+            "text-muted-foreground",
             "shadow-sm",
             "flex-shrink-0"
           )}
@@ -91,7 +91,7 @@ export function CommandPaletteInput({
         </kbd>
 
         {/* Search icon */}
-        <Icons.Search className="w-4 h-4 text-zinc-400 dark:text-zinc-500 flex-shrink-0" />
+        <Icons.Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
 
         {/* Filter chips */}
         {hasFilters && onRemoveFilter && (
@@ -108,8 +108,8 @@ export function CommandPaletteInput({
           placeholder={hasFilters ? "Add more filters..." : placeholder}
           className={cn(
             "flex-1 min-w-[120px] bg-transparent border-0 outline-none",
-            "text-sm text-zinc-900 dark:text-zinc-100",
-            "placeholder-zinc-500 dark:placeholder-zinc-400"
+            "text-sm text-foreground",
+            "placeholder-muted-foreground"
           )}
           data-ui-lint
         />
@@ -127,9 +127,8 @@ export function CommandPaletteInput({
             }}
             className={cn(
               "p-1 rounded-full flex-shrink-0",
-              "text-zinc-400 hover:text-zinc-600",
-              "dark:text-zinc-500 dark:hover:text-zinc-300",
-              "hover:bg-white/50 dark:hover:bg-white/10",
+              "text-muted-foreground hover:text-foreground",
+              "hover:bg-hover",
               "transition-colors"
             )}
             data-ui-lint
@@ -145,14 +144,14 @@ export function CommandPaletteInput({
               "flex items-center gap-1.5 px-2 py-1 rounded-full flex-shrink-0",
               "text-[10px] font-medium",
               isConnected
-                ? "text-green-600 dark:text-green-400 bg-green-500/10"
-                : "text-zinc-500 dark:text-zinc-400 bg-zinc-500/10"
+                ? "text-success bg-success-bg"
+                : "text-muted-foreground bg-muted"
             )}
           >
             <span
               className={cn(
                 "w-1.5 h-1.5 rounded-full",
-                isConnected ? "bg-green-500" : "bg-zinc-400"
+                isConnected ? "bg-success" : "bg-muted-foreground"
               )}
             />
             {isConnected ? "Connected" : "Disconnected"}

@@ -9,6 +9,7 @@ export {
   CommandPaletteItem,
   CommandPaletteSectionHeader,
 } from "./CommandPaletteItem";
+export { CategorySidebar } from "./CategorySidebar";
 export { RuleToggleItem } from "./RuleToggleItem";
 export { useFuzzySearch, buildSearchableItems } from "./use-fuzzy-search";
 export {

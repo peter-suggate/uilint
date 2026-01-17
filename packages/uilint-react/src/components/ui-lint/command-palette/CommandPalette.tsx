@@ -12,7 +12,7 @@ import {
 import { getUILintPortalHost } from "../portal-host";
 import { CommandPaletteInput } from "./CommandPaletteInput";
 import { CommandPaletteResults } from "./CommandPaletteResults";
-import { ActionTilesGrid } from "./ActionTilesGrid";
+import { CategorySidebar } from "./CategorySidebar";
 import {
   useKeyboardNavigation,
   useCommandPaletteShortcut,
@@ -21,11 +21,12 @@ import { useFuzzySearch, buildSearchableItems } from "./use-fuzzy-search";
 import type {
   SearchableItem,
   ActionSearchData,
+  IssueSearchData,
   CommandPaletteFilter,
 } from "./types";
 
 /** Palette dimensions */
-const PALETTE_WIDTH = 560;
+const PALETTE_WIDTH = 720; // Wider to accommodate sidebar
 const PALETTE_HEIGHT_ESTIMATE = 400; // approximate height for positioning
 const VIEWPORT_PADDING = 16;
 
@@ -67,6 +68,7 @@ function calculatePalettePosition(iconPos: FloatingIconPosition | null): {
 
 /**
  * Build suggested action items based on current state
+ * Actions are organized into categories: settings, vision
  */
 function buildActionItems(
   wsConnected: boolean,
@@ -74,59 +76,49 @@ function buildActionItems(
 ): SearchableItem[] {
   const actions: SearchableItem[] = [];
 
-  // Connection actions
+  // Connection action (shown when not connected)
   if (!wsConnected) {
     actions.push({
       type: "action",
-      category: "actions",
+      category: "settings",
       id: "action:connect",
       searchText: "connect server start uilint serve",
       title: "Connect to server",
-      subtitle: "Run `npx uilint serve` to start",
+      subtitle: "Run `npx uilint serve` to start the analysis server",
       data: { type: "action", actionType: "connect" } as ActionSearchData,
     });
   } else {
-    // Scan actions (only when connected)
-    if (!liveScanEnabled) {
-      actions.push({
-        type: "action",
-        category: "actions",
-        id: "action:start-scan",
-        searchText: "start scan eslint lint check",
-        title: "Start ESLint scan",
-        subtitle: "Scan page for code quality issues",
-        data: { type: "action", actionType: "start-scan" } as ActionSearchData,
-      });
-    } else {
-      actions.push({
-        type: "action",
-        category: "actions",
-        id: "action:stop-scan",
-        searchText: "stop scan disable",
-        title: "Stop scanning",
-        subtitle: "Disable live scanning",
-        data: { type: "action", actionType: "stop-scan" } as ActionSearchData,
-      });
-    }
-
-    // Vision capture actions (always available when connected)
+    // Settings category: ESLint scan toggle
     actions.push({
       type: "action",
-      category: "actions",
+      category: "settings",
+      id: "action:toggle-scan",
+      searchText: "eslint scan lint toggle enable disable settings",
+      title: "ESLint Scanning",
+      subtitle: liveScanEnabled
+        ? "Live scanning is active - click to disable"
+        : "Enable real-time code quality analysis",
+      data: { type: "action", actionType: "toggle-scan" } as ActionSearchData,
+    });
+
+    // Vision category: Capture actions
+    actions.push({
+      type: "action",
+      category: "vision",
       id: "action:capture-full",
-      searchText: "capture screenshot full page vision analyze",
-      title: "Capture full page",
-      subtitle: "AI-powered visual consistency analysis",
+      searchText: "capture screenshot full page vision analyze ai",
+      title: "Capture Full Page",
+      subtitle: "AI-powered visual consistency analysis of the entire viewport",
       data: { type: "action", actionType: "capture-full" } as ActionSearchData,
     });
 
     actions.push({
       type: "action",
-      category: "actions",
+      category: "vision",
       id: "action:capture-region",
-      searchText: "capture screenshot region select area vision",
-      title: "Capture region",
-      subtitle: "Select area to analyze",
+      searchText: "capture screenshot region select area vision analyze ai",
+      title: "Capture Region",
+      subtitle: "Select a specific area of the page to analyze",
       data: {
         type: "action",
         actionType: "capture-region",
@@ -244,55 +236,76 @@ export function CommandPalette() {
     [commandPaletteFilters]
   );
 
-  // Compute which action tiles should be highlighted based on search query
-  const highlightedActions = useMemo(() => {
-    const highlighted = new Set<string>();
-    if (!query.trim()) return highlighted;
+  // State for scroll-to-category
+  const [scrollToCategory, setScrollToCategory] = useState<string | null>(null);
 
-    const q = query.toLowerCase();
-    // Scan tile matches
-    if (
-      "scan".includes(q) ||
-      "eslint".includes(q) ||
-      "lint".includes(q) ||
-      q.includes("scan") ||
-      q.includes("eslint") ||
-      q.includes("lint")
-    ) {
-      highlighted.add("scan");
-    }
-    // Capture full page matches
-    if (
-      "capture".includes(q) ||
-      "full".includes(q) ||
-      "page".includes(q) ||
-      "screenshot".includes(q) ||
-      q.includes("capture") ||
-      q.includes("full") ||
-      q.includes("screenshot")
-    ) {
-      highlighted.add("capture-full");
-    }
-    // Capture region matches
-    if (
-      "capture".includes(q) ||
-      "region".includes(q) ||
-      "area".includes(q) ||
-      "select".includes(q) ||
-      q.includes("capture") ||
-      q.includes("region") ||
-      q.includes("area")
-    ) {
-      highlighted.add("capture-region");
-    }
-    return highlighted;
-  }, [query]);
+  // Compute file categories from issue results for sidebar
+  const fileCategories = useMemo(() => {
+    const fileMap = new Map<
+      string,
+      { count: number; fileName: string; directory: string }
+    >();
 
-  // Filter out actions from search results (they're shown as tiles now)
-  const filteredSearchResults = useMemo(
-    () => searchResults.filter((r) => r.item.type !== "action"),
+    for (const result of searchResults) {
+      if (result.item.type === "issue") {
+        const issueData = result.item.data as IssueSearchData;
+        if (issueData.filePath) {
+          const existing = fileMap.get(issueData.filePath);
+          if (existing) {
+            existing.count++;
+          } else {
+            // Extract filename and directory separately
+            const parts = issueData.filePath.split("/");
+            const fileName = parts[parts.length - 1] || issueData.filePath;
+            const directory =
+              parts.length >= 2 ? parts.slice(0, -1).join("/") : "";
+            fileMap.set(issueData.filePath, { count: 1, fileName, directory });
+          }
+        }
+      }
+    }
+
+    return Array.from(fileMap.entries()).map(([filePath, data]) => ({
+      filePath,
+      fileName: data.fileName,
+      directory: data.directory,
+      issueCount: data.count,
+    }));
+  }, [searchResults]);
+
+  // Count settings items in results
+  const settingsCount = useMemo(
+    () => searchResults.filter((r) => r.item.category === "settings").length,
     [searchResults]
   );
+
+  // Count vision items in results
+  const visionCount = useMemo(
+    () => searchResults.filter((r) => r.item.category === "vision").length,
+    [searchResults]
+  );
+
+  // Count captures in results
+  const capturesCount = useMemo(
+    () => searchResults.filter((r) => r.item.type === "capture").length,
+    [searchResults]
+  );
+
+  // Count rules in results
+  const rulesCount = useMemo(
+    () => searchResults.filter((r) => r.item.type === "rule").length,
+    [searchResults]
+  );
+
+  // Handle category click from sidebar
+  const handleCategoryClick = useCallback((categoryId: string) => {
+    setScrollToCategory(categoryId);
+  }, []);
+
+  // Clear scroll target after scroll completes
+  const handleScrollComplete = useCallback(() => {
+    setScrollToCategory(null);
+  }, []);
 
   // Sync visible result IDs to store for heatmap filtering
   useEffect(() => {
@@ -302,36 +315,55 @@ export function CommandPalette() {
     }
   }, [isOpen, searchResults, setVisibleCommandPaletteResultIds]);
 
-  // Total item count for keyboard navigation (excluding action tiles)
-  const itemCount = filteredSearchResults.length;
+  // Total item count for keyboard navigation
+  const itemCount = searchResults.length;
 
-  // Tile action handlers
-  const handleToggleScan = useCallback(() => {
-    if (liveScanEnabled) {
-      disableLiveScan();
-    } else {
-      enableLiveScan(true);
-    }
-  }, [liveScanEnabled, enableLiveScan, disableLiveScan]);
-
-  const handleCaptureFullPage = useCallback(() => {
-    triggerVisionAnalysis();
-    closeCommandPalette();
-  }, [triggerVisionAnalysis, closeCommandPalette]);
-
-  const handleCaptureRegion = useCallback(() => {
-    setRegionSelectionActive(true);
-    closeCommandPalette();
-  }, [setRegionSelectionActive, closeCommandPalette]);
-
-  // Handle item selection (click) - actions are now in tiles, this only handles list items
+  // Handle item selection (click or Enter key)
   const handleSelect = useCallback(
     (index: number) => {
-      const result = filteredSearchResults[index];
+      const result = searchResults[index];
       if (!result) return;
-      // List items don't have direct selection behavior - they add filters via onAddFilter
+
+      const item = result.item;
+
+      // Handle action items directly
+      if (item.type === "action") {
+        const actionData = item.data as ActionSearchData;
+        switch (actionData.actionType) {
+          case "connect":
+            connectWebSocket();
+            closeCommandPalette();
+            break;
+          case "toggle-scan":
+            if (liveScanEnabled) {
+              disableLiveScan();
+            } else {
+              enableLiveScan(true);
+            }
+            // Don't close palette - let user see the state change
+            break;
+          case "capture-full":
+            triggerVisionAnalysis();
+            closeCommandPalette();
+            break;
+          case "capture-region":
+            setRegionSelectionActive(true);
+            closeCommandPalette();
+            break;
+        }
+      }
+      // Other item types (rules, files, issues) add filters via onAddFilter
     },
-    [filteredSearchResults]
+    [
+      searchResults,
+      liveScanEnabled,
+      closeCommandPalette,
+      connectWebSocket,
+      enableLiveScan,
+      disableLiveScan,
+      triggerVisionAnalysis,
+      setRegionSelectionActive,
+    ]
   );
 
   // Handle adding a filter
@@ -364,14 +396,14 @@ export function CommandPalette() {
       }
 
       // Find the item for rule-specific highlighting
-      const result = filteredSearchResults.find((r) => r.item.id === itemId);
+      const result = searchResults.find((r) => r.item.id === itemId);
       if (result?.item.type === "rule") {
         setHighlightedRuleId(result.item.id);
       } else {
         setHighlightedRuleId(null);
       }
     },
-    [filteredSearchResults, setHighlightedRuleId, setHoveredCommandPaletteItemId]
+    [searchResults, setHighlightedRuleId, setHoveredCommandPaletteItemId]
   );
 
   // Keyboard navigation
@@ -419,8 +451,8 @@ export function CommandPalette() {
       className={cn(
         // Position: dynamic based on floating icon
         "fixed z-[100000]",
-        // Size
-        "w-[560px] max-w-[calc(100vw-32px)]"
+        // Size - wider to accommodate sidebar
+        "w-[720px] max-w-[calc(100vw-32px)]"
       )}
       style={{
         left: `${palettePosition.left}px`,
@@ -444,16 +476,16 @@ export function CommandPalette() {
         exit={{ opacity: 0, scale: 0.98 }}
         transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
         className={cn(
-          // Glass/frosted effect
-          "bg-white/70 dark:bg-zinc-900/70",
+          // Glass/frosted effect with theme colors
+          "bg-glass",
           "backdrop-blur-2xl backdrop-saturate-150",
 
           // Subtle border with glass-like shine
-          "border border-white/20 dark:border-white/10",
-          "ring-1 ring-black/5 dark:ring-white/5",
+          "border border-glass-border",
+          "ring-1 ring-glass-border",
 
           // Shadow for depth
-          "shadow-2xl shadow-black/10 dark:shadow-black/30",
+          "shadow-2xl",
 
           // Rounded corners
           "rounded-2xl",
@@ -472,62 +504,66 @@ export function CommandPalette() {
           onRemoveFilter={handleRemoveFilter}
         />
 
-        {/* Action tiles grid (scan toggle, capture actions) */}
-        <ActionTilesGrid
-          liveScanEnabled={liveScanEnabled}
-          wsConnected={wsConnected}
-          onToggleScan={handleToggleScan}
-          onCaptureFullPage={handleCaptureFullPage}
-          onCaptureRegion={handleCaptureRegion}
-          highlightedActions={highlightedActions}
-        />
+        {/* Main content area with sidebar and results */}
+        <div className="flex max-h-[400px]">
+          {/* Category sidebar */}
+          <CategorySidebar
+            fileCategories={fileCategories}
+            settingsCount={settingsCount}
+            visionCount={visionCount}
+            capturesCount={capturesCount}
+            rulesCount={rulesCount}
+            onCategoryClick={handleCategoryClick}
+          />
 
-        {/* Results list (excluding actions - they're shown as tiles) */}
-        <CommandPaletteResults
-          results={filteredSearchResults}
-          selectedIndex={selectedIndex}
-          selectedItemId={selectedCommandPaletteItemId}
-          onSelect={handleSelect}
-          onHover={handleHover}
-          onToggleRule={toggleRule}
-          disabledRules={disabledRules}
-          onAddFilter={handleAddFilter}
-          activeLocFilters={activeLocFilters}
-        />
+          {/* Results list */}
+          <CommandPaletteResults
+            results={searchResults}
+            selectedIndex={selectedIndex}
+            selectedItemId={selectedCommandPaletteItemId}
+            onSelect={handleSelect}
+            onHover={handleHover}
+            onToggleRule={toggleRule}
+            onToggleScan={() => {
+              if (liveScanEnabled) {
+                disableLiveScan();
+              } else {
+                enableLiveScan(true);
+              }
+            }}
+            liveScanEnabled={liveScanEnabled}
+            disabledRules={disabledRules}
+            onAddFilter={handleAddFilter}
+            activeLocFilters={activeLocFilters}
+            scrollToCategory={scrollToCategory}
+            onScrollComplete={handleScrollComplete}
+          />
+        </div>
 
         {/* Footer hint */}
         <div
           className={cn(
             "px-4 py-2",
-            "text-[10px] text-zinc-500 dark:text-zinc-400",
-            "border-t border-white/10 dark:border-white/5",
-            "bg-black/5 dark:bg-white/5",
+            "text-[10px] text-muted-foreground",
+            "border-t border-border",
             "flex items-center gap-4"
           )}
           data-ui-lint
         >
           <span>
-            <kbd className="px-1 py-0.5 rounded bg-white/50 dark:bg-white/10">
-              ↑↓
-            </kbd>{" "}
+            <kbd className="px-1 py-0.5 rounded bg-surface-elevated">↑↓</kbd>{" "}
             Navigate
           </span>
           <span>
-            <kbd className="px-1 py-0.5 rounded bg-white/50 dark:bg-white/10">
-              ⏎
-            </kbd>{" "}
+            <kbd className="px-1 py-0.5 rounded bg-surface-elevated">⏎</kbd>{" "}
             Filter
           </span>
           <span>
-            <kbd className="px-1 py-0.5 rounded bg-white/50 dark:bg-white/10">
-              ⌫
-            </kbd>{" "}
+            <kbd className="px-1 py-0.5 rounded bg-surface-elevated">⌫</kbd>{" "}
             Remove filter
           </span>
           <span>
-            <kbd className="px-1 py-0.5 rounded bg-white/50 dark:bg-white/10">
-              esc
-            </kbd>{" "}
+            <kbd className="px-1 py-0.5 rounded bg-surface-elevated">esc</kbd>{" "}
             Close
           </span>
         </div>

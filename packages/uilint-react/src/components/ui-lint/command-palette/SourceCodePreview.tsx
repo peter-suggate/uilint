@@ -73,14 +73,14 @@ export function SourceCodePreview({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-6">
-        <Icons.Spinner className="w-4 h-4 text-zinc-400 animate-spin" />
+        <Icons.Spinner className="w-4 h-4 text-muted-foreground animate-spin" />
       </div>
     );
   }
 
   if (!sourceData) {
     return (
-      <div className="text-xs text-zinc-400 dark:text-zinc-500 py-4 text-center">
+      <div className="text-xs text-muted-foreground py-4 text-center">
         Unable to load source code
       </div>
     );
@@ -93,13 +93,13 @@ export function SourceCodePreview({
       transition={{ duration: 0.2, delay: 0.1 }}
       className={cn(
         "rounded-lg overflow-hidden",
-        "bg-zinc-50 dark:bg-zinc-900",
-        "border border-zinc-200/80 dark:border-zinc-700/80"
+        "bg-surface",
+        "border border-border"
       )}
     >
       {/* Context controls */}
       {showControls && (
-        <div className="flex items-center justify-end gap-1 px-2 py-1.5 border-b border-zinc-200/50 dark:border-zinc-700/50">
+        <div className="flex items-center justify-end gap-1 px-2 py-1.5 border-b border-border">
           <button
             onClick={() => setContextLines((c) => Math.max(1, c - 2))}
             disabled={contextLines <= 1}
@@ -107,14 +107,14 @@ export function SourceCodePreview({
               "w-5 h-5 rounded flex items-center justify-center text-xs font-medium",
               "transition-colors duration-100",
               contextLines <= 1
-                ? "text-zinc-300 dark:text-zinc-600 cursor-not-allowed"
-                : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50"
+                ? "text-text-disabled cursor-not-allowed"
+                : "text-muted-foreground hover:text-foreground hover:bg-hover"
             )}
             title="Show less context"
           >
             −
           </button>
-          <span className="text-[10px] text-zinc-400 dark:text-zinc-500 w-4 text-center tabular-nums">
+          <span className="text-[10px] text-muted-foreground w-4 text-center tabular-nums">
             {contextLines}
           </span>
           <button
@@ -124,8 +124,8 @@ export function SourceCodePreview({
               "w-5 h-5 rounded flex items-center justify-center text-xs font-medium",
               "transition-colors duration-100",
               contextLines >= 15
-                ? "text-zinc-300 dark:text-zinc-600 cursor-not-allowed"
-                : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50"
+                ? "text-text-disabled cursor-not-allowed"
+                : "text-muted-foreground hover:text-foreground hover:bg-hover"
             )}
             title="Show more context"
           >
@@ -146,8 +146,8 @@ export function SourceCodePreview({
                 className={cn(
                   "flex",
                   isHighlighted
-                    ? "bg-zinc-200/70 dark:bg-zinc-700/50"
-                    : "hover:bg-zinc-100/50 dark:hover:bg-zinc-800/30"
+                    ? "bg-active"
+                    : "hover:bg-hover"
                 )}
               >
                 {/* Line number */}
@@ -155,8 +155,8 @@ export function SourceCodePreview({
                   className={cn(
                     "w-10 shrink-0 text-right pr-3 select-none",
                     isHighlighted
-                      ? "text-zinc-600 dark:text-zinc-300 font-medium"
-                      : "text-zinc-400 dark:text-zinc-500"
+                      ? "text-text-secondary font-medium"
+                      : "text-muted-foreground"
                   )}
                 >
                   {lineNum}
@@ -166,8 +166,8 @@ export function SourceCodePreview({
                   className={cn(
                     "flex-1 pr-4",
                     isHighlighted
-                      ? "text-zinc-800 dark:text-zinc-100"
-                      : "text-zinc-600 dark:text-zinc-400"
+                      ? "text-foreground"
+                      : "text-text-secondary"
                   )}
                 >
                   {line || " "}

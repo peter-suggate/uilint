@@ -8,41 +8,102 @@
 
 @import "tailwindcss";
 
-/* 
+/*
+ * Tailwind v4 Theme Configuration
+ * Maps CSS variables to Tailwind utility classes for shadcn-style usage
+ * e.g., bg-background, text-foreground, text-muted-foreground, etc.
+ */
+@theme inline {
+  /* Core colors */
+  --color-background: var(--uilint-background);
+  --color-background-elevated: var(--uilint-background-elevated);
+  --color-foreground: var(--uilint-foreground);
+
+  /* Surface colors */
+  --color-surface: var(--uilint-surface);
+  --color-surface-elevated: var(--uilint-surface-elevated);
+
+  /* Muted colors (for secondary text, subtle backgrounds) */
+  --color-muted: var(--uilint-surface-elevated);
+  --color-muted-foreground: var(--uilint-text-muted);
+
+  /* Text colors */
+  --color-text-primary: var(--uilint-text-primary);
+  --color-text-secondary: var(--uilint-text-secondary);
+  --color-text-muted: var(--uilint-text-muted);
+  --color-text-disabled: var(--uilint-text-disabled);
+
+  /* Interactive states */
+  --color-hover: var(--uilint-hover);
+  --color-active: var(--uilint-active);
+
+  /* Border colors */
+  --color-border: var(--uilint-border);
+  --color-border-focus: var(--uilint-border-focus);
+  --color-ring: var(--uilint-border-focus);
+
+  /* Accent colors */
+  --color-accent: var(--uilint-accent);
+  --color-accent-foreground: var(--uilint-accent-foreground);
+
+  /* Status colors */
+  --color-success: var(--uilint-success);
+  --color-success-bg: var(--uilint-success-bg);
+  --color-warning: var(--uilint-warning);
+  --color-warning-bg: var(--uilint-warning-bg);
+  --color-error: var(--uilint-error);
+  --color-error-bg: var(--uilint-error-bg);
+  --color-destructive: var(--uilint-error);
+  --color-destructive-foreground: var(--uilint-accent-foreground);
+
+  /* Effects */
+  --color-backdrop: var(--uilint-backdrop);
+
+  /* Glass effect - semi-transparent for glass morphism */
+  --color-glass: var(--uilint-glass);
+  --color-glass-border: var(--uilint-glass-border);
+
+  /* Radius */
+  --radius-lg: var(--uilint-radius);
+  --radius-md: calc(var(--uilint-radius) - 2px);
+  --radius-sm: calc(var(--uilint-radius) - 4px);
+}
+
+/*
  * UILint DevTool Theming
- * 
+ *
  * Follows shadcn v4 conventions with OKLCH colors.
  * Inherits from host app's .dark class or system preference.
  */
 
 /* Light theme (default) - Define variables on :root for global availability */
 :root {
-  /* Core colors */
-  --uilint-background: oklch(0.985 0 0);
-  --uilint-background-elevated: oklch(0.97 0 0);
-  --uilint-foreground: oklch(0.145 0 0);
+  /* Core colors - amber tinted (hue ~75) */
+  --uilint-background: oklch(0.985 0.015 75);
+  --uilint-background-elevated: oklch(0.97 0.02 75);
+  --uilint-foreground: oklch(0.18 0.02 75);
 
-  /* Surface colors */
-  --uilint-surface: oklch(0.985 0 0);
-  --uilint-surface-elevated: oklch(0.97 0 0);
+  /* Surface colors - amber tinted */
+  --uilint-surface: oklch(0.985 0.015 75);
+  --uilint-surface-elevated: oklch(0.97 0.02 75);
 
-  /* Text colors */
-  --uilint-text-primary: oklch(0.145 0 0);
-  --uilint-text-secondary: oklch(0.371 0 0);
-  --uilint-text-muted: oklch(0.556 0 0);
-  --uilint-text-disabled: oklch(0.708 0 0);
+  /* Text colors - warm amber tints */
+  --uilint-text-primary: oklch(0.18 0.02 75);
+  --uilint-text-secondary: oklch(0.40 0.025 75);
+  --uilint-text-muted: oklch(0.55 0.03 75);
+  --uilint-text-disabled: oklch(0.70 0.02 75);
 
-  /* Interactive states */
-  --uilint-hover: oklch(0.145 0 0 / 8%);
-  --uilint-active: oklch(0.145 0 0 / 12%);
+  /* Interactive states - amber tinted */
+  --uilint-hover: oklch(0.75 0.08 75 / 15%);
+  --uilint-active: oklch(0.70 0.10 75 / 20%);
 
-  /* Borders */
-  --uilint-border: oklch(0.922 0 0);
-  --uilint-border-focus: oklch(0.588 0.158 241.966);
+  /* Borders - amber tinted */
+  --uilint-border: oklch(0.90 0.025 75);
+  --uilint-border-focus: oklch(0.70 0.15 75);
 
-  /* Accent colors */
-  --uilint-accent: oklch(0.588 0.158 241.966);
-  --uilint-accent-foreground: oklch(0.985 0 0);
+  /* Accent colors - rich amber */
+  --uilint-accent: oklch(0.70 0.16 75);
+  --uilint-accent-foreground: oklch(0.985 0.015 75);
 
   /* Status colors */
   --uilint-success: oklch(0.723 0.191 142.5);
@@ -52,14 +113,18 @@
   --uilint-error: oklch(0.637 0.237 25.331);
   --uilint-error-bg: oklch(0.637 0.237 25.331 / 15%);
 
-  /* Effects */
-  --uilint-shadow: 0 4px 20px oklch(0 0 0 / 15%);
-  --uilint-backdrop: oklch(0.985 0 0 / 92%);
+  /* Effects - amber tinted */
+  --uilint-shadow: 0 4px 20px oklch(0.3 0.05 75 / 15%);
+  --uilint-backdrop: oklch(0.985 0.015 75 / 92%);
 
-  /* Scrollbar */
-  --uilint-scrollbar-track: oklch(0.922 0 0);
-  --uilint-scrollbar-thumb: oklch(0.708 0 0);
-  --uilint-scrollbar-thumb-hover: oklch(0.556 0 0);
+  /* Glass morphism - semi-transparent for frosted glass effect */
+  --uilint-glass: oklch(0.99 0.01 75 / 70%);
+  --uilint-glass-border: oklch(1 0.02 75 / 25%);
+
+  /* Scrollbar - amber tinted */
+  --uilint-scrollbar-track: oklch(0.92 0.02 75);
+  --uilint-scrollbar-thumb: oklch(0.70 0.04 75);
+  --uilint-scrollbar-thumb-hover: oklch(0.55 0.05 75);
 
   /* Sizing */
   --uilint-radius: 12px;
@@ -78,32 +143,32 @@
 .dark .dev-tool-root,
 .dev-tool-root.dark,
 .dev-tool-root[data-theme="dark"] {
-  /* Core colors */
-  --uilint-background: oklch(0.145 0 0);
-  --uilint-background-elevated: oklch(0.205 0 0);
-  --uilint-foreground: oklch(0.985 0 0);
+  /* Core colors - amber tinted dark */
+  --uilint-background: oklch(0.16 0.02 75);
+  --uilint-background-elevated: oklch(0.22 0.025 75);
+  --uilint-foreground: oklch(0.95 0.025 75);
 
-  /* Surface colors */
-  --uilint-surface: oklch(0.145 0 0);
-  --uilint-surface-elevated: oklch(0.205 0 0);
+  /* Surface colors - amber tinted dark */
+  --uilint-surface: oklch(0.16 0.02 75);
+  --uilint-surface-elevated: oklch(0.22 0.025 75);
 
-  /* Text colors */
-  --uilint-text-primary: oklch(0.985 0 0);
-  --uilint-text-secondary: oklch(0.869 0 0);
-  --uilint-text-muted: oklch(0.708 0 0);
-  --uilint-text-disabled: oklch(0.439 0 0);
+  /* Text colors - warm amber tints */
+  --uilint-text-primary: oklch(0.95 0.025 75);
+  --uilint-text-secondary: oklch(0.82 0.03 75);
+  --uilint-text-muted: oklch(0.65 0.035 75);
+  --uilint-text-disabled: oklch(0.45 0.025 75);
 
-  /* Interactive states */
-  --uilint-hover: oklch(1 0 0 / 8%);
-  --uilint-active: oklch(1 0 0 / 12%);
+  /* Interactive states - amber tinted */
+  --uilint-hover: oklch(0.80 0.10 75 / 12%);
+  --uilint-active: oklch(0.80 0.12 75 / 18%);
 
-  /* Borders */
-  --uilint-border: oklch(1 0 0 / 10%);
-  --uilint-border-focus: oklch(0.7 0.15 241.966);
+  /* Borders - amber tinted */
+  --uilint-border: oklch(0.95 0.03 75 / 12%);
+  --uilint-border-focus: oklch(0.75 0.15 75);
 
-  /* Accent colors */
-  --uilint-accent: oklch(0.7 0.15 241.966);
-  --uilint-accent-foreground: oklch(0.145 0 0);
+  /* Accent colors - rich amber */
+  --uilint-accent: oklch(0.75 0.15 75);
+  --uilint-accent-foreground: oklch(0.16 0.02 75);
 
   /* Status colors */
   --uilint-success: oklch(0.723 0.191 142.5);
@@ -113,14 +178,18 @@
   --uilint-error: oklch(0.637 0.237 25.331);
   --uilint-error-bg: oklch(0.637 0.237 25.331 / 20%);
 
-  /* Effects */
-  --uilint-shadow: 0 4px 20px oklch(0 0 0 / 40%);
-  --uilint-backdrop: oklch(0.1 0 0 / 92%);
+  /* Effects - amber tinted */
+  --uilint-shadow: 0 4px 20px oklch(0.1 0.03 75 / 40%);
+  --uilint-backdrop: oklch(0.12 0.02 75 / 92%);
 
-  /* Scrollbar */
-  --uilint-scrollbar-track: oklch(0.205 0 0);
-  --uilint-scrollbar-thumb: oklch(0.371 0 0);
-  --uilint-scrollbar-thumb-hover: oklch(0.439 0 0);
+  /* Glass morphism - semi-transparent for frosted glass effect */
+  --uilint-glass: oklch(0.18 0.02 75 / 70%);
+  --uilint-glass-border: oklch(1 0.02 75 / 12%);
+
+  /* Scrollbar - amber tinted */
+  --uilint-scrollbar-track: oklch(0.22 0.02 75);
+  --uilint-scrollbar-thumb: oklch(0.40 0.04 75);
+  --uilint-scrollbar-thumb-hover: oklch(0.50 0.05 75);
 
   /* Color scheme for native elements */
   color-scheme: dark;
@@ -130,27 +199,27 @@
 @media (prefers-color-scheme: dark) {
   :root:not(.light) .dev-tool-root:not(.light):not([data-theme="light"]),
   .dev-tool-root:not(.light):not([data-theme="light"]) {
-    /* Only apply if not explicitly set to light */
-    --uilint-background: oklch(0.145 0 0);
-    --uilint-background-elevated: oklch(0.205 0 0);
-    --uilint-foreground: oklch(0.985 0 0);
+    /* Only apply if not explicitly set to light - amber tinted dark */
+    --uilint-background: oklch(0.16 0.02 75);
+    --uilint-background-elevated: oklch(0.22 0.025 75);
+    --uilint-foreground: oklch(0.95 0.025 75);
 
-    --uilint-surface: oklch(0.145 0 0);
-    --uilint-surface-elevated: oklch(0.205 0 0);
+    --uilint-surface: oklch(0.16 0.02 75);
+    --uilint-surface-elevated: oklch(0.22 0.025 75);
 
-    --uilint-text-primary: oklch(0.985 0 0);
-    --uilint-text-secondary: oklch(0.869 0 0);
-    --uilint-text-muted: oklch(0.708 0 0);
-    --uilint-text-disabled: oklch(0.439 0 0);
+    --uilint-text-primary: oklch(0.95 0.025 75);
+    --uilint-text-secondary: oklch(0.82 0.03 75);
+    --uilint-text-muted: oklch(0.65 0.035 75);
+    --uilint-text-disabled: oklch(0.45 0.025 75);
 
-    --uilint-hover: oklch(1 0 0 / 8%);
-    --uilint-active: oklch(1 0 0 / 12%);
+    --uilint-hover: oklch(0.80 0.10 75 / 12%);
+    --uilint-active: oklch(0.80 0.12 75 / 18%);
 
-    --uilint-border: oklch(1 0 0 / 10%);
-    --uilint-border-focus: oklch(0.7 0.15 241.966);
+    --uilint-border: oklch(0.95 0.03 75 / 12%);
+    --uilint-border-focus: oklch(0.75 0.15 75);
 
-    --uilint-accent: oklch(0.7 0.15 241.966);
-    --uilint-accent-foreground: oklch(0.145 0 0);
+    --uilint-accent: oklch(0.75 0.15 75);
+    --uilint-accent-foreground: oklch(0.16 0.02 75);
 
     --uilint-success: oklch(0.723 0.191 142.5);
     --uilint-success-bg: oklch(0.723 0.191 142.5 / 20%);
@@ -159,12 +228,15 @@
     --uilint-error: oklch(0.637 0.237 25.331);
     --uilint-error-bg: oklch(0.637 0.237 25.331 / 20%);
 
-    --uilint-shadow: 0 4px 20px oklch(0 0 0 / 40%);
-    --uilint-backdrop: oklch(0.1 0 0 / 92%);
+    --uilint-shadow: 0 4px 20px oklch(0.1 0.03 75 / 40%);
+    --uilint-backdrop: oklch(0.12 0.02 75 / 92%);
 
-    --uilint-scrollbar-track: oklch(0.205 0 0);
-    --uilint-scrollbar-thumb: oklch(0.371 0 0);
-    --uilint-scrollbar-thumb-hover: oklch(0.439 0 0);
+    --uilint-glass: oklch(0.18 0.02 75 / 70%);
+    --uilint-glass-border: oklch(1 0.02 75 / 12%);
+
+    --uilint-scrollbar-track: oklch(0.22 0.02 75);
+    --uilint-scrollbar-thumb: oklch(0.40 0.04 75);
+    --uilint-scrollbar-thumb-hover: oklch(0.50 0.05 75);
 
     color-scheme: dark;
   }
@@ -175,27 +247,27 @@
 .light .dev-tool-root,
 .dev-tool-root.light,
 .dev-tool-root[data-theme="light"] {
-  /* Force light theme variables (same as default) */
-  --uilint-background: oklch(0.985 0 0);
-  --uilint-background-elevated: oklch(0.97 0 0);
-  --uilint-foreground: oklch(0.145 0 0);
+  /* Force light theme variables - amber tinted */
+  --uilint-background: oklch(0.985 0.015 75);
+  --uilint-background-elevated: oklch(0.97 0.02 75);
+  --uilint-foreground: oklch(0.18 0.02 75);
 
-  --uilint-surface: oklch(0.985 0 0);
-  --uilint-surface-elevated: oklch(0.97 0 0);
+  --uilint-surface: oklch(0.985 0.015 75);
+  --uilint-surface-elevated: oklch(0.97 0.02 75);
 
-  --uilint-text-primary: oklch(0.145 0 0);
-  --uilint-text-secondary: oklch(0.371 0 0);
-  --uilint-text-muted: oklch(0.556 0 0);
-  --uilint-text-disabled: oklch(0.708 0 0);
+  --uilint-text-primary: oklch(0.18 0.02 75);
+  --uilint-text-secondary: oklch(0.40 0.025 75);
+  --uilint-text-muted: oklch(0.55 0.03 75);
+  --uilint-text-disabled: oklch(0.70 0.02 75);
 
-  --uilint-hover: oklch(0.145 0 0 / 8%);
-  --uilint-active: oklch(0.145 0 0 / 12%);
+  --uilint-hover: oklch(0.75 0.08 75 / 15%);
+  --uilint-active: oklch(0.70 0.10 75 / 20%);
 
-  --uilint-border: oklch(0.922 0 0);
-  --uilint-border-focus: oklch(0.588 0.158 241.966);
+  --uilint-border: oklch(0.90 0.025 75);
+  --uilint-border-focus: oklch(0.70 0.15 75);
 
-  --uilint-accent: oklch(0.588 0.158 241.966);
-  --uilint-accent-foreground: oklch(0.985 0 0);
+  --uilint-accent: oklch(0.70 0.16 75);
+  --uilint-accent-foreground: oklch(0.985 0.015 75);
 
   --uilint-success: oklch(0.723 0.191 142.5);
   --uilint-success-bg: oklch(0.723 0.191 142.5 / 15%);
@@ -204,12 +276,15 @@
   --uilint-error: oklch(0.637 0.237 25.331);
   --uilint-error-bg: oklch(0.637 0.237 25.331 / 15%);
 
-  --uilint-shadow: 0 4px 20px oklch(0 0 0 / 15%);
-  --uilint-backdrop: oklch(0.985 0 0 / 92%);
+  --uilint-shadow: 0 4px 20px oklch(0.3 0.05 75 / 15%);
+  --uilint-backdrop: oklch(0.985 0.015 75 / 92%);
 
-  --uilint-scrollbar-track: oklch(0.922 0 0);
-  --uilint-scrollbar-thumb: oklch(0.708 0 0);
-  --uilint-scrollbar-thumb-hover: oklch(0.556 0 0);
+  --uilint-glass: oklch(0.99 0.01 75 / 70%);
+  --uilint-glass-border: oklch(1 0.02 75 / 25%);
+
+  --uilint-scrollbar-track: oklch(0.92 0.02 75);
+  --uilint-scrollbar-thumb: oklch(0.70 0.04 75);
+  --uilint-scrollbar-thumb-hover: oklch(0.55 0.05 75);
 
   color-scheme: light;
 }

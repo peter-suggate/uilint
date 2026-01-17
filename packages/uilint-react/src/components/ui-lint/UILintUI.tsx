@@ -39,6 +39,7 @@ export function UILintUI() {
     Promise.all([
       import("./FloatingIcon"),
       import("./command-palette"),
+      import("./LocatorOverlay"),
       import("./ElementBadges"),
       import("./HeatmapOverlay"),
       import("./VisionIssueBadge"),

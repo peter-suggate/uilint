@@ -272,12 +272,12 @@ export function FloatingIcon() {
               onMouseDown={handleMouseDown}
               className={cn(
                 "relative flex items-center gap-2 px-3 py-2.5 rounded-full",
-                "bg-white/80 dark:bg-zinc-900/80",
+                "bg-backdrop",
                 "backdrop-blur-xl",
-                "border border-white/30 dark:border-white/10",
-                "shadow-lg shadow-black/10 dark:shadow-black/30",
-                "text-zinc-700 dark:text-zinc-200",
-                "hover:bg-white dark:hover:bg-zinc-800",
+                "border border-border",
+                "shadow-lg",
+                "text-foreground",
+                "hover:bg-surface-elevated",
                 "transition-all duration-200",
                 "group",
                 isDragging && "cursor-grabbing scale-105",
@@ -291,8 +291,8 @@ export function FloatingIcon() {
                 <Icons.Scan
                   className={cn(
                     "w-4 h-4",
-                    liveScanEnabled && "text-emerald-500",
-                    !wsConnected && "text-zinc-400"
+                    liveScanEnabled && "text-success",
+                    !wsConnected && "text-muted-foreground"
                   )}
                 />
                 {/* Scanning pulse animation */}
@@ -300,7 +300,7 @@ export function FloatingIcon() {
                   <span
                     className={cn(
                       "absolute inset-0 rounded-full",
-                      "bg-emerald-400/30 dark:bg-emerald-500/20",
+                      "bg-success/30",
                       "animate-ping"
                     )}
                     style={{ animationDuration: "2s" }}
@@ -316,8 +316,8 @@ export function FloatingIcon() {
                     "min-w-[18px] h-[18px] px-1",
                     "text-[10px] font-semibold",
                     "rounded-full",
-                    "bg-amber-100 dark:bg-amber-900/50",
-                    "text-amber-700 dark:text-amber-300"
+                    "bg-warning-bg",
+                    "text-warning"
                   )}
                 >
                   {totalIssueCount > 99 ? "99+" : totalIssueCount}
@@ -328,8 +328,8 @@ export function FloatingIcon() {
               <kbd
                 className={cn(
                   "px-1.5 py-0.5 rounded",
-                  "bg-zinc-100/80 dark:bg-zinc-800/80",
-                  "text-[10px] font-medium text-zinc-500 dark:text-zinc-400",
+                  "bg-muted",
+                  "text-[10px] font-medium text-muted-foreground",
                   "opacity-60 group-hover:opacity-100 transition-opacity"
                 )}
               >
