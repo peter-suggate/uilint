@@ -47,6 +47,25 @@ function safeParseJson<T>(filePath: string): T | undefined {
 }
 
 /**
+ * Check if uilint-react overlay is installed in a project
+ * Detects by checking if uilint-react is in dependencies
+ */
+function hasUilintOverlayInstalled(projectPath: string): boolean {
+  const pkgPath = join(projectPath, "package.json");
+  const pkg = safeParseJson<{
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  }>(pkgPath);
+
+  if (!pkg) return false;
+
+  return !!(
+    pkg.dependencies?.["uilint-react"] ||
+    pkg.devDependencies?.["uilint-react"]
+  );
+}
+
+/**
  * Analyze a project and return its state
  *
  * @param projectPath - The project directory to analyze (defaults to cwd)
@@ -77,7 +96,11 @@ export async function analyze(
   const nextApps: NextAppInfo[] = [];
   const directDetection = detectNextAppRouter(projectPath);
   if (directDetection) {
-    nextApps.push({ projectPath, detection: directDetection });
+    nextApps.push({
+      projectPath,
+      detection: directDetection,
+      hasUilintOverlay: hasUilintOverlayInstalled(projectPath),
+    });
   } else {
     // Search in workspace for Next.js apps
     const matches = findNextAppRouterProjects(workspaceRoot, { maxDepth: 5 });
@@ -85,6 +108,7 @@ export async function analyze(
       nextApps.push({
         projectPath: match.projectPath,
         detection: match.detection,
+        hasUilintOverlay: hasUilintOverlayInstalled(match.projectPath),
       });
     }
   }
@@ -93,13 +117,18 @@ export async function analyze(
   const viteApps: ViteAppInfo[] = [];
   const directVite = detectViteReact(projectPath);
   if (directVite) {
-    viteApps.push({ projectPath, detection: directVite });
+    viteApps.push({
+      projectPath,
+      detection: directVite,
+      hasUilintOverlay: hasUilintOverlayInstalled(projectPath),
+    });
   } else {
     const matches = findViteReactProjects(workspaceRoot, { maxDepth: 5 });
     for (const match of matches) {
       viteApps.push({
         projectPath: match.projectPath,
         detection: match.detection,
+        hasUilintOverlay: hasUilintOverlayInstalled(match.projectPath),
       });
     }
   }

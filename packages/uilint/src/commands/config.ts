@@ -7,6 +7,12 @@
  *   uilint config set position <x,y>     - Set floating icon position
  *   uilint config set position top-center - Use preset position
  *   uilint config get position            - Get current position (from server)
+ *   uilint config set rule <ruleId>:<severity> [optionsJson] - Set rule config
+ *
+ * Examples:
+ *   uilint config set rule no-arbitrary-tailwind:warn
+ *   uilint config set rule no-prop-drilling-depth:error '{"maxDepth":3}'
+ *   uilint config set rule no-mixed-component-libraries:off
  */
 
 import { WebSocket } from "ws";
@@ -57,6 +63,38 @@ function presetToPosition(preset: string): { x: number; y: number } {
   return positions[preset] || { x: 500, y: 30 };
 }
 
+/** Parse rule configuration from value string */
+function parseRuleConfig(value: string): {
+  ruleId: string;
+  severity: "error" | "warn" | "off";
+} | null {
+  // Format: <ruleId>:<severity>
+  const match = value.match(/^([^:]+):(error|warn|off)$/);
+  if (!match) {
+    return null;
+  }
+  return {
+    ruleId: match[1],
+    severity: match[2] as "error" | "warn" | "off",
+  };
+}
+
+/** Parse options JSON string */
+function parseOptionsJson(optionsStr: string | undefined): Record<string, unknown> | undefined {
+  if (!optionsStr) {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(optionsStr);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return undefined;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Send config message via WebSocket
  */
@@ -104,12 +142,76 @@ async function sendConfigMessage(
 }
 
 /**
+ * Send rule config message via WebSocket and wait for result
+ */
+async function sendRuleConfigMessage(
+  port: number,
+  ruleId: string,
+  severity: "error" | "warn" | "off",
+  options?: Record<string, unknown>
+): Promise<{ success: boolean; error?: string }> {
+  return new Promise((resolve) => {
+    const url = `ws://localhost:${port}`;
+    const ws = new WebSocket(url);
+    let resolved = false;
+    const requestId = `cli-${Date.now()}`;
+
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        ws.close();
+        resolve({ success: false, error: "Request timed out" });
+      }
+    }, 10000);
+
+    ws.on("open", () => {
+      const message = JSON.stringify({
+        type: "rule:config:set",
+        ruleId,
+        severity,
+        options,
+        requestId,
+      });
+      ws.send(message);
+    });
+
+    ws.on("message", (data: Buffer) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === "rule:config:result" && msg.requestId === requestId) {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            ws.close();
+            resolve({
+              success: msg.success,
+              error: msg.error,
+            });
+          }
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    });
+
+    ws.on("error", () => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+        resolve({ success: false, error: "Connection error" });
+      }
+    });
+  });
+}
+
+/**
  * Handle config set command
  */
 async function handleSet(
   key: string,
   value: string,
-  port: number
+  port: number,
+  extraArg?: string
 ): Promise<void> {
   switch (key) {
     case "position": {
@@ -150,9 +252,61 @@ async function handleSet(
       break;
     }
 
+    case "rule": {
+      const parsed = parseRuleConfig(value);
+      if (!parsed) {
+        logError(
+          `Invalid rule config: ${value}\n` +
+            `Expected format: <ruleId>:<severity>\n` +
+            `  severity: error, warn, or off\n\n` +
+            `Examples:\n` +
+            `  uilint config set rule no-arbitrary-tailwind:warn\n` +
+            `  uilint config set rule no-prop-drilling-depth:error '{"maxDepth":3}'`
+        );
+        process.exit(1);
+      }
+
+      // Parse optional options JSON from extra argument
+      const options = parseOptionsJson(extraArg);
+      if (extraArg && !options) {
+        logError(
+          `Invalid options JSON: ${extraArg}\n` +
+            `Expected a valid JSON object, e.g., '{"maxDepth": 3}'`
+        );
+        process.exit(1);
+      }
+
+      logInfo(
+        `Setting rule "${parsed.ruleId}" to ${parsed.severity}` +
+          (options ? ` with options: ${JSON.stringify(options)}` : "")
+      );
+
+      const result = await sendRuleConfigMessage(
+        port,
+        parsed.ruleId,
+        parsed.severity,
+        options
+      );
+
+      if (result.success) {
+        logSuccess(
+          `Rule "${parsed.ruleId}" set to ${parsed.severity}` +
+            (options ? ` with options` : "")
+        );
+      } else {
+        logError(
+          result.error ||
+            `Failed to set rule config. Is the server running?\n` +
+              `Start it with: ${pc.bold("npx uilint serve")}`
+        );
+        process.exit(1);
+      }
+      break;
+    }
+
     default:
       logError(`Unknown config key: ${key}`);
-      logInfo(`Available keys: position`);
+      logInfo(`Available keys: position, rule`);
       process.exit(1);
   }
 }
@@ -184,6 +338,7 @@ export async function config(
   action: string,
   key: string,
   value?: string,
+  extraArg?: string,
   options: ConfigOptions = {}
 ): Promise<void> {
   const port = options.port || 9234;
@@ -194,7 +349,7 @@ export async function config(
         logError(`Missing value for config set ${key}`);
         process.exit(1);
       }
-      await handleSet(key, value, port);
+      await handleSet(key, value, port, extraArg);
       break;
 
     case "get":
@@ -203,7 +358,7 @@ export async function config(
 
     default:
       logError(`Unknown action: ${action}`);
-      logInfo(`Usage: uilint config <set|get> <key> [value]`);
+      logInfo(`Usage: uilint config <set|get> <key> [value] [options]`);
       process.exit(1);
   }
 }

@@ -56,15 +56,6 @@ importers:
       tailwind-merge:
         specifier: ^2.5.5
         version: 2.6.0
-      uilint-core:
-        specifier: workspace:*
-        version: link:../../packages/uilint-core
-      uilint-eslint:
-        specifier: workspace:*
-        version: link:../../packages/uilint-eslint
-      uilint-react:
-        specifier: workspace:*
-        version: link:../../packages/uilint-react
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4.1.18

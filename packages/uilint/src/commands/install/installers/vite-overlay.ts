@@ -21,7 +21,7 @@ export const viteOverlayInstaller: Installer = {
       label: app.projectPath.split("/").pop() || app.projectPath,
       path: app.projectPath,
       hint: "React + Vite",
-      isInstalled: false, // TODO: Detect if already installed
+      isInstalled: app.hasUilintOverlay,
     }));
   },
 

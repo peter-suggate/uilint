@@ -174,7 +174,7 @@ export const nextOverlayInstaller: Installer = {
       label: app.projectPath.split("/").pop() || app.projectPath,
       path: app.projectPath,
       hint: "App Router",
-      isInstalled: false,
+      isInstalled: app.hasUilintOverlay,
     }));
   },
 

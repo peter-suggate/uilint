@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Navigation } from "./components/Navigation";
 import "./globals.css";
-import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "UILint Test App - Todo Manager",
@@ -14,10 +13,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <Providers>
-          <Navigation />
-          {children}
-        </Providers>
+        <Navigation />
+        {children}
       </body>
     </html>
   );

@@ -242,11 +242,12 @@ program
   .command("config")
   .description("Get or set UILint configuration options")
   .argument("<action>", "Action: set or get")
-  .argument("<key>", "Config key (e.g., position)")
+  .argument("<key>", "Config key (e.g., position, rule)")
   .argument("[value]", "Value to set (for set action)")
+  .argument("[extraArg]", "Extra argument (e.g., options JSON for rule config)")
   .option("-p, --port <number>", "WebSocket server port", "9234")
-  .action(async (action, key, value, options) => {
-    await config(action, key, value, {
+  .action(async (action, key, value, extraArg, options) => {
+    await config(action, key, value, extraArg, {
       port: parseInt(options.port, 10),
     });
   });

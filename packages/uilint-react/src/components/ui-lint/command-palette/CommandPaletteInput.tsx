@@ -60,13 +60,7 @@ export function CommandPaletteInput({
   const hasFilters = filters.length > 0;
 
   return (
-    <div
-      className={cn(
-        "flex flex-col",
-        "border-b border-border"
-      )}
-      data-ui-lint
-    >
+    <div className={cn("flex flex-col", "border-b border-border")} data-ui-lint>
       {/* Search input row */}
       <div
         className={cn(
@@ -122,7 +116,9 @@ export function CommandPaletteInput({
               onChange("");
               if (onRemoveFilter) {
                 // Clear all filters when clicking clear
-                filters.forEach((_, i) => onRemoveFilter(filters.length - 1 - i));
+                filters.forEach((_, i) =>
+                  onRemoveFilter(filters.length - 1 - i)
+                );
               }
             }}
             className={cn(
@@ -135,27 +131,6 @@ export function CommandPaletteInput({
           >
             <Icons.X className="w-3.5 h-3.5" />
           </button>
-        )}
-
-        {/* Connection status indicator */}
-        {isConnected !== undefined && (
-          <div
-            className={cn(
-              "flex items-center gap-1.5 px-2 py-1 rounded-full flex-shrink-0",
-              "text-[10px] font-medium",
-              isConnected
-                ? "text-success bg-success-bg"
-                : "text-muted-foreground bg-muted"
-            )}
-          >
-            <span
-              className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                isConnected ? "bg-success" : "bg-muted-foreground"
-              )}
-            />
-            {isConnected ? "Connected" : "Disconnected"}
-          </div>
         )}
       </div>
     </div>

@@ -49,7 +49,7 @@ warns when a file uses color classes without any dark mode theming.
 
 - **Prevents broken dark mode**: Catches cases where some colors change in dark mode but others don't
 - **Encourages completeness**: Prompts you to add dark mode support where it's missing
-- **Supports semantic colors**: Automatically ignores shadcn/CSS variable colors that handle dark mode internally
+- **No false positives**: Only flags explicit Tailwind colors, not custom/CSS variable colors
 
 ## Examples
 
@@ -71,8 +71,10 @@ warns when a file uses color classes without any dark mode theming.
 // All color classes have dark variants
 <div className="bg-white dark:bg-slate-900 text-black dark:text-white">
 
-// Using semantic colors (automatically themed)
+// Using semantic/custom colors (automatically themed via CSS variables)
 <div className="bg-background text-foreground">
+<div className="bg-brand text-brand-foreground">
+<div className="bg-primary text-primary-foreground">
 
 // Consistent theming
 <button className="bg-blue-500 dark:bg-blue-600 border-gray-300 dark:border-gray-600">
@@ -89,7 +91,9 @@ warns when a file uses color classes without any dark mode theming.
 
 ## Notes
 
-- Semantic colors (like shadcn's \`background\`, \`foreground\`, \`primary\`, etc.) are exempt
+- Only explicit Tailwind colors (like \`blue-500\`, \`white\`, \`slate-900\`) require dark variants
+- Custom/semantic colors (\`background\`, \`foreground\`, \`brand\`, \`primary\`, etc.) are exempt
+- These are assumed to be CSS variables that handle dark mode automatically
 - Transparent, inherit, and current values are exempt
 - Non-color utilities (like \`text-lg\`, \`border-2\`) are correctly ignored
 `,
@@ -125,136 +129,42 @@ const COLOR_PREFIXES = [
 // Values that don't need dark variants (colorless or inherited)
 const EXEMPT_SUFFIXES = ["transparent", "inherit", "current", "auto", "none"];
 
-// Known non-color utilities that use color prefixes
-// These are utilities like text-lg (font size), text-center (alignment), etc.
-const NON_COLOR_UTILITIES = new Set([
-  // Exempt values (colorless or inherited) - don't need dark variants
-  "transparent",
-  "inherit",
-  "current",
-  "auto",
-  "none",
-  // text- utilities that aren't colors
-  "xs",
-  "sm",
-  "base",
-  "lg",
-  "xl",
-  "2xl",
-  "3xl",
-  "4xl",
-  "5xl",
-  "6xl",
-  "7xl",
-  "8xl",
-  "9xl",
-  "left",
-  "center",
-  "right",
-  "justify",
-  "start",
-  "end",
-  "wrap",
-  "nowrap",
-  "balance",
-  "pretty",
-  "ellipsis",
-  "clip",
-  // border- utilities that aren't colors
-  "0",
-  "2",
-  "4",
-  "8",
-  "solid",
-  "dashed",
-  "dotted",
-  "double",
-  "hidden",
-  "collapse",
-  "separate",
-  // shadow- utilities that aren't colors
-  // Note: "sm", "lg", "xl", "2xl" already included above
-  "md",
-  "inner",
-  // ring- utilities that aren't colors
-  // Note: "0", "2", "4", "8" already included above
-  "1",
-  "inset",
-  // outline- utilities that aren't colors
-  // Note: numeric values already included
-  "offset-0",
-  "offset-1",
-  "offset-2",
-  "offset-4",
-  "offset-8",
-  // decoration- utilities that aren't colors
-  // Note: "solid", "double", "dotted", "dashed" already included
-  "wavy",
-  "from-font",
-  "clone",
-  "slice",
-  // divide- utilities that aren't colors
-  "x",
-  "y",
-  "x-0",
-  "x-2",
-  "x-4",
-  "x-8",
-  "y-0",
-  "y-2",
-  "y-4",
-  "y-8",
-  "x-reverse",
-  "y-reverse",
-  // gradient direction utilities (from-, via-, to- prefixes)
-  "t",
-  "tr",
-  "r",
-  "br",
-  "b",
-  "bl",
-  "l",
-  "tl",
+// Built-in Tailwind CSS color palette names
+// These are the ONLY colors that should trigger dark mode warnings.
+// Custom colors (like 'brand', 'company-primary') are assumed to be
+// CSS variables that handle dark mode automatically.
+const TAILWIND_COLOR_NAMES = new Set([
+  // Special colors
+  "white",
+  "black",
+  // Gray scale palettes
+  "slate",
+  "gray",
+  "zinc",
+  "neutral",
+  "stone",
+  // Warm colors
+  "red",
+  "orange",
+  "amber",
+  "yellow",
+  // Green colors
+  "lime",
+  "green",
+  "emerald",
+  "teal",
+  // Blue colors
+  "cyan",
+  "sky",
+  "blue",
+  "indigo",
+  // Purple/Pink colors
+  "violet",
+  "purple",
+  "fuchsia",
+  "pink",
+  "rose",
 ]);
-
-// Semantic color names used by theming systems like shadcn
-// These are CSS variable-based colors that handle dark mode automatically
-const SEMANTIC_COLOR_NAMES = new Set([
-  // Core shadcn colors
-  "background",
-  "foreground",
-  // Component colors
-  "card",
-  "card-foreground",
-  "popover",
-  "popover-foreground",
-  "primary",
-  "primary-foreground",
-  "secondary",
-  "secondary-foreground",
-  "muted",
-  "muted-foreground",
-  "accent",
-  "accent-foreground",
-  "destructive",
-  "destructive-foreground",
-  // Form/UI colors
-  "border",
-  "input",
-  "ring",
-  // Sidebar colors (shadcn sidebar component)
-  "sidebar",
-  "sidebar-foreground",
-  "sidebar-border",
-  "sidebar-primary",
-  "sidebar-primary-foreground",
-  "sidebar-accent",
-  "sidebar-accent-foreground",
-  "sidebar-ring",
-]);
-
-// Pattern for semantic chart colors (chart-1, chart-2, etc.)
-const CHART_COLOR_PATTERN = /^chart-\d+$/;
 
 /**
  * Check if a class has 'dark' in its variant chain
@@ -287,27 +197,57 @@ function getColorPrefix(baseClass: string): string | null {
 }
 
 /**
- * Check if the value is a semantic/themed color (e.g., shadcn)
- * These colors use CSS variables that automatically handle dark mode
+ * Check if the value is an explicit Tailwind color.
+ * Uses an allowlist approach: only built-in Tailwind color names trigger warnings.
+ * Custom colors (like 'brand', 'primary', 'company-blue') are assumed to be
+ * CSS variables that handle dark mode automatically and should NOT trigger.
+ *
+ * Matches patterns like:
+ * - white, black (standalone colors)
+ * - blue-500, slate-900 (color-scale)
+ * - blue-500/50, gray-900/80 (with opacity modifier)
  */
-function isSemanticColor(value: string): boolean {
-  // Check for exact semantic color names
-  if (SEMANTIC_COLOR_NAMES.has(value)) {
+function isTailwindColor(value: string): boolean {
+  // Remove opacity modifier if present (e.g., "blue-500/50" -> "blue-500")
+  const valueWithoutOpacity = value.split("/")[0] || value;
+
+  // Check for standalone colors (white, black)
+  if (TAILWIND_COLOR_NAMES.has(valueWithoutOpacity)) {
     return true;
   }
 
-  // Check for chart colors (chart-1, chart-2, etc.)
-  if (CHART_COLOR_PATTERN.test(value)) {
-    return true;
+  // Check for color-scale pattern (e.g., "blue-500", "slate-900")
+  // Pattern: colorName-number where number is 50, 100, 200, ..., 950
+  const match = valueWithoutOpacity.match(/^([a-z]+)-(\d+)$/);
+  if (match) {
+    const colorName = match[1];
+    const scale = match[2];
+    // Valid Tailwind scales are: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950
+    const validScales = [
+      "50",
+      "100",
+      "200",
+      "300",
+      "400",
+      "500",
+      "600",
+      "700",
+      "800",
+      "900",
+      "950",
+    ];
+    if (colorName && TAILWIND_COLOR_NAMES.has(colorName) && validScales.includes(scale || "")) {
+      return true;
+    }
   }
 
   return false;
 }
 
 /**
- * Check if the value after the prefix looks like a color value
- * Uses an exclusion-based approach: anything that's not a known non-color utility
- * and not a semantic color is treated as a potential color.
+ * Check if the value after the prefix looks like an explicit Tailwind color.
+ * Uses allowlist approach: only built-in Tailwind colors should trigger dark mode warnings.
+ * Custom/semantic colors (brand, primary, foreground, etc.) are NOT flagged.
  */
 function isColorValue(baseClass: string, prefix: string): boolean {
   const value = baseClass.slice(prefix.length);
@@ -317,23 +257,9 @@ function isColorValue(baseClass: string, prefix: string): boolean {
     return false;
   }
 
-  // Check if it's a semantic/themed color (exempt from dark mode requirements)
-  if (isSemanticColor(value)) {
-    return false;
-  }
-
-  // Check if it's a known non-color utility
-  if (NON_COLOR_UTILITIES.has(value)) {
-    return false;
-  }
-
-  // Treat everything else as a potential color
-  // This catches:
-  // - Standard Tailwind colors: blue-500, slate-900, white, black
-  // - Custom colors defined in tailwind.config: brand, primary (non-shadcn), custom-blue
-  // - Arbitrary values: [#fff], [rgb(255,0,0)], [var(--my-color)]
-  // - Opacity modifiers: blue-500/50, white/80
-  return true;
+  // Only flag explicit Tailwind colors
+  // Custom colors, CSS variable colors, and semantic colors are exempt
+  return isTailwindColor(value);
 }
 
 /**

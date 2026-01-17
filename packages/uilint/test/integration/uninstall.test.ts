@@ -440,6 +440,155 @@ describe("Combined install and uninstall", () => {
 });
 
 // ============================================================================
+// Fully Installed ESLint (no upgrade available) Tests
+// ============================================================================
+
+describe("Fully installed ESLint uninstallation", () => {
+  it("detects ESLint as installed without upgrade when all rules configured", async () => {
+    fixture = useFixture("has-eslint-with-uilint-all-rules");
+    const state = await analyze(fixture.path);
+
+    // Get the ESLint installer and its targets
+    const installers = getAllInstallers();
+    const eslintInstaller = installers.find((i) => i.id === "eslint");
+    expect(eslintInstaller).toBeDefined();
+
+    const targets = eslintInstaller!.getTargets(state);
+    expect(targets).toHaveLength(1);
+
+    // The target should be marked as installed with no upgrade available
+    const target = targets[0];
+    expect(target.isInstalled).toBe(true);
+    expect(target.canUpgrade).toBe(false);
+  });
+
+  it("can uninstall fully-installed ESLint (no upgrade available)", async () => {
+    fixture = useFixture("has-eslint-with-uilint-all-rules");
+    const state = await analyze(fixture.path);
+
+    // Verify ESLint is configured with all rules
+    const pkg = state.packages.find((p) => p.hasUilintRules);
+    expect(pkg).toBeDefined();
+    expect(pkg!.hasUilintRules).toBe(true);
+
+    // Get installers
+    const installers = getAllInstallers();
+    const eslintInstaller = installers.find((i) => i.id === "eslint");
+    expect(eslintInstaller).toBeDefined();
+
+    // Verify no upgrade is available
+    const targets = eslintInstaller!.getTargets(state);
+    expect(targets[0].canUpgrade).toBe(false);
+
+    // Build uninstall selection
+    const uninstallSelections: InstallerSelection[] = [
+      {
+        installer: eslintInstaller!,
+        targets: [
+          {
+            id: pkg!.path,
+            label: "ESLint",
+            path: pkg!.path,
+            isInstalled: true,
+          },
+        ],
+        selected: true,
+      },
+    ];
+
+    // Build and execute uninstall plan
+    const uninstallActions = buildUninstallPlan(uninstallSelections, state);
+    expect(uninstallActions.length).toBeGreaterThan(0);
+
+    const result = await execute(
+      { actions: uninstallActions, dependencies: [] },
+      { dryRun: false, installDependencies: mockInstallDependencies }
+    );
+
+    expect(result.success).toBe(true);
+
+    // Verify ESLint config no longer has uilint rules
+    const configAfterUninstall = fixture.readFile("eslint.config.mjs");
+    expect(configAfterUninstall).not.toContain("uilint/no-arbitrary-tailwind");
+    expect(configAfterUninstall).not.toContain("uilint/semantic");
+  });
+
+  it("shows correct status for fully-installed vs upgradeable ESLint", async () => {
+    // Test with partial installation (has-eslint-with-uilint has only 1 rule)
+    const partialFixture = useFixture("has-eslint-with-uilint");
+    const partialState = await analyze(partialFixture.path);
+
+    const installers = getAllInstallers();
+    const eslintInstaller = installers.find((i) => i.id === "eslint");
+
+    // Partial: should be upgradeable
+    const partialTargets = eslintInstaller!.getTargets(partialState);
+    expect(partialTargets[0].isInstalled).toBe(true);
+    expect(partialTargets[0].canUpgrade).toBe(true);
+
+    partialFixture.cleanup();
+
+    // Full: should be installed without upgrade
+    fixture = useFixture("has-eslint-with-uilint-all-rules");
+    const fullState = await analyze(fixture.path);
+
+    const fullTargets = eslintInstaller!.getTargets(fullState);
+    expect(fullTargets[0].isInstalled).toBe(true);
+    expect(fullTargets[0].canUpgrade).toBe(false);
+  });
+});
+
+// ============================================================================
+// Overlay Detection Tests
+// ============================================================================
+
+describe("Overlay installation detection", () => {
+  it("detects Next.js overlay as installed when uilint-react is in dependencies", async () => {
+    fixture = useFixture("nextjs-with-uilint-overlay");
+    const state = await analyze(fixture.path);
+
+    // Should detect the Next.js app
+    expect(state.nextApps).toHaveLength(1);
+
+    // Should detect that overlay is already installed
+    expect(state.nextApps[0].hasUilintOverlay).toBe(true);
+
+    // Get the Next.js installer and its targets
+    const installers = getAllInstallers();
+    const nextInstaller = installers.find((i) => i.id === "next");
+    expect(nextInstaller).toBeDefined();
+
+    const targets = nextInstaller!.getTargets(state);
+    expect(targets).toHaveLength(1);
+
+    // The target should be marked as installed
+    expect(targets[0].isInstalled).toBe(true);
+  });
+
+  it("detects Next.js overlay as NOT installed when uilint-react is missing", async () => {
+    fixture = useFixture("fresh-nextjs-app");
+    const state = await analyze(fixture.path);
+
+    // Should detect the Next.js app
+    expect(state.nextApps).toHaveLength(1);
+
+    // Should detect that overlay is NOT installed
+    expect(state.nextApps[0].hasUilintOverlay).toBe(false);
+
+    // Get the Next.js installer and its targets
+    const installers = getAllInstallers();
+    const nextInstaller = installers.find((i) => i.id === "next");
+    expect(nextInstaller).toBeDefined();
+
+    const targets = nextInstaller!.getTargets(state);
+    expect(targets).toHaveLength(1);
+
+    // The target should NOT be marked as installed
+    expect(targets[0].isInstalled).toBe(false);
+  });
+});
+
+// ============================================================================
 // Error Handling Tests
 // ============================================================================
 

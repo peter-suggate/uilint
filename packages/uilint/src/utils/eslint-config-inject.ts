@@ -1359,3 +1359,318 @@ export async function uninstallEslintPlugin(
     };
   }
 }
+
+export interface UpdateRuleConfigResult {
+  success: boolean;
+  error?: string;
+}
+
+export interface RuleConfigFromFile {
+  severity: "error" | "warn" | "off";
+  options?: Record<string, unknown>;
+}
+
+/**
+ * Extract severity from an AST node representing a rule value.
+ * Handles both formats:
+ * - Simple string: "error"
+ * - Array: ["error", { ...options }]
+ */
+function extractSeverityFromValueNode(
+  valueNode: any
+): "error" | "warn" | "off" | null {
+  if (!valueNode) return null;
+
+  // Simple string format: "error"
+  if (isStringLiteral(valueNode)) {
+    const val = valueNode.value;
+    if (val === "error" || val === "warn" || val === "off") {
+      return val;
+    }
+    return null;
+  }
+
+  // Array format: ["error", { ...options }]
+  if (valueNode.type === "ArrayExpression") {
+    const firstEl = valueNode.elements?.[0];
+    if (firstEl && isStringLiteral(firstEl)) {
+      const val = firstEl.value;
+      if (val === "error" || val === "warn" || val === "off") {
+        return val;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extract options object from an AST node representing a rule value in array format.
+ * Returns undefined if not in array format or no options present.
+ */
+function extractOptionsFromValueNode(
+  valueNode: any
+): Record<string, unknown> | undefined {
+  if (!valueNode || valueNode.type !== "ArrayExpression") return undefined;
+
+  const elements = valueNode.elements ?? [];
+  if (elements.length < 2) return undefined;
+
+  const optionsNode = elements[1];
+  if (!optionsNode || optionsNode.type !== "ObjectExpression") return undefined;
+
+  // Convert AST object to plain JS object
+  try {
+    const obj: Record<string, unknown> = {};
+    for (const prop of optionsNode.properties ?? []) {
+      if (!prop || (prop.type !== "ObjectProperty" && prop.type !== "Property"))
+        continue;
+
+      const key = prop.key;
+      let keyName: string | null = null;
+      if (key?.type === "Identifier") {
+        keyName = key.name;
+      } else if (isStringLiteral(key)) {
+        keyName = key.value;
+      }
+      if (!keyName) continue;
+
+      const val = prop.value;
+      if (isStringLiteral(val)) {
+        obj[keyName] = val.value;
+      } else if (
+        val?.type === "NumericLiteral" ||
+        (val?.type === "Literal" && typeof val.value === "number")
+      ) {
+        obj[keyName] = val.value;
+      } else if (
+        val?.type === "BooleanLiteral" ||
+        (val?.type === "Literal" && typeof val.value === "boolean")
+      ) {
+        obj[keyName] = val.value;
+      } else if (val?.type === "ArrayExpression") {
+        // Simple array of literals
+        const arr: unknown[] = [];
+        for (const el of val.elements ?? []) {
+          if (isStringLiteral(el)) arr.push(el.value);
+          else if (
+            el?.type === "NumericLiteral" ||
+            (el?.type === "Literal" && typeof el.value === "number")
+          )
+            arr.push(el.value);
+          else if (
+            el?.type === "BooleanLiteral" ||
+            (el?.type === "Literal" && typeof el.value === "boolean")
+          )
+            arr.push(el.value);
+        }
+        obj[keyName] = arr;
+      }
+    }
+    return Object.keys(obj).length > 0 ? obj : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Read current rule configurations from an ESLint config file.
+ * Uses magicast to parse the config and extract uilint rule severities and options.
+ *
+ * @param configPath Path to the ESLint config file
+ * @returns Map of ruleId (without "uilint/" prefix) to { severity, options }
+ */
+export function readRuleConfigsFromConfig(
+  configPath: string
+): Map<string, RuleConfigFromFile> {
+  const configs = new Map<string, RuleConfigFromFile>();
+
+  try {
+    const source = readFileSync(configPath, "utf-8");
+    const mod = parseModule(source);
+    const found = findExportedConfigArrayExpression(mod);
+
+    if (!found) {
+      return configs;
+    }
+
+    const { arrayExpr } = found;
+    const valueNodes = collectUilintRuleValueNodesFromConfigArray(arrayExpr);
+
+    for (const [ruleId, valueNode] of valueNodes) {
+      const severity = extractSeverityFromValueNode(valueNode);
+      if (severity) {
+        const options = extractOptionsFromValueNode(valueNode);
+        configs.set(ruleId, { severity, options });
+      }
+    }
+  } catch (error) {
+    console.error("[eslint-config-inject] Failed to read rule configs:", error);
+  }
+
+  return configs;
+}
+
+/**
+ * Find a rule property node in the config array by rule ID.
+ * Returns the property node and its parent rules object.
+ */
+function findRulePropertyInConfigArray(
+  arrayExpr: any,
+  ruleId: string
+): { prop: any; rulesObj: any } | null {
+  const fullRuleKey = `uilint/${ruleId}`;
+
+  if (!arrayExpr || arrayExpr.type !== "ArrayExpression") return null;
+
+  for (const el of arrayExpr.elements ?? []) {
+    if (!el || el.type !== "ObjectExpression") continue;
+    const rules = getObjectPropertyValue(el, "rules");
+    if (!rules || rules.type !== "ObjectExpression") continue;
+
+    for (const prop of rules.properties ?? []) {
+      if (!prop) continue;
+      if (prop.type !== "ObjectProperty" && prop.type !== "Property") continue;
+      const key = prop.key;
+      if (!isStringLiteral(key)) continue;
+      if (key.value === fullRuleKey) {
+        return { prop, rulesObj: rules };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Update the severity of a single uilint rule in the ESLint config file.
+ * Uses magicast for proper AST-based editing.
+ *
+ * Handles both formats:
+ * - Simple: "uilint/rule-name": "error"
+ * - With options: "uilint/rule-name": ["error", { ... }]
+ *
+ * Only updates existing rules - returns error if rule not found.
+ */
+export function updateRuleSeverityInConfig(
+  configPath: string,
+  ruleId: string,
+  severity: "error" | "warn" | "off"
+): UpdateRuleConfigResult {
+  try {
+    const source = readFileSync(configPath, "utf-8");
+    const mod = parseModule(source);
+    const found = findExportedConfigArrayExpression(mod);
+
+    if (!found) {
+      return {
+        success: false,
+        error: "Could not parse ESLint config array",
+      };
+    }
+
+    const { arrayExpr } = found;
+    const ruleInfo = findRulePropertyInConfigArray(arrayExpr, ruleId);
+
+    if (!ruleInfo) {
+      return {
+        success: false,
+        error: `Rule "uilint/${ruleId}" not found in config. Use 'uilint install' to add new rules.`,
+      };
+    }
+
+    const { prop } = ruleInfo;
+    const valueNode = prop.value;
+
+    // Update the severity based on the format
+    if (isStringLiteral(valueNode)) {
+      // Simple string format - replace the value
+      valueNode.value = severity;
+    } else if (valueNode?.type === "ArrayExpression") {
+      // Array format - update the first element
+      const firstEl = valueNode.elements?.[0];
+      if (firstEl && isStringLiteral(firstEl)) {
+        firstEl.value = severity;
+      } else {
+        // Create a new string literal for severity
+        const severityNode = (parseExpression(`"${severity}"`) as any).$ast;
+        if (valueNode.elements && valueNode.elements.length > 0) {
+          valueNode.elements[0] = severityNode;
+        } else {
+          valueNode.elements = [severityNode];
+        }
+      }
+    } else {
+      return {
+        success: false,
+        error: `Rule "uilint/${ruleId}" has unexpected format`,
+      };
+    }
+
+    const updated = generateCode(mod).code;
+    writeFileSync(configPath, updated, "utf-8");
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * Update the severity AND options of a single uilint rule in the ESLint config file.
+ * Uses magicast for proper AST-based editing.
+ *
+ * Converts the rule to array format: ["severity", { ...options }]
+ *
+ * Only updates existing rules - returns error if rule not found.
+ */
+export function updateRuleConfigInConfig(
+  configPath: string,
+  ruleId: string,
+  severity: "error" | "warn" | "off",
+  options: Record<string, unknown>
+): UpdateRuleConfigResult {
+  try {
+    const source = readFileSync(configPath, "utf-8");
+    const mod = parseModule(source);
+    const found = findExportedConfigArrayExpression(mod);
+
+    if (!found) {
+      return {
+        success: false,
+        error: "Could not parse ESLint config array",
+      };
+    }
+
+    const { arrayExpr } = found;
+    const ruleInfo = findRulePropertyInConfigArray(arrayExpr, ruleId);
+
+    if (!ruleInfo) {
+      return {
+        success: false,
+        error: `Rule "uilint/${ruleId}" not found in config. Use 'uilint install' to add new rules.`,
+      };
+    }
+
+    const { prop } = ruleInfo;
+
+    // Build the new value as array format: ["severity", { ...options }]
+    const optionsJson = JSON.stringify(options);
+    const newValueExpr = `["${severity}", ${optionsJson}]`;
+    const newValueNode = (parseExpression(newValueExpr) as any).$ast;
+
+    // Replace the value
+    prop.value = newValueNode;
+
+    const updated = generateCode(mod).code;
+    writeFileSync(configPath, updated, "utf-8");
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}

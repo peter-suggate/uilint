@@ -44,6 +44,44 @@ import type {
 
 type VisionStage = "capture" | "manifest" | "ws" | "vision";
 
+/** Option field schema for rule configuration UI */
+export interface OptionFieldSchema {
+  key: string;
+  label: string;
+  type: "text" | "number" | "boolean" | "select" | "multiselect" | "array";
+  defaultValue: unknown;
+  placeholder?: string;
+  options?: Array<{ value: string | number; label: string }>;
+  description?: string;
+}
+
+/** Rule option schema for configuration */
+export interface RuleOptionSchema {
+  fields: OptionFieldSchema[];
+}
+
+/** Extended rule metadata with full configuration info */
+export interface AvailableRule {
+  id: string;
+  name: string;
+  description: string;
+  category: "static" | "semantic";
+  defaultSeverity: "error" | "warn" | "off";
+  /** Current severity from ESLint config (may differ from default) */
+  currentSeverity?: "error" | "warn" | "off";
+  /** Current options from ESLint config */
+  currentOptions?: Record<string, unknown>;
+  docs?: string;
+  optionSchema?: RuleOptionSchema;
+  defaultOptions?: unknown[];
+}
+
+/** Current configuration state for a rule */
+export interface RuleConfig {
+  severity: "error" | "warn" | "off";
+  options?: Record<string, unknown>;
+}
+
 export type VisionErrorInfo = {
   stage: VisionStage;
   message: string;
@@ -142,6 +180,13 @@ interface RulesMetadataMessage {
     description: string;
     category: "static" | "semantic";
     defaultSeverity: "error" | "warn" | "off";
+    /** Current severity from ESLint config (may differ from default) */
+    currentSeverity?: "error" | "warn" | "off";
+    /** Current options from ESLint config */
+    currentOptions?: Record<string, unknown>;
+    docs?: string;
+    optionSchema?: RuleOptionSchema;
+    defaultOptions?: unknown[];
   }>;
 }
 
@@ -149,6 +194,23 @@ interface ConfigUpdateMessage {
   type: "config:update";
   key: string;
   value: unknown;
+}
+
+interface RuleConfigResultMessage {
+  type: "rule:config:result";
+  ruleId: string;
+  severity: "error" | "warn" | "off";
+  options?: Record<string, unknown>;
+  success: boolean;
+  error?: string;
+  requestId?: string;
+}
+
+interface RuleConfigChangedMessage {
+  type: "rule:config:changed";
+  ruleId: string;
+  severity: "error" | "warn" | "off";
+  options?: Record<string, unknown>;
 }
 
 type ServerMessage =
@@ -159,7 +221,9 @@ type ServerMessage =
   | VisionResultMessage
   | VisionProgressMessage
   | RulesMetadataMessage
-  | ConfigUpdateMessage;
+  | ConfigUpdateMessage
+  | RuleConfigResultMessage
+  | RuleConfigChangedMessage;
 
 /**
  * UILint Store State and Actions
@@ -360,14 +424,12 @@ export interface UILintStore {
   selectedCommandPaletteItemId: string | null;
   /** Disabled rules (visual filtering only) */
   disabledRules: Set<string>;
-  /** Available ESLint rules from server */
-  availableRules: Array<{
-    id: string;
-    name: string;
-    description: string;
-    category: "static" | "semantic";
-    defaultSeverity: "error" | "warn" | "off";
-  }>;
+  /** Available ESLint rules from server (includes docs, optionSchema, defaultOptions) */
+  availableRules: AvailableRule[];
+  /** Current rule configurations (severity + options) - synced with ESLint config */
+  ruleConfigs: Map<string, RuleConfig>;
+  /** Rule config update in progress */
+  ruleConfigUpdating: Map<string, boolean>;
   /** Active filters for the command palette (shown as chips) */
   commandPaletteFilters: CommandPaletteFilter[];
   /** IDs of visible results in command palette (for heatmap sync) */
@@ -383,6 +445,12 @@ export interface UILintStore {
   setHoveredCommandPaletteItemId: (id: string | null) => void;
   setSelectedCommandPaletteItemId: (id: string | null) => void;
   toggleRule: (ruleId: string) => void;
+  /** Set rule severity and/or options via WebSocket (persists to ESLint config) */
+  setRuleConfig: (
+    ruleId: string,
+    severity: "error" | "warn" | "off",
+    options?: Record<string, unknown>
+  ) => Promise<void>;
   /** Add a filter to the command palette */
   addCommandPaletteFilter: (filter: CommandPaletteFilter) => void;
   /** Remove a filter at the specified index */
@@ -1616,6 +1684,8 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   selectedCommandPaletteItemId: null,
   disabledRules: new Set(),
   availableRules: [],
+  ruleConfigs: new Map(),
+  ruleConfigUpdating: new Map(),
   commandPaletteFilters: [],
   visibleCommandPaletteResultIds: new Set(),
 
@@ -1669,6 +1739,38 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     });
     // Recompute heatmap data to reflect the new disabled rules
     get().computeHeatmapData();
+  },
+
+  setRuleConfig: async (ruleId, severity, options) => {
+    const { wsConnection, wsConnected } = get();
+
+    if (!wsConnected || !wsConnection) {
+      console.warn("[UILint] WebSocket not connected for rule config update");
+      return;
+    }
+
+    // Mark as updating
+    set((state) => {
+      const next = new Map(state.ruleConfigUpdating);
+      next.set(ruleId, true);
+      return { ruleConfigUpdating: next };
+    });
+
+    const requestId = `rule_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+    // Send request via WebSocket
+    wsConnection.send(
+      JSON.stringify({
+        type: "rule:config:set",
+        ruleId,
+        severity,
+        options,
+        requestId,
+      })
+    );
+
+    // Result will be handled in _handleWsMessage
+    // We don't await here - the store will be updated when the response arrives
   },
 
   addCommandPaletteFilter: (filter) =>
@@ -1843,7 +1945,99 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       case "rules:metadata": {
         const { rules } = data;
         console.log("[UILint] Received rules metadata:", rules.length, "rules");
-        set({ availableRules: rules });
+        // Initialize ruleConfigs from current severities (from ESLint config) or fall back to defaults
+        const configs = new Map<string, RuleConfig>();
+        for (const rule of rules) {
+          configs.set(rule.id, {
+            // Use currentSeverity from ESLint config if available, otherwise fall back to default
+            severity: rule.currentSeverity ?? rule.defaultSeverity,
+            // Use currentOptions from ESLint config if available, otherwise fall back to default
+            options:
+              rule.currentOptions ??
+              (rule.defaultOptions && rule.defaultOptions.length > 0
+                ? (rule.defaultOptions[0] as Record<string, unknown>)
+                : undefined),
+          });
+        }
+        set({ availableRules: rules, ruleConfigs: configs });
+        break;
+      }
+
+      case "rule:config:result": {
+        const { ruleId, severity, options, success, error } = data;
+
+        // Clear updating state
+        set((state) => {
+          const next = new Map(state.ruleConfigUpdating);
+          next.delete(ruleId);
+          return { ruleConfigUpdating: next };
+        });
+
+        if (success) {
+          // Update local state
+          set((state) => {
+            const next = new Map(state.ruleConfigs);
+            next.set(ruleId, { severity, options });
+            return { ruleConfigs: next };
+          });
+          console.log(`[UILint] Rule config updated: ${ruleId} -> ${severity}`);
+        } else {
+          console.error(`[UILint] Failed to update rule config: ${error}`);
+        }
+        break;
+      }
+
+      case "rule:config:changed": {
+        const { ruleId, severity, options } = data;
+        // Update local state (broadcast from another client or CLI)
+        set((state) => {
+          const next = new Map(state.ruleConfigs);
+          next.set(ruleId, { severity, options });
+          return { ruleConfigs: next };
+        });
+        console.log(`[UILint] Rule config changed (broadcast): ${ruleId} -> ${severity}`);
+
+        // Trigger full re-scan if live scan is enabled
+        const state = get();
+        if (state.liveScanEnabled && !state.scanLock) {
+          console.log(`[UILint] Triggering re-scan after rule config change`);
+
+          // Clear all caches
+          state.invalidateCache();
+
+          // Clear element and file issues caches
+          set({
+            elementIssuesCache: new Map(),
+            fileIssuesCache: new Map(),
+          });
+
+          // Re-run scan with existing elements if we have them
+          const elements = state.autoScanState.elements;
+          if (elements.length > 0) {
+            // Re-initialize cache with pending status
+            const initialCache = new Map<string, ElementIssue>();
+            for (const el of elements) {
+              initialCache.set(el.id, {
+                elementId: el.id,
+                issues: [],
+                status: "pending",
+              });
+            }
+
+            set({
+              elementIssuesCache: initialCache,
+              scanLock: true,
+              autoScanState: {
+                ...state.autoScanState,
+                status: "scanning",
+                currentIndex: 0,
+              },
+            });
+
+            // Run the scan loop
+            get()._runScanLoop(elements);
+          }
+        }
         break;
       }
 

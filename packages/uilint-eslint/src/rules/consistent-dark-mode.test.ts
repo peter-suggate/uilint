@@ -238,9 +238,8 @@ ruleTester.run("consistent-dark-mode", rule, {
 
     // ============================================
     // SEMANTIC/THEMED COLORS (shadcn, etc.) - EXEMPT
-    // These tests REQUIRE the semantic color exemption.
-    // Without it, these would trigger "missingDarkMode" errors
-    // because the new aggressive detection treats unknown values as colors.
+    // CSS variable-based colors that handle dark mode automatically.
+    // These should NEVER trigger issues because they're not explicit Tailwind colors.
     // ============================================
     {
       name: "shadcn background/foreground semantic colors",
@@ -312,21 +311,33 @@ ruleTester.run("consistent-dark-mode", rule, {
     },
 
     // ============================================
-    // CUSTOM COLORS (detected by aggressive detection, need dark variants)
-    // These would NOT have been detected by the old allowlist-based approach
-    // but ARE detected by the new exclusion-based approach.
+    // CUSTOM/NON-TAILWIND COLORS - SHOULD NOT TRIGGER
+    // Any color name that is NOT a built-in Tailwind color should be exempt.
+    // These are assumed to be CSS variables or custom theme colors.
     // ============================================
     {
-      name: "custom color with dark variant - brand",
-      code: `<div className="bg-brand dark:bg-brand-dark" />`,
+      name: "custom brand color - should not trigger",
+      code: `<div className="bg-brand text-brand-foreground" />`,
     },
     {
-      name: "custom color with dark variant - custom name",
-      code: `<div className="text-company-blue dark:text-company-blue-light" />`,
+      name: "custom company colors - should not trigger",
+      code: `<div className="bg-company-primary text-company-secondary" />`,
     },
     {
-      name: "custom gradient colors with dark variants",
-      code: `<div className="from-brand-start dark:from-brand-start-dark to-brand-end dark:to-brand-end-dark" />`,
+      name: "custom gradient colors - should not trigger",
+      code: `<div className="from-brand-start to-brand-end" />`,
+    },
+    {
+      name: "arbitrary custom color names - should not trigger",
+      code: `<div className="bg-my-custom-color text-another-custom" />`,
+    },
+    {
+      name: "custom color mixed with themed Tailwind color",
+      code: `<div className="bg-brand border-blue-500 dark:border-blue-400" />`,
+    },
+    {
+      name: "custom ring and fill colors - should not trigger",
+      code: `<div className="ring-brand-accent fill-custom-icon" />`,
     },
 
     // ============================================
@@ -787,13 +798,12 @@ ruleTester.run("consistent-dark-mode", rule, {
     },
 
     // ============================================
-    // CUSTOM COLORS WITHOUT DARK MODE
-    // These tests verify the aggressive detection catches custom colors.
-    // The old allowlist approach would NOT have caught these.
+    // EXPLICIT TAILWIND COLORS - SHOULD TRIGGER
+    // These are built-in Tailwind color names that should require dark variants.
     // ============================================
     {
-      name: "custom color without dark mode - brand",
-      code: `<div className="bg-brand text-brand-foreground" />`,
+      name: "explicit Tailwind colors - white/black",
+      code: `<div className="bg-white text-black" />`,
       errors: [
         {
           messageId: "missingDarkMode",
@@ -801,8 +811,8 @@ ruleTester.run("consistent-dark-mode", rule, {
       ],
     },
     {
-      name: "custom color without dark mode - company colors",
-      code: `<div className="bg-company-primary text-company-secondary" />`,
+      name: "explicit Tailwind colors - slate scale",
+      code: `<div className="bg-slate-100 text-slate-900" />`,
       errors: [
         {
           messageId: "missingDarkMode",
@@ -810,18 +820,44 @@ ruleTester.run("consistent-dark-mode", rule, {
       ],
     },
     {
-      name: "custom color inconsistent - one themed one not",
-      code: `<div className="bg-brand dark:bg-brand-dark text-brand-accent" />`,
+      name: "explicit Tailwind colors - various palette colors",
+      code: `<div className="bg-red-500 text-blue-600 border-green-400" />`,
       errors: [
         {
-          messageId: "inconsistentDarkMode",
-          data: { unthemed: "text-brand-accent" },
+          messageId: "missingDarkMode",
         },
       ],
     },
     {
-      name: "custom gradient colors without dark mode",
-      code: `<div className="from-brand-start to-brand-end" />`,
+      name: "explicit Tailwind colors - all gray variants",
+      code: `<div className="bg-gray-50 text-zinc-900 border-neutral-200" />`,
+      errors: [
+        {
+          messageId: "missingDarkMode",
+        },
+      ],
+    },
+    {
+      name: "explicit Tailwind colors - modern palette",
+      code: `<div className="from-cyan-400 via-sky-500 to-indigo-600" />`,
+      errors: [
+        {
+          messageId: "missingDarkMode",
+        },
+      ],
+    },
+    {
+      name: "explicit Tailwind colors - warm palette",
+      code: `<div className="bg-amber-100 text-orange-800 border-yellow-300" />`,
+      errors: [
+        {
+          messageId: "missingDarkMode",
+        },
+      ],
+    },
+    {
+      name: "explicit Tailwind colors - with opacity modifier",
+      code: `<div className="bg-blue-500/50 text-gray-900/80" />`,
       errors: [
         {
           messageId: "missingDarkMode",

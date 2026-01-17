@@ -10,12 +10,15 @@
  * - Client -> Server: { type: 'cache:invalidate', filePath?: string }
  * - Client -> Server: { type: 'vision:analyze', route: string, timestamp: number, screenshot?: string, screenshotFile?: string, manifest: ElementManifest[], requestId?: string }
  * - Client -> Server: { type: 'config:set', key: string, value: any }
+ * - Client -> Server: { type: 'rule:config:set', ruleId: string, severity: 'error'|'warn'|'off', options?: object, requestId?: string }
  * - Server -> Client: { type: 'lint:result', filePath: string, issues: Issue[], requestId?: string }
  * - Server -> Client: { type: 'lint:progress', filePath: string, phase: string, requestId?: string }
  * - Server -> Client: { type: 'file:changed', filePath: string }
  * - Server -> Client: { type: 'vision:result', route: string, issues: VisionIssue[], analysisTime: number, error?: string, requestId?: string }
  * - Server -> Client: { type: 'vision:progress', route: string, phase: string, requestId?: string }
  * - Server -> Client: { type: 'config:update', key: string, value: any }
+ * - Server -> Client: { type: 'rule:config:result', ruleId: string, severity: string, options?: object, success: boolean, error?: string, requestId?: string }
+ * - Server -> Client: { type: 'rule:config:changed', ruleId: string, severity: string, options?: object }
  */
 
 import { existsSync, statSync, readdirSync, readFileSync } from "fs";
@@ -42,7 +45,13 @@ import {
   logError,
   pc,
 } from "../utils/prompts.js";
-import { ruleRegistry } from "uilint-eslint";
+import { ruleRegistry, type RuleOptionSchema } from "uilint-eslint";
+import {
+  findEslintConfigFile,
+  updateRuleSeverityInConfig,
+  updateRuleConfigInConfig,
+  readRuleConfigsFromConfig,
+} from "../utils/eslint-config-inject.js";
 
 export interface ServeOptions {
   port?: number;
@@ -97,13 +106,22 @@ interface ConfigSetMessage {
   value: unknown;
 }
 
+interface RuleConfigSetMessage {
+  type: "rule:config:set";
+  ruleId: string;
+  severity: "error" | "warn" | "off";
+  options?: Record<string, unknown>;
+  requestId?: string;
+}
+
 type ClientMessage =
   | LintFileMessage
   | LintElementMessage
   | SubscribeFileMessage
   | CacheInvalidateMessage
   | VisionAnalyzeMessage
-  | ConfigSetMessage;
+  | ConfigSetMessage
+  | RuleConfigSetMessage;
 
 interface LintResultMessage {
   type: "lint:result";
@@ -159,6 +177,13 @@ interface RulesMetadataMessage {
     description: string;
     category: "static" | "semantic";
     defaultSeverity: "error" | "warn" | "off";
+    /** Current severity from ESLint config (may differ from default) */
+    currentSeverity?: "error" | "warn" | "off";
+    /** Current options from ESLint config */
+    currentOptions?: Record<string, unknown>;
+    docs?: string;
+    optionSchema?: RuleOptionSchema;
+    defaultOptions?: unknown[];
   }>;
 }
 
@@ -166,6 +191,23 @@ interface ConfigUpdateMessage {
   type: "config:update";
   key: string;
   value: unknown;
+}
+
+interface RuleConfigResultMessage {
+  type: "rule:config:result";
+  ruleId: string;
+  severity: "error" | "warn" | "off";
+  options?: Record<string, unknown>;
+  success: boolean;
+  error?: string;
+  requestId?: string;
+}
+
+interface RuleConfigChangedMessage {
+  type: "rule:config:changed";
+  ruleId: string;
+  severity: "error" | "warn" | "off";
+  options?: Record<string, unknown>;
 }
 
 type ServerMessage =
@@ -176,7 +218,9 @@ type ServerMessage =
   | VisionResultMessage
   | VisionProgressMessage
   | RulesMetadataMessage
-  | ConfigUpdateMessage;
+  | ConfigUpdateMessage
+  | RuleConfigResultMessage
+  | RuleConfigChangedMessage;
 
 function pickAppRoot(params: { cwd: string; workspaceRoot: string }): string {
   const { cwd, workspaceRoot } = params;
@@ -960,6 +1004,12 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       handleConfigSet(key, value);
       break;
     }
+
+    case "rule:config:set": {
+      const { ruleId, severity, options, requestId } = message;
+      handleRuleConfigSet(ws, ruleId, severity, options, requestId);
+      break;
+    }
   }
 }
 
@@ -1026,6 +1076,104 @@ function handleConfigSet(key: string, value: unknown): void {
 }
 
 /**
+ * Broadcast rule config change to all connected clients
+ */
+function broadcastRuleConfigChange(
+  ruleId: string,
+  severity: "error" | "warn" | "off",
+  options?: Record<string, unknown>
+): void {
+  const message: RuleConfigChangedMessage = {
+    type: "rule:config:changed",
+    ruleId,
+    severity,
+    options,
+  };
+  for (const ws of connectedClientsSet) {
+    sendMessage(ws, message);
+  }
+}
+
+/**
+ * Handle rule:config:set message
+ * Updates the ESLint config file and broadcasts the change to all clients
+ */
+function handleRuleConfigSet(
+  ws: WebSocket,
+  ruleId: string,
+  severity: "error" | "warn" | "off",
+  options?: Record<string, unknown>,
+  requestId?: string
+): void {
+  logInfo(
+    `${pc.dim("[ws]")} rule:config:set ${pc.bold(ruleId)} -> ${pc.dim(severity)}${
+      options ? ` with options` : ""
+    }`
+  );
+
+  // Find the ESLint config file
+  const configPath = findEslintConfigFile(serverAppRootForVision);
+  if (!configPath) {
+    const error = `No ESLint config file found in ${serverAppRootForVision}`;
+    logError(`${pc.dim("[ws]")} ${error}`);
+    sendMessage(ws, {
+      type: "rule:config:result",
+      ruleId,
+      severity,
+      options,
+      success: false,
+      error,
+      requestId,
+    });
+    return;
+  }
+
+  // Update the config file
+  let result;
+  if (options && Object.keys(options).length > 0) {
+    // Update severity AND options
+    result = updateRuleConfigInConfig(configPath, ruleId, severity, options);
+  } else {
+    // Update severity only
+    result = updateRuleSeverityInConfig(configPath, ruleId, severity);
+  }
+
+  if (result.success) {
+    logSuccess(
+      `${pc.dim("[ws]")} Updated ${pc.bold(`uilint/${ruleId}`)} -> ${pc.dim(severity)}`
+    );
+
+    // Clear ESLint instance cache to pick up the new config
+    eslintInstances.clear();
+    cache.clear();
+
+    // Send success response to requesting client
+    sendMessage(ws, {
+      type: "rule:config:result",
+      ruleId,
+      severity,
+      options,
+      success: true,
+      requestId,
+    });
+
+    // Broadcast change to all connected clients
+    broadcastRuleConfigChange(ruleId, severity, options);
+  } else {
+    logError(`${pc.dim("[ws]")} Failed to update rule: ${result.error}`);
+    sendMessage(ws, {
+      type: "rule:config:result",
+      ruleId,
+      severity,
+      options,
+      success: false,
+      error: result.error,
+      requestId,
+    });
+  }
+}
+
+/**
  * Start the WebSocket server
  */
 export async function serve(options: ServeOptions): Promise<void> {
@@ -1065,16 +1213,31 @@ export async function serve(options: ServeOptions): Promise<void> {
       serverCwd: cwd,
     });
 
-    // Send available rules metadata
+    // Read current rule configs from ESLint config file
+    const eslintConfigPath = findEslintConfigFile(appRoot);
+    const currentRuleConfigs = eslintConfigPath
+      ? readRuleConfigsFromConfig(eslintConfigPath)
+      : new Map<string, { severity: "error" | "warn" | "off"; options?: Record<string, unknown> }>();
+
+    // Send available rules metadata (including docs, options schema for rule editor UI)
+    // Include current severities from the ESLint config so UI reflects saved state
     sendMessage(ws, {
       type: "rules:metadata",
-      rules: ruleRegistry.map((rule) => ({
-        id: rule.id,
-        name: rule.name,
-        description: rule.description,
-        category: rule.category,
-        defaultSeverity: rule.defaultSeverity,
-      })),
+      rules: ruleRegistry.map((rule) => {
+        const currentConfig = currentRuleConfigs.get(rule.id);
+        return {
+          id: rule.id,
+          name: rule.name,
+          description: rule.description,
+          category: rule.category,
+          defaultSeverity: rule.defaultSeverity,
+          currentSeverity: currentConfig?.severity,
+          currentOptions: currentConfig?.options,
+          docs: rule.docs,
+          optionSchema: rule.optionSchema,
+          defaultOptions: rule.defaultOptions,
+        };
+      }),
     });
 
     // Send current config state to new client

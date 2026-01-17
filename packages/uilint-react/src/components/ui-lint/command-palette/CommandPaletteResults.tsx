@@ -9,6 +9,8 @@ import {
   CommandPaletteSectionHeader,
 } from "./CommandPaletteItem";
 import { SourceCodePreview } from "./SourceCodePreview";
+import { RuleToggleItem } from "./RuleToggleItem";
+import { RuleEditor } from "./RuleEditor";
 import type {
   ScoredSearchResult,
   CategoryType,
@@ -19,6 +21,7 @@ import type {
   FileSearchData,
   CommandPaletteFilter,
 } from "./types";
+import type { AvailableRule, RuleConfig } from "../store";
 
 interface CommandPaletteResultsProps {
   results: ScoredSearchResult[];
@@ -41,6 +44,22 @@ interface CommandPaletteResultsProps {
   scrollToCategory?: string | null;
   /** Called after scrolling to category completes */
   onScrollComplete?: () => void;
+  /** Available rules with full metadata (docs, optionSchema, etc.) */
+  availableRules?: AvailableRule[];
+  /** Current rule configurations (severity + options) */
+  ruleConfigs?: Map<string, RuleConfig>;
+  /** Rule config update in progress (loading states) */
+  ruleConfigUpdating?: Map<string, boolean>;
+  /** Set rule config (severity and/or options) */
+  onSetRuleConfig?: (
+    ruleId: string,
+    severity: "error" | "warn" | "off",
+    options?: Record<string, unknown>
+  ) => Promise<void>;
+  /** ID of expanded rule (showing editor) */
+  expandedRuleId?: string | null;
+  /** Set expanded rule ID */
+  onExpandRule?: (ruleId: string | null) => void;
 }
 
 /**
@@ -77,6 +96,12 @@ export function CommandPaletteResults({
   activeLocFilters = [],
   scrollToCategory,
   onScrollComplete,
+  availableRules = [],
+  ruleConfigs,
+  ruleConfigUpdating,
+  onSetRuleConfig,
+  expandedRuleId,
+  onExpandRule,
 }: CommandPaletteResultsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -259,7 +284,7 @@ export function CommandPaletteResults({
           </div>
         )}
 
-        {/* 4. Rules section */}
+        {/* 4. Rules section - uses RuleToggleItem with severity toggle */}
         {(standardGroups.get("rules")?.length ?? 0) > 0 && (
           <div className="mb-2">
             <CommandPaletteSectionHeader
@@ -269,23 +294,59 @@ export function CommandPaletteResults({
               {CATEGORY_CONFIG.rules.name} ({standardGroups.get("rules")!.length})
             </CommandPaletteSectionHeader>
 
-            {standardGroups.get("rules")!.map(({ result, index }) => (
-              <ResultItem
-                key={result.item.id}
-                result={result}
-                index={index}
-                isSelected={selectedIndex === index}
-                isPinned={selectedItemId === result.item.id}
-                onSelect={onSelect}
-                onHover={onHover}
-                onToggleRule={onToggleRule}
-                onToggleScan={onToggleScan}
-                liveScanEnabled={liveScanEnabled}
-                disabledRules={disabledRules}
-                onAddFilter={onAddFilter}
-                activeLocFilters={activeLocFilters}
-              />
-            ))}
+            {standardGroups.get("rules")!.map(({ result, index }) => {
+              const ruleData = result.item.data as RuleSearchData;
+              const ruleId = ruleData.rule.id;
+              const availableRule = availableRules.find((r) => r.id === ruleId);
+              const ruleConfig = ruleConfigs?.get(ruleId);
+              const isUpdating = ruleConfigUpdating?.get(ruleId) ?? false;
+              const isExpanded = expandedRuleId === ruleId;
+              const currentSeverity = ruleConfig?.severity ?? availableRule?.defaultSeverity ?? "error";
+              const hasOptions = availableRule?.optionSchema && availableRule.optionSchema.fields.length > 0;
+
+              return (
+                <div key={result.item.id} data-index={index}>
+                  <RuleToggleItem
+                    id={ruleId}
+                    name={result.item.title}
+                    description={result.item.subtitle || ruleData.rule.description}
+                    category={ruleData.rule.category}
+                    severity={currentSeverity}
+                    isSelected={selectedIndex === index}
+                    isExpanded={isExpanded}
+                    isUpdating={isUpdating}
+                    hasOptions={hasOptions}
+                    onSeverityChange={(id, severity) => {
+                      if (onSetRuleConfig) {
+                        // When changing severity via toggle, preserve existing options
+                        const existingOptions = ruleConfigs?.get(id)?.options;
+                        onSetRuleConfig(id, severity, existingOptions);
+                      }
+                    }}
+                    onExpandClick={(id) => {
+                      if (onExpandRule) {
+                        onExpandRule(isExpanded ? null : id);
+                      }
+                    }}
+                    onMouseEnter={() => onHover(result.item.id)}
+                    issueCount={result.item.issueCount}
+                  />
+
+                  {/* Rule Editor panel - shown when expanded */}
+                  {isExpanded && availableRule && onSetRuleConfig && (
+                    <RuleEditor
+                      rule={availableRule}
+                      currentConfig={ruleConfig ?? { severity: currentSeverity }}
+                      onSave={(severity, options) => {
+                        onSetRuleConfig(ruleId, severity, options);
+                      }}
+                      onClose={() => onExpandRule?.(null)}
+                      isUpdating={isUpdating}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -379,25 +440,9 @@ function ResultItem({
     }
 
     case "rule": {
-      const ruleData = item.data as RuleSearchData;
-      return (
-        <div data-index={index}>
-          <RuleItem
-            id={item.id}
-            title={item.title}
-            subtitle={item.subtitle}
-            issueCount={item.issueCount}
-            rule={ruleData.rule}
-            isSelected={isSelected}
-            isPinned={isPinned}
-            onMouseEnter={() => onHover(item.id)}
-            onMouseLeave={() => onHover(null)}
-            onToggle={onToggleRule}
-            isEnabled={!disabledRules.has(ruleData.rule.id)}
-            onAddFilter={onAddFilter}
-          />
-        </div>
-      );
+      // Rules are now rendered directly in the Rules section using RuleToggleItem
+      // This case should not be reached, but return null for safety
+      return null;
     }
 
     case "capture": {
@@ -551,99 +596,6 @@ function ActionItem({
   );
 }
 
-/**
- * Rule item - click adds filter
- */
-function RuleItem({
-  id,
-  title,
-  subtitle,
-  issueCount = 0,
-  rule,
-  isSelected,
-  isPinned,
-  onMouseEnter,
-  onMouseLeave,
-  onToggle,
-  isEnabled,
-  onAddFilter,
-}: {
-  id: string;
-  title: string;
-  subtitle?: string;
-  issueCount?: number;
-  rule: RuleSearchData["rule"];
-  isSelected: boolean;
-  isPinned: boolean;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
-  onToggle: (ruleId: string) => void;
-  isEnabled: boolean;
-  onAddFilter?: (filter: CommandPaletteFilter) => void;
-}) {
-  const handleClick = useCallback(() => {
-    if (onAddFilter && issueCount > 0) {
-      onAddFilter({
-        type: "rule",
-        value: rule.id,
-        label: rule.name,
-      });
-    }
-  }, [onAddFilter, issueCount, rule.id, rule.name]);
-
-  return (
-    <div
-      className={cn(
-        "group",
-        isPinned && "ring-1 ring-border ring-inset"
-      )}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-    >
-      <CommandPaletteItem
-        icon={
-          <span
-            className={cn(
-              "w-2 h-2 rounded-full",
-              rule.category === "static"
-                ? "bg-text-secondary"
-                : "bg-muted-foreground"
-            )}
-          />
-        }
-        title={title}
-        subtitle={subtitle}
-        rightElement={
-          <div className="flex items-center gap-2">
-            {issueCount > 0 ? (
-              <IssueCountBadge count={issueCount} />
-            ) : (
-              <span className="text-[10px] text-text-disabled">0</span>
-            )}
-            {/* Toggle button */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggle(rule.id);
-              }}
-              className={cn(
-                "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
-                isEnabled
-                  ? "bg-surface-elevated text-foreground hover:bg-hover"
-                  : "bg-surface text-text-disabled hover:bg-hover"
-              )}
-            >
-              {isEnabled ? "On" : "Off"}
-            </button>
-          </div>
-        }
-        isSelected={isSelected}
-        onClick={handleClick}
-      />
-    </div>
-  );
-}
 
 /**
  * Capture/screenshot item with thumbnail - click adds filter

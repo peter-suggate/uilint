@@ -148,6 +148,10 @@ export function CommandPalette() {
   );
   const fileIssuesCache = useUILintStore((s: UILintStore) => s.fileIssuesCache);
   const availableRules = useUILintStore((s: UILintStore) => s.availableRules);
+  const ruleConfigs = useUILintStore((s: UILintStore) => s.ruleConfigs);
+  const ruleConfigUpdating = useUILintStore(
+    (s: UILintStore) => s.ruleConfigUpdating
+  );
   const screenshotHistory = useUILintStore(
     (s: UILintStore) => s.screenshotHistory
   );
@@ -158,6 +162,8 @@ export function CommandPalette() {
   const commandPaletteFilters = useUILintStore(
     (s: UILintStore) => s.commandPaletteFilters
   );
+  // Expanded rule ID for rule editor
+  const expandedItemId = useUILintStore((s: UILintStore) => s.expandedItemId);
 
   // Calculate palette position based on floating icon
   const [palettePosition, setPalettePosition] = useState(() =>
@@ -180,6 +186,8 @@ export function CommandPalette() {
     setHoveredCommandPaletteItemId,
     setSelectedCommandPaletteItemId,
     toggleRule,
+    setRuleConfig,
+    setExpandedItemId,
     enableLiveScan,
     disableLiveScan,
     triggerVisionAnalysis,
@@ -537,6 +545,12 @@ export function CommandPalette() {
             activeLocFilters={activeLocFilters}
             scrollToCategory={scrollToCategory}
             onScrollComplete={handleScrollComplete}
+            availableRules={availableRules}
+            ruleConfigs={ruleConfigs}
+            ruleConfigUpdating={ruleConfigUpdating}
+            onSetRuleConfig={setRuleConfig}
+            expandedRuleId={expandedItemId}
+            onExpandRule={setExpandedItemId}
           />
         </div>
 

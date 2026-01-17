@@ -20,11 +20,15 @@ import type { PackageManager } from "../../utils/package-manager.js";
 export interface NextAppInfo {
   projectPath: string;
   detection: NextAppRouterDetection;
+  /** Whether uilint-react overlay is already installed */
+  hasUilintOverlay: boolean;
 }
 
 export interface ViteAppInfo {
   projectPath: string;
   detection: ViteReactDetection;
+  /** Whether uilint-react overlay is already installed */
+  hasUilintOverlay: boolean;
 }
 
 export interface EslintPackageInfo extends PackageInfo {

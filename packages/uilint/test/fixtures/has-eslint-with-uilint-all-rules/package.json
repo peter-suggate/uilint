@@ -1,0 +1,15 @@
+{
+  "name": "has-eslint-with-uilint-all-rules",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "typescript-eslint": "^8.0.0",
+    "uilint-eslint": "^0.1.0"
+  }
+}

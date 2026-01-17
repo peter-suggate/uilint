@@ -25,10 +25,7 @@
     "next": "^16.1.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "tailwind-merge": "^2.5.5",
-    "uilint-core": "workspace:*",
-    "uilint-eslint": "workspace:*",
-    "uilint-react": "workspace:*"
+    "tailwind-merge": "^2.5.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
