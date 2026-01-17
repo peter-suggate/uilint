@@ -45,6 +45,9 @@ export function HeatmapOverlay() {
   const mergedIssueCounts = useUILintStore(
     (s: UILintStore) => s.mergedIssueCounts
   );
+  const elementIssuesCache = useUILintStore(
+    (s: UILintStore) => s.elementIssuesCache
+  );
   const setInspectedElement = useUILintStore(
     (s: UILintStore) => s.setInspectedElement
   );
@@ -57,6 +60,14 @@ export function HeatmapOverlay() {
   const hoveredFilePath = useUILintStore((s: UILintStore) => s.hoveredFilePath);
   const selectedFilePath = useUILintStore(
     (s: UILintStore) => s.selectedFilePath
+  );
+
+  // Command palette selection state - heatmaps only show when an item is selected
+  const selectedCommandPaletteItemId = useUILintStore(
+    (s: UILintStore) => s.selectedCommandPaletteItemId
+  );
+  const hoveredCommandPaletteItemId = useUILintStore(
+    (s: UILintStore) => s.hoveredCommandPaletteItemId
   );
 
   useEffect(() => {
@@ -142,15 +153,83 @@ export function HeatmapOverlay() {
     };
   }, [autoScanState.status, autoScanState.elements, mergedIssueCounts]);
 
-  // Filter by file if applicable
-  const visibleElements = useMemo(() => {
-    const activeFilePath = selectedFilePath || hoveredFilePath;
-    if (!activeFilePath) return heatmapElements;
+  // Determine which item to highlight (selected takes precedence over hovered)
+  const activeItemId = selectedCommandPaletteItemId || hoveredCommandPaletteItemId;
 
-    return heatmapElements.filter(
-      (el) => el.element.source.fileName === activeFilePath
-    );
-  }, [heatmapElements, selectedFilePath, hoveredFilePath]);
+  // Filter elements based on active command palette selection
+  const visibleElements = useMemo(() => {
+    // If no item is active (selected or hovered), show nothing
+    if (!activeItemId) return [];
+
+    let filteredElements = heatmapElements;
+
+    // Filter by file path (existing behavior)
+    const activeFilePath = selectedFilePath || hoveredFilePath;
+    if (activeFilePath) {
+      filteredElements = filteredElements.filter(
+        (el) => el.element.source.fileName === activeFilePath
+      );
+    }
+
+    // Filter by rule if a rule is selected in the command palette
+    if (activeItemId.startsWith("rule:")) {
+      const ruleId = activeItemId.replace("rule:", "");
+      filteredElements = filteredElements.filter((el) => {
+        const cached = elementIssuesCache.get(el.element.id);
+        if (!cached) return false;
+        // Check if this element has any issues from the selected rule
+        return cached.issues.some((issue) => issue.ruleId === ruleId);
+      });
+    }
+
+    // Filter by file if a file is selected in the command palette
+    if (activeItemId.startsWith("file:")) {
+      const filePath = activeItemId.replace("file:", "");
+      filteredElements = filteredElements.filter(
+        (el) => el.element.source.fileName === filePath
+      );
+    }
+
+    // Filter by specific issue if an issue is selected
+    // Issue ID format: issue:${elementId}:${ruleId}:${line}:${column} or issue:file:${filePath}:${ruleId}:${line}:${column}
+    if (activeItemId.startsWith("issue:")) {
+      const parts = activeItemId.split(":");
+
+      if (parts[1] === "file") {
+        // File-level issue: issue:file:${filePath}:${ruleId}:${line}:${column}
+        // These don't map to specific elements, so show all elements in that file
+        const filePath = parts[2];
+        filteredElements = filteredElements.filter(
+          (el) => el.element.source.fileName === filePath
+        );
+      } else {
+        // Element-level issue: issue:${elementId}:${ruleId}:${line}:${column}
+        // The elementId is at parts[1], which is like "loc:path:line:column#occurrence"
+        // We need to reconstruct it carefully since it contains colons
+        const elementIdParts = [];
+        let i = 1;
+        // The elementId starts with "loc:" and ends before the ruleId (which starts with "uilint/")
+        while (i < parts.length && !parts[i].startsWith("uilint")) {
+          elementIdParts.push(parts[i]);
+          i++;
+        }
+        const targetElementId = elementIdParts.join(":");
+
+        // Show only the specific element this issue belongs to
+        filteredElements = filteredElements.filter(
+          (el) => el.element.id === targetElementId || el.element.id.startsWith(targetElementId)
+        );
+      }
+    }
+
+    return filteredElements;
+  }, [
+    heatmapElements,
+    activeItemId,
+    selectedFilePath,
+    hoveredFilePath,
+    elementIssuesCache,
+  ]);
 
   const handleClick = useCallback(
     (element: ScannedElement) => {

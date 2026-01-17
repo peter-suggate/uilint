@@ -4,8 +4,8 @@
 
 // UILint Components
 export {
-  UILintToolbar,
-  InspectionPanel,
+  FloatingIcon,
+  CommandPalette,
   LocatorOverlay,
   // Zustand store for direct access
   useUILintStore,

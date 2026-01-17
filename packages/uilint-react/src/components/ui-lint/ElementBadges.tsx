@@ -10,7 +10,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUILintStore, type UILintStore } from "./store";
-import type { ScannedElement, ElementIssue, InspectedElement } from "./types";
+import type { ScannedElement, ElementIssue, InspectedElement, ESLintIssue } from "./types";
 import { getUILintPortalHost } from "./portal-host";
 import {
   BadgeLayoutBuilder,
@@ -22,6 +22,18 @@ import {
   getElementVisibleRect,
   isElementCoveredByOverlay,
 } from "./visibility-utils";
+
+/**
+ * Filter issues by disabled rules
+ * Returns only issues whose ruleId is NOT in the disabled set
+ */
+function filterIssuesByDisabledRules(
+  issues: ESLintIssue[],
+  disabledRules: Set<string>
+): ESLintIssue[] {
+  if (disabledRules.size === 0) return issues;
+  return issues.filter((issue) => !issue.ruleId || !disabledRules.has(issue.ruleId));
+}
 
 /**
  * Design tokens - uses CSS variables for theme support
@@ -173,6 +185,8 @@ export function ElementBadges() {
   const selectedFilePath = useUILintStore(
     (s: UILintStore) => s.selectedFilePath
   );
+  // Get disabled rules for filtering
+  const disabledRules = useUILintStore((s: UILintStore) => s.disabledRules);
 
   useEffect(() => {
     setMounted(true);
@@ -256,7 +270,13 @@ export function ElementBadges() {
           height: visible.height,
         });
 
-        positions.push({ element, issue, x, y, rect: visibleRect });
+        // Filter issues by disabled rules
+        const filteredIssue: ElementIssue = {
+          ...issue,
+          issues: filterIssuesByDisabledRules(issue.issues, disabledRules),
+        };
+
+        positions.push({ element, issue: filteredIssue, x, y, rect: visibleRect });
       }
       setBadgePositions(positions);
     };
@@ -294,7 +314,7 @@ export function ElementBadges() {
       window.removeEventListener("resize", handleResize);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [autoScanState.status, autoScanState.elements, elementIssuesCache]);
+  }, [autoScanState.status, autoScanState.elements, elementIssuesCache, disabledRules]);
 
   // Handle badge selection
   const handleSelect = useCallback(

@@ -2,7 +2,7 @@
 
 /**
  * UILint UI - Renders all UI components when UILint is active
- * Toolbar, overlays, badges, and inspection panel
+ * Toolbar, overlays, badges, and command palette
  */
 
 import React, { useState, useEffect } from "react";
@@ -26,8 +26,8 @@ export function UILintUI() {
 
   // Dynamically import components to avoid circular dependencies
   const [components, setComponents] = useState<{
-    Toolbar: React.ComponentType;
-    Panel: React.ComponentType;
+    FloatingIcon: React.ComponentType;
+    CommandPalette: React.ComponentType;
     LocatorOverlay: React.ComponentType;
     VisionIssueHighlight: React.ComponentType;
     InspectedHighlight: React.ComponentType;
@@ -39,16 +39,16 @@ export function UILintUI() {
   useEffect(() => {
     // Import components
     Promise.all([
-      import("./toolbar"),
-      import("./InspectionPanel"),
+      import("./FloatingIcon"),
+      import("./command-palette"),
       import("./LocatorOverlay"),
       import("./ElementBadges"),
       import("./HeatmapOverlay"),
       import("./VisionIssueBadge"),
-    ]).then(([toolbar, panel, locator, badges, heatmap, visionBadges]) => {
+    ]).then(([floatingIcon, commandPalette, locator, badges, heatmap, visionBadges]) => {
       setComponents({
-        Toolbar: toolbar.UILintToolbar,
-        Panel: panel.InspectionPanel,
+        FloatingIcon: floatingIcon.FloatingIcon,
+        CommandPalette: commandPalette.CommandPalette,
         LocatorOverlay: locator.LocatorOverlay,
         VisionIssueHighlight: locator.VisionIssueHighlight,
         InspectedHighlight: locator.InspectedElementHighlight,
@@ -62,8 +62,8 @@ export function UILintUI() {
   if (!components) return null;
 
   const {
-    Toolbar,
-    Panel,
+    FloatingIcon,
+    CommandPalette,
     LocatorOverlay,
     VisionIssueHighlight,
     InspectedHighlight,
@@ -76,18 +76,16 @@ export function UILintUI() {
 
   return (
     <>
-      <Toolbar />
+      <FloatingIcon />
+      <CommandPalette />
       {(altKeyHeld || inspectedElement) && <LocatorOverlay />}
       <VisionIssueHighlight />
       {liveScanEnabled && displayMode === "badges" && <ElementBadges />}
-      {liveScanEnabled && displayMode === "heatmap" && <HeatmapOverlay />}
+      {/* HeatmapOverlay is always rendered when live scan is enabled -
+          it internally shows/hides based on command palette selection */}
+      {liveScanEnabled && <HeatmapOverlay />}
       {hasVisionIssues && <VisionIssueBadges />}
-      {inspectedElement && (
-        <>
-          <InspectedHighlight />
-          <Panel />
-        </>
-      )}
+      {inspectedElement && <InspectedHighlight />}
     </>
   );
 }

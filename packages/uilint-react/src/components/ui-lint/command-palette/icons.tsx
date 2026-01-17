@@ -3,7 +3,7 @@ import React from "react";
 interface IconProps extends React.SVGProps<SVGSVGElement> {}
 
 /**
- * Icon components for toolbar
+ * Icon components for command palette and floating icon
  */
 export const Icons = {
   Eye: (props: IconProps) => (
@@ -83,6 +83,36 @@ export const Icons = {
       {...props}
     >
       <polyline points="6 9 12 15 18 9" />
+    </svg>
+  ),
+  ChevronLeft: (props: IconProps) => (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  ),
+  ChevronRight: (props: IconProps) => (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <polyline points="9 18 15 12 9 6" />
     </svg>
   ),
   X: (props: IconProps) => (
@@ -202,140 +232,6 @@ export const Icons = {
       <polygon points="5 3 19 12 5 21 5 3" />
     </svg>
   ),
-  Layout: (props: IconProps) => (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-      <line x1="3" y1="9" x2="21" y2="9" />
-      <line x1="9" y1="21" x2="9" y2="9" />
-    </svg>
-  ),
-  Type: (props: IconProps) => (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <polyline points="4 7 4 4 20 4 20 7" />
-      <line x1="9" y1="20" x2="15" y2="20" />
-      <line x1="12" y1="4" x2="12" y2="20" />
-    </svg>
-  ),
-  Palette: (props: IconProps) => (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
-    </svg>
-  ),
-  AlignLeft: (props: IconProps) => (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <line x1="17" y1="10" x2="3" y2="10" />
-      <line x1="21" y1="6" x2="3" y2="6" />
-      <line x1="21" y1="14" x2="3" y2="14" />
-      <line x1="17" y1="18" x2="3" y2="18" />
-    </svg>
-  ),
-  Grid: (props: IconProps) => (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-    </svg>
-  ),
-  Contrast: (props: IconProps) => (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 18a6 6 0 0 0 0-12v12z" />
-    </svg>
-  ),
-  AlertCircle: (props: IconProps) => (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  ),
-  CheckCircle: (props: IconProps) => (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <polyline points="22 4 12 14.01 9 11.01" />
-    </svg>
-  ),
   Image: (props: IconProps) => (
     <svg
       width="14"
@@ -353,7 +249,7 @@ export const Icons = {
       <polyline points="21 15 16 10 5 21" />
     </svg>
   ),
-  ChevronLeft: (props: IconProps) => (
+  Search: (props: IconProps) => (
     <svg
       width="14"
       height="14"
@@ -365,10 +261,11 @@ export const Icons = {
       strokeLinejoin="round"
       {...props}
     >
-      <polyline points="15 18 9 12 15 6" />
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
   ),
-  Plus: (props: IconProps) => (
+  File: (props: IconProps) => (
     <svg
       width="14"
       height="14"
@@ -380,11 +277,11 @@ export const Icons = {
       strokeLinejoin="round"
       {...props}
     >
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
     </svg>
   ),
-  Badge: (props: IconProps) => (
+  Zap: (props: IconProps) => (
     <svg
       width="14"
       height="14"
@@ -396,20 +293,10 @@ export const Icons = {
       strokeLinejoin="round"
       {...props}
     >
-      <circle cx="12" cy="12" r="8" />
-      <text
-        x="12"
-        y="16"
-        textAnchor="middle"
-        fontSize="10"
-        fill="currentColor"
-        stroke="none"
-      >
-        3
-      </text>
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
     </svg>
   ),
-  Heatmap: (props: IconProps) => (
+  Plug: (props: IconProps) => (
     <svg
       width="14"
       height="14"
@@ -421,10 +308,27 @@ export const Icons = {
       strokeLinejoin="round"
       {...props}
     >
-      <rect x="3" y="3" width="7" height="7" rx="1" opacity="0.3" />
-      <rect x="14" y="3" width="7" height="7" rx="1" opacity="0.6" />
-      <rect x="3" y="14" width="7" height="7" rx="1" opacity="0.5" />
-      <rect x="14" y="14" width="7" height="7" rx="1" opacity="0.9" />
+      <path d="M12 22v-5" />
+      <path d="M9 8V2" />
+      <path d="M15 8V2" />
+      <path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" />
+    </svg>
+  ),
+  ExternalLink: (props: IconProps) => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
     </svg>
   ),
 };

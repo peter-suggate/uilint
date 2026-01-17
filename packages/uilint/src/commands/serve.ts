@@ -40,6 +40,7 @@ import {
   logError,
   pc,
 } from "../utils/prompts.js";
+import { ruleRegistry } from "uilint-eslint";
 
 export interface ServeOptions {
   port?: number;
@@ -141,13 +142,25 @@ interface VisionProgressMessage {
   requestId?: string;
 }
 
+interface RulesMetadataMessage {
+  type: "rules:metadata";
+  rules: Array<{
+    id: string;
+    name: string;
+    description: string;
+    category: "static" | "semantic";
+    defaultSeverity: "error" | "warn" | "off";
+  }>;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
   | FileChangedMessage
   | WorkspaceInfoMessage
   | VisionResultMessage
-  | VisionProgressMessage;
+  | VisionProgressMessage
+  | RulesMetadataMessage;
 
 function pickAppRoot(params: { cwd: string; workspaceRoot: string }): string {
   const { cwd, workspaceRoot } = params;
@@ -1000,6 +1013,18 @@ export async function serve(options: ServeOptions): Promise<void> {
       appRoot,
       workspaceRoot: wsRoot,
       serverCwd: cwd,
+    });
+
+    // Send available rules metadata
+    sendMessage(ws, {
+      type: "rules:metadata",
+      rules: ruleRegistry.map((rule) => ({
+        id: rule.id,
+        name: rule.name,
+        description: rule.description,
+        category: rule.category,
+        defaultSeverity: rule.defaultSeverity,
+      })),
     });
 
     ws.on("message", (data) => {

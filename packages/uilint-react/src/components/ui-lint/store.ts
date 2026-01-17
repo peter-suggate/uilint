@@ -127,13 +127,25 @@ interface VisionProgressMessage {
   requestId?: string;
 }
 
+interface RulesMetadataMessage {
+  type: "rules:metadata";
+  rules: Array<{
+    id: string;
+    name: string;
+    description: string;
+    category: "static" | "semantic";
+    defaultSeverity: "error" | "warn" | "off";
+  }>;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
   | FileChangedMessage
   | WorkspaceInfoMessage
   | VisionResultMessage
-  | VisionProgressMessage;
+  | VisionProgressMessage
+  | RulesMetadataMessage;
 
 /**
  * UILint Store State and Actions
@@ -272,8 +284,6 @@ export interface UILintStore {
   showResultsPanel: boolean;
   /** Active tab in the results panel */
   activeResultsTab: "eslint" | "vision";
-  /** Active tab in the main toolbar */
-  activeToolbarTab: "configure" | "eslint" | "vision";
 
   // Vision actions
   /** Trigger vision analysis for current page */
@@ -288,8 +298,6 @@ export interface UILintStore {
   setShowResultsPanel: (show: boolean) => void;
   /** Set active results tab */
   setActiveResultsTab: (tab: "eslint" | "vision") => void;
-  /** Set active toolbar tab */
-  setActiveToolbarTab: (tab: "configure" | "eslint" | "vision") => void;
   /** Clear vision results */
   clearVisionResults: () => void;
   /** Set capture mode */
@@ -314,6 +322,43 @@ export interface UILintStore {
   mergedIssueCounts: Map<string, number>;
   /** Compute top-level elements and merged issue counts for heatmap display */
   computeHeatmapData: () => void;
+
+  // ============ Command Palette ============
+  /** Whether command palette is open */
+  commandPaletteOpen: boolean;
+  /** Current search query */
+  commandPaletteQuery: string;
+  /** Selected index for keyboard navigation */
+  commandPaletteSelectedIndex: number;
+  /** ID of currently expanded item in the list (for rule details, file issues, etc.) */
+  expandedItemId: string | null;
+  /** Currently highlighted rule ID (for hover -> heatmap highlighting) */
+  highlightedRuleId: string | null;
+  /** Currently hovered item ID in command palette (for transient highlighting) */
+  hoveredCommandPaletteItemId: string | null;
+  /** Currently selected/pinned item ID (persists after click, shows heatmap) */
+  selectedCommandPaletteItemId: string | null;
+  /** Disabled rules (visual filtering only) */
+  disabledRules: Set<string>;
+  /** Available ESLint rules from server */
+  availableRules: Array<{
+    id: string;
+    name: string;
+    description: string;
+    category: "static" | "semantic";
+    defaultSeverity: "error" | "warn" | "off";
+  }>;
+
+  // Command Palette actions
+  openCommandPalette: () => void;
+  closeCommandPalette: () => void;
+  setCommandPaletteQuery: (query: string) => void;
+  setCommandPaletteSelectedIndex: (index: number) => void;
+  setExpandedItemId: (id: string | null) => void;
+  setHighlightedRuleId: (ruleId: string | null) => void;
+  setHoveredCommandPaletteItemId: (id: string | null) => void;
+  setSelectedCommandPaletteItemId: (id: string | null) => void;
+  toggleRule: (ruleId: string) => void;
 
   // ============ Internal ============
   _setScanState: (state: Partial<AutoScanState>) => void;
@@ -482,6 +527,18 @@ function saveAutoScanSettings(settings: AutoScanSettings): void {
 /** Max reconnect attempts before giving up */
 const MAX_RECONNECT_ATTEMPTS = 5;
 
+/**
+ * Filter issues by disabled rules
+ * Returns only issues whose ruleId is NOT in the disabled set
+ */
+function filterIssuesByDisabledRules(
+  issues: ESLintIssue[],
+  disabledRules: Set<string>
+): ESLintIssue[] {
+  if (disabledRules.size === 0) return issues;
+  return issues.filter((issue) => !issue.ruleId || !disabledRules.has(issue.ruleId));
+}
+
 /** Reconnect delay in ms (exponential backoff) */
 const RECONNECT_BASE_DELAY = 1000;
 
@@ -605,16 +662,21 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   computeHeatmapData: () => {
     const state = get();
     const elements = state.autoScanState.elements;
+    const { disabledRules } = state;
 
     // Identify top-level elements per file
     const topLevelByFile = identifyTopLevelElements(elements);
 
-    // Compute merged issue counts
+    // Compute merged issue counts (filtered by disabled rules)
     const mergedCounts = new Map<string, number>();
 
     for (const el of elements) {
       const cached = state.elementIssuesCache.get(el.id);
-      const elementIssueCount = cached?.issues.length ?? 0;
+      // Filter out issues from disabled rules
+      const filteredIssues = cached
+        ? filterIssuesByDisabledRules(cached.issues, disabledRules)
+        : [];
+      const elementIssueCount = filteredIssues.length;
 
       // Start with the element's own issues
       let totalCount = elementIssueCount;
@@ -623,7 +685,12 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       const filePath = el.source.fileName;
       if (topLevelByFile.get(filePath) === el.id) {
         const fileIssues = state.fileIssuesCache.get(filePath) || [];
-        totalCount += fileIssues.length;
+        // Also filter file-level issues by disabled rules
+        const filteredFileIssues = filterIssuesByDisabledRules(
+          fileIssues,
+          disabledRules
+        );
+        totalCount += filteredFileIssues.length;
       }
 
       mergedCounts.set(el.id, totalCount);
@@ -1095,7 +1162,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
 
   showResultsPanel: false,
   activeResultsTab: "eslint",
-  activeToolbarTab: "configure",
 
   triggerVisionAnalysis: async () => {
     const { wsConnection, wsConnected, selectedRegion, captureMode } = get();
@@ -1322,7 +1388,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
 
   setShowResultsPanel: (show) => set({ showResultsPanel: show }),
   setActiveResultsTab: (tab) => set({ activeResultsTab: tab }),
-  setActiveToolbarTab: (tab) => set({ activeToolbarTab: tab }),
 
   setCaptureMode: (mode) => set({ captureMode: mode }),
   setRegionSelectionActive: (active) => set({ regionSelectionActive: active }),
@@ -1452,6 +1517,69 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       hoveredVisionIssue: null,
       visionLastError: null,
     }),
+
+  // ============ Command Palette ============
+  commandPaletteOpen: false,
+  commandPaletteQuery: "",
+  commandPaletteSelectedIndex: 0,
+  expandedItemId: null,
+  highlightedRuleId: null,
+  hoveredCommandPaletteItemId: null,
+  selectedCommandPaletteItemId: null,
+  disabledRules: new Set(),
+  availableRules: [],
+
+  openCommandPalette: () =>
+    set({
+      commandPaletteOpen: true,
+      commandPaletteQuery: "",
+      commandPaletteSelectedIndex: 0,
+      expandedItemId: null,
+    }),
+
+  closeCommandPalette: () =>
+    set({
+      commandPaletteOpen: false,
+      commandPaletteQuery: "",
+      commandPaletteSelectedIndex: 0,
+      expandedItemId: null,
+      highlightedRuleId: null,
+    }),
+
+  setCommandPaletteQuery: (query) =>
+    set({
+      commandPaletteQuery: query,
+      commandPaletteSelectedIndex: 0,
+    }),
+
+  setCommandPaletteSelectedIndex: (index) =>
+    set({ commandPaletteSelectedIndex: index }),
+
+  setExpandedItemId: (id) =>
+    set({ expandedItemId: id }),
+
+  setHighlightedRuleId: (ruleId) =>
+    set({ highlightedRuleId: ruleId }),
+
+  setHoveredCommandPaletteItemId: (id) =>
+    set({ hoveredCommandPaletteItemId: id }),
+
+  setSelectedCommandPaletteItemId: (id) =>
+    set({ selectedCommandPaletteItemId: id }),
+
+  toggleRule: (ruleId) => {
+    set((state) => {
+      const newDisabled = new Set(state.disabledRules);
+      if (newDisabled.has(ruleId)) {
+        newDisabled.delete(ruleId);
+      } else {
+        newDisabled.add(ruleId);
+      }
+      return { disabledRules: newDisabled };
+    });
+    // Recompute heatmap data to reflect the new disabled rules
+    get().computeHeatmapData();
+  },
 
   _handleWsMessage: (data: ServerMessage) => {
     switch (data.type) {
@@ -1587,6 +1715,13 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
           serverCwd,
         });
         set({ appRoot, workspaceRoot, serverCwd });
+        break;
+      }
+
+      case "rules:metadata": {
+        const { rules } = data;
+        console.log("[UILint] Received rules metadata:", rules.length, "rules");
+        set({ availableRules: rules });
         break;
       }
 
