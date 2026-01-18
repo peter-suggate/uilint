@@ -34,6 +34,12 @@ export function useAutoScans(enabled: boolean, isMounted: boolean) {
     (s: UILintStore) => s.triggerVisionAnalysis
   );
   const visionAnalyzing = useUILintStore((s: UILintStore) => s.visionAnalyzing);
+  const fetchPersistedScreenshots = useUILintStore(
+    (s: UILintStore) => s.fetchPersistedScreenshots
+  );
+  const loadingPersistedScreenshots = useUILintStore(
+    (s: UILintStore) => s.loadingPersistedScreenshots
+  );
 
   /**
    * Track whether initial auto-scans have run to prevent duplicates
@@ -134,5 +140,24 @@ export function useAutoScans(enabled: boolean, isMounted: boolean) {
     liveScanEnabled,
     storeEnableLiveScan,
     settings.hideNodeModules,
+  ]);
+
+  /**
+   * Fetch persisted screenshots on initial load
+   * Loads previously captured vision screenshots from disk
+   */
+  useEffect(() => {
+    if (!isBrowser() || !enabled || !isMounted) return;
+    if (!wsConnected) return;
+    if (loadingPersistedScreenshots) return; // Already loading
+
+    // Fetch persisted screenshots (function has its own duplicate prevention)
+    fetchPersistedScreenshots();
+  }, [
+    enabled,
+    isMounted,
+    wsConnected,
+    loadingPersistedScreenshots,
+    fetchPersistedScreenshots,
   ]);
 }

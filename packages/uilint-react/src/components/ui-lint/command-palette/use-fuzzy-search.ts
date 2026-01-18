@@ -274,7 +274,8 @@ export function useFuzzySearch(
 
     if (!query.trim()) {
       // No query - return all items sorted by category priority
-      const categoryOrder: CategoryType[] = ["actions", "rules", "captures", "files", "issues"];
+      // Rules first, then issues, captures, vision, settings last
+      const categoryOrder: CategoryType[] = ["rules", "issues", "captures", "vision", "settings"];
 
       return filteredItems
         .map((item) => ({ item, score: 1 }))

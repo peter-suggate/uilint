@@ -10,7 +10,7 @@ import {
 } from "./CommandPaletteItem";
 import { SourceCodePreview } from "./SourceCodePreview";
 import { RuleToggleItem } from "./RuleToggleItem";
-import { RuleEditor } from "./RuleEditor";
+import { RuleDetailItem } from "./RuleDetailItem";
 import type {
   ScoredSearchResult,
   CategoryType,
@@ -40,6 +40,8 @@ interface CommandPaletteResultsProps {
   onAddFilter?: (filter: CommandPaletteFilter) => void;
   /** Active loc filters - issues matching these should be expanded */
   activeLocFilters?: CommandPaletteFilter[];
+  /** Active rule filters - rules matching these should show details at top */
+  activeRuleFilters?: CommandPaletteFilter[];
   /** Category ID to scroll to (e.g., "rules" or "file:/path/to/file.tsx") */
   scrollToCategory?: string | null;
   /** Called after scrolling to category completes */
@@ -56,10 +58,6 @@ interface CommandPaletteResultsProps {
     severity: "error" | "warn" | "off",
     options?: Record<string, unknown>
   ) => Promise<void>;
-  /** ID of expanded rule (showing editor) */
-  expandedRuleId?: string | null;
-  /** Set expanded rule ID */
-  onExpandRule?: (ruleId: string | null) => void;
 }
 
 /**
@@ -94,14 +92,13 @@ export function CommandPaletteResults({
   disabledRules,
   onAddFilter,
   activeLocFilters = [],
+  activeRuleFilters = [],
   scrollToCategory,
   onScrollComplete,
   availableRules = [],
   ruleConfigs,
   ruleConfigUpdating,
   onSetRuleConfig,
-  expandedRuleId,
-  onExpandRule,
 }: CommandPaletteResultsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -186,7 +183,77 @@ export function CommandPaletteResults({
   return (
     <ScrollArea className="max-h-[400px] flex-1" ref={scrollRef}>
       <div className="py-2">
-        {/* 1. File-grouped issues - FIRST (most important) */}
+        {/* 1. Rules section - FIRST */}
+        {(standardGroups.get("rules")?.length ?? 0) > 0 && (
+          <div className="mb-2">
+            <CommandPaletteSectionHeader
+              icon={CATEGORY_CONFIG.rules.icon}
+              categoryId="rules"
+            >
+              {CATEGORY_CONFIG.rules.name} ({standardGroups.get("rules")!.length})
+            </CommandPaletteSectionHeader>
+
+            {standardGroups.get("rules")!.map(({ result, index }) => {
+              const ruleData = result.item.data as RuleSearchData;
+              const ruleId = ruleData.rule.id;
+              const availableRule = availableRules.find((r) => r.id === ruleId);
+              const ruleConfig = ruleConfigs?.get(ruleId);
+              const isUpdating = ruleConfigUpdating?.get(ruleId) ?? false;
+              const currentSeverity = ruleConfig?.severity ?? availableRule?.defaultSeverity ?? "error";
+
+              // Check if this rule matches an active rule filter
+              const matchesRuleFilter = activeRuleFilters.some(
+                (f) => f.value === ruleId || f.value === `uilint/${ruleId}`
+              );
+
+              return (
+                <div key={result.item.id} data-index={index}>
+                  {/* Show expanded detail when matching a rule filter */}
+                  {matchesRuleFilter && availableRule ? (
+                    <RuleDetailItem
+                      rule={availableRule}
+                      currentConfig={ruleConfig ?? { severity: currentSeverity }}
+                      isUpdating={isUpdating}
+                      onSetRuleConfig={onSetRuleConfig}
+                      issueCount={result.item.issueCount}
+                    />
+                  ) : (
+                    <RuleToggleItem
+                      id={ruleId}
+                      name={result.item.title}
+                      description={result.item.subtitle || ruleData.rule.description}
+                      category={ruleData.rule.category}
+                      severity={currentSeverity}
+                      isSelected={selectedIndex === index}
+                      isUpdating={isUpdating}
+                      onSeverityChange={(id, severity) => {
+                        if (onSetRuleConfig) {
+                          // When changing severity via toggle, preserve existing options
+                          const existingOptions = ruleConfigs?.get(id)?.options;
+                          onSetRuleConfig(id, severity, existingOptions);
+                        }
+                      }}
+                      onClick={(id) => {
+                        // Add rule filter when clicking on a rule
+                        if (onAddFilter) {
+                          onAddFilter({
+                            type: "rule",
+                            value: id,
+                            label: result.item.title,
+                          });
+                        }
+                      }}
+                      onMouseEnter={() => onHover(result.item.id)}
+                      issueCount={result.item.issueCount}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 2. File-grouped issues */}
         {Array.from(issuesByFile.entries()).map(([filePath, { fileName, directory, items }]) => (
           <div key={filePath} className="mb-2">
             <CommandPaletteSectionHeader
@@ -224,7 +291,7 @@ export function CommandPaletteResults({
           </div>
         ))}
 
-        {/* 2. Captures section (screenshots) */}
+        {/* 3. Captures section (screenshots) */}
         {(standardGroups.get("captures")?.length ?? 0) > 0 && (
           <div className="mb-2">
             <CommandPaletteSectionHeader
@@ -254,7 +321,7 @@ export function CommandPaletteResults({
           </div>
         )}
 
-        {/* 3. Vision section (capture actions) */}
+        {/* 4. Vision section (capture actions) */}
         {(standardGroups.get("vision")?.length ?? 0) > 0 && (
           <div className="mb-2">
             <CommandPaletteSectionHeader
@@ -281,72 +348,6 @@ export function CommandPaletteResults({
                 activeLocFilters={activeLocFilters}
               />
             ))}
-          </div>
-        )}
-
-        {/* 4. Rules section - uses RuleToggleItem with severity toggle */}
-        {(standardGroups.get("rules")?.length ?? 0) > 0 && (
-          <div className="mb-2">
-            <CommandPaletteSectionHeader
-              icon={CATEGORY_CONFIG.rules.icon}
-              categoryId="rules"
-            >
-              {CATEGORY_CONFIG.rules.name} ({standardGroups.get("rules")!.length})
-            </CommandPaletteSectionHeader>
-
-            {standardGroups.get("rules")!.map(({ result, index }) => {
-              const ruleData = result.item.data as RuleSearchData;
-              const ruleId = ruleData.rule.id;
-              const availableRule = availableRules.find((r) => r.id === ruleId);
-              const ruleConfig = ruleConfigs?.get(ruleId);
-              const isUpdating = ruleConfigUpdating?.get(ruleId) ?? false;
-              const isExpanded = expandedRuleId === ruleId;
-              const currentSeverity = ruleConfig?.severity ?? availableRule?.defaultSeverity ?? "error";
-              const hasOptions = availableRule?.optionSchema && availableRule.optionSchema.fields.length > 0;
-
-              return (
-                <div key={result.item.id} data-index={index}>
-                  <RuleToggleItem
-                    id={ruleId}
-                    name={result.item.title}
-                    description={result.item.subtitle || ruleData.rule.description}
-                    category={ruleData.rule.category}
-                    severity={currentSeverity}
-                    isSelected={selectedIndex === index}
-                    isExpanded={isExpanded}
-                    isUpdating={isUpdating}
-                    hasOptions={hasOptions}
-                    onSeverityChange={(id, severity) => {
-                      if (onSetRuleConfig) {
-                        // When changing severity via toggle, preserve existing options
-                        const existingOptions = ruleConfigs?.get(id)?.options;
-                        onSetRuleConfig(id, severity, existingOptions);
-                      }
-                    }}
-                    onExpandClick={(id) => {
-                      if (onExpandRule) {
-                        onExpandRule(isExpanded ? null : id);
-                      }
-                    }}
-                    onMouseEnter={() => onHover(result.item.id)}
-                    issueCount={result.item.issueCount}
-                  />
-
-                  {/* Rule Editor panel - shown when expanded */}
-                  {isExpanded && availableRule && onSetRuleConfig && (
-                    <RuleEditor
-                      rule={availableRule}
-                      currentConfig={ruleConfig ?? { severity: currentSeverity }}
-                      onSave={(severity, options) => {
-                        onSetRuleConfig(ruleId, severity, options);
-                      }}
-                      onClose={() => onExpandRule?.(null)}
-                      isUpdating={isUpdating}
-                    />
-                  )}
-                </div>
-              );
-            })}
           </div>
         )}
 

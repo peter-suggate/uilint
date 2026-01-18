@@ -162,8 +162,6 @@ export function CommandPalette() {
   const commandPaletteFilters = useUILintStore(
     (s: UILintStore) => s.commandPaletteFilters
   );
-  // Expanded rule ID for rule editor
-  const expandedItemId = useUILintStore((s: UILintStore) => s.expandedItemId);
 
   // Calculate palette position based on floating icon
   const [palettePosition, setPalettePosition] = useState(() =>
@@ -187,7 +185,6 @@ export function CommandPalette() {
     setSelectedCommandPaletteItemId,
     toggleRule,
     setRuleConfig,
-    setExpandedItemId,
     enableLiveScan,
     disableLiveScan,
     triggerVisionAnalysis,
@@ -244,6 +241,12 @@ export function CommandPalette() {
     [commandPaletteFilters]
   );
 
+  // Get active rule filters for expanded rule rendering
+  const activeRuleFilters = useMemo(
+    () => commandPaletteFilters.filter((f) => f.type === "rule"),
+    [commandPaletteFilters]
+  );
+
   // State for scroll-to-category
   const [scrollToCategory, setScrollToCategory] = useState<string | null>(null);
 
@@ -296,6 +299,15 @@ export function CommandPalette() {
   // Count captures in results
   const capturesCount = useMemo(
     () => searchResults.filter((r) => r.item.type === "capture").length,
+    [searchResults]
+  );
+
+  // Count total vision issues across all captures
+  const capturesIssueCount = useMemo(
+    () =>
+      searchResults
+        .filter((r) => r.item.type === "capture")
+        .reduce((sum, r) => sum + (r.item.issueCount || 0), 0),
     [searchResults]
   );
 
@@ -520,6 +532,7 @@ export function CommandPalette() {
             settingsCount={settingsCount}
             visionCount={visionCount}
             capturesCount={capturesCount}
+            capturesIssueCount={capturesIssueCount}
             rulesCount={rulesCount}
             onCategoryClick={handleCategoryClick}
           />
@@ -543,14 +556,13 @@ export function CommandPalette() {
             disabledRules={disabledRules}
             onAddFilter={handleAddFilter}
             activeLocFilters={activeLocFilters}
+            activeRuleFilters={activeRuleFilters}
             scrollToCategory={scrollToCategory}
             onScrollComplete={handleScrollComplete}
             availableRules={availableRules}
             ruleConfigs={ruleConfigs}
             ruleConfigUpdating={ruleConfigUpdating}
             onSetRuleConfig={setRuleConfig}
-            expandedRuleId={expandedItemId}
-            onExpandRule={setExpandedItemId}
           />
         </div>
 

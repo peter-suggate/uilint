@@ -20,6 +20,8 @@ interface CategorySidebarProps {
   visionCount: number;
   /** Number of captures in current results */
   capturesCount: number;
+  /** Total number of vision issues across all captures */
+  capturesIssueCount?: number;
   /** Number of rules in current results */
   rulesCount: number;
   /** Called when a category is clicked */
@@ -35,6 +37,7 @@ export function CategorySidebar({
   settingsCount,
   visionCount,
   capturesCount,
+  capturesIssueCount,
   rulesCount,
   onCategoryClick,
 }: CategorySidebarProps) {
@@ -71,6 +74,7 @@ export function CategorySidebar({
         <SidebarItem
           icon={<Icons.Camera className="w-3.5 h-3.5" />}
           label="Captures"
+          subtitle={capturesIssueCount ? `${capturesIssueCount} issues` : undefined}
           count={capturesCount}
           onClick={() => onCategoryClick("captures")}
         />
