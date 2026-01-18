@@ -12,8 +12,36 @@
 
 import { createRule, defineRuleMeta } from "../utils/create-rule.js";
 import type { TSESTree } from "@typescript-eslint/utils";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, appendFileSync, writeFileSync } from "fs";
 import { dirname, join, relative } from "path";
+
+// Debug logging - writes to .uilint/no-semantic-duplicates.log in the project root
+let logFile: string | null = null;
+let logInitialized = false;
+
+function initLog(projectRoot: string): void {
+  if (logFile) return;
+  const uilintDir = join(projectRoot, ".uilint");
+  if (existsSync(uilintDir)) {
+    logFile = join(uilintDir, "no-semantic-duplicates.log");
+  }
+}
+
+function log(message: string): void {
+  if (!logFile) return;
+  try {
+    const timestamp = new Date().toISOString();
+    const line = `[${timestamp}] ${message}\n`;
+    if (!logInitialized) {
+      writeFileSync(logFile, line);
+      logInitialized = true;
+    } else {
+      appendFileSync(logFile, line);
+    }
+  } catch {
+    // Ignore logging errors
+  }
+}
 
 type MessageIds = "semanticDuplicate" | "noIndex";
 type Options = [
@@ -22,6 +50,8 @@ type Options = [
     threshold?: number;
     /** Path to the index directory */
     indexPath?: string;
+    /** Minimum number of lines for a chunk to be reported (default: 3) */
+    minLines?: number;
   }
 ];
 
@@ -34,7 +64,7 @@ export const meta = defineRuleMeta({
   description: "Warn when code is semantically similar to existing code",
   defaultSeverity: "warn",
   category: "semantic",
-  defaultOptions: [{ threshold: 0.85, indexPath: ".uilint/.duplicates-index" }],
+  defaultOptions: [{ threshold: 0.85, indexPath: ".uilint/.duplicates-index", minLines: 3 }],
   optionSchema: {
     fields: [
       {
@@ -51,6 +81,14 @@ export const meta = defineRuleMeta({
         type: "text",
         defaultValue: ".uilint/.duplicates-index",
         description: "Path to the semantic duplicates index directory",
+      },
+      {
+        key: "minLines",
+        label: "Minimum lines",
+        type: "number",
+        defaultValue: 3,
+        description:
+          "Minimum number of lines for a chunk to be reported as a potential duplicate.",
       },
     ],
   },
@@ -116,7 +154,8 @@ export function ProfileCard({ profile }) {
 // eslint.config.js
 "uilint/no-semantic-duplicates": ["warn", {
   threshold: 0.85,      // Similarity threshold (0-1)
-  indexPath: ".uilint/.duplicates-index"
+  indexPath: ".uilint/.duplicates-index",
+  minLines: 3           // Minimum lines to report (default: 3)
 }]
 \`\`\`
 
@@ -138,6 +177,8 @@ let indexCache: {
       filePath: string;
       startLine: number;
       endLine: number;
+      startColumn: number;
+      endColumn: number;
       name: string | null;
       kind: string;
     }
@@ -146,17 +187,38 @@ let indexCache: {
 } | null = null;
 
 /**
- * Find project root by looking for package.json
+ * Clear the index cache (useful for testing)
  */
-function findProjectRoot(startPath: string): string {
+export function clearIndexCache(): void {
+  indexCache = null;
+}
+
+/**
+ * Find project root by looking for the .uilint directory (preferred)
+ * or falling back to the root package.json (monorepo root)
+ */
+function findProjectRoot(startPath: string, indexPath: string): string {
   let current = startPath;
+  let lastPackageJson: string | null = null;
+
+  // Walk up the directory tree
   while (current !== dirname(current)) {
-    if (existsSync(join(current, "package.json"))) {
+    // Check for .uilint directory with index (highest priority)
+    const uilintDir = join(current, indexPath);
+    if (existsSync(join(uilintDir, "manifest.json"))) {
       return current;
     }
+
+    // Track package.json locations
+    if (existsSync(join(current, "package.json"))) {
+      lastPackageJson = current;
+    }
+
     current = dirname(current);
   }
-  return startPath;
+
+  // Return the topmost package.json location (monorepo root) or start path
+  return lastPackageJson || startPath;
 }
 
 /**
@@ -167,15 +229,19 @@ function loadIndex(
   indexPath: string
 ): typeof indexCache | null {
   const fullIndexPath = join(projectRoot, indexPath);
+  log(`loadIndex called: projectRoot=${projectRoot}, indexPath=${indexPath}`);
+  log(`fullIndexPath=${fullIndexPath}`);
 
   // Check if we already have a cached index for this project
   if (indexCache && indexCache.projectRoot === projectRoot) {
+    log(`Using cached index (${indexCache.vectorStore.size} vectors, ${indexCache.fileToChunks.size} files)`);
     return indexCache;
   }
 
   // Check if index exists
   const manifestPath = join(fullIndexPath, "manifest.json");
   if (!existsSync(manifestPath)) {
+    log(`Index not found: manifest.json missing at ${manifestPath}`);
     return null;
   }
 
@@ -183,11 +249,16 @@ function loadIndex(
     // Load metadata
     const metadataPath = join(fullIndexPath, "metadata.json");
     if (!existsSync(metadataPath)) {
+      log(`Index not found: metadata.json missing at ${metadataPath}`);
       return null;
     }
 
     const metadataContent = readFileSync(metadataPath, "utf-8");
     const metadataJson = JSON.parse(metadataContent);
+
+    // Support both formats: { entries: {...} } and direct { chunkId: {...} }
+    const entries = metadataJson.entries || metadataJson;
+    log(`Loaded metadata.json: ${Object.keys(entries).length} entries`);
 
     const metadataStore = new Map<
       string,
@@ -195,26 +266,43 @@ function loadIndex(
         filePath: string;
         startLine: number;
         endLine: number;
+        startColumn: number;
+        endColumn: number;
         name: string | null;
         kind: string;
       }
     >();
     const fileToChunks = new Map<string, string[]>();
 
-    for (const [id, meta] of Object.entries(metadataJson.entries || {})) {
+    for (const [id, meta] of Object.entries(entries)) {
       const m = meta as {
         filePath: string;
         startLine: number;
         endLine: number;
+        startColumn: number;
+        endColumn: number;
         name: string | null;
         kind: string;
       };
-      metadataStore.set(id, m);
+      metadataStore.set(id, {
+        filePath: m.filePath,
+        startLine: m.startLine,
+        endLine: m.endLine,
+        startColumn: m.startColumn ?? 0,
+        endColumn: m.endColumn ?? 0,
+        name: m.name,
+        kind: m.kind,
+      });
 
       // Build file -> chunks mapping
       const chunks = fileToChunks.get(m.filePath) || [];
       chunks.push(id);
       fileToChunks.set(m.filePath, chunks);
+    }
+
+    log(`File to chunks mapping:`);
+    for (const [filePath, chunks] of fileToChunks.entries()) {
+      log(`  ${filePath}: ${chunks.length} chunks (${chunks.join(", ")})`);
     }
 
     // Load vectors (binary format)
@@ -225,13 +313,17 @@ function loadIndex(
     if (existsSync(vectorsPath) && existsSync(idsPath)) {
       const idsContent = readFileSync(idsPath, "utf-8");
       const ids = JSON.parse(idsContent) as string[];
+      log(`Loaded ids.json: ${ids.length} IDs`);
 
       const buffer = readFileSync(vectorsPath);
-      const view = new DataView(buffer.buffer);
+      // Must use byteOffset and byteLength because Node's Buffer uses pooling
+      // and buffer.buffer may contain data from other buffers at different offsets
+      const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 
       // Read header
       const dimension = view.getUint32(0, true);
       const count = view.getUint32(4, true);
+      log(`Embeddings binary: dimension=${dimension}, count=${count}`);
 
       // Read vectors
       let offset = 8;
@@ -243,6 +335,9 @@ function loadIndex(
         }
         vectorStore.set(ids[i], vector);
       }
+      log(`Loaded ${vectorStore.size} vectors into store`);
+    } else {
+      log(`Missing vectors or ids files: vectorsPath=${existsSync(vectorsPath)}, idsPath=${existsSync(idsPath)}`);
     }
 
     indexCache = {
@@ -252,8 +347,10 @@ function loadIndex(
       fileToChunks,
     };
 
+    log(`Index loaded successfully: ${vectorStore.size} vectors, ${metadataStore.size} metadata entries, ${fileToChunks.size} files`);
     return indexCache;
-  } catch {
+  } catch (err) {
+    log(`Error loading index: ${err}`);
     return null;
   }
 }
@@ -286,20 +383,38 @@ function findSimilarChunks(
   chunkId: string,
   threshold: number
 ): Array<{ id: string; score: number }> {
+  log(`findSimilarChunks: chunkId=${chunkId}, threshold=${threshold}`);
+
   const vector = index.vectorStore.get(chunkId);
-  if (!vector) return [];
+  if (!vector) {
+    log(`  No vector found for chunk ${chunkId}`);
+    return [];
+  }
+  log(`  Vector found: dimension=${vector.length}`);
 
   const results: Array<{ id: string; score: number }> = [];
+  const allScores: Array<{ id: string; score: number }> = [];
 
   for (const [id, vec] of index.vectorStore.entries()) {
     if (id === chunkId) continue;
 
     const score = cosineSimilarity(vector, vec);
+    allScores.push({ id, score });
     if (score >= threshold) {
       results.push({ id, score });
     }
   }
 
+  // Log top 10 scores regardless of threshold
+  const sortedAll = allScores.sort((a, b) => b.score - a.score).slice(0, 10);
+  log(`  Top 10 similarity scores (threshold=${threshold}):`);
+  for (const { id, score } of sortedAll) {
+    const meta = index.metadataStore.get(id);
+    const meetsThreshold = score >= threshold ? "✓" : "✗";
+    log(`    ${meetsThreshold} ${(score * 100).toFixed(1)}% - ${id} (${meta?.name || "anonymous"} in ${meta?.filePath})`);
+  }
+
+  log(`  Found ${results.length} chunks above threshold`);
   return results.sort((a, b) => b.score - a.score);
 }
 
@@ -330,6 +445,11 @@ export default createRule<Options, MessageIds>({
             type: "string",
             description: "Path to the index directory",
           },
+          minLines: {
+            type: "integer",
+            minimum: 1,
+            description: "Minimum number of lines for a chunk to be reported",
+          },
         },
         additionalProperties: false,
       },
@@ -339,15 +459,28 @@ export default createRule<Options, MessageIds>({
     {
       threshold: 0.85,
       indexPath: ".uilint/.duplicates-index",
+      minLines: 3,
     },
   ],
   create(context) {
     const options = context.options[0] || {};
     const threshold = options.threshold ?? 0.85;
     const indexPath = options.indexPath ?? ".uilint/.duplicates-index";
+    const minLines = options.minLines ?? 3;
 
     const filename = context.filename || context.getFilename();
-    const projectRoot = findProjectRoot(dirname(filename));
+    const projectRoot = findProjectRoot(dirname(filename), indexPath);
+
+    // Initialize logging to .uilint folder
+    initLog(projectRoot);
+
+    log(`\n========== Rule create() ==========`);
+    log(`Filename: ${filename}`);
+    log(`Threshold: ${threshold}`);
+    log(`Index path: ${indexPath}`);
+    log(`Min lines: ${minLines}`);
+    log(`Project root: ${projectRoot}`);
+
     const index = loadIndex(projectRoot, indexPath);
 
     // Track which chunks we've already reported to avoid duplicates
@@ -361,28 +494,50 @@ export default createRule<Options, MessageIds>({
       node: TSESTree.Node,
       name: string | null
     ): void {
+      log(`checkForDuplicates: name=${name}, file=${filename}`);
+
       if (!index) {
+        log(`  No index loaded`);
         return;
       }
 
       // Get chunks for this file
       const fileChunks = index.fileToChunks.get(filename);
+      log(`  Looking for chunks for file: ${filename}`);
+      log(`  Files in index: ${Array.from(index.fileToChunks.keys()).join(", ")}`);
+
       if (!fileChunks || fileChunks.length === 0) {
+        log(`  No chunks found for this file`);
         return;
       }
+      log(`  Found ${fileChunks.length} chunks: ${fileChunks.join(", ")}`);
 
       // Find the chunk that contains this node's location
       const nodeLine = node.loc?.start.line;
-      if (!nodeLine) return;
+      if (!nodeLine) {
+        log(`  No node line number`);
+        return;
+      }
+      log(`  Node starts at line ${nodeLine}`);
 
       for (const chunkId of fileChunks) {
-        if (reportedChunks.has(chunkId)) continue;
+        if (reportedChunks.has(chunkId)) {
+          log(`  Chunk ${chunkId} already reported, skipping`);
+          continue;
+        }
 
         const meta = index.metadataStore.get(chunkId);
-        if (!meta) continue;
+        if (!meta) {
+          log(`  No metadata for chunk ${chunkId}`);
+          continue;
+        }
+
+        log(`  Checking chunk ${chunkId}: lines ${meta.startLine}-${meta.endLine} (node at line ${nodeLine})`);
 
         // Check if this node is within the chunk's line range
         if (nodeLine >= meta.startLine && nodeLine <= meta.endLine) {
+          log(`  Node is within chunk range, searching for similar chunks...`);
+
           // Find similar chunks
           const similar = findSimilarChunks(index, chunkId, threshold);
 
@@ -391,13 +546,26 @@ export default createRule<Options, MessageIds>({
             const bestMeta = index.metadataStore.get(best.id);
 
             if (bestMeta) {
+              // Check minimum lines threshold
+              const chunkLines = meta.endLine - meta.startLine + 1;
+              if (chunkLines < minLines) {
+                log(`  Skipping: chunk has ${chunkLines} lines, below minLines=${minLines}`);
+                continue;
+              }
+
               reportedChunks.add(chunkId);
 
               const relPath = relative(projectRoot, bestMeta.filePath);
               const similarity = Math.round(best.score * 100);
 
+              log(`  REPORTING: ${meta.kind} '${name || meta.name}' is ${similarity}% similar to '${bestMeta.name}' at ${relPath}:${bestMeta.startLine}`);
+
               context.report({
                 node,
+                loc: {
+                  start: { line: meta.startLine, column: meta.startColumn },
+                  end: { line: meta.endLine, column: meta.endColumn },
+                },
                 messageId: "semanticDuplicate",
                 data: {
                   kind: meta.kind,
@@ -408,7 +576,11 @@ export default createRule<Options, MessageIds>({
                 },
               });
             }
+          } else {
+            log(`  No similar chunks found above threshold`);
           }
+        } else {
+          log(`  Node line ${nodeLine} not in chunk range ${meta.startLine}-${meta.endLine}`);
         }
       }
     }
