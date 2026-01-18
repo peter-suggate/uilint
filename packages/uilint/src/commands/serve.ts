@@ -1347,25 +1347,27 @@ export async function serve(options: ServeOptions): Promise<void> {
       ? readRuleConfigsFromConfig(eslintConfigPath)
       : new Map<string, { severity: "error" | "warn" | "off"; options?: Record<string, unknown> }>();
 
-    // Send available rules metadata (including docs, options schema for rule editor UI)
+    // Send installed rules metadata (only rules that exist in the ESLint config)
     // Include current severities from the ESLint config so UI reflects saved state
     sendMessage(ws, {
       type: "rules:metadata",
-      rules: ruleRegistry.map((rule) => {
-        const currentConfig = currentRuleConfigs.get(rule.id);
-        return {
-          id: rule.id,
-          name: rule.name,
-          description: rule.description,
-          category: rule.category,
-          defaultSeverity: rule.defaultSeverity,
-          currentSeverity: currentConfig?.severity,
-          currentOptions: currentConfig?.options,
-          docs: rule.docs,
-          optionSchema: rule.optionSchema,
-          defaultOptions: rule.defaultOptions,
-        };
-      }),
+      rules: ruleRegistry
+        .filter((rule) => currentRuleConfigs.has(rule.id))
+        .map((rule) => {
+          const currentConfig = currentRuleConfigs.get(rule.id);
+          return {
+            id: rule.id,
+            name: rule.name,
+            description: rule.description,
+            category: rule.category,
+            defaultSeverity: rule.defaultSeverity,
+            currentSeverity: currentConfig?.severity,
+            currentOptions: currentConfig?.options,
+            docs: rule.docs,
+            optionSchema: rule.optionSchema,
+            defaultOptions: rule.defaultOptions,
+          };
+        }),
     });
 
     // Send current config state to new client
