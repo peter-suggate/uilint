@@ -33,6 +33,7 @@ import { meta as zustandUseSelectors } from "./rules/zustand-use-selectors.js";
 import { meta as noSecretsInCode } from "./rules/no-secrets-in-code.js";
 import { meta as requireInputValidation } from "./rules/require-input-validation.js";
 import { meta as noPropDrillingDepth } from "./rules/no-prop-drilling-depth.js";
+import { meta as noSemanticDuplicates } from "./rules/no-semantic-duplicates.js";
 
 import type { RuleMeta } from "./utils/create-rule.js";
 
@@ -63,6 +64,8 @@ export const ruleRegistry: RuleMeta[] = [
   // New security rules
   noSecretsInCode,
   requireInputValidation,
+  // Semantic duplicate detection
+  noSemanticDuplicates,
 ];
 
 /**

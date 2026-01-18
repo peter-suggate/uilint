@@ -213,6 +213,32 @@ interface RuleConfigChangedMessage {
   options?: Record<string, unknown>;
 }
 
+// Duplicates indexing messages
+interface DuplicatesIndexingStartMessage {
+  type: "duplicates:indexing:start";
+}
+
+interface DuplicatesIndexingProgressMessage {
+  type: "duplicates:indexing:progress";
+  message: string;
+  current?: number;
+  total?: number;
+}
+
+interface DuplicatesIndexingCompleteMessage {
+  type: "duplicates:indexing:complete";
+  added: number;
+  modified: number;
+  deleted: number;
+  totalChunks: number;
+  duration: number;
+}
+
+interface DuplicatesIndexingErrorMessage {
+  type: "duplicates:indexing:error";
+  error: string;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
@@ -223,7 +249,11 @@ type ServerMessage =
   | RulesMetadataMessage
   | ConfigUpdateMessage
   | RuleConfigResultMessage
-  | RuleConfigChangedMessage;
+  | RuleConfigChangedMessage
+  | DuplicatesIndexingStartMessage
+  | DuplicatesIndexingProgressMessage
+  | DuplicatesIndexingCompleteMessage
+  | DuplicatesIndexingErrorMessage;
 
 /**
  * UILint Store State and Actions
@@ -396,8 +426,28 @@ export interface UILintStore {
   setSelectedScreenshotId: (id: string | null) => void;
   /** Whether persisted screenshots are being loaded */
   loadingPersistedScreenshots: boolean;
+  /** Whether persisted screenshots have been fetched (prevents re-fetching) */
+  persistedScreenshotsFetched: boolean;
   /** Fetch persisted screenshots from disk (via API) */
   fetchPersistedScreenshots: () => Promise<void>;
+
+  // ============ Duplicates Index ============
+  /** Duplicates index status */
+  duplicatesIndexStatus: "idle" | "indexing" | "ready" | "error";
+  /** Current indexing progress message */
+  duplicatesIndexMessage: string | null;
+  /** Current indexing progress (current/total) */
+  duplicatesIndexProgress: { current: number; total: number } | null;
+  /** Last indexing error message */
+  duplicatesIndexError: string | null;
+  /** Last indexing result stats */
+  duplicatesIndexStats: {
+    totalChunks: number;
+    added: number;
+    modified: number;
+    deleted: number;
+    duration: number;
+  } | null;
 
   // ============ Heatmap Display ============
   /** Map of file path -> top-level element ID for that file (used for file-level issue display) */
@@ -1566,10 +1616,12 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     });
   },
   loadingPersistedScreenshots: false,
+  persistedScreenshotsFetched: false,
 
   fetchPersistedScreenshots: async () => {
-    // Avoid duplicate fetches
-    if (get().loadingPersistedScreenshots) return;
+    // Avoid duplicate fetches - check both loading state and whether already fetched
+    if (get().loadingPersistedScreenshots || get().persistedScreenshotsFetched)
+      return;
 
     set({ loadingPersistedScreenshots: true });
 
@@ -1657,7 +1709,11 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     } catch (error) {
       console.warn("[UILint] Error fetching persisted screenshots:", error);
     } finally {
-      set({ loadingPersistedScreenshots: false });
+      // Mark as fetched (even on error) to prevent retries, and clear loading state
+      set({
+        loadingPersistedScreenshots: false,
+        persistedScreenshotsFetched: true,
+      });
     }
   },
 
@@ -1673,6 +1729,13 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       hoveredVisionIssue: null,
       visionLastError: null,
     }),
+
+  // ============ Duplicates Index ============
+  duplicatesIndexStatus: "idle",
+  duplicatesIndexMessage: null,
+  duplicatesIndexProgress: null,
+  duplicatesIndexError: null,
+  duplicatesIndexStats: null,
 
   // ============ Command Palette ============
   commandPaletteOpen: false,
@@ -1756,7 +1819,9 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       return { ruleConfigUpdating: next };
     });
 
-    const requestId = `rule_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const requestId = `rule_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 9)}`;
 
     // Send request via WebSocket
     wsConnection.send(
@@ -1995,7 +2060,9 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
           next.set(ruleId, { severity, options });
           return { ruleConfigs: next };
         });
-        console.log(`[UILint] Rule config changed (broadcast): ${ruleId} -> ${severity}`);
+        console.log(
+          `[UILint] Rule config changed (broadcast): ${ruleId} -> ${severity}`
+        );
 
         // Trigger full re-scan if live scan is enabled
         const state = get();
@@ -2113,6 +2180,65 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       case "vision:progress": {
         const { phase } = data;
         set({ visionProgressPhase: phase });
+        break;
+      }
+
+      // ============ Duplicates Index Messages ============
+      case "duplicates:indexing:start": {
+        set({
+          duplicatesIndexStatus: "indexing",
+          duplicatesIndexMessage: "Starting index...",
+          duplicatesIndexProgress: null,
+          duplicatesIndexError: null,
+        });
+        console.log("[UILint] Duplicates indexing started");
+        break;
+      }
+
+      case "duplicates:indexing:progress": {
+        const { message, current, total } =
+          data as DuplicatesIndexingProgressMessage;
+        set({
+          duplicatesIndexStatus: "indexing",
+          duplicatesIndexMessage: message,
+          duplicatesIndexProgress:
+            current !== undefined && total !== undefined
+              ? { current, total }
+              : null,
+        });
+        break;
+      }
+
+      case "duplicates:indexing:complete": {
+        const { added, modified, deleted, totalChunks, duration } =
+          data as DuplicatesIndexingCompleteMessage;
+        set({
+          duplicatesIndexStatus: "ready",
+          duplicatesIndexMessage: null,
+          duplicatesIndexProgress: null,
+          duplicatesIndexStats: {
+            totalChunks,
+            added,
+            modified,
+            deleted,
+            duration,
+          },
+        });
+        console.log(
+          `[UILint] Duplicates index ready: ${totalChunks} chunks (${added} added, ${modified} modified, ${deleted} deleted) in ${duration}ms`
+        );
+        break;
+      }
+
+      case "duplicates:indexing:error": {
+        const { error } = data as DuplicatesIndexingErrorMessage;
+        set({
+          duplicatesIndexStatus: "error",
+          duplicatesIndexMessage: null,
+          duplicatesIndexProgress: null,
+          duplicatesIndexError: error,
+        });
+        console.error("[UILint] Duplicates indexing error:", error);
         break;
       }
 

@@ -37,8 +37,8 @@ export function useAutoScans(enabled: boolean, isMounted: boolean) {
   const fetchPersistedScreenshots = useUILintStore(
     (s: UILintStore) => s.fetchPersistedScreenshots
   );
-  const loadingPersistedScreenshots = useUILintStore(
-    (s: UILintStore) => s.loadingPersistedScreenshots
+  const persistedScreenshotsFetched = useUILintStore(
+    (s: UILintStore) => s.persistedScreenshotsFetched
   );
 
   /**
@@ -145,19 +145,20 @@ export function useAutoScans(enabled: boolean, isMounted: boolean) {
   /**
    * Fetch persisted screenshots on initial load
    * Loads previously captured vision screenshots from disk
+   * Only runs once - the store tracks whether fetch has completed
    */
   useEffect(() => {
     if (!isBrowser() || !enabled || !isMounted) return;
     if (!wsConnected) return;
-    if (loadingPersistedScreenshots) return; // Already loading
+    if (persistedScreenshotsFetched) return; // Already fetched
 
-    // Fetch persisted screenshots (function has its own duplicate prevention)
+    // Fetch persisted screenshots (store function has duplicate prevention)
     fetchPersistedScreenshots();
   }, [
     enabled,
     isMounted,
     wsConnected,
-    loadingPersistedScreenshots,
+    persistedScreenshotsFetched,
     fetchPersistedScreenshots,
   ]);
 }

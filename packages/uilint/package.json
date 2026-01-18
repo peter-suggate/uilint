@@ -1,6 +1,6 @@
 {
   "name": "uilint",
-  "version": "0.2.24",
+  "version": "0.2.25",
   "description": "CLI for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -53,10 +53,12 @@
     "dotenv": "^17.2.3",
     "ink": "^6.6.0",
     "magicast": "^0.5.1",
+    "ora": "^9.0.0",
     "picocolors": "^1.1.1",
     "react": "^19.2.3",
     "typescript": "^5.9.3",
     "uilint-core": "workspace:*",
+    "uilint-duplicates": "workspace:*",
     "uilint-eslint": "workspace:*",
     "ws": "^8.19.0"
   },

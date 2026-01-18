@@ -4,7 +4,7 @@
 
 import { join } from "path";
 import type { Installer, InstallTarget, InstallerConfig, ProgressEvent } from "./types.js";
-import type { ProjectState, InstallAction } from "../types.js";
+import type { ProjectState, InstallAction, DependencyInstall } from "../types.js";
 import { GENSTYLEGUIDE_COMMAND_MD } from "../constants.js";
 
 export const genstyleguideInstaller: Installer = {

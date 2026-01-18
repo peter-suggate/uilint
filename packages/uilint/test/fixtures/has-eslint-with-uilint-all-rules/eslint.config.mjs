@@ -28,6 +28,7 @@ export default [
       // Semantic rules
       "uilint/semantic": "warn",
       "uilint/semantic-vision": "warn",
+      "uilint/no-semantic-duplicates": "warn",
     },
   },
 ];

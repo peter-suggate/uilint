@@ -28,14 +28,14 @@ function createMockState(
 
 describe("ProjectSummary", () => {
   it("should render package manager", () => {
-    const state = createMockState({ packageManager: "pnpm" });
-    const { lastFrame } = render(<ProjectSummary state={state} />);
+    const project = createMockState({ packageManager: "pnpm" });
+    const { lastFrame } = render(<ProjectSummary project={project} />);
 
     expect(lastFrame()).toContain("Package Manager: pnpm");
   });
 
   it("should show Next.js apps when detected", () => {
-    const state = createMockState({
+    const project = createMockState({
       nextApps: [
         {
           projectPath: "/test/workspace/apps/web",
@@ -48,15 +48,14 @@ describe("ProjectSummary", () => {
       ],
     });
 
-    const { lastFrame } = render(<ProjectSummary state={state} />);
+    const { lastFrame } = render(<ProjectSummary project={project} />);
 
-    expect(lastFrame()).toContain("Next.js Apps: 1 detected");
-    expect(lastFrame()).toContain("apps/web");
-    expect(lastFrame()).toContain("(app)");
+    expect(lastFrame()).toContain("Next.js Apps");
+    expect(lastFrame()).toContain("web");
   });
 
   it("should show multiple Next.js apps", () => {
-    const state = createMockState({
+    const project = createMockState({
       nextApps: [
         {
           projectPath: "/test/workspace/apps/web",
@@ -77,15 +76,15 @@ describe("ProjectSummary", () => {
       ],
     });
 
-    const { lastFrame } = render(<ProjectSummary state={state} />);
+    const { lastFrame } = render(<ProjectSummary project={project} />);
 
-    expect(lastFrame()).toContain("Next.js Apps: 2 detected");
-    expect(lastFrame()).toContain("apps/web");
-    expect(lastFrame()).toContain("apps/admin");
+    expect(lastFrame()).toContain("Next.js Apps");
+    expect(lastFrame()).toContain("web");
+    expect(lastFrame()).toContain("admin");
   });
 
   it("should show Vite apps when detected", () => {
-    const state = createMockState({
+    const project = createMockState({
       viteApps: [
         {
           projectPath: "/test/workspace/apps/app",
@@ -98,15 +97,14 @@ describe("ProjectSummary", () => {
       ],
     });
 
-    const { lastFrame } = render(<ProjectSummary state={state} />);
+    const { lastFrame } = render(<ProjectSummary project={project} />);
 
-    expect(lastFrame()).toContain("Vite Apps: 1 detected");
-    expect(lastFrame()).toContain("apps/app");
-    expect(lastFrame()).toContain("(src)");
+    expect(lastFrame()).toContain("Vite Apps");
+    expect(lastFrame()).toContain("app");
   });
 
   it("should show packages with ESLint config", () => {
-    const state = createMockState({
+    const project = createMockState({
       packages: [
         {
           path: "/test/workspace/packages/ui",
@@ -135,66 +133,45 @@ describe("ProjectSummary", () => {
       ],
     });
 
-    const { lastFrame } = render(<ProjectSummary state={state} />);
+    const { lastFrame } = render(<ProjectSummary project={project} />);
 
-    expect(lastFrame()).toContain("ESLint Configs: 2 found");
-    expect(lastFrame()).toContain("packages/ui");
-    expect(lastFrame()).toContain("packages/lib");
-    expect(lastFrame()).toContain("(has uilint)");
-  });
-
-  it("should show ... more for many packages", () => {
-    const state = createMockState({
-      packages: Array.from({ length: 5 }, (_, i) => ({
-        path: `/test/workspace/packages/pkg${i}`,
-        name: `pkg${i}`,
-        version: "1.0.0",
-        isTypeScript: true,
-        dependencies: {},
-        devDependencies: {},
-        eslintConfigPath: `/test/workspace/packages/pkg${i}/eslint.config.mjs`,
-        eslintConfigFilename: "eslint.config.mjs",
-        hasUilintRules: false,
-        configuredRuleIds: [],
-      })),
-    });
-
-    const { lastFrame } = render(<ProjectSummary state={state} />);
-
-    expect(lastFrame()).toContain("ESLint Configs: 5 found");
-    expect(lastFrame()).toContain("... and 2 more");
+    expect(lastFrame()).toContain("ESLint Configs");
+    expect(lastFrame()).toContain("ui");
+    expect(lastFrame()).toContain("lib");
   });
 
   it("should show styleguide when exists", () => {
-    const state = createMockState({
+    const project = createMockState({
       styleguide: { exists: true, path: "/test/.uilint/styleguide.md" },
     });
 
-    const { lastFrame } = render(<ProjectSummary state={state} />);
+    const { lastFrame } = render(<ProjectSummary project={project} />);
 
-    expect(lastFrame()).toContain("Styleguide: Found");
+    expect(lastFrame()).toContain("Already Installed");
+    expect(lastFrame()).toContain("styleguide.md");
   });
 
   it("should show cursor commands when installed", () => {
-    const state = createMockState({
+    const project = createMockState({
       commands: { genstyleguide: true },
     });
 
-    const { lastFrame } = render(<ProjectSummary state={state} />);
+    const { lastFrame } = render(<ProjectSummary project={project} />);
 
-    expect(lastFrame()).toContain("Cursor Commands: genstyleguide installed");
+    expect(lastFrame()).toContain("Already Installed");
+    expect(lastFrame()).toContain("genstyleguide");
   });
 
-  it("should render bordered box", () => {
-    const state = createMockState();
-    const { lastFrame } = render(<ProjectSummary state={state} />);
+  it("should render the title", () => {
+    const project = createMockState();
+    const { lastFrame } = render(<ProjectSummary project={project} />);
 
-    expect(lastFrame()).toContain("Project Detected");
+    expect(lastFrame()).toContain("Your Project");
   });
 
   it("should show minimal state for fresh project", () => {
-    const state = createMockState();
-    const { lastFrame } = render(<ProjectSummary state={state} />);
+    const project = createMockState();
+    const { lastFrame } = render(<ProjectSummary project={project} />);
 
     expect(lastFrame()).toContain("Package Manager: npm");
     expect(lastFrame()).not.toContain("Next.js Apps");

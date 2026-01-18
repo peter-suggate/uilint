@@ -261,6 +261,11 @@ export const eslintInstaller: Installer = {
       (r) => r.severity === "warn"
     ).length;
 
+    // Check if no-semantic-duplicates rule is selected
+    const hasSemanticDuplicates = configuredRules.some(
+      (cr) => cr.rule.id === "no-semantic-duplicates"
+    );
+
     prompts.log("");
     prompts.note(
       configuredRules
@@ -273,6 +278,21 @@ export const eslintInstaller: Installer = {
         .join("\n"),
       `Selected ${configuredRules.length} rules (${errorCount} errors, ${warnCount} warnings)`
     );
+
+    // Remind about duplicates index requirement
+    if (hasSemanticDuplicates) {
+      prompts.log("");
+      prompts.log(
+        prompts.pc.yellow(
+          "⚠️  The no-semantic-duplicates rule requires a semantic index."
+        )
+      );
+      prompts.log(
+        prompts.pc.dim(
+          "   Run 'uilint duplicates index' in each target app to build it."
+        )
+      );
+    }
 
     return { configuredRules };
   },

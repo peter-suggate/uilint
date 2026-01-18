@@ -32,6 +32,7 @@ export function UILintUI() {
     ElementBadges: React.ComponentType;
     HeatmapOverlay: React.ComponentType;
     VisionIssueBadges: React.ComponentType;
+    IndexingIndicator: React.ComponentType;
   } | null>(null);
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export function UILintUI() {
       import("./ElementBadges"),
       import("./HeatmapOverlay"),
       import("./VisionIssueBadge"),
+      import("./IndexingIndicator"),
     ]).then(
       ([
         floatingIcon,
@@ -51,6 +53,7 @@ export function UILintUI() {
         badges,
         heatmap,
         visionBadges,
+        indexingIndicator,
       ]) => {
         setComponents({
           FloatingIcon: floatingIcon.FloatingIcon,
@@ -60,6 +63,7 @@ export function UILintUI() {
           ElementBadges: badges.ElementBadges,
           HeatmapOverlay: heatmap.HeatmapOverlay,
           VisionIssueBadges: visionBadges.VisionIssueBadges,
+          IndexingIndicator: indexingIndicator.IndexingIndicator,
         });
       }
     );
@@ -75,6 +79,7 @@ export function UILintUI() {
     ElementBadges,
     HeatmapOverlay,
     VisionIssueBadges,
+    IndexingIndicator,
   } = components;
 
   const hasVisionIssues = visionIssuesCache.size > 0;
@@ -90,6 +95,7 @@ export function UILintUI() {
       {liveScanEnabled && <HeatmapOverlay />}
       {hasVisionIssues && <VisionIssueBadges />}
       {inspectedElement && <InspectedHighlight />}
+      <IndexingIndicator />
     </>
   );
 }

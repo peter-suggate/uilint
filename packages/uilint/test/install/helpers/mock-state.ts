@@ -50,6 +50,7 @@ export function createMockNextApp(
       appRootAbs: `${projectPath}/app`,
       candidates: ["app/layout.tsx"],
     },
+    hasUilintOverlay: false,
   };
 }
 
@@ -67,6 +68,7 @@ export function createMockViteApp(
       entryRoot: "src",
       candidates: ["src/main.tsx"],
     },
+    hasUilintOverlay: false,
   };
 }
 

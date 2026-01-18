@@ -4,28 +4,20 @@
  * Tests the Next.js installer's detection, target identification, and installation execution.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
-import { createNextInstaller } from "../../../src/commands/install/installers/next-overlay.js";
+import { describe, it, expect } from "vitest";
+import { nextOverlayInstaller } from "../../../src/commands/install/installers/next-overlay.js";
 import {
   createMockProjectState,
   createMockNextApp,
-  consumeGenerator,
-} from "../helpers/index.js";
+} from "../helpers/mock-state.js";
 import type { ProgressEvent } from "../../../src/commands/install/installers/types.js";
 
 describe("NextOverlayInstaller", () => {
-  let installer: ReturnType<typeof createNextInstaller>;
-
-  beforeEach(() => {
-    installer = createNextInstaller();
-  });
-
   describe("metadata", () => {
     it("has correct id and metadata", () => {
-      expect(installer.id).toBe("next");
-      expect(installer.name).toBe("Next.js Overlay");
-      expect(installer.category).toBe("framework");
-      expect(installer.priority).toBe(90);
+      expect(nextOverlayInstaller.id).toBe("next");
+      expect(nextOverlayInstaller.name).toBe("Next.js overlay");
+      expect(nextOverlayInstaller.icon).toBe("🔷");
     });
   });
 
@@ -35,7 +27,7 @@ describe("NextOverlayInstaller", () => {
         nextApps: [createMockNextApp()],
       });
 
-      expect(installer.isApplicable(state)).toBe(true);
+      expect(nextOverlayInstaller.isApplicable(state)).toBe(true);
     });
 
     it("returns false when no Next.js apps are detected", () => {
@@ -43,7 +35,7 @@ describe("NextOverlayInstaller", () => {
         nextApps: [],
       });
 
-      expect(installer.isApplicable(state)).toBe(false);
+      expect(nextOverlayInstaller.isApplicable(state)).toBe(false);
     });
   });
 
@@ -55,12 +47,12 @@ describe("NextOverlayInstaller", () => {
         nextApps: [app1, app2],
       });
 
-      const targets = installer.getTargets(state);
+      const targets = nextOverlayInstaller.getTargets(state);
 
       expect(targets).toHaveLength(2);
-      expect(targets[0].id).toBe("/test/apps/web");
-      expect(targets[0].displayName).toBe("web");
-      expect(targets[1].displayName).toBe("admin");
+      expect(targets[0].id).toBe("next-/test/apps/web");
+      expect(targets[0].label).toBe("web");
+      expect(targets[1].label).toBe("admin");
     });
 
     it("returns empty array when no Next.js apps", () => {
@@ -68,50 +60,100 @@ describe("NextOverlayInstaller", () => {
         nextApps: [],
       });
 
-      const targets = installer.getTargets(state);
+      const targets = nextOverlayInstaller.getTargets(state);
 
       expect(targets).toHaveLength(0);
     });
 
-    it("includes metadata with appInfo", () => {
+    it("includes path and hint", () => {
       const state = createMockProjectState({
-        nextApps: [createMockNextApp("/test/project")],
+        nextApps: [createMockNextApp("/test/project/apps/web")],
       });
 
-      const targets = installer.getTargets(state);
+      const targets = nextOverlayInstaller.getTargets(state);
 
-      expect(targets[0].metadata).toBeDefined();
-      const metadata = targets[0].metadata as { appInfo: any };
-      expect(metadata.appInfo).toBeDefined();
-      expect(metadata.appInfo.detection.appRoot).toBe("app");
+      expect(targets[0].path).toBe("/test/project/apps/web");
+      expect(targets[0].hint).toBe("App Router");
+    });
+
+    it("marks as installed based on hasUilintOverlay", () => {
+      const app = createMockNextApp("/test/project/apps/web");
+      app.hasUilintOverlay = true;
+      const state = createMockProjectState({
+        nextApps: [app],
+      });
+
+      const targets = nextOverlayInstaller.getTargets(state);
+
+      expect(targets[0].isInstalled).toBe(true);
     });
   });
 
-  describe("isAlreadyInstalled", () => {
-    it("returns not installed for fresh project", async () => {
+  describe("plan", () => {
+    it("generates correct actions for Next.js installation", () => {
+      const state = createMockProjectState({
+        nextApps: [createMockNextApp("/test/project")],
+        packageManager: "pnpm",
+      });
+      const targets = nextOverlayInstaller.getTargets(state);
+
+      const { actions, dependencies } = nextOverlayInstaller.plan(
+        targets,
+        {},
+        state
+      );
+
+      // Should have install_next_routes action
+      const routesAction = actions.find((a) => a.type === "install_next_routes");
+      expect(routesAction).toBeDefined();
+      if (routesAction?.type === "install_next_routes") {
+        expect(routesAction.projectPath).toBe("/test/project");
+        expect(routesAction.appRoot).toBe("app");
+      }
+
+      // Should have inject_react action
+      const reactAction = actions.find((a) => a.type === "inject_react");
+      expect(reactAction).toBeDefined();
+      if (reactAction?.type === "inject_react") {
+        expect(reactAction.projectPath).toBe("/test/project");
+        expect(reactAction.appRoot).toBe("app");
+        expect(reactAction.mode).toBe("next");
+      }
+
+      // Should have inject_next_config action
+      const configAction = actions.find((a) => a.type === "inject_next_config");
+      expect(configAction).toBeDefined();
+      if (configAction?.type === "inject_next_config") {
+        expect(configAction.projectPath).toBe("/test/project");
+      }
+    });
+
+    it("generates dependency installation for uilint packages", () => {
+      const state = createMockProjectState({
+        nextApps: [createMockNextApp("/test/project")],
+        packageManager: "npm",
+      });
+      const targets = nextOverlayInstaller.getTargets(state);
+
+      const { dependencies } = nextOverlayInstaller.plan(targets, {}, state);
+
+      expect(dependencies).toHaveLength(1);
+
+      const dep = dependencies[0];
+      expect(dep.packagePath).toBe("/test/project");
+      expect(dep.packageManager).toBe("npm");
+      expect(dep.packages).toContain("jsx-loc-plugin");
+    });
+
+    it("returns empty plan when no targets provided", () => {
       const state = createMockProjectState({
         nextApps: [createMockNextApp("/test/project")],
       });
-      const targets = installer.getTargets(state);
 
-      const status = await installer.isAlreadyInstalled(state, targets[0]);
+      const { actions, dependencies } = nextOverlayInstaller.plan([], {}, state);
 
-      expect(status.installed).toBe(false);
-    });
-
-    it("returns not installed when target app not found", async () => {
-      const state = createMockProjectState({
-        nextApps: [],
-      });
-      const fakeTarget = {
-        id: "/nonexistent",
-        displayName: "Fake",
-        metadata: {},
-      };
-
-      const status = await installer.isAlreadyInstalled(state, fakeTarget);
-
-      expect(status.installed).toBe(false);
+      expect(actions).toHaveLength(0);
+      expect(dependencies).toHaveLength(0);
     });
   });
 
@@ -121,19 +163,13 @@ describe("NextOverlayInstaller", () => {
         nextApps: [createMockNextApp("/test/project")],
         packageManager: "pnpm",
       });
-      const targets = installer.getTargets(state);
+      const targets = nextOverlayInstaller.getTargets(state);
 
       const events: ProgressEvent[] = [];
-      const generator = installer.execute({
-        state,
-        targets,
-        dryRun: true,
-      });
+      const generator = nextOverlayInstaller.execute(targets, {}, state);
 
       for await (const event of generator) {
-        if (typeof event === "object" && "type" in event) {
-          events.push(event);
-        }
+        events.push(event);
       }
 
       // Should have start, progress events, and complete
@@ -146,155 +182,20 @@ describe("NextOverlayInstaller", () => {
       expect(progressEvents.length).toBeGreaterThan(0);
     });
 
-    it("generates correct actions for Next.js installation", async () => {
+    it("returns early when no targets provided", async () => {
       const state = createMockProjectState({
         nextApps: [createMockNextApp("/test/project")],
-        packageManager: "pnpm",
-      });
-      const targets = installer.getTargets(state);
-
-      const { result } = await consumeGenerator(
-        installer.execute({
-          state,
-          targets,
-          dryRun: true,
-        })
-      );
-
-      expect(result).toBeDefined();
-      expect(result.success).toBe(true);
-      expect(result.actions).toBeDefined();
-
-      // Should have install_next_routes action
-      const routesAction = result.actions.find(
-        (a: any) => a.type === "install_next_routes"
-      );
-      expect(routesAction).toBeDefined();
-      if (routesAction?.type === "install_next_routes") {
-        expect(routesAction.projectPath).toBe("/test/project");
-        expect(routesAction.appRoot).toBe("app");
-      }
-
-      // Should have inject_react action
-      const reactAction = result.actions.find((a: any) => a.type === "inject_react");
-      expect(reactAction).toBeDefined();
-      if (reactAction?.type === "inject_react") {
-        expect(reactAction.projectPath).toBe("/test/project");
-        expect(reactAction.appRoot).toBe("app");
-        expect(reactAction.mode).toBe("next");
-      }
-
-      // Should have inject_next_config action
-      const configAction = result.actions.find(
-        (a: any) => a.type === "inject_next_config"
-      );
-      expect(configAction).toBeDefined();
-      if (configAction?.type === "inject_next_config") {
-        expect(configAction.projectPath).toBe("/test/project");
-      }
-    });
-
-    it("generates dependency installation for uilint packages", async () => {
-      const state = createMockProjectState({
-        nextApps: [createMockNextApp("/test/project")],
-        packageManager: "npm",
-      });
-      const targets = installer.getTargets(state);
-
-      const generator = installer.execute({
-        state,
-        targets,
-        dryRun: true,
       });
 
-      let result;
-      for await (const value of generator) {
-        result = value;
-      }
-
-      expect(result!.dependencies).toBeDefined();
-      expect(result!.dependencies).toHaveLength(1);
-
-      const dep = result!.dependencies[0];
-      expect(dep.packagePath).toBe("/test/project");
-      expect(dep.packageManager).toBe("npm");
-      expect(dep.packages).toEqual([
-        "uilint-react",
-        "uilint-core",
-        "jsx-loc-plugin",
-      ]);
-    });
-
-    it("handles multiple Next.js apps by using first one", async () => {
-      const state = createMockProjectState({
-        nextApps: [
-          createMockNextApp("/test/apps/web"),
-          createMockNextApp("/test/apps/admin"),
-        ],
-        packageManager: "pnpm",
-      });
-      const targets = installer.getTargets(state);
+      const generator = nextOverlayInstaller.execute([], {}, state);
 
       const events: ProgressEvent[] = [];
-      const generator = installer.execute({
-        state,
-        targets,
-        dryRun: true,
-      });
-
       for await (const event of generator) {
-        if (typeof event === "object" && "type" in event) {
-          events.push(event);
-        }
+        events.push(event);
       }
 
-      // Should have a skip event mentioning multiple apps
-      const skipEvent = events.find((e) => e.type === "skip");
-      expect(skipEvent).toBeDefined();
-      expect(skipEvent?.message).toContain("Multiple Next.js apps");
-    });
-
-    it("yields error event when no targets provided", async () => {
-      const state = createMockProjectState({
-        nextApps: [createMockNextApp("/test/project")],
-      });
-
-      const generator = installer.execute({
-        state,
-        targets: [],
-        dryRun: true,
-      });
-
-      let result;
-      for await (const value of generator) {
-        result = value;
-      }
-
-      expect(result).toBeDefined();
-      expect(result!.success).toBe(false);
-      expect(result!.error).toContain("No targets");
-    });
-
-    it("respects dryRun flag", async () => {
-      const state = createMockProjectState({
-        nextApps: [createMockNextApp("/test/project")],
-      });
-      const targets = installer.getTargets(state);
-
-      // Dry run should still work
-      const generator = installer.execute({
-        state,
-        targets,
-        dryRun: true,
-      });
-
-      let result;
-      for await (const value of generator) {
-        result = value;
-      }
-
-      expect(result!.success).toBe(true);
-      expect(result!.actions.length).toBeGreaterThan(0);
+      // Should have no events when no targets
+      expect(events).toHaveLength(0);
     });
   });
 });

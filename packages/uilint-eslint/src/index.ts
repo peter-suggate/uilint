@@ -20,6 +20,7 @@ import zustandUseSelectors from "./rules/zustand-use-selectors.js";
 import noPropDrillingDepth from "./rules/no-prop-drilling-depth.js";
 import noSecretsInCode from "./rules/no-secrets-in-code.js";
 import requireInputValidation from "./rules/require-input-validation.js";
+import noSemanticDuplicates from "./rules/no-semantic-duplicates.js";
 
 /**
  * All available rules
@@ -39,6 +40,7 @@ const rules = {
   "no-prop-drilling-depth": noPropDrillingDepth,
   "no-secrets-in-code": noSecretsInCode,
   "require-input-validation": requireInputValidation,
+  "no-semantic-duplicates": noSemanticDuplicates,
 };
 
 // Package version (injected at build time or fallback)
@@ -322,6 +324,12 @@ const strictConfig: Linter.Config = {
             "/app/api/"
           ],
           "allowManualValidation": false
+        }
+      ]],
+    "uilint/no-semantic-duplicates": ["warn", ...[
+        {
+          "threshold": 0.85,
+          "indexPath": ".uilint/.duplicates-index"
         }
       ]],
   },

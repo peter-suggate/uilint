@@ -5,7 +5,7 @@
 import { existsSync } from "fs";
 import { join } from "path";
 import type { Installer, InstallTarget, InstallerConfig, ProgressEvent } from "./types.js";
-import type { ProjectState, InstallAction } from "../types.js";
+import type { ProjectState, InstallAction, DependencyInstall } from "../types.js";
 import { loadSkill } from "../../../utils/skill-loader.js";
 
 export const skillInstaller: Installer = {

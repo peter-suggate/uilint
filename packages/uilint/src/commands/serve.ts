@@ -19,6 +19,10 @@
  * - Server -> Client: { type: 'config:update', key: string, value: any }
  * - Server -> Client: { type: 'rule:config:result', ruleId: string, severity: string, options?: object, success: boolean, error?: string, requestId?: string }
  * - Server -> Client: { type: 'rule:config:changed', ruleId: string, severity: string, options?: object }
+ * - Server -> Client: { type: 'duplicates:indexing:start' }
+ * - Server -> Client: { type: 'duplicates:indexing:progress', message: string, current?: number, total?: number }
+ * - Server -> Client: { type: 'duplicates:indexing:complete', added: number, modified: number, deleted: number, totalChunks: number, duration: number }
+ * - Server -> Client: { type: 'duplicates:indexing:error', error: string }
  */
 
 import { existsSync, statSync, readdirSync, readFileSync } from "fs";
@@ -210,6 +214,32 @@ interface RuleConfigChangedMessage {
   options?: Record<string, unknown>;
 }
 
+// Duplicates indexing messages
+interface DuplicatesIndexingStartMessage {
+  type: "duplicates:indexing:start";
+}
+
+interface DuplicatesIndexingProgressMessage {
+  type: "duplicates:indexing:progress";
+  message: string;
+  current?: number;
+  total?: number;
+}
+
+interface DuplicatesIndexingCompleteMessage {
+  type: "duplicates:indexing:complete";
+  added: number;
+  modified: number;
+  deleted: number;
+  totalChunks: number;
+  duration: number;
+}
+
+interface DuplicatesIndexingErrorMessage {
+  type: "duplicates:indexing:error";
+  error: string;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
@@ -220,7 +250,11 @@ type ServerMessage =
   | RulesMetadataMessage
   | ConfigUpdateMessage
   | RuleConfigResultMessage
-  | RuleConfigChangedMessage;
+  | RuleConfigChangedMessage
+  | DuplicatesIndexingStartMessage
+  | DuplicatesIndexingProgressMessage
+  | DuplicatesIndexingCompleteMessage
+  | DuplicatesIndexingErrorMessage;
 
 function pickAppRoot(params: { cwd: string; workspaceRoot: string }): string {
   const { cwd, workspaceRoot } = params;
@@ -1095,6 +1129,92 @@ function broadcastRuleConfigChange(
 }
 
 /**
+ * Broadcast a message to all connected clients
+ */
+function broadcast(message: ServerMessage): void {
+  for (const ws of connectedClientsSet) {
+    sendMessage(ws, message);
+  }
+}
+
+// Duplicates indexing state
+let isIndexing = false;
+let reindexTimeout: NodeJS.Timeout | null = null;
+const pendingIndexChanges = new Set<string>();
+
+/**
+ * Build or update the duplicates index
+ * Runs incrementally - very fast if no files changed
+ */
+async function buildDuplicatesIndex(appRoot: string): Promise<void> {
+  if (isIndexing) {
+    // Already indexing, skip
+    return;
+  }
+
+  isIndexing = true;
+  logInfo(`${pc.blue("Building duplicates index...")}`);
+  broadcast({ type: "duplicates:indexing:start" });
+
+  try {
+    const { indexDirectory } = await import("uilint-duplicates");
+    const result = await indexDirectory(appRoot, {
+      onProgress: (message, current, total) => {
+        // Log to console
+        if (current !== undefined && total !== undefined) {
+          logInfo(`  ${message} (${current}/${total})`);
+        } else {
+          logInfo(`  ${message}`);
+        }
+        // Broadcast to connected clients
+        broadcast({
+          type: "duplicates:indexing:progress",
+          message,
+          current,
+          total,
+        });
+      },
+    });
+
+    logSuccess(
+      `${pc.green("Index complete:")} ${result.totalChunks} chunks (${result.added} added, ${result.modified} modified, ${result.deleted} deleted) in ${(result.duration / 1000).toFixed(1)}s`
+    );
+    broadcast({
+      type: "duplicates:indexing:complete",
+      added: result.added,
+      modified: result.modified,
+      deleted: result.deleted,
+      totalChunks: result.totalChunks,
+      duration: result.duration,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logError(`Index failed: ${msg}`);
+    broadcast({ type: "duplicates:indexing:error", error: msg });
+  } finally {
+    isIndexing = false;
+  }
+}
+
+/**
+ * Schedule a debounced re-index when source files change
+ */
+function scheduleReindex(appRoot: string, filePath: string): void {
+  // Only reindex for source files
+  if (!/\.(tsx?|jsx?)$/.test(filePath)) return;
+
+  pendingIndexChanges.add(filePath);
+
+  if (reindexTimeout) clearTimeout(reindexTimeout);
+  reindexTimeout = setTimeout(async () => {
+    const count = pendingIndexChanges.size;
+    pendingIndexChanges.clear();
+    logInfo(`${pc.dim(`[index] ${count} file(s) changed, updating index...`)}`);
+    await buildDuplicatesIndex(appRoot);
+  }, 2000); // 2 second debounce
+}
+
+/**
  * Handle rule:config:set message
  * Updates the ESLint config file and broadcasts the change to all clients
  */
@@ -1195,10 +1315,18 @@ export async function serve(options: ServeOptions): Promise<void> {
 
   fileWatcher.on("change", (path) => {
     handleFileChange(resolve(path));
+    // Also schedule re-indexing for duplicates detection
+    scheduleReindex(appRoot, resolve(path));
   });
 
   // Create WebSocket server
   const wss = new WebSocketServer({ port });
+
+  // Start building the duplicates index in the background
+  // This runs incrementally - very fast if nothing changed
+  buildDuplicatesIndex(appRoot).catch((err) => {
+    logError(`Failed to build duplicates index: ${err.message}`);
+  });
 
   wss.on("connection", (ws) => {
     connectedClients += 1;

@@ -10,6 +10,7 @@ import { update } from "./commands/update.js";
 import { serve } from "./commands/serve.js";
 import { vision } from "./commands/vision.js";
 import { config } from "./commands/config.js";
+import { createDuplicatesCommand } from "./commands/duplicates/index.js";
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -251,5 +252,8 @@ program
       port: parseInt(options.port, 10),
     });
   });
+
+// Duplicates command group - semantic code duplicate detection
+program.addCommand(createDuplicatesCommand());
 
 program.parse();
