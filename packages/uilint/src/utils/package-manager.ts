@@ -94,23 +94,73 @@ function spawnAsync(
 export async function installDependencies(
   pm: PackageManager,
   projectPath: string,
-  packages: string[]
+  packages: string[],
+  options: { dev?: boolean } = { dev: true }
 ): Promise<void> {
   if (!packages.length) return;
 
+  const isDev = options.dev ?? true;
+
   switch (pm) {
     case "pnpm":
-      await spawnAsync("pnpm", ["add", ...packages], projectPath);
+      await spawnAsync(
+        "pnpm",
+        ["add", ...(isDev ? ["-D"] : []), ...packages],
+        projectPath
+      );
       return;
     case "yarn":
-      await spawnAsync("yarn", ["add", ...packages], projectPath);
+      await spawnAsync(
+        "yarn",
+        ["add", ...(isDev ? ["-D"] : []), ...packages],
+        projectPath
+      );
       return;
     case "bun":
-      await spawnAsync("bun", ["add", ...packages], projectPath);
+      await spawnAsync(
+        "bun",
+        ["add", ...(isDev ? ["-d"] : []), ...packages],
+        projectPath
+      );
       return;
     case "npm":
     default:
-      await spawnAsync("npm", ["install", "--save", ...packages], projectPath);
+      await spawnAsync(
+        "npm",
+        ["install", isDev ? "--save-dev" : "--save", ...packages],
+        projectPath
+      );
       return;
   }
+}
+
+/**
+ * Get the command and arguments to run tests with coverage
+ */
+export function getTestCoverageCommand(pm: PackageManager): {
+  command: string;
+  args: string[];
+} {
+  switch (pm) {
+    case "pnpm":
+      return { command: "pnpm", args: ["test", "--", "--coverage"] };
+    case "yarn":
+      return { command: "yarn", args: ["test", "--coverage"] };
+    case "bun":
+      return { command: "bun", args: ["test", "--coverage"] };
+    case "npm":
+    default:
+      return { command: "npm", args: ["test", "--", "--coverage"] };
+  }
+}
+
+/**
+ * Run tests with coverage for a project
+ */
+export async function runTestsWithCoverage(
+  pm: PackageManager,
+  projectPath: string
+): Promise<void> {
+  const { command, args } = getTestCoverageCommand(pm);
+  await spawnAsync(command, args, projectPath);
 }

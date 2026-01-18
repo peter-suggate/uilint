@@ -26,7 +26,9 @@ import type {
 } from "./install/installers/types.js";
 import type { ConfiguredRule } from "./install/components/RuleSelector.js";
 import { ruleRegistry } from "uilint-eslint";
-import { pc } from "../utils/prompts.js";
+import { pc, confirm } from "../utils/prompts.js";
+import { detectCoverageSetup } from "../utils/coverage-detect.js";
+import { runTestsWithCoverage, detectPackageManager } from "../utils/package-manager.js";
 
 // Import installers to trigger registration
 import "./install/installers/index.js";
@@ -36,7 +38,10 @@ function limitList(items: string[], max: number): string[] {
   return [...items.slice(0, max), pc.dim(`…and ${items.length - max} more`)];
 }
 
-function printInstallReport(result: Awaited<ReturnType<typeof execute>>): void {
+function printInstallReport(
+  result: Awaited<ReturnType<typeof execute>>,
+  testCoverageResult?: { ran: boolean; success: boolean; error?: string }
+): void {
   const failedDeps = result.dependencyResults.filter((r) => !r.success);
   const okDeps = result.dependencyResults.filter((r) => r.success);
   const failedActions = result.actionsPerformed.filter((r) => !r.success);
@@ -86,6 +91,19 @@ function printInstallReport(result: Awaited<ReturnType<typeof execute>>): void {
       console.log(
         `- ${pc.green("✓")} ${d.packagePath} ${pc.dim(`← ${d.packages.join(", ")}`)}`
       );
+    }
+  }
+
+  // Test coverage result
+  if (testCoverageResult?.ran) {
+    console.log(`\n${pc.bold("Test coverage:")}`);
+    if (testCoverageResult.success) {
+      console.log(`- ${pc.green("✓")} Coverage data generated successfully`);
+    } else {
+      console.log(`- ${pc.yellow("⚠")} Tests ran with errors`);
+      if (testCoverageResult.error) {
+        console.log(pc.dim(`  ${testCoverageResult.error.split("\n")[0]}`));
+      }
     }
   }
 
@@ -209,6 +227,16 @@ function isInteractiveTerminal(): boolean {
 }
 
 /**
+ * Result from the Ink UI selection phase
+ */
+interface UISelectionResult {
+  selections: InstallerSelection[];
+  eslintRules?: ConfiguredRule[];
+  injectionPointConfig?: InjectionPointConfig;
+  uninstallSelections?: InstallerSelection[];
+}
+
+/**
  * Main install function with new UI
  *
  * @param options - CLI options
@@ -230,60 +258,119 @@ export async function installUI(
   // Start project analysis
   const projectPromise = analyze(projectPath);
 
-  // Render the Ink app
-  const { waitUntilExit } = render(
+  // Store UI selections for use after Ink exits
+  let uiResult: UISelectionResult | null = null;
+  let uiError: Error | null = null;
+
+  // Render the Ink app - it will exit after user makes selections
+  const { waitUntilExit, unmount } = render(
     <InstallApp
       projectPromise={projectPromise}
-      onComplete={async (selections, eslintRules, injectionPointConfig, uninstallSelections) => {
-        // When user completes selection, proceed with installation
-        const project = await projectPromise;
-        const choices = selectionsToUserChoices(selections, project, eslintRules, injectionPointConfig);
-
-        const hasInstalls = choices.items.length > 0;
-        const hasUninstalls = uninstallSelections && uninstallSelections.length > 0;
-
-        if (!hasInstalls && !hasUninstalls) {
-          console.log("\nNo changes selected");
-          process.exit(0);
-        }
-
-        // Generate install plan using existing plan logic
-        const { createPlan } = await import("./install/plan.js");
-        const plan = createPlan(project, choices, { force: options.force });
-
-        // Generate uninstall plan actions
-        if (hasUninstalls && uninstallSelections) {
-          for (const selection of uninstallSelections) {
-            if (!selection.selected || selection.targets.length === 0) continue;
-            const { installer, targets } = selection;
-
-            // Call planUninstall if the installer supports it
-            if (installer.planUninstall) {
-              const uninstallPlan = installer.planUninstall(targets, project);
-              // Prepend uninstall actions to the plan (uninstall first, then install)
-              plan.actions = [...uninstallPlan.actions, ...plan.actions];
-            }
-          }
-        }
-
-        // Execute the plan with projectPath for prettier formatting
-        const result = await execute(plan, {
-          ...executeOptions,
-          projectPath: project.projectPath,
-        });
-
-        // Display results
-        printInstallReport(result);
-
-        process.exit(result.success ? 0 : 1);
+      onComplete={(selections, eslintRules, injectionPointConfig, uninstallSelections) => {
+        // Store selections and exit Ink
+        uiResult = { selections, eslintRules, injectionPointConfig, uninstallSelections };
+        unmount();
       }}
       onError={(error) => {
-        console.error("\n✗ Error:", error.message);
-        process.exit(1);
+        uiError = error;
+        unmount();
       }}
     />
   );
 
-  // Wait for the app to exit
+  // Wait for Ink to fully exit
   await waitUntilExit();
+
+  // Handle error from UI
+  if (uiError) {
+    console.error("\n✗ Error:", uiError.message);
+    process.exit(1);
+  }
+
+  // No selection made (user cancelled)
+  if (!uiResult) {
+    process.exit(0);
+  }
+
+  // Now proceed with installation (Ink is fully unmounted)
+  const { selections, eslintRules, injectionPointConfig, uninstallSelections } = uiResult;
+  const project = await projectPromise;
+  const choices = selectionsToUserChoices(selections, project, eslintRules, injectionPointConfig);
+
+  const hasInstalls = choices.items.length > 0;
+  const hasUninstalls = uninstallSelections && uninstallSelections.length > 0;
+
+  if (!hasInstalls && !hasUninstalls) {
+    console.log("\nNo changes selected");
+    process.exit(0);
+  }
+
+  // Generate install plan using existing plan logic
+  const { createPlan } = await import("./install/plan.js");
+  const plan = createPlan(project, choices, { force: options.force });
+
+  // Generate uninstall plan actions
+  if (hasUninstalls && uninstallSelections) {
+    for (const selection of uninstallSelections) {
+      if (!selection.selected || selection.targets.length === 0) continue;
+      const { installer, targets } = selection;
+
+      // Call planUninstall if the installer supports it
+      if (installer.planUninstall) {
+        const uninstallPlan = installer.planUninstall(targets, project);
+        // Prepend uninstall actions to the plan (uninstall first, then install)
+        plan.actions = [...uninstallPlan.actions, ...plan.actions];
+      }
+    }
+  }
+
+  // Execute the plan with projectPath for prettier formatting
+  const result = await execute(plan, {
+    ...executeOptions,
+    projectPath: project.projectPath,
+  });
+
+  // Post-install: Offer to run tests with coverage if require-test-coverage was installed
+  let testCoverageResult: { ran: boolean; success: boolean; error?: string } | undefined;
+
+  if (result.success && eslintRules?.some(r => r.rule.id === "require-test-coverage")) {
+    // Get the target paths where ESLint was configured
+    const eslintTargetPaths = choices.eslint?.packagePaths ?? [];
+
+    for (const targetPath of eslintTargetPaths) {
+      const coverageSetup = detectCoverageSetup(targetPath);
+
+      // Only offer to run tests if vitest and coverage config are set up
+      if (coverageSetup.hasVitest && coverageSetup.hasCoverageConfig) {
+        console.log(""); // Blank line before prompt
+
+        const shouldRunTests = await confirm({
+          message: `Run tests with coverage now for ${pc.cyan(targetPath)}?`,
+          initialValue: true,
+        });
+
+        if (shouldRunTests) {
+          console.log(`\n${pc.blue("Running tests with coverage...")}`);
+          const pm = detectPackageManager(targetPath);
+
+          try {
+            await runTestsWithCoverage(pm, targetPath);
+            testCoverageResult = { ran: true, success: true };
+            console.log(`${pc.green("✓")} Coverage data generated`);
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            testCoverageResult = { ran: true, success: false, error: errorMsg };
+            console.log(`${pc.yellow("⚠")} Tests completed with errors`);
+          }
+        } else {
+          testCoverageResult = { ran: false, success: true };
+        }
+      }
+    }
+  }
+
+  // Display results
+  printInstallReport(result, testCoverageResult);
+
+  process.exit(result.success ? 0 : 1);
 }

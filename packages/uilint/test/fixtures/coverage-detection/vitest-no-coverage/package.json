@@ -1,0 +1,7 @@
+{
+  "name": "vitest-no-coverage-fixture",
+  "version": "1.0.0",
+  "devDependencies": {
+    "vitest": "^2.0.0"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "coverage-v8-fixture",
+  "version": "1.0.0",
+  "devDependencies": {
+    "vitest": "^2.0.0",
+    "@vitest/coverage-v8": "^2.0.0"
+  }
+}

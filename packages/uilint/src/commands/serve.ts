@@ -23,6 +23,10 @@
  * - Server -> Client: { type: 'duplicates:indexing:progress', message: string, current?: number, total?: number }
  * - Server -> Client: { type: 'duplicates:indexing:complete', added: number, modified: number, deleted: number, totalChunks: number, duration: number }
  * - Server -> Client: { type: 'duplicates:indexing:error', error: string }
+ * - Server -> Client: { type: 'coverage:setup:start' }
+ * - Server -> Client: { type: 'coverage:setup:progress', message: string, phase: string }
+ * - Server -> Client: { type: 'coverage:setup:complete', packageAdded: boolean, configModified: boolean, testsRan: boolean, coverageGenerated: boolean, duration: number, error?: string }
+ * - Server -> Client: { type: 'coverage:setup:error', error: string }
  */
 
 import { existsSync, statSync, readdirSync, readFileSync } from "fs";
@@ -56,6 +60,11 @@ import {
   updateRuleConfigInConfig,
   readRuleConfigsFromConfig,
 } from "../utils/eslint-config-inject.js";
+import { detectCoverageSetup } from "../utils/coverage-detect.js";
+import {
+  prepareCoverage,
+  needsCoveragePreparation,
+} from "../utils/coverage-prepare.js";
 
 export interface ServeOptions {
   port?: number;
@@ -1214,6 +1223,98 @@ function scheduleReindex(appRoot: string, filePath: string): void {
   }, 2000); // 2 second debounce
 }
 
+// Coverage preparation state
+let isPreparingCoverage = false;
+
+/**
+ * Check if require-test-coverage rule is enabled in ESLint config
+ */
+function isCoverageRuleEnabled(appRoot: string): boolean {
+  const eslintConfigPath = findEslintConfigFile(appRoot);
+  if (!eslintConfigPath) return false;
+
+  const ruleConfigs = readRuleConfigsFromConfig(eslintConfigPath);
+  const coverageConfig = ruleConfigs.get("require-test-coverage");
+  if (!coverageConfig) return false;
+
+  // Rule is enabled if severity is not "off"
+  return coverageConfig.severity !== "off";
+}
+
+/**
+ * Prepare coverage data for require-test-coverage rule.
+ * Runs only on startup:
+ * - Installs @vitest/coverage-v8 if missing
+ * - Adds coverage config to vitest.config.ts if missing
+ * - Runs tests with coverage to generate coverage-final.json
+ */
+async function buildCoverageData(appRoot: string): Promise<void> {
+  if (isPreparingCoverage) return;
+
+  isPreparingCoverage = true;
+
+  try {
+    // Check if coverage rule is enabled
+    if (!isCoverageRuleEnabled(appRoot)) {
+      logInfo(`${pc.dim("Coverage rule not enabled, skipping preparation")}`);
+      return;
+    }
+
+    // Detect current setup
+    const setup = detectCoverageSetup(appRoot);
+
+    // Check if preparation needed
+    if (!needsCoveragePreparation(setup)) {
+      logInfo(`${pc.dim("Coverage data is up-to-date")}`);
+      return;
+    }
+
+    // Run preparation
+    logInfo(`${pc.blue("Preparing coverage data...")}`);
+    broadcast({ type: "coverage:setup:start" });
+
+    // Check environment variables for skipping
+    const skipPackageInstall = process.env.UILINT_SKIP_COVERAGE_INSTALL === "1";
+    const skipTests = process.env.UILINT_SKIP_COVERAGE_TESTS === "1";
+
+    const result = await prepareCoverage({
+      appRoot,
+      skipPackageInstall,
+      skipTests,
+      onProgress: (message, phase) => {
+        logInfo(`  ${message}`);
+        broadcast({ type: "coverage:setup:progress", message, phase });
+      },
+    });
+
+    if (result.error) {
+      // Continue with warning on test failures (don't block server startup)
+      logWarning(`Coverage preparation completed with errors: ${result.error}`);
+    } else {
+      const parts = [];
+      if (result.packageAdded) parts.push("package installed");
+      if (result.configModified) parts.push("config modified");
+      if (result.testsRan) parts.push("tests ran");
+      if (result.coverageGenerated) parts.push("coverage generated");
+
+      logSuccess(
+        `${pc.green("Coverage prepared:")} ${parts.join(", ")} in ${(result.duration / 1000).toFixed(1)}s`
+      );
+    }
+
+    broadcast({
+      type: "coverage:setup:complete",
+      ...result,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logError(`Coverage preparation failed: ${msg}`);
+    broadcast({ type: "coverage:setup:error", error: msg });
+  } finally {
+    isPreparingCoverage = false;
+  }
+}
+
 /**
  * Handle rule:config:set message
  * Updates the ESLint config file and broadcasts the change to all clients
@@ -1326,6 +1427,13 @@ export async function serve(options: ServeOptions): Promise<void> {
   // This runs incrementally - very fast if nothing changed
   buildDuplicatesIndex(appRoot).catch((err) => {
     logError(`Failed to build duplicates index: ${err.message}`);
+  });
+
+  // Prepare coverage data for require-test-coverage rule (startup only)
+  // This installs packages, modifies config, and runs tests if needed
+  buildCoverageData(appRoot).catch((err) => {
+    // Don't block server startup on coverage failures
+    logWarning(`Failed to prepare coverage: ${err.message}`);
   });
 
   wss.on("connection", (ws) => {

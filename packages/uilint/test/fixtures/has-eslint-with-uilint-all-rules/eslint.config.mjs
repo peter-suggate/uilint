@@ -25,6 +25,7 @@ export default [
       "uilint/no-prop-drilling-depth": "warn",
       "uilint/no-secrets-in-code": "error",
       "uilint/require-input-validation": "warn",
+      "uilint/require-test-coverage": "warn",
       // Semantic rules
       "uilint/semantic": "warn",
       "uilint/semantic-vision": "warn",

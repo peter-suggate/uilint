@@ -197,6 +197,13 @@ export interface InjectViteConfigAction {
   projectPath: string;
 }
 
+export interface InjectVitestCoverageAction {
+  type: "inject_vitest_coverage";
+  projectPath: string;
+  /** Path to vitest.config.ts if known */
+  vitestConfigPath?: string;
+}
+
 export interface InstallNextRoutesAction {
   type: "install_next_routes";
   projectPath: string;
@@ -262,6 +269,7 @@ export type InstallAction =
   | InjectReactAction
   | InjectNextConfigAction
   | InjectViteConfigAction
+  | InjectVitestCoverageAction
   | InstallNextRoutesAction
   | CreateDirectoryAction
   | AppendToFileAction

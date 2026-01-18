@@ -26,7 +26,8 @@ export function displayDryRunPreview(result: InstallResult): void {
       r.action.type === "inject_eslint" ||
       r.action.type === "inject_react" ||
       r.action.type === "inject_next_config" ||
-      r.action.type === "inject_vite_config"
+      r.action.type === "inject_vite_config" ||
+      r.action.type === "inject_vitest_coverage"
   );
   const directoryCreations = result.actionsPerformed.filter(
     (r) => r.action.type === "create_directory"
@@ -89,6 +90,10 @@ export function displayDryRunPreview(result: InstallResult): void {
           displayPath = `${action.action.projectPath}/vite.config.*`;
           description = "add jsxLoc plugin";
           break;
+        case "inject_vitest_coverage":
+          displayPath = `${action.action.projectPath}/vitest.config.*`;
+          description = "add coverage config";
+          break;
       }
 
       preview.push(
@@ -150,6 +155,8 @@ export function getActionDescription(action: InstallAction): string {
       return `Configure Next.js in ${action.projectPath}`;
     case "inject_vite_config":
       return `Configure Vite in ${action.projectPath}`;
+    case "inject_vitest_coverage":
+      return `Add vitest coverage config in ${action.projectPath}`;
     case "install_next_routes":
       return `Install Next.js routes in ${action.projectPath}`;
     default:

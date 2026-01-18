@@ -484,6 +484,79 @@ describe("createPlan - ESLint", () => {
     );
     expect(testAction).toBeUndefined();
   });
+
+  it("adds @vitest/coverage-v8 dependency when require-test-coverage rule is selected", () => {
+    const pkg = createMockPackage();
+    const state = createMockProjectState({ packages: [pkg] });
+    const choices = createMockChoices({
+      items: ["eslint"],
+      eslint: {
+        packagePaths: [pkg.path],
+        selectedRules: ruleRegistry.filter(
+          (r) => r.id === "require-test-coverage"
+        ),
+      },
+    });
+
+    const plan = createPlan(state, choices);
+
+    // Should include @vitest/coverage-v8 in dependencies
+    const deps = plan.dependencies.find((d) => d.packagePath === pkg.path);
+    expect(deps).toBeDefined();
+    expect(deps?.packages).toContain("@vitest/coverage-v8");
+  });
+
+  it("adds inject_vitest_coverage action when require-test-coverage rule is selected", () => {
+    const pkg = createMockPackage();
+    const state = createMockProjectState({ packages: [pkg] });
+    const choices = createMockChoices({
+      items: ["eslint"],
+      eslint: {
+        packagePaths: [pkg.path],
+        selectedRules: ruleRegistry.filter(
+          (r) => r.id === "require-test-coverage"
+        ),
+      },
+    });
+
+    const plan = createPlan(state, choices);
+
+    // Should include inject_vitest_coverage action
+    const coverageAction = plan.actions.find(
+      (a) => a.type === "inject_vitest_coverage"
+    );
+    expect(coverageAction).toBeDefined();
+    if (coverageAction?.type === "inject_vitest_coverage") {
+      expect(coverageAction.projectPath).toBe(pkg.path);
+    }
+  });
+
+  it("does not add coverage dependencies when require-test-coverage is not selected", () => {
+    const pkg = createMockPackage();
+    const state = createMockProjectState({ packages: [pkg] });
+    const choices = createMockChoices({
+      items: ["eslint"],
+      eslint: {
+        packagePaths: [pkg.path],
+        selectedRules: ruleRegistry.filter(
+          (r) => r.id === "no-arbitrary-tailwind"
+        ),
+      },
+    });
+
+    const plan = createPlan(state, choices);
+
+    // Should NOT include @vitest/coverage-v8 in dependencies
+    const deps = plan.dependencies.find((d) => d.packagePath === pkg.path);
+    expect(deps).toBeDefined();
+    expect(deps?.packages).not.toContain("@vitest/coverage-v8");
+
+    // Should NOT include inject_vitest_coverage action
+    const coverageAction = plan.actions.find(
+      (a) => a.type === "inject_vitest_coverage"
+    );
+    expect(coverageAction).toBeUndefined();
+  });
 });
 
 // ============================================================================

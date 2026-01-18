@@ -256,17 +256,33 @@ export function createPlan(
       }
 
       // Install dependencies using the package manager for this specific target
+      const packagesToInstall = [
+        toInstallSpecifier("uilint-eslint", {
+          preferWorkspaceProtocol: state.packageManager === "pnpm",
+          workspaceRoot: state.workspaceRoot,
+          targetProjectPath: pkgPath,
+        }),
+        "typescript-eslint",
+      ];
+
+      // If require-test-coverage rule is selected, add coverage package and config
+      const hasCoverageRule = selectedRules.some(
+        (r) => r.id === "require-test-coverage"
+      );
+      if (hasCoverageRule) {
+        packagesToInstall.push("@vitest/coverage-v8");
+
+        // Add action to inject coverage config into vitest.config.ts
+        actions.push({
+          type: "inject_vitest_coverage",
+          projectPath: pkgPath,
+        });
+      }
+
       dependencies.push({
         packagePath: pkgPath,
         packageManager: detectPackageManager(pkgPath),
-        packages: [
-          toInstallSpecifier("uilint-eslint", {
-            preferWorkspaceProtocol: state.packageManager === "pnpm",
-            workspaceRoot: state.workspaceRoot,
-            targetProjectPath: pkgPath,
-          }),
-          "typescript-eslint",
-        ],
+        packages: packagesToInstall,
       });
 
       // Inject ESLint rules (will reference local .uilint/rules/ files)

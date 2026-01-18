@@ -34,6 +34,7 @@ import { meta as noSecretsInCode } from "./rules/no-secrets-in-code.js";
 import { meta as requireInputValidation } from "./rules/require-input-validation.js";
 import { meta as noPropDrillingDepth } from "./rules/no-prop-drilling-depth.js";
 import { meta as noSemanticDuplicates } from "./rules/no-semantic-duplicates.js";
+import { meta as requireTestCoverage } from "./rules/require-test-coverage.js";
 
 import type { RuleMeta } from "./utils/create-rule.js";
 
@@ -66,6 +67,8 @@ export const ruleRegistry: RuleMeta[] = [
   requireInputValidation,
   // Semantic duplicate detection
   noSemanticDuplicates,
+  // Test coverage enforcement
+  requireTestCoverage,
 ];
 
 /**

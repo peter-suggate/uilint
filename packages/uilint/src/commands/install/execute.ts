@@ -27,6 +27,7 @@ import type {
   InjectReactAction,
   InjectNextConfigAction,
   InjectViteConfigAction,
+  InjectVitestCoverageAction,
   InstallNextRoutesAction,
   RemoveEslintAction,
   RemoveReactAction,
@@ -43,6 +44,8 @@ import { installViteJsxLocPlugin, uninstallViteJsxLocPlugin } from "../../utils/
 import { installNextUILintRoutes, uninstallNextUILintRoutes } from "../../utils/next-routes.js";
 import { formatFilesWithPrettier, touchFiles } from "../../utils/prettier.js";
 import { findWorkspaceRoot } from "uilint-core/node";
+import { detectCoverageSetup } from "../../utils/coverage-detect.js";
+import { injectCoverageConfig } from "../../utils/coverage-prepare.js";
 
 /**
  * Execute a single action and return the result
@@ -167,6 +170,10 @@ async function executeAction(
 
       case "inject_vite_config": {
         return await executeInjectViteConfig(action, options);
+      }
+
+      case "inject_vitest_coverage": {
+        return await executeInjectVitestCoverage(action, options);
       }
 
       case "install_next_routes": {
@@ -329,6 +336,49 @@ async function executeInjectViteConfig(
     success: result.modified || result.configFile !== null,
     error: result.configFile === null ? "No vite.config found" : undefined,
     modifiedFiles: result.modifiedFiles,
+  };
+}
+
+/**
+ * Execute vitest coverage config injection
+ *
+ * This action is "soft" - it succeeds even if no vitest config is found.
+ * The coverage rule will still work, it just won't have automatic coverage setup.
+ */
+async function executeInjectVitestCoverage(
+  action: InjectVitestCoverageAction,
+  options: ExecuteOptions
+): Promise<ActionResult> {
+  const { dryRun = false } = options;
+
+  // Detect vitest config
+  const setup = detectCoverageSetup(action.projectPath);
+  const vitestConfigPath = action.vitestConfigPath || setup.vitestConfigPath;
+
+  // If no vitest config found, succeed silently (soft failure)
+  // The package will still be installed, user can configure coverage manually
+  if (!vitestConfigPath) {
+    return {
+      action,
+      success: true, // Don't fail the install, coverage config is optional
+    };
+  }
+
+  if (dryRun) {
+    return {
+      action,
+      success: true,
+      wouldDo: `Inject coverage config into vitest.config: ${vitestConfigPath}`,
+    };
+  }
+
+  // Inject coverage config
+  const modified = injectCoverageConfig(vitestConfigPath);
+
+  return {
+    action,
+    success: true,
+    modifiedFiles: modified ? [vitestConfigPath] : undefined,
   };
 }
 

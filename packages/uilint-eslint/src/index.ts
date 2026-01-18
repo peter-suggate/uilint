@@ -21,6 +21,7 @@ import noPropDrillingDepth from "./rules/no-prop-drilling-depth.js";
 import noSecretsInCode from "./rules/no-secrets-in-code.js";
 import requireInputValidation from "./rules/require-input-validation.js";
 import noSemanticDuplicates from "./rules/no-semantic-duplicates.js";
+import requireTestCoverage from "./rules/require-test-coverage.js";
 
 /**
  * All available rules
@@ -41,6 +42,7 @@ const rules = {
   "no-secrets-in-code": noSecretsInCode,
   "require-input-validation": requireInputValidation,
   "no-semantic-duplicates": noSemanticDuplicates,
+  "require-test-coverage": requireTestCoverage,
 };
 
 // Package version (injected at build time or fallback)
@@ -192,6 +194,31 @@ const recommendedConfig: Linter.Config = {
           "allowManualValidation": false
         }
       ]],
+    "uilint/require-test-coverage": ["warn", ...[
+        {
+          "coveragePath": "coverage/coverage-final.json",
+          "threshold": 80,
+          "thresholdsByPattern": [],
+          "severity": {
+            "noTestFile": "warn",
+            "noCoverage": "error",
+            "belowThreshold": "warn"
+          },
+          "testPatterns": [
+            ".test.ts",
+            ".test.tsx",
+            ".spec.ts",
+            ".spec.tsx",
+            "__tests__/"
+          ],
+          "ignorePatterns": [
+            "**/*.d.ts",
+            "**/index.ts"
+          ],
+          "mode": "all",
+          "baseBranch": "main"
+        }
+      ]],
   },
 };
 
@@ -329,7 +356,33 @@ const strictConfig: Linter.Config = {
     "uilint/no-semantic-duplicates": ["warn", ...[
         {
           "threshold": 0.85,
-          "indexPath": ".uilint/.duplicates-index"
+          "indexPath": ".uilint/.duplicates-index",
+          "minLines": 3
+        }
+      ]],
+    "uilint/require-test-coverage": ["warn", ...[
+        {
+          "coveragePath": "coverage/coverage-final.json",
+          "threshold": 80,
+          "thresholdsByPattern": [],
+          "severity": {
+            "noTestFile": "warn",
+            "noCoverage": "error",
+            "belowThreshold": "warn"
+          },
+          "testPatterns": [
+            ".test.ts",
+            ".test.tsx",
+            ".spec.ts",
+            ".spec.tsx",
+            "__tests__/"
+          ],
+          "ignorePatterns": [
+            "**/*.d.ts",
+            "**/index.ts"
+          ],
+          "mode": "all",
+          "baseBranch": "main"
         }
       ]],
   },
