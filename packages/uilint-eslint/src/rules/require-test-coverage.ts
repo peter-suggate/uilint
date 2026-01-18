@@ -35,7 +35,11 @@ function simpleGlobMatch(pattern: string, path: string): boolean {
   return regex.test(normalizedPath);
 }
 
-type MessageIds = "noTestFile" | "noCoverage" | "belowThreshold" | "noCoverageData";
+type MessageIds =
+  | "noTestFile"
+  | "noCoverage"
+  | "belowThreshold"
+  | "noCoverageData";
 
 type SeverityLevel = "error" | "warn" | "off";
 
@@ -79,15 +83,27 @@ interface IstanbulCoverage {
     fnMap: {
       [key: string]: {
         name: string;
-        decl: { start: { line: number; column: number }; end: { line: number; column: number } };
-        loc: { start: { line: number; column: number }; end: { line: number; column: number } };
+        decl: {
+          start: { line: number; column: number };
+          end: { line: number; column: number };
+        };
+        loc: {
+          start: { line: number; column: number };
+          end: { line: number; column: number };
+        };
       };
     };
     branchMap: {
       [key: string]: {
-        loc: { start: { line: number; column: number }; end: { line: number; column: number } };
+        loc: {
+          start: { line: number; column: number };
+          end: { line: number; column: number };
+        };
         type: string;
-        locations: Array<{ start: { line: number; column: number }; end: { line: number; column: number } }>;
+        locations: Array<{
+          start: { line: number; column: number };
+          end: { line: number; column: number };
+        }>;
       };
     };
     s: { [key: string]: number }; // Statement hit counts
@@ -115,7 +131,13 @@ export const meta = defineRuleMeta({
         noCoverage: "error",
         belowThreshold: "warn",
       },
-      testPatterns: [".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx", "__tests__/"],
+      testPatterns: [
+        ".test.ts",
+        ".test.tsx",
+        ".spec.ts",
+        ".spec.tsx",
+        "__tests__/",
+      ],
       ignorePatterns: ["**/*.d.ts", "**/index.ts"],
       mode: "all",
       baseBranch: "main",
@@ -303,10 +325,7 @@ function calculateCoverage(fileCoverage: IstanbulCoverage[string]): number {
 /**
  * Check if a test file exists for the given source file
  */
-function testFileExists(
-  filePath: string,
-  testPatterns: string[]
-): boolean {
+function testFileExists(filePath: string, testPatterns: string[]): boolean {
   const dir = dirname(filePath);
   const ext = filePath.match(/\.(tsx?|jsx?)$/)?.[0] || ".ts";
   const baseName = basename(filePath, ext);
@@ -315,12 +334,20 @@ function testFileExists(
     if (pattern.startsWith("__tests__/")) {
       // Check __tests__ directory
       const testDir = join(dir, "__tests__");
-      const testFile = join(testDir, `${baseName}${pattern.replace("__tests__/", "")}`);
+      const testFile = join(
+        testDir,
+        `${baseName}${pattern.replace("__tests__/", "")}`
+      );
       if (existsSync(testFile)) {
         return true;
       }
       // Also check with extensions
-      for (const testExt of [".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"]) {
+      for (const testExt of [
+        ".test.ts",
+        ".test.tsx",
+        ".spec.ts",
+        ".spec.tsx",
+      ]) {
         if (existsSync(join(testDir, `${baseName}${testExt}`))) {
           return true;
         }
@@ -375,10 +402,11 @@ function getChangedLines(
 ): Set<number> | null {
   try {
     const relPath = relative(projectRoot, filePath);
-    const diff = execSync(
-      `git diff ${baseBranch}...HEAD -- "${relPath}"`,
-      { cwd: projectRoot, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }
-    );
+    const diff = execSync(`git diff ${baseBranch}...HEAD -- "${relPath}"`, {
+      cwd: projectRoot,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
 
     const changedLines = new Set<number>();
     const lines = diff.split("\n");
@@ -532,9 +560,12 @@ export default createRule<Options, MessageIds>({
           severity: {
             type: "object",
             properties: {
-              noTestFile: { enum: ["error", "warn", "off"] },
-              noCoverage: { enum: ["error", "warn", "off"] },
-              belowThreshold: { enum: ["error", "warn", "off"] },
+              noTestFile: { type: "string", enum: ["error", "warn", "off"] },
+              noCoverage: { type: "string", enum: ["error", "warn", "off"] },
+              belowThreshold: {
+                type: "string",
+                enum: ["error", "warn", "off"],
+              },
             },
             additionalProperties: false,
           },
@@ -549,6 +580,7 @@ export default createRule<Options, MessageIds>({
             description: "Glob patterns for files to ignore",
           },
           mode: {
+            type: "string",
             enum: ["all", "changed"],
             description: "Check all code or only changed lines",
           },
@@ -571,7 +603,13 @@ export default createRule<Options, MessageIds>({
         noCoverage: "error",
         belowThreshold: "warn",
       },
-      testPatterns: [".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx", "__tests__/"],
+      testPatterns: [
+        ".test.ts",
+        ".test.tsx",
+        ".spec.ts",
+        ".spec.tsx",
+        "__tests__/",
+      ],
       ignorePatterns: ["**/*.d.ts", "**/index.ts"],
       mode: "all",
       baseBranch: "main",
@@ -594,7 +632,10 @@ export default createRule<Options, MessageIds>({
       ".spec.tsx",
       "__tests__/",
     ];
-    const ignorePatterns = options.ignorePatterns ?? ["**/*.d.ts", "**/index.ts"];
+    const ignorePatterns = options.ignorePatterns ?? [
+      "**/*.d.ts",
+      "**/index.ts",
+    ];
     const mode = options.mode ?? "all";
     const baseBranch = options.baseBranch ?? "main";
 
@@ -608,7 +649,11 @@ export default createRule<Options, MessageIds>({
     }
 
     // Skip test files themselves
-    if (testPatterns.some((p) => filename.includes(p.replace("__tests__/", "__tests__")))) {
+    if (
+      testPatterns.some((p) =>
+        filename.includes(p.replace("__tests__/", "__tests__"))
+      )
+    ) {
       return {};
     }
 
@@ -653,7 +698,11 @@ export default createRule<Options, MessageIds>({
         }
 
         // Find coverage for this file
-        const fileCoverage = findCoverageForFile(coverage, filename, projectRoot);
+        const fileCoverage = findCoverageForFile(
+          coverage,
+          filename,
+          projectRoot
+        );
 
         if (!fileCoverage) {
           // File is not in coverage report - this is OK if coverage data exists
@@ -665,9 +714,16 @@ export default createRule<Options, MessageIds>({
         let coveragePercent: number;
 
         if (mode === "changed") {
-          const changedLines = getChangedLines(projectRoot, filename, baseBranch);
+          const changedLines = getChangedLines(
+            projectRoot,
+            filename,
+            baseBranch
+          );
           if (changedLines && changedLines.size > 0) {
-            coveragePercent = calculateChangedLinesCoverage(fileCoverage, changedLines);
+            coveragePercent = calculateChangedLinesCoverage(
+              fileCoverage,
+              changedLines
+            );
           } else {
             // No changed lines or git failed - use full coverage
             coveragePercent = calculateCoverage(fileCoverage);
@@ -677,10 +733,17 @@ export default createRule<Options, MessageIds>({
         }
 
         // Get threshold for this file
-        const fileThreshold = getThreshold(relPath, threshold, thresholdsByPattern);
+        const fileThreshold = getThreshold(
+          relPath,
+          threshold,
+          thresholdsByPattern
+        );
 
         // Check if below threshold
-        if (severity.belowThreshold !== "off" && coveragePercent < fileThreshold) {
+        if (
+          severity.belowThreshold !== "off" &&
+          coveragePercent < fileThreshold
+        ) {
           context.report({
             node,
             messageId: "belowThreshold",
