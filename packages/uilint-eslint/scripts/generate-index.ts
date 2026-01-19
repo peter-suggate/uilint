@@ -253,6 +253,20 @@ export {
   type FileCategory,
   type FileCategoryResult,
 } from "./utils/file-categorizer.js";
+
+// Re-export JSX coverage analyzer utilities for require-test-coverage rule
+export {
+  analyzeJSXElementCoverage,
+  buildDataLoc,
+  findStatementsInRange,
+  calculateCoverageFromStatements,
+  findCoverageForFile,
+  isEventHandlerAttribute,
+  type IstanbulFileCoverage,
+  type SourceLocation,
+  type CoverageStats,
+  type JSXCoverageResult,
+} from "./utils/jsx-coverage-analyzer.js";
 `;
 
 const output =

@@ -513,3 +513,119 @@ export function Component() {
     ],
   });
 });
+
+// ============================================
+// JSX ELEMENT COVERAGE
+// ============================================
+describeWithFixtures("require-test-coverage JSX element coverage", () => {
+  const fixtureDir = join(FIXTURES_DIR, "with-jsx-coverage");
+
+  ruleTester.run("require-test-coverage", rule, {
+    valid: [
+      {
+        // Well-tested component with all handlers covered
+        name: "no warning when JSX element handlers are tested",
+        filename: join(fixtureDir, "src/WellTestedComponent.tsx"),
+        code: `
+export function WellTestedComponent() {
+  const handleClick = () => {
+    console.log("clicked");
+    return "handled";
+  };
+
+  return (
+    <button onClick={handleClick}>Click me</button>
+  );
+}
+`,
+        options: [{
+          jsxThreshold: 50,
+          severity: { noTestFile: "off", belowThreshold: "off" },
+          aggregateSeverity: "off",
+        }],
+      },
+      {
+        // JSX elements without event handlers should be ignored
+        name: "no warning for non-interactive elements",
+        filename: join(fixtureDir, "src/ComponentWithHandlers.tsx"),
+        code: `
+export function SimpleComponent() {
+  return (
+    <div>
+      <span>Hello</span>
+      <p>World</p>
+    </div>
+  );
+}
+`,
+        options: [{
+          jsxThreshold: 50,
+          severity: { noTestFile: "off", belowThreshold: "off" },
+          aggregateSeverity: "off",
+        }],
+      },
+      {
+        // jsxSeverity is "off" - no reporting
+        name: "no warning when jsxSeverity is off",
+        filename: join(fixtureDir, "src/ComponentWithHandlers.tsx"),
+        code: `
+export function ComponentWithHandlers() {
+  const handleClick = () => {
+    console.log("clicked");
+  };
+
+  return <button onClick={handleClick}>Submit</button>;
+}
+`,
+        options: [{
+          jsxSeverity: "off",
+          severity: { noTestFile: "off", belowThreshold: "off" },
+          aggregateSeverity: "off",
+        }],
+      },
+    ],
+    invalid: [
+      {
+        // Component with untested onClick handler
+        name: "warns when JSX element handler is untested",
+        filename: join(fixtureDir, "src/ComponentWithHandlers.tsx"),
+        code: `
+export function ComponentWithHandlers() {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("submitted");
+  };
+
+  const handleClick = () => {
+    console.log("clicked");
+    doSomething();
+  };
+
+  function doSomething() {
+    return "done";
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div>
+        <input onChange={(e) => console.log(e.target.value)} />
+        <button onClick={handleClick}>Submit</button>
+      </div>
+    </form>
+  );
+}
+`,
+        options: [{
+          jsxThreshold: 50,
+          severity: { noTestFile: "off", belowThreshold: "off" },
+          aggregateSeverity: "off",
+        }],
+        errors: [
+          // The <form> element has 33% coverage (below 50% threshold)
+          // The handler bodies inside (handleSubmit, handleClick) are not executed
+          { messageId: "jsxBelowThreshold" },
+        ],
+      },
+    ],
+  });
+});

@@ -16,6 +16,11 @@ import {
   aggregateCoverage,
   type IstanbulCoverage as AggregatorIstanbulCoverage,
 } from "../utils/coverage-aggregator.js";
+import {
+  analyzeJSXElementCoverage,
+  type IstanbulCoverage as JSXAnalyzerIstanbulCoverage,
+} from "../utils/jsx-coverage-analyzer.js";
+import type { TSESTree } from "@typescript-eslint/utils";
 
 /**
  * Simple glob pattern matching function
@@ -44,7 +49,8 @@ type MessageIds =
   | "noCoverage"
   | "belowThreshold"
   | "noCoverageData"
-  | "belowAggregateThreshold";
+  | "belowAggregateThreshold"
+  | "jsxBelowThreshold";
 
 type SeverityLevel = "error" | "warn" | "off";
 
@@ -74,6 +80,10 @@ type Options = [
     aggregateThreshold?: number;
     /** Severity for aggregate coverage check. Default: "warn" */
     aggregateSeverity?: SeverityLevel;
+    /** JSX element coverage threshold percentage. Default: 50 */
+    jsxThreshold?: number;
+    /** Severity for JSX element coverage check. Default: "warn" */
+    jsxSeverity?: SeverityLevel;
   }
 ];
 
@@ -239,6 +249,7 @@ export function fetchData() { ... }  // Warning: Coverage below threshold
     "coverage-aggregator",
     "dependency-graph",
     "file-categorizer",
+    "jsx-coverage-analyzer",
   ],
 });
 
@@ -547,6 +558,8 @@ export default createRule<Options, MessageIds>({
       belowAggregateThreshold:
         "Aggregate coverage ({{coverage}}%) is below threshold ({{threshold}}%). " +
         "Includes {{fileCount}} files. Lowest: {{lowestFile}} ({{lowestCoverage}}%)",
+      jsxBelowThreshold:
+        "<{{tagName}}> element coverage is {{coverage}}%, below threshold of {{threshold}}%",
     },
     schema: [
       {
@@ -618,6 +631,18 @@ export default createRule<Options, MessageIds>({
             enum: ["error", "warn", "off"],
             description: "Severity for aggregate coverage check",
           },
+          jsxThreshold: {
+            type: "number",
+            minimum: 0,
+            maximum: 100,
+            description:
+              "JSX element coverage threshold percentage (includes event handlers)",
+          },
+          jsxSeverity: {
+            type: "string",
+            enum: ["error", "warn", "off"],
+            description: "Severity for JSX element coverage check",
+          },
         },
         additionalProperties: false,
       },
@@ -645,6 +670,8 @@ export default createRule<Options, MessageIds>({
       baseBranch: "main",
       aggregateThreshold: 70,
       aggregateSeverity: "warn",
+      jsxThreshold: 50,
+      jsxSeverity: "warn",
     },
   ],
   create(context) {
@@ -672,6 +699,8 @@ export default createRule<Options, MessageIds>({
     ];
     const mode = options.mode ?? "all";
     const baseBranch = options.baseBranch ?? "main";
+    const jsxThreshold = options.jsxThreshold ?? 50;
+    const jsxSeverity = options.jsxSeverity ?? "warn";
 
     const filename = context.filename || context.getFilename();
     const projectRoot = findProjectRoot(dirname(filename));
@@ -694,8 +723,21 @@ export default createRule<Options, MessageIds>({
     // Track if we've already reported for this file
     let reported = false;
 
+    // Collect JSX elements with their ancestors for element-level coverage
+    const jsxElements: Array<{
+      node: TSESTree.JSXElement;
+      ancestors: TSESTree.Node[];
+    }> = [];
+
     return {
-      Program(node) {
+      // Collect JSX elements for element-level coverage analysis
+      JSXElement(node: TSESTree.JSXElement) {
+        // Get ancestors using context.sourceCode (ESLint v9) or context.getAncestors (legacy)
+        const ancestors = context.sourceCode?.getAncestors?.(node) ?? [];
+        jsxElements.push({ node, ancestors });
+      },
+
+      "Program:exit"(node: TSESTree.Program) {
         if (reported) return;
         reported = true;
 
@@ -821,6 +863,73 @@ export default createRule<Options, MessageIds>({
                   lowestCoverage: lowestFile
                     ? String(Math.round(lowestFile.percentage))
                     : "N/A",
+                },
+              });
+            }
+          }
+        }
+
+        // Check JSX element-level coverage
+        if (
+          jsxSeverity !== "off" &&
+          jsxElements.length > 0 &&
+          coverage
+        ) {
+          // Compute relative path for dataLoc (consistent with overlay matching)
+          const fileRelPath = relPath.startsWith("/") ? relPath : `/${relPath}`;
+
+          for (const { node: jsxNode, ancestors } of jsxElements) {
+            // Only check elements with event handlers (interactive elements)
+            const hasEventHandlers = jsxNode.openingElement.attributes.some(
+              (attr) =>
+                attr.type === "JSXAttribute" &&
+                attr.name.type === "JSXIdentifier" &&
+                /^on[A-Z]/.test(attr.name.name)
+            );
+
+            // Skip non-interactive elements to reduce noise
+            if (!hasEventHandlers) {
+              continue;
+            }
+
+            const result = analyzeJSXElementCoverage(
+              jsxNode,
+              fileRelPath,
+              coverage as JSXAnalyzerIstanbulCoverage,
+              ancestors,
+              projectRoot
+            );
+
+            if (result.coverage.percentage < jsxThreshold) {
+              // Get the tag name for the error message
+              const openingElement = jsxNode.openingElement;
+              let tagName = "unknown";
+              if (openingElement.name.type === "JSXIdentifier") {
+                tagName = openingElement.name.name;
+              } else if (openingElement.name.type === "JSXMemberExpression") {
+                // For Foo.Bar, use "Foo.Bar"
+                let current = openingElement.name;
+                const parts: string[] = [];
+                while (current.type === "JSXMemberExpression") {
+                  if (current.property.type === "JSXIdentifier") {
+                    parts.unshift(current.property.name);
+                  }
+                  current = current.object as TSESTree.JSXMemberExpression | TSESTree.JSXIdentifier;
+                }
+                if (current.type === "JSXIdentifier") {
+                  parts.unshift(current.name);
+                }
+                tagName = parts.join(".");
+              }
+
+              context.report({
+                node: jsxNode,
+                messageId: "jsxBelowThreshold",
+                data: {
+                  tagName,
+                  coverage: String(result.coverage.percentage),
+                  threshold: String(jsxThreshold),
+                  dataLoc: result.dataLoc,
                 },
               });
             }

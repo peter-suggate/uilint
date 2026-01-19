@@ -476,6 +476,8 @@ export interface UILintStore {
   // ============ Coverage Heatmap ============
   /** Coverage data by file path (percentage 0-100) */
   coverageData: Map<string, number>;
+  /** Element-level coverage data by dataLoc (percentage 0-100) */
+  elementCoverageData: Map<string, number>;
   /** Raw Istanbul coverage data by file path (for line-level coverage display) */
   coverageRawData: Map<string, IstanbulFileCoverage>;
   /** Coverage analysis status */
@@ -490,6 +492,8 @@ export interface UILintStore {
   toggleCoverageHeatmap: () => void;
   /** Clear coverage data */
   clearCoverageData: () => void;
+  /** Update element-level coverage from ESLint issues */
+  updateElementCoverage: (dataLoc: string, percentage: number) => void;
 
   // ============ Command Palette ============
   /** Whether command palette is open */
@@ -606,6 +610,7 @@ async function scanFileForIssues(
 /**
  * Match ESLint issues to elements by dataLoc and update the cache
  * Returns unmapped issues (those without dataLoc or with dataLoc that don't match any element)
+ * Also extracts element-level coverage from jsxBelowThreshold issues
  */
 function distributeIssuesToElements(
   issues: ESLintIssue[],
@@ -613,6 +618,7 @@ function distributeIssuesToElements(
   filePath: string,
   updateElementIssue: (id: string, issue: ElementIssue) => void,
   updateFileIssues: (filePath: string, issues: ESLintIssue[]) => void,
+  updateElementCoverage: (dataLoc: string, percentage: number) => void,
   hasError: boolean
 ): void {
   // Create a map from dataLoc to element IDs.
@@ -633,6 +639,17 @@ function distributeIssuesToElements(
   const unmappedIssues: ESLintIssue[] = [];
 
   for (const issue of issues) {
+    // Extract element-level coverage from jsxBelowThreshold issues
+    if (issue.ruleId === "@uilint/require-test-coverage" && issue.dataLoc) {
+      // Try to extract coverage percentage from the message
+      // Message format: "<tagName> element coverage is XX%, below threshold of YY%"
+      const coverageMatch = issue.message.match(/coverage is (\d+)%/);
+      if (coverageMatch) {
+        const coverage = parseInt(coverageMatch[1], 10);
+        updateElementCoverage(issue.dataLoc, coverage);
+      }
+    }
+
     if (issue.dataLoc) {
       const elementIds = dataLocToElementIds.get(issue.dataLoc);
       if (elementIds && elementIds.length > 0) {
@@ -1064,6 +1081,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
         sourceFile.path,
         get().updateElementIssue,
         get().updateFileIssues,
+        get().updateElementCoverage,
         error ?? false
       );
 
@@ -1122,6 +1140,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
         sourceFile.path,
         get().updateElementIssue,
         get().updateFileIssues,
+        get().updateElementCoverage,
         error ?? false
       );
 
@@ -1773,6 +1792,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
 
   // ============ Coverage Heatmap ============
   coverageData: new Map(),
+  elementCoverageData: new Map(),
   coverageRawData: new Map(),
   coverageStatus: "idle",
   showCoverageHeatmap:
@@ -1815,9 +1835,18 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   clearCoverageData: () => {
     set({
       coverageData: new Map(),
+      elementCoverageData: new Map(),
       coverageRawData: new Map(),
       coverageStatus: "idle",
       coverageLastError: null,
+    });
+  },
+
+  updateElementCoverage: (dataLoc, percentage) => {
+    set((state) => {
+      const next = new Map(state.elementCoverageData);
+      next.set(dataLoc, percentage);
+      return { elementCoverageData: next };
     });
   },
 
@@ -1978,6 +2007,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
               filePath,
               state.updateElementIssue,
               state.updateFileIssues,
+              state.updateElementCoverage,
               false
             );
           } else {

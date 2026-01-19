@@ -156,7 +156,54 @@ const EXPORTED_UTILITIES = [
   "coverage-aggregator",
   "dependency-graph",
   "file-categorizer",
+  "jsx-coverage-analyzer",
 ];
+
+/**
+ * Maps internal export names to their uilint-eslint export names.
+ * Some exports are renamed when re-exported from the main package
+ * to avoid naming conflicts.
+ *
+ * Format: "utilFile:internalName" -> "externalName"
+ */
+const EXPORT_RENAMES: Record<string, string> = {
+  "import-graph:clearCache": "clearImportGraphCache",
+};
+
+/**
+ * Transform an import specifier, applying any necessary renames.
+ * Handles both simple imports (foo) and aliased imports (foo as bar).
+ */
+function transformImportSpecifier(specifier: string, utilFile: string): string {
+  const trimmed = specifier.trim();
+
+  // Check for aliased import: "localName as alias"
+  const aliasMatch = trimmed.match(/^(\w+)\s+as\s+(\w+)$/);
+  if (aliasMatch) {
+    const [, localName, alias] = aliasMatch;
+    const renameKey = `${utilFile}:${localName}`;
+    const externalName = EXPORT_RENAMES[renameKey];
+    if (externalName) {
+      // If the alias matches the external name, simplify to just the name
+      if (alias === externalName) {
+        return externalName;
+      }
+      // Otherwise, use the external name with the original alias
+      return `${externalName} as ${alias}`;
+    }
+    // No rename needed, keep original
+    return trimmed;
+  }
+
+  // Simple import: check if it needs renaming
+  const renameKey = `${utilFile}:${trimmed}`;
+  const externalName = EXPORT_RENAMES[renameKey];
+  if (externalName) {
+    return externalName;
+  }
+
+  return trimmed;
+}
 
 /**
  * Transform rule content to fix imports for copied location
@@ -172,7 +219,11 @@ function transformRuleContent(content: string): string {
     /import\s+{([^}]+)}\s+from\s+["']\.\.\/utils\/([^"']+)\.js["'];?/g,
     (match, imports, utilFile) => {
       if (EXPORTED_UTILITIES.includes(utilFile)) {
-        return `import {${imports}} from "uilint-eslint";`;
+        // Transform each import specifier
+        const specifiers = imports.split(",").map((s: string) =>
+          transformImportSpecifier(s, utilFile)
+        );
+        return `import { ${specifiers.join(", ")} } from "uilint-eslint";`;
       }
       return match; // Keep original if not a known utility
     }

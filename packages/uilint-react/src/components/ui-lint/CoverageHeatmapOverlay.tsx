@@ -13,10 +13,11 @@
  * - Command palette is open AND require-test-coverage rule is visible
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUILintStore, type UILintStore } from "./store";
 import type { ScannedElement } from "./types";
+import type { IstanbulFileCoverage } from "./command-palette/types";
 import { getUILintPortalHost } from "./portal-host";
 import {
   getElementVisibleRect,
@@ -34,9 +35,121 @@ interface CoverageElement {
   coverage: number; // 0-100
 }
 
+/**
+ * Extract data-loc value from an element's id
+ * Element IDs are in format "loc:path:line:column" when they have data-loc
+ */
+function getDataLocFromId(id: string): string | null {
+  if (id.startsWith("loc:")) {
+    const raw = id.slice(4); // Remove "loc:" prefix
+    return raw.split("#")[0] || null;
+  }
+  return null;
+}
+
+/**
+ * Parse a dataLoc string into its components
+ * Format: "path/to/file.tsx:line:column"
+ */
+function parseDataLoc(dataLoc: string): { filePath: string; line: number; column: number } | null {
+  // Find the last two colons (line:column)
+  const lastColonIdx = dataLoc.lastIndexOf(":");
+  if (lastColonIdx === -1) return null;
+
+  const beforeLastColon = dataLoc.slice(0, lastColonIdx);
+  const secondLastColonIdx = beforeLastColon.lastIndexOf(":");
+  if (secondLastColonIdx === -1) return null;
+
+  const filePath = dataLoc.slice(0, secondLastColonIdx);
+  const line = parseInt(dataLoc.slice(secondLastColonIdx + 1, lastColonIdx), 10);
+  const column = parseInt(dataLoc.slice(lastColonIdx + 1), 10);
+
+  if (isNaN(line) || isNaN(column)) return null;
+
+  return { filePath, line, column };
+}
+
+/**
+ * Find coverage data for a file path (handles path suffix matching)
+ */
+function findCoverageForFile(
+  filePath: string,
+  coverageRawData: Map<string, IstanbulFileCoverage>
+): IstanbulFileCoverage | null {
+  // Try exact match first
+  const exact = coverageRawData.get(filePath);
+  if (exact) return exact;
+
+  // Try suffix matching
+  const normalizedPath = filePath.replace(/^\//, "");
+  for (const [coveragePath, data] of coverageRawData.entries()) {
+    const normalizedCoveragePath = coveragePath.replace(/^\//, "");
+    if (
+      normalizedCoveragePath.endsWith(normalizedPath) ||
+      normalizedPath.endsWith(normalizedCoveragePath)
+    ) {
+      return data;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Compute coverage percentage for statements within a JSX element's range
+ *
+ * The data-loc points to the start of the JSX element (opening tag line),
+ * but event handlers and other statements are typically on subsequent lines.
+ *
+ * Strategy: Find the closest statement after the element's start line.
+ * This works because:
+ * - Most JSX elements have a single inline handler (onClick, onChange, etc.)
+ * - The handler is typically within a few lines of the opening tag
+ * - Adjacent elements will have their own closest statements
+ *
+ * @param startLine - The line where the JSX element starts (from data-loc)
+ * @param fileCoverage - Istanbul coverage data for the file
+ * @param maxLinesAhead - Maximum distance to search for a statement (default 10)
+ */
+function computeElementCoverage(
+  startLine: number,
+  fileCoverage: IstanbulFileCoverage,
+  maxLinesAhead: number = 10
+): number | null {
+  const { statementMap, s: statementHits } = fileCoverage;
+  if (!statementMap || !statementHits) return null;
+
+  // Find the closest statement after the element's start line
+  let closestStatement: { key: string; hits: number; line: number } | null = null;
+  let closestDistance = Infinity;
+
+  for (const [key, location] of Object.entries(statementMap)) {
+    const stmtStart = location.start.line;
+    const distance = stmtStart - startLine;
+
+    // Only consider statements that are after (or on) the start line and within range
+    if (distance >= 0 && distance <= maxLinesAhead && distance < closestDistance) {
+      closestDistance = distance;
+      closestStatement = {
+        key,
+        hits: statementHits[key] ?? 0,
+        line: stmtStart,
+      };
+    }
+  }
+
+  // If no statement found nearby, return null (will fall back to file coverage)
+  if (!closestStatement) return null;
+
+  // Return 100% if the statement was hit, 0% if not
+  return closestStatement.hits > 0 ? 100 : 0;
+}
+
 export function CoverageHeatmapOverlay() {
   const autoScanState = useUILintStore((s: UILintStore) => s.autoScanState);
   const coverageData = useUILintStore((s: UILintStore) => s.coverageData);
+  const coverageRawData = useUILintStore((s: UILintStore) => s.coverageRawData);
+  const elementCoverageData = useUILintStore((s: UILintStore) => s.elementCoverageData);
   const commandPaletteOpen = useUILintStore(
     (s: UILintStore) => s.commandPaletteOpen
   );
@@ -118,19 +231,44 @@ export function CoverageHeatmapOverlay() {
       for (const element of autoScanState.elements) {
         if (!element.element || !document.contains(element.element)) continue;
 
-        // Get coverage for this element's file
-        // Coverage keys may be absolute paths or /src/... paths
-        const filePath = element.source.fileName;
+        // Get coverage for this element using multiple strategies:
+        // 1. First check ESLint-reported element coverage (from jsxBelowThreshold issues)
+        // 2. Then compute from raw Istanbul data based on line number
+        // 3. Fall back to file-level coverage
+        const dataLoc = getDataLocFromId(element.id);
         let coverage: number | undefined;
 
-        // Try to match the file path in coverage data
-        for (const [coveragePath, pct] of coverageData.entries()) {
-          if (
-            coveragePath.endsWith(filePath) ||
-            filePath.endsWith(coveragePath.replace(/^\//, ""))
-          ) {
-            coverage = pct;
-            break;
+        // Strategy 1: Check element-level coverage from ESLint issues
+        if (dataLoc && elementCoverageData.size > 0) {
+          coverage = elementCoverageData.get(dataLoc);
+        }
+
+        // Strategy 2: Compute from raw Istanbul data
+        if (coverage === undefined && dataLoc && coverageRawData.size > 0) {
+          const parsed = parseDataLoc(dataLoc);
+          if (parsed) {
+            const fileCoverage = findCoverageForFile(parsed.filePath, coverageRawData);
+            if (fileCoverage) {
+              const computed = computeElementCoverage(parsed.line, fileCoverage);
+              if (computed !== null) {
+                coverage = computed;
+              }
+            }
+          }
+        }
+
+        // Strategy 3: Fall back to file-level coverage
+        if (coverage === undefined) {
+          const filePath = element.source.fileName;
+          // Try to match the file path in coverage data
+          for (const [coveragePath, pct] of coverageData.entries()) {
+            if (
+              coveragePath.endsWith(filePath) ||
+              filePath.endsWith(coveragePath.replace(/^\//, ""))
+            ) {
+              coverage = pct;
+              break;
+            }
           }
         }
 
@@ -193,6 +331,8 @@ export function CoverageHeatmapOverlay() {
     autoScanState.status,
     autoScanState.elements,
     coverageData,
+    coverageRawData,
+    elementCoverageData,
   ]);
 
   // Event handlers to prevent UILint interactions from propagating to the app
