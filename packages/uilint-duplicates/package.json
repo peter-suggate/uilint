@@ -1,27 +1,55 @@
 {
   "name": "uilint-duplicates",
-  "version": "0.1.1",
+  "version": "0.2.27",
   "description": "Semantic code duplicate detection for React/TypeScript codebases",
+  "author": "Peter Suggate",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/peter-suggate/uilint.git",
+    "directory": "packages/uilint-duplicates"
+  },
+  "homepage": "https://github.com/peter-suggate/uilint#readme",
+  "bugs": {
+    "url": "https://github.com/peter-suggate/uilint/issues"
+  },
   "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "node": [
+        "./dist/node.d.ts"
+      ],
+      "*": [
+        "./dist/index.d.ts"
+      ]
+    }
+  },
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./node": {
-      "import": "./dist/node.js",
-      "types": "./dist/node.d.ts"
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@typescript-eslint/typescript-estree": "^8.35.1",
@@ -36,5 +64,17 @@
   },
   "peerDependencies": {
     "uilint-core": "workspace:*"
+  },
+  "keywords": [
+    "duplicate-detection",
+    "code-analysis",
+    "react",
+    "typescript",
+    "lint",
+    "ui"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
   }
 }

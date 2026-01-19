@@ -1,6 +1,6 @@
 {
   "name": "uilint-monorepo",
-  "version": "0.2.25",
+  "version": "0.2.27",
   "private": true,
   "description": "AI-powered UI consistency checker for Next.js applications",
   "author": "Peter Suggate",
@@ -16,7 +16,7 @@
   "scripts": {
     "dev": "pnpm --filter test-app dev",
     "build": "pnpm -r build",
-    "build:packages": "pnpm --filter uilint-core build && pnpm --filter uilint-react build && pnpm --filter uilint build && pnpm --filter uilint-eslint build && pnpm --filter jsx-loc-plugin build",
+    "build:packages": "pnpm --filter uilint-core build && pnpm --filter uilint-react build && pnpm --filter uilint build && pnpm --filter uilint-eslint build && pnpm --filter uilint-duplicates build && pnpm --filter jsx-loc-plugin build",
     "clean": "pnpm -r --workspace-concurrency=1 exec -- sh -c \"rm -rf dist tsconfig.tsbuildinfo .turbo .next coverage node_modules/.cache || true\"",
     "test": "pnpm --filter uilint-eslint --filter uilint-react --filter uilint test",
     "test:watch": "pnpm --filter uilint-eslint --filter uilint-react --filter uilint test:watch",
@@ -32,8 +32,8 @@
     "version:patch": "pnpm --filter 'uilint*' exec npm version patch --no-git-tag-version && pnpm --filter jsx-loc-plugin exec npm version patch --no-git-tag-version && npm version patch --no-git-tag-version && pnpm sync:workspace",
     "version:minor": "pnpm --filter 'uilint*' exec npm version minor --no-git-tag-version && pnpm --filter jsx-loc-plugin exec npm version minor --no-git-tag-version && npm version minor --no-git-tag-version && pnpm sync:workspace",
     "version:major": "pnpm --filter 'uilint*' exec npm version major --no-git-tag-version && pnpm --filter jsx-loc-plugin exec npm version major --no-git-tag-version && npm version major --no-git-tag-version && pnpm sync:workspace",
-    "publish:dry": "pnpm sync:workspace && pnpm build:packages && pnpm --filter uilint-core publish --dry-run --no-git-checks && pnpm --filter uilint-react publish --dry-run --no-git-checks && pnpm --filter uilint publish --dry-run --no-git-checks && pnpm --filter uilint-eslint publish --dry-run --no-git-checks && pnpm --filter jsx-loc-plugin publish --dry-run --no-git-checks",
-    "publish:packages": "pnpm sync:workspace && pnpm build:packages && pnpm --filter uilint-core publish --access public --no-git-checks && pnpm --filter uilint-react publish --access public --no-git-checks && pnpm --filter uilint publish --access public --no-git-checks && pnpm --filter uilint-eslint publish --access public --no-git-checks && pnpm --filter jsx-loc-plugin publish --access public --no-git-checks",
+    "publish:dry": "pnpm sync:workspace && pnpm build:packages && pnpm --filter uilint-core publish --dry-run --no-git-checks && pnpm --filter uilint-react publish --dry-run --no-git-checks && pnpm --filter uilint publish --dry-run --no-git-checks && pnpm --filter uilint-eslint publish --dry-run --no-git-checks && pnpm --filter uilint-duplicates publish --dry-run --no-git-checks && pnpm --filter jsx-loc-plugin publish --dry-run --no-git-checks",
+    "publish:packages": "pnpm sync:workspace && pnpm build:packages && pnpm --filter uilint-core publish --access public --no-git-checks && pnpm --filter uilint-react publish --access public --no-git-checks && pnpm --filter uilint publish --access public --no-git-checks && pnpm --filter uilint-eslint publish --access public --no-git-checks && pnpm --filter uilint-duplicates publish --access public --no-git-checks && pnpm --filter jsx-loc-plugin publish --access public --no-git-checks",
     "publish": "pnpm publish:packages"
   },
   "devDependencies": {
