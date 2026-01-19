@@ -5,30 +5,87 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Icons } from "./icons";
 import { fetchSourceWithContext } from "../source-fetcher";
+import { useUILintStore, type UILintStore } from "../store";
+import type { IstanbulFileCoverage } from "./types";
 
-interface SourceCodePreviewProps {
+interface CoverageCodePreviewProps {
   filePath: string;
   lineNumber: number;
   columnNumber?: number;
-  /** Whether to show context controls (default: true) */
-  showControls?: boolean;
-  /** Initial context lines (default: 3) */
+  /** Initial context lines (default: 5) */
   initialContextLines?: number;
-  /** Maximum height of the preview (default: "max-h-64") */
+  /** Maximum height of the preview (default: "max-h-96") */
   maxHeightClass?: string;
 }
 
 /**
- * Source code preview component with context controls
+ * Determine the coverage status of a line based on Istanbul statement data
  */
-export function SourceCodePreview({
+function getLineCoverageStatus(
+  lineNumber: number,
+  coverage: IstanbulFileCoverage | undefined
+): "covered" | "uncovered" | "none" {
+  if (!coverage) return "none";
+
+  const { statementMap, s } = coverage;
+  let hasStatement = false;
+  let anyCovered = false;
+
+  for (const [key, statement] of Object.entries(statementMap)) {
+    // Check if this line is within the statement's range
+    if (
+      lineNumber >= statement.start.line &&
+      lineNumber <= statement.end.line
+    ) {
+      hasStatement = true;
+      if (s[key] > 0) {
+        anyCovered = true;
+        break; // Line is covered if ANY statement covering it is hit
+      }
+    }
+  }
+
+  if (!hasStatement) return "none";
+  return anyCovered ? "covered" : "uncovered";
+}
+
+/**
+ * Find coverage data for a file by matching paths
+ */
+function findCoverageForFile(
+  filePath: string,
+  coverageRawData: Map<string, IstanbulFileCoverage>
+): IstanbulFileCoverage | undefined {
+  // Try exact match first
+  if (coverageRawData.has(filePath)) {
+    return coverageRawData.get(filePath);
+  }
+
+  // Try suffix matching (coverage paths may be absolute while filePath is relative)
+  for (const [coveragePath, data] of coverageRawData.entries()) {
+    if (
+      coveragePath.endsWith(filePath) ||
+      filePath.endsWith(coveragePath.replace(/^\//, ""))
+    ) {
+      return data;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Source code preview component with line-level coverage highlighting
+ */
+export function CoverageCodePreview({
   filePath,
   lineNumber,
   columnNumber,
-  showControls = true,
-  initialContextLines = 3,
-  maxHeightClass = "max-h-64",
-}: SourceCodePreviewProps) {
+  initialContextLines = 5,
+  maxHeightClass = "max-h-96",
+}: CoverageCodePreviewProps) {
+  const coverageRawData = useUILintStore((s: UILintStore) => s.coverageRawData);
+
   const [sourceData, setSourceData] = useState<{
     lines: string[];
     startLine: number;
@@ -56,7 +113,7 @@ export function SourceCodePreview({
           setSourceData(result);
         }
       } catch (e) {
-        console.error("[SourceCodePreview] Failed to fetch source:", e);
+        console.error("[CoverageCodePreview] Failed to fetch source:", e);
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -69,6 +126,8 @@ export function SourceCodePreview({
       cancelled = true;
     };
   }, [filePath, lineNumber, columnNumber, contextLines]);
+
+  const coverage = findCoverageForFile(filePath, coverageRawData);
 
   if (loading) {
     return (
@@ -98,8 +157,18 @@ export function SourceCodePreview({
       )}
     >
       {/* Context controls */}
-      {showControls && (
-        <div className="flex items-center justify-end gap-1 px-2 py-1.5 border-b border-border">
+      <div className="flex items-center justify-between px-2 py-1.5 border-b border-border">
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-sm bg-green-500/30" />
+            covered
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-sm bg-red-500/30" />
+            uncovered
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
           <button
             onClick={() => setContextLines((c) => Math.max(1, c - 2))}
             disabled={contextLines <= 1}
@@ -132,22 +201,43 @@ export function SourceCodePreview({
             +
           </button>
         </div>
-      )}
+      </div>
       {/* Code content */}
       <div className={cn("overflow-auto", maxHeightClass)}>
         <pre className="text-[11px] leading-5 font-mono">
           {sourceData.lines.map((line, idx) => {
             const lineNum = sourceData.startLine + idx;
             const isHighlighted = lineNum === sourceData.highlightLine;
+            const coverageStatus = getLineCoverageStatus(lineNum, coverage);
 
             return (
               <div
                 key={lineNum}
                 className={cn(
                   "flex",
-                  isHighlighted ? "bg-active" : "hover:bg-hover"
+                  // Coverage-based background colors
+                  coverageStatus === "covered" && "bg-green-500/10",
+                  coverageStatus === "uncovered" && "bg-red-500/10",
+                  // Highlighted line gets stronger background
+                  isHighlighted &&
+                    coverageStatus === "covered" &&
+                    "bg-green-500/20",
+                  isHighlighted &&
+                    coverageStatus === "uncovered" &&
+                    "bg-red-500/20",
+                  isHighlighted && coverageStatus === "none" && "bg-active",
+                  // Hover effect for non-highlighted lines
+                  !isHighlighted && "hover:bg-hover/50"
                 )}
               >
+                {/* Coverage indicator */}
+                <span
+                  className={cn(
+                    "w-1 shrink-0",
+                    coverageStatus === "covered" && "bg-green-500/50",
+                    coverageStatus === "uncovered" && "bg-red-500/50"
+                  )}
+                />
                 {/* Line number */}
                 <span
                   className={cn(

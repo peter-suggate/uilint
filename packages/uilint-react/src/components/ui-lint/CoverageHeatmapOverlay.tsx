@@ -8,7 +8,9 @@
  * - Yellow: Medium coverage (40-80%)
  * - Red: Low coverage (0-40%)
  *
- * Lower coverage = more visible overlay (inverse of issue heatmap)
+ * Only visible when:
+ * - Alt/Option key is held down, OR
+ * - Command palette is open AND require-test-coverage rule is visible
  */
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -21,17 +23,10 @@ import {
   isElementCoveredByOverlay,
 } from "./visibility-utils";
 import { getCoverageColor } from "./coverage-colors";
+import { cn } from "@/lib/utils";
+import { Icons } from "./command-palette/icons";
 
-/**
- * Design tokens - uses CSS variables for theme support
- */
-const STYLES = {
-  bg: "var(--uilint-backdrop)",
-  text: "var(--uilint-text-primary)",
-  border: "var(--uilint-border)",
-  shadow: "var(--uilint-shadow)",
-  font: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-};
+const COVERAGE_RULE_ID = "require-test-coverage";
 
 interface CoverageElement {
   element: ScannedElement;
@@ -42,24 +37,58 @@ interface CoverageElement {
 export function CoverageHeatmapOverlay() {
   const autoScanState = useUILintStore((s: UILintStore) => s.autoScanState);
   const coverageData = useUILintStore((s: UILintStore) => s.coverageData);
-  const showCoverageHeatmap = useUILintStore(
-    (s: UILintStore) => s.showCoverageHeatmap
-  );
   const commandPaletteOpen = useUILintStore(
     (s: UILintStore) => s.commandPaletteOpen
   );
   const coverageStatus = useUILintStore((s: UILintStore) => s.coverageStatus);
   const requestCoverage = useUILintStore((s: UILintStore) => s.requestCoverage);
+  const openCommandPaletteWithFilter = useUILintStore(
+    (s: UILintStore) => s.openCommandPaletteWithFilter
+  );
+  const visibleCommandPaletteResultIds = useUILintStore(
+    (s: UILintStore) => s.visibleCommandPaletteResultIds
+  );
 
-  // Show heatmap when command palette is open OR when explicitly enabled
-  const shouldShow = commandPaletteOpen || showCoverageHeatmap;
+  // Track Alt/Option key state
+  const [altKeyDown, setAltKeyDown] = useState(false);
 
-  // Request coverage data when command palette opens (if not already loaded)
   useEffect(() => {
-    if (commandPaletteOpen && coverageStatus === "idle") {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey) setAltKeyDown(true);
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!e.altKey) setAltKeyDown(false);
+    };
+    // Also reset on blur (in case user releases Alt while window is not focused)
+    const handleBlur = () => setAltKeyDown(false);
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, []);
+
+  // Check if require-test-coverage rule is visible in command palette results
+  const coverageRuleVisible = visibleCommandPaletteResultIds.has(COVERAGE_RULE_ID);
+
+  // Show heatmap when:
+  // 1. Alt/Option key is held down, OR
+  // 2. Command palette is open AND require-test-coverage rule is visible
+  const shouldShow =
+    altKeyDown ||
+    (commandPaletteOpen && coverageRuleVisible);
+
+  // Request coverage data when conditions are met (if not already loaded)
+  useEffect(() => {
+    if (shouldShow && coverageStatus === "idle") {
       requestCoverage();
     }
-  }, [commandPaletteOpen, coverageStatus, requestCoverage]);
+  }, [shouldShow, coverageStatus, requestCoverage]);
 
   const [mounted, setMounted] = useState(false);
   const [coverageElements, setCoverageElements] = useState<CoverageElement[]>(
@@ -174,6 +203,23 @@ export function CoverageHeatmapOverlay() {
     []
   );
 
+  // Handle click on coverage element - open command palette with coverage filter
+  const handleClick = useCallback(
+    (element: ScannedElement, coverage: number) => {
+      const { fileName, lineNumber, columnNumber } = element.source;
+      const displayName = fileName.split("/").pop() || fileName;
+      const label = `${displayName}:${lineNumber}${columnNumber ? `:${columnNumber}` : ""} (${Math.round(coverage)}%)`;
+      const locValue = `${fileName}:${lineNumber}${columnNumber ? `:${columnNumber}` : ""}`;
+
+      openCommandPaletteWithFilter({
+        type: "coverage",
+        value: locValue,
+        label,
+      });
+    },
+    [openCommandPaletteWithFilter]
+  );
+
   if (!mounted) return null;
   if (!shouldShow) return null;
   if (coverageStatus !== "ready") return null;
@@ -195,6 +241,7 @@ export function CoverageHeatmapOverlay() {
           isHovered={hoveredElementId === item.element.id}
           onHover={() => setHoveredElementId(item.element.id)}
           onLeave={() => setHoveredElementId(null)}
+          onClick={() => handleClick(item.element, item.coverage)}
         />
       ))}
     </div>
@@ -208,77 +255,101 @@ interface CoverageRectProps {
   isHovered: boolean;
   onHover: () => void;
   onLeave: () => void;
+  onClick: () => void;
 }
 
 /** Constant background opacity for all coverage overlays */
 const BACKGROUND_OPACITY = 0.15;
 
-function CoverageRect({ item, isHovered, onHover, onLeave }: CoverageRectProps) {
+function CoverageRect({ item, isHovered, onHover, onLeave, onClick }: CoverageRectProps) {
   const { rect, coverage } = item;
   const color = getCoverageColor(coverage);
   const displayOpacity = isHovered ? BACKGROUND_OPACITY + 0.1 : BACKGROUND_OPACITY;
 
+  // Handle mouse leave with a small delay to allow moving to the button
+  const handleMouseLeave = useCallback(
+    (e: React.MouseEvent) => {
+      // Check if we're moving to the button (which has data-ui-lint-button)
+      const relatedTarget = e.relatedTarget as HTMLElement | null;
+      if (relatedTarget?.closest("[data-ui-lint-button]")) {
+        return; // Don't leave hover state when moving to button
+      }
+      onLeave();
+    },
+    [onLeave]
+  );
+
   return (
     <>
-      {/* Transparent background overlay */}
+      {/* Transparent background overlay (visual only) */}
       <div
         data-ui-lint
+        className={cn(
+          "fixed rounded pointer-events-none transition-colors duration-150",
+          isHovered ? "z-[99997]" : "z-[99994]"
+        )}
         style={{
-          position: "fixed",
           top: rect.top,
           left: rect.left,
           width: rect.width,
           height: rect.height,
           backgroundColor: color.replace(")", ` / ${displayOpacity})`),
-          borderRadius: "4px",
-          pointerEvents: "none",
-          transition: "background-color 150ms",
-          zIndex: isHovered ? 99997 : 99994,
         }}
       />
 
-      {/* Invisible interaction layer */}
+      {/* Border-frame hover detection layer - doesn't block clicks in center */}
       <div
         data-ui-lint
+        className="fixed z-[99993] pointer-events-auto cursor-default"
         style={{
-          position: "fixed",
-          top: rect.top,
-          left: rect.left,
-          width: rect.width,
-          height: rect.height,
-          pointerEvents: "auto",
-          cursor: "default",
-          zIndex: 99993,
+          top: rect.top - 8,
+          left: rect.left - 8,
+          width: rect.width + 16,
+          height: rect.height + 16,
+          // Clip-path creates a frame shape - only border area triggers events
+          clipPath: `polygon(
+            0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%,
+            8px 8px, 8px calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) 8px, 8px 8px
+          )`,
         }}
         onMouseEnter={onHover}
-        onMouseLeave={onLeave}
+        onMouseLeave={handleMouseLeave}
       />
 
-      {/* Coverage tooltip on hover */}
+      {/* Combined coverage % + View button - only shown on hover */}
       {isHovered && (
-        <div
+        <button
           data-ui-lint
+          data-ui-lint-button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick();
+          }}
+          onMouseEnter={onHover}
+          onMouseLeave={onLeave}
+          className={cn(
+            "fixed z-[99999] pointer-events-auto",
+            "flex items-center gap-1.5",
+            "px-2.5 py-1",
+            "bg-backdrop border border-border rounded-md",
+            "text-[11px] font-medium text-foreground",
+            "shadow-md",
+            "cursor-pointer",
+            "transition-all duration-100",
+            "hover:shadow-lg hover:scale-[1.02]"
+          )}
           style={{
-            position: "fixed",
-            top: rect.top - 32,
-            left: rect.left + rect.width / 2,
-            transform: "translateX(-50%)",
-            backgroundColor: STYLES.bg,
-            border: `1px solid ${STYLES.border}`,
-            borderRadius: "6px",
-            padding: "4px 8px",
-            fontSize: "11px",
-            fontWeight: 600,
-            color: STYLES.text,
-            whiteSpace: "nowrap",
-            boxShadow: STYLES.shadow,
-            fontFamily: STYLES.font,
-            zIndex: 99999,
-            pointerEvents: "none",
+            top: rect.top + 4,
+            right: window.innerWidth - rect.right + 4,
           }}
         >
-          {Math.round(coverage)}% coverage
-        </div>
+          <span className="font-semibold">{Math.round(coverage)}%</span>
+          <span className="opacity-50">·</span>
+          <span className="flex items-center gap-0.5">
+            <Icons.Code className="w-3 h-3" />
+            View
+          </span>
+        </button>
       )}
     </>
   );

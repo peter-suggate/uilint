@@ -49,6 +49,11 @@ const FILTER_TYPE_COLORS: Record<
     text: "text-success",
     border: "border-success/20",
   },
+  coverage: {
+    bg: "bg-blue-500/10",
+    text: "text-blue-500",
+    border: "border-blue-500/20",
+  },
 };
 
 /**

@@ -9,6 +9,7 @@ import {
   CommandPaletteSectionHeader,
 } from "./CommandPaletteItem";
 import { SourceCodePreview } from "./SourceCodePreview";
+import { CoverageCodePreview } from "./CoverageCodePreview";
 import { RuleToggleItem } from "./RuleToggleItem";
 import { RuleDetailItem } from "./RuleDetailItem";
 import type {
@@ -42,6 +43,8 @@ interface CommandPaletteResultsProps {
   activeLocFilters?: CommandPaletteFilter[];
   /** Active rule filters - rules matching these should show details at top */
   activeRuleFilters?: CommandPaletteFilter[];
+  /** Active coverage filters - shows coverage code preview */
+  activeCoverageFilters?: CommandPaletteFilter[];
   /** Category ID to scroll to (e.g., "rules" or "file:/path/to/file.tsx") */
   scrollToCategory?: string | null;
   /** Called after scrolling to category completes */
@@ -93,6 +96,7 @@ export function CommandPaletteResults({
   onAddFilter,
   activeLocFilters = [],
   activeRuleFilters = [],
+  activeCoverageFilters = [],
   scrollToCategory,
   onScrollComplete,
   availableRules = [],
@@ -183,6 +187,35 @@ export function CommandPaletteResults({
   return (
     <ScrollArea className="max-h-[400px] flex-1" ref={scrollRef}>
       <div className="py-2">
+        {/* 0. Coverage section - when coverage filter is active */}
+        {activeCoverageFilters.length > 0 && (
+          <div className="mb-2">
+            <CommandPaletteSectionHeader
+              icon={<Icons.File className="w-3.5 h-3.5" />}
+              categoryId="coverage"
+            >
+              Coverage
+            </CommandPaletteSectionHeader>
+            {activeCoverageFilters.map((filter) => {
+              // Parse the filter value: "filePath:lineNumber:columnNumber"
+              const parts = filter.value.split(":");
+              const columnNumber = parts.length > 2 ? parseInt(parts.pop()!, 10) : undefined;
+              const lineNumber = parseInt(parts.pop()!, 10);
+              const filePath = parts.join(":");
+
+              return (
+                <div key={filter.value} className="px-2 pb-2">
+                  <CoverageCodePreview
+                    filePath={filePath}
+                    lineNumber={lineNumber}
+                    columnNumber={columnNumber}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* 1. Rules section - FIRST */}
         {(standardGroups.get("rules")?.length ?? 0) > 0 && (
           <div className="mb-2">

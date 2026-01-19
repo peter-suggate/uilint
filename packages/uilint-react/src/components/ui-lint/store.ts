@@ -35,7 +35,7 @@ import {
   groupBySourceFile,
   identifyTopLevelElements,
 } from "./dom-utils";
-import type { CommandPaletteFilter } from "./command-palette/types";
+import type { CommandPaletteFilter, IstanbulFileCoverage } from "./command-palette/types";
 import type {
   VisionIssue,
   VisionAnalysisResult,
@@ -476,6 +476,8 @@ export interface UILintStore {
   // ============ Coverage Heatmap ============
   /** Coverage data by file path (percentage 0-100) */
   coverageData: Map<string, number>;
+  /** Raw Istanbul coverage data by file path (for line-level coverage display) */
+  coverageRawData: Map<string, IstanbulFileCoverage>;
   /** Coverage analysis status */
   coverageStatus: "idle" | "loading" | "ready" | "error";
   /** Whether coverage heatmap visualization is shown */
@@ -1771,6 +1773,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
 
   // ============ Coverage Heatmap ============
   coverageData: new Map(),
+  coverageRawData: new Map(),
   coverageStatus: "idle",
   showCoverageHeatmap:
     typeof window !== "undefined"
@@ -1812,6 +1815,7 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   clearCoverageData: () => {
     set({
       coverageData: new Map(),
+      coverageRawData: new Map(),
       coverageStatus: "idle",
       coverageLastError: null,
     });
@@ -2325,10 +2329,14 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       case "coverage:result": {
         const { coverage } = data as CoverageResultMessage;
         const coverageMap = new Map<string, number>();
+        const coverageRawMap = new Map<string, IstanbulFileCoverage>();
 
-        // Parse Istanbul coverage format into file → percentage map
+        // Parse Istanbul coverage format into file → percentage map and raw data
         for (const [filePath, fileCov] of Object.entries(coverage)) {
-          const cov = fileCov as { s?: Record<string, number> };
+          const cov = fileCov as {
+            s?: Record<string, number>;
+            statementMap?: Record<string, { start: { line: number; column: number }; end: { line: number; column: number } }>;
+          };
           if (cov.s) {
             const statements = cov.s;
             const total = Object.keys(statements).length;
@@ -2339,11 +2347,20 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
               filePath,
               total > 0 ? (covered / total) * 100 : 100
             );
+
+            // Store raw data for line-level coverage display
+            if (cov.statementMap) {
+              coverageRawMap.set(filePath, {
+                statementMap: cov.statementMap,
+                s: cov.s,
+              });
+            }
           }
         }
 
         set({
           coverageData: coverageMap,
+          coverageRawData: coverageRawMap,
           coverageStatus: "ready",
           coverageLastError: null,
         });

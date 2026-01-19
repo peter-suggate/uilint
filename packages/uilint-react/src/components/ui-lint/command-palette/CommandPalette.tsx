@@ -247,6 +247,12 @@ export function CommandPalette() {
     [commandPaletteFilters]
   );
 
+  // Get active coverage filters for coverage code preview
+  const activeCoverageFilters = useMemo(
+    () => commandPaletteFilters.filter((f) => f.type === "coverage"),
+    [commandPaletteFilters]
+  );
+
   // State for scroll-to-category
   const [scrollToCategory, setScrollToCategory] = useState<string | null>(null);
 
@@ -557,6 +563,7 @@ export function CommandPalette() {
             onAddFilter={handleAddFilter}
             activeLocFilters={activeLocFilters}
             activeRuleFilters={activeRuleFilters}
+            activeCoverageFilters={activeCoverageFilters}
             scrollToCategory={scrollToCategory}
             onScrollComplete={handleScrollComplete}
             availableRules={availableRules}

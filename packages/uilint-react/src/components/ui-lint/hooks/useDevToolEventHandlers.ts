@@ -35,9 +35,6 @@ export function useDevToolEventHandlers(enabled: boolean) {
   const setInspectedElement = useUILintStore(
     (s: UILintStore) => s.setInspectedElement
   );
-  const openCommandPaletteWithFilter = useUILintStore(
-    (s: UILintStore) => s.openCommandPaletteWithFilter
-  );
   const commandPaletteOpen = useUILintStore(
     (s: UILintStore) => s.commandPaletteOpen
   );
@@ -105,38 +102,22 @@ export function useDevToolEventHandlers(enabled: boolean) {
   );
 
   /**
-   * Handle click in locator mode - open command palette with loc filter
-   * Only active when Alt key is held down
+   * Handle click when Alt is held - block all clicks on the main app
+   * This allows the coverage overlay's View button to be the primary interaction
    */
   const handleLocatorClick = useCallback(
     (e: MouseEvent) => {
-      // Only allow click-to-select when Alt is held
-      if (!altKeyHeld || !locatorTarget) return;
+      if (!altKeyHeld) return;
 
-      // Ignore clicks on UILint UI
+      // Allow clicks on UILint UI elements (like the View button)
       const targetEl = e.target as Element | null;
       if (targetEl?.closest?.("[data-ui-lint]")) return;
 
+      // Block all other clicks when Alt is held
       e.preventDefault();
       e.stopPropagation();
-
-      // Open command palette with loc filter
-      const source = locatorTarget.source;
-      const displayName = source.fileName.split("/").pop() || source.fileName;
-      const { fileName, lineNumber, columnNumber } = source;
-      const label = `${displayName}:${lineNumber}${columnNumber ? `:${columnNumber}` : ""}`;
-      const locValue = `${fileName}:${lineNumber}${columnNumber ? `:${columnNumber}` : ""}`;
-
-      openCommandPaletteWithFilter({
-        type: "loc",
-        value: locValue,
-        label,
-      });
-
-      // Reset locator state
-      setLocatorTarget(null);
     },
-    [altKeyHeld, locatorTarget, openCommandPaletteWithFilter, setLocatorTarget]
+    [altKeyHeld]
   );
 
   /**
