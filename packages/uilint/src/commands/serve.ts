@@ -27,6 +27,9 @@
  * - Server -> Client: { type: 'coverage:setup:progress', message: string, phase: string }
  * - Server -> Client: { type: 'coverage:setup:complete', packageAdded: boolean, configModified: boolean, testsRan: boolean, coverageGenerated: boolean, duration: number, error?: string }
  * - Server -> Client: { type: 'coverage:setup:error', error: string }
+ * - Client -> Server: { type: 'coverage:request', requestId?: string }
+ * - Server -> Client: { type: 'coverage:result', coverage: object, timestamp: number, requestId?: string }
+ * - Server -> Client: { type: 'coverage:error', error: string, requestId?: string }
  */
 
 import { existsSync, statSync, readdirSync, readFileSync } from "fs";
@@ -134,7 +137,8 @@ type ClientMessage =
   | CacheInvalidateMessage
   | VisionAnalyzeMessage
   | ConfigSetMessage
-  | RuleConfigSetMessage;
+  | RuleConfigSetMessage
+  | CoverageRequestMessage;
 
 interface LintResultMessage {
   type: "lint:result";
@@ -249,6 +253,51 @@ interface DuplicatesIndexingErrorMessage {
   error: string;
 }
 
+// Coverage heatmap messages
+interface CoverageRequestMessage {
+  type: "coverage:request";
+  requestId?: string;
+}
+
+interface CoverageResultMessage {
+  type: "coverage:result";
+  coverage: Record<string, unknown>;
+  timestamp: number;
+  requestId?: string;
+}
+
+interface CoverageErrorMessage {
+  type: "coverage:error";
+  error: string;
+  requestId?: string;
+}
+
+// Coverage setup messages (existing)
+interface CoverageSetupStartMessage {
+  type: "coverage:setup:start";
+}
+
+interface CoverageSetupProgressMessage {
+  type: "coverage:setup:progress";
+  message: string;
+  phase: string;
+}
+
+interface CoverageSetupCompleteMessage {
+  type: "coverage:setup:complete";
+  packageAdded: boolean;
+  configModified: boolean;
+  testsRan: boolean;
+  coverageGenerated: boolean;
+  duration: number;
+  error?: string;
+}
+
+interface CoverageSetupErrorMessage {
+  type: "coverage:setup:error";
+  error: string;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
@@ -263,7 +312,13 @@ type ServerMessage =
   | DuplicatesIndexingStartMessage
   | DuplicatesIndexingProgressMessage
   | DuplicatesIndexingCompleteMessage
-  | DuplicatesIndexingErrorMessage;
+  | DuplicatesIndexingErrorMessage
+  | CoverageResultMessage
+  | CoverageErrorMessage
+  | CoverageSetupStartMessage
+  | CoverageSetupProgressMessage
+  | CoverageSetupCompleteMessage
+  | CoverageSetupErrorMessage;
 
 function pickAppRoot(params: { cwd: string; workspaceRoot: string }): string {
   const { cwd, workspaceRoot } = params;
@@ -1053,6 +1108,41 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       handleRuleConfigSet(ws, ruleId, severity, options, requestId);
       break;
     }
+
+    case "coverage:request": {
+      const { requestId } = message;
+      try {
+        const coveragePath = join(serverAppRootForVision, "coverage", "coverage-final.json");
+
+        if (!existsSync(coveragePath)) {
+          sendMessage(ws, {
+            type: "coverage:error",
+            error: "Coverage data not found. Run tests with coverage first (e.g., `vitest run --coverage`)",
+            requestId,
+          });
+          break;
+        }
+
+        const coverageData = JSON.parse(readFileSync(coveragePath, "utf-8"));
+        logInfo(`${pc.dim("[ws]")} coverage:result ${pc.dim(`${Object.keys(coverageData).length} files`)}`);
+
+        sendMessage(ws, {
+          type: "coverage:result",
+          coverage: coverageData,
+          timestamp: Date.now(),
+          requestId,
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logError(`${pc.dim("[ws]")} coverage:error ${errorMessage}`);
+        sendMessage(ws, {
+          type: "coverage:error",
+          error: errorMessage,
+          requestId,
+        });
+      }
+      break;
+    }
   }
 }
 
@@ -1090,6 +1180,29 @@ function handleFileChange(filePath: string): void {
   // Notify subscribers
   for (const { ws, clientFilePath } of subscribers) {
     sendMessage(ws, { type: "file:changed", filePath: clientFilePath });
+  }
+}
+
+/**
+ * Handle coverage-final.json file change - broadcast new coverage data to all clients
+ */
+function handleCoverageFileChange(filePath: string): void {
+  try {
+    const coverageData = JSON.parse(readFileSync(filePath, "utf-8"));
+    logInfo(`${pc.dim("[ws]")} coverage:changed ${pc.dim(`${Object.keys(coverageData).length} files`)}`);
+
+    broadcast({
+      type: "coverage:result",
+      coverage: coverageData,
+      timestamp: Date.now(),
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logError(`${pc.dim("[ws]")} Failed to read coverage data: ${errorMessage}`);
+    broadcast({
+      type: "coverage:error",
+      error: `Failed to read coverage: ${errorMessage}`,
+    });
   }
 }
 
@@ -1415,10 +1528,25 @@ export async function serve(options: ServeOptions): Promise<void> {
   });
 
   fileWatcher.on("change", (path) => {
-    handleFileChange(resolve(path));
+    const resolvedPath = resolve(path);
+
+    // Check if coverage-final.json changed - broadcast to all clients
+    if (resolvedPath.endsWith("coverage-final.json")) {
+      handleCoverageFileChange(resolvedPath);
+      return;
+    }
+
+    handleFileChange(resolvedPath);
     // Also schedule re-indexing for duplicates detection
-    scheduleReindex(appRoot, resolve(path));
+    scheduleReindex(appRoot, resolvedPath);
   });
+
+  // Watch coverage-final.json for changes
+  const coveragePath = join(appRoot, "coverage", "coverage-final.json");
+  if (existsSync(coveragePath)) {
+    fileWatcher.add(coveragePath);
+    logInfo(`Watching coverage: ${pc.dim(coveragePath)}`);
+  }
 
   // Create WebSocket server
   const wss = new WebSocketServer({ port });

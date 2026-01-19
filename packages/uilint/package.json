@@ -69,9 +69,11 @@
     "@opentelemetry/sdk-node": "^0.209.0"
   },
   "devDependencies": {
+    "@inkjs/ui": "^2.0.0",
     "@types/node": "^25.0.8",
     "@types/react": "^19.2.8",
     "@types/ws": "^8.18.1",
+    "ink-testing-library": "^4.0.0",
     "tsup": "^8.5.1",
     "uilint-react": "workspace:*",
     "vitest": "^4.0.17"

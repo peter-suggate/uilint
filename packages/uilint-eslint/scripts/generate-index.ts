@@ -234,6 +234,25 @@ export {
 
 // Re-export defineRuleMeta for rule authors
 export { defineRuleMeta } from "./utils/create-rule.js";
+
+// Re-export coverage utilities for require-test-coverage rule
+export {
+  aggregateCoverage,
+  type IstanbulCoverage,
+  type FileCoverageInfo,
+  type AggregatedCoverage,
+} from "./utils/coverage-aggregator.js";
+
+export {
+  buildDependencyGraph,
+  type DependencyGraph,
+} from "./utils/dependency-graph.js";
+
+export {
+  categorizeFile,
+  type FileCategory,
+  type FileCategoryResult,
+} from "./utils/file-categorizer.js";
 `;
 
 const output =

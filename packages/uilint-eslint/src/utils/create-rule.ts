@@ -77,6 +77,16 @@ export interface RuleMeta {
    * - Configuration options explained
    */
   docs: string;
+
+  /**
+   * Internal utility dependencies that this rule requires.
+   * When the rule is copied to a target project, these utilities
+   * will be transformed to import from "uilint-eslint" instead
+   * of relative paths.
+   *
+   * Example: ["coverage-aggregator", "dependency-graph"]
+   */
+  internalDependencies?: string[];
 }
 
 /**

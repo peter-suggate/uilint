@@ -12,6 +12,10 @@ import { createRule, defineRuleMeta } from "../utils/create-rule.js";
 import { existsSync, readFileSync, statSync } from "fs";
 import { dirname, join, basename, relative } from "path";
 import { execSync } from "child_process";
+import {
+  aggregateCoverage,
+  type IstanbulCoverage as AggregatorIstanbulCoverage,
+} from "../utils/coverage-aggregator.js";
 
 /**
  * Simple glob pattern matching function
@@ -39,7 +43,8 @@ type MessageIds =
   | "noTestFile"
   | "noCoverage"
   | "belowThreshold"
-  | "noCoverageData";
+  | "noCoverageData"
+  | "belowAggregateThreshold";
 
 type SeverityLevel = "error" | "warn" | "off";
 
@@ -65,6 +70,10 @@ type Options = [
     mode?: "all" | "changed";
     /** Base branch for "changed" mode. Default: "main" */
     baseBranch?: string;
+    /** Aggregate coverage threshold for components. Default: 70 */
+    aggregateThreshold?: number;
+    /** Severity for aggregate coverage check. Default: "warn" */
+    aggregateSeverity?: SeverityLevel;
   }
 ];
 
@@ -225,6 +234,12 @@ export function calculate() { ... }  // Warning: No test file found
 export function fetchData() { ... }  // Warning: Coverage below threshold
 \`\`\`
 `,
+  // Declare internal utility dependencies for proper transformation during installation
+  internalDependencies: [
+    "coverage-aggregator",
+    "dependency-graph",
+    "file-categorizer",
+  ],
 });
 
 // Cache for loaded coverage data
@@ -529,6 +544,9 @@ export default createRule<Options, MessageIds>({
         "Coverage for '{{fileName}}' is {{coverage}}%, below threshold of {{threshold}}%",
       noCoverageData:
         "Coverage data not found at '{{coveragePath}}'. Run tests with coverage first.",
+      belowAggregateThreshold:
+        "Aggregate coverage ({{coverage}}%) is below threshold ({{threshold}}%). " +
+        "Includes {{fileCount}} files. Lowest: {{lowestFile}} ({{lowestCoverage}}%)",
     },
     schema: [
       {
@@ -588,6 +606,18 @@ export default createRule<Options, MessageIds>({
             type: "string",
             description: "Base branch for changed mode",
           },
+          aggregateThreshold: {
+            type: "number",
+            minimum: 0,
+            maximum: 100,
+            description:
+              "Aggregate coverage threshold for components (includes dependencies)",
+          },
+          aggregateSeverity: {
+            type: "string",
+            enum: ["error", "warn", "off"],
+            description: "Severity for aggregate coverage check",
+          },
         },
         additionalProperties: false,
       },
@@ -613,6 +643,8 @@ export default createRule<Options, MessageIds>({
       ignorePatterns: ["**/*.d.ts", "**/index.ts"],
       mode: "all",
       baseBranch: "main",
+      aggregateThreshold: 70,
+      aggregateSeverity: "warn",
     },
   ],
   create(context) {
@@ -625,6 +657,8 @@ export default createRule<Options, MessageIds>({
       noCoverage: options.severity?.noCoverage ?? "error",
       belowThreshold: options.severity?.belowThreshold ?? "warn",
     };
+    const aggregateThreshold = options.aggregateThreshold ?? 70;
+    const aggregateSeverity = options.aggregateSeverity ?? "warn";
     const testPatterns = options.testPatterns ?? [
       ".test.ts",
       ".test.tsx",
@@ -754,7 +788,89 @@ export default createRule<Options, MessageIds>({
             },
           });
         }
+
+        // Check aggregate coverage for component files (JSX)
+        if (
+          aggregateSeverity !== "off" &&
+          (filename.endsWith(".tsx") || filename.endsWith(".jsx"))
+        ) {
+          // Check if file actually contains JSX by looking at the AST
+          const hasJSX = checkForJSX(context.sourceCode.ast);
+
+          if (hasJSX) {
+            const aggregateResult = aggregateCoverage(
+              filename,
+              projectRoot,
+              coverage as AggregatorIstanbulCoverage
+            );
+
+            if (aggregateResult.aggregateCoverage < aggregateThreshold) {
+              const lowestFile = aggregateResult.lowestCoverageFile;
+              context.report({
+                node,
+                messageId: "belowAggregateThreshold",
+                data: {
+                  coverage: String(
+                    Math.round(aggregateResult.aggregateCoverage)
+                  ),
+                  threshold: String(aggregateThreshold),
+                  fileCount: String(aggregateResult.totalFiles),
+                  lowestFile: lowestFile
+                    ? basename(lowestFile.path)
+                    : "N/A",
+                  lowestCoverage: lowestFile
+                    ? String(Math.round(lowestFile.percentage))
+                    : "N/A",
+                },
+              });
+            }
+          }
+        }
       },
     };
   },
 });
+
+/**
+ * Check if an AST contains JSX elements
+ * Uses a visited set to avoid infinite recursion from circular references (e.g., parent pointers)
+ */
+function checkForJSX(ast: unknown, visited: WeakSet<object> = new WeakSet()): boolean {
+  if (!ast || typeof ast !== "object") return false;
+
+  // Avoid circular references
+  if (visited.has(ast as object)) return false;
+  visited.add(ast as object);
+
+  const node = ast as Record<string, unknown>;
+
+  // Check if this node is JSX
+  if (
+    node.type === "JSXElement" ||
+    node.type === "JSXFragment" ||
+    node.type === "JSXText"
+  ) {
+    return true;
+  }
+
+  // Only traverse known AST child properties to avoid parent/token references
+  const childKeys = ["body", "declarations", "declaration", "expression", "expressions",
+    "argument", "arguments", "callee", "elements", "properties", "value", "init",
+    "consequent", "alternate", "test", "left", "right", "object", "property",
+    "children", "openingElement", "closingElement", "attributes"];
+
+  for (const key of childKeys) {
+    const child = node[key];
+    if (child && typeof child === "object") {
+      if (Array.isArray(child)) {
+        for (const item of child) {
+          if (checkForJSX(item, visited)) return true;
+        }
+      } else {
+        if (checkForJSX(child, visited)) return true;
+      }
+    }
+  }
+
+  return false;
+}

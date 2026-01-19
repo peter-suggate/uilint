@@ -239,6 +239,20 @@ interface DuplicatesIndexingErrorMessage {
   error: string;
 }
 
+// Coverage heatmap messages
+interface CoverageResultMessage {
+  type: "coverage:result";
+  coverage: Record<string, unknown>;
+  timestamp: number;
+  requestId?: string;
+}
+
+interface CoverageErrorMessage {
+  type: "coverage:error";
+  error: string;
+  requestId?: string;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
@@ -253,7 +267,9 @@ type ServerMessage =
   | DuplicatesIndexingStartMessage
   | DuplicatesIndexingProgressMessage
   | DuplicatesIndexingCompleteMessage
-  | DuplicatesIndexingErrorMessage;
+  | DuplicatesIndexingErrorMessage
+  | CoverageResultMessage
+  | CoverageErrorMessage;
 
 /**
  * UILint Store State and Actions
@@ -456,6 +472,22 @@ export interface UILintStore {
   mergedIssueCounts: Map<string, number>;
   /** Compute top-level elements and merged issue counts for heatmap display */
   computeHeatmapData: () => void;
+
+  // ============ Coverage Heatmap ============
+  /** Coverage data by file path (percentage 0-100) */
+  coverageData: Map<string, number>;
+  /** Coverage analysis status */
+  coverageStatus: "idle" | "loading" | "ready" | "error";
+  /** Whether coverage heatmap visualization is shown */
+  showCoverageHeatmap: boolean;
+  /** Coverage data last error */
+  coverageLastError: string | null;
+  /** Request coverage data from server */
+  requestCoverage: () => void;
+  /** Toggle coverage heatmap visibility */
+  toggleCoverageHeatmap: () => void;
+  /** Clear coverage data */
+  clearCoverageData: () => void;
 
   // ============ Command Palette ============
   /** Whether command palette is open */
@@ -1737,6 +1769,54 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   duplicatesIndexError: null,
   duplicatesIndexStats: null,
 
+  // ============ Coverage Heatmap ============
+  coverageData: new Map(),
+  coverageStatus: "idle",
+  showCoverageHeatmap:
+    typeof window !== "undefined"
+      ? JSON.parse(
+          localStorage.getItem("uilint:showCoverageHeatmap") || "false"
+        )
+      : false,
+  coverageLastError: null,
+
+  requestCoverage: () => {
+    const { wsConnection, wsConnected } = get();
+    if (!wsConnected || !wsConnection) {
+      set({ coverageLastError: "WebSocket not connected" });
+      return;
+    }
+
+    set({ coverageStatus: "loading", coverageLastError: null });
+    wsConnection.send(JSON.stringify({ type: "coverage:request" }));
+  },
+
+  toggleCoverageHeatmap: () => {
+    const newValue = !get().showCoverageHeatmap;
+    set({ showCoverageHeatmap: newValue });
+
+    // Request coverage data when enabling
+    if (newValue) {
+      get().requestCoverage();
+    }
+
+    // Persist to localStorage
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "uilint:showCoverageHeatmap",
+        JSON.stringify(newValue)
+      );
+    }
+  },
+
+  clearCoverageData: () => {
+    set({
+      coverageData: new Map(),
+      coverageStatus: "idle",
+      coverageLastError: null,
+    });
+  },
+
   // ============ Command Palette ============
   commandPaletteOpen: false,
   commandPaletteQuery: "",
@@ -2239,6 +2319,47 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
           duplicatesIndexError: error,
         });
         console.error("[UILint] Duplicates indexing error:", error);
+        break;
+      }
+
+      case "coverage:result": {
+        const { coverage } = data as CoverageResultMessage;
+        const coverageMap = new Map<string, number>();
+
+        // Parse Istanbul coverage format into file → percentage map
+        for (const [filePath, fileCov] of Object.entries(coverage)) {
+          const cov = fileCov as { s?: Record<string, number> };
+          if (cov.s) {
+            const statements = cov.s;
+            const total = Object.keys(statements).length;
+            const covered = Object.values(statements).filter(
+              (v) => v > 0
+            ).length;
+            coverageMap.set(
+              filePath,
+              total > 0 ? (covered / total) * 100 : 100
+            );
+          }
+        }
+
+        set({
+          coverageData: coverageMap,
+          coverageStatus: "ready",
+          coverageLastError: null,
+        });
+        console.log(
+          `[UILint] Coverage data received: ${coverageMap.size} files`
+        );
+        break;
+      }
+
+      case "coverage:error": {
+        const { error } = data as CoverageErrorMessage;
+        set({
+          coverageStatus: "error",
+          coverageLastError: error,
+        });
+        console.error("[UILint] Coverage error:", error);
         break;
       }
 

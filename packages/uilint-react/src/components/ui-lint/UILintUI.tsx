@@ -31,6 +31,7 @@ export function UILintUI() {
     InspectedHighlight: React.ComponentType;
     ElementBadges: React.ComponentType;
     HeatmapOverlay: React.ComponentType;
+    CoverageHeatmapOverlay: React.ComponentType;
     VisionIssueBadges: React.ComponentType;
     IndexingIndicator: React.ComponentType;
   } | null>(null);
@@ -43,6 +44,7 @@ export function UILintUI() {
       import("./LocatorOverlay"),
       import("./ElementBadges"),
       import("./HeatmapOverlay"),
+      import("./CoverageHeatmapOverlay"),
       import("./VisionIssueBadge"),
       import("./IndexingIndicator"),
     ]).then(
@@ -52,6 +54,7 @@ export function UILintUI() {
         locator,
         badges,
         heatmap,
+        coverageHeatmap,
         visionBadges,
         indexingIndicator,
       ]) => {
@@ -62,6 +65,7 @@ export function UILintUI() {
           InspectedHighlight: locator.InspectedElementHighlight,
           ElementBadges: badges.ElementBadges,
           HeatmapOverlay: heatmap.HeatmapOverlay,
+          CoverageHeatmapOverlay: coverageHeatmap.CoverageHeatmapOverlay,
           VisionIssueBadges: visionBadges.VisionIssueBadges,
           IndexingIndicator: indexingIndicator.IndexingIndicator,
         });
@@ -78,6 +82,7 @@ export function UILintUI() {
     InspectedHighlight,
     ElementBadges,
     HeatmapOverlay,
+    CoverageHeatmapOverlay,
     VisionIssueBadges,
     IndexingIndicator,
   } = components;
@@ -93,6 +98,9 @@ export function UILintUI() {
       {/* HeatmapOverlay is always rendered when live scan is enabled -
           it internally shows/hides based on command palette selection or Alt key */}
       {liveScanEnabled && <HeatmapOverlay />}
+      {/* CoverageHeatmapOverlay shows coverage percentage overlay -
+          it internally shows/hides based on showCoverageHeatmap state */}
+      {liveScanEnabled && <CoverageHeatmapOverlay />}
       {hasVisionIssues && <VisionIssueBadges />}
       {inspectedElement && <InspectedHighlight />}
       <IndexingIndicator />

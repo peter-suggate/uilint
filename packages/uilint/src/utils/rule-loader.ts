@@ -138,21 +138,32 @@ function getUilintEslintDistDir(): string {
 }
 
 /**
+ * All utilities that are exported from uilint-eslint and can be imported.
+ * When adding a new utility to uilint-eslint that rules may import,
+ * add it here AND export it from uilint-eslint/src/index.ts.
+ *
+ * Rules can also declare their dependencies via the `internalDependencies`
+ * field in defineRuleMeta() - this serves as documentation and can be
+ * used for validation.
+ */
+const EXPORTED_UTILITIES = [
+  "create-rule",
+  "cache",
+  "styleguide-loader",
+  "import-graph",
+  "component-parser",
+  "export-resolver",
+  "coverage-aggregator",
+  "dependency-graph",
+  "file-categorizer",
+];
+
+/**
  * Transform rule content to fix imports for copied location
  * Changes imports from "../utils/..." to "uilint-eslint"
  */
 function transformRuleContent(content: string): string {
   let transformed = content;
-
-  // All utilities that are exported from uilint-eslint and can be imported
-  const utilsFromPackage = [
-    "create-rule",
-    "cache",
-    "styleguide-loader",
-    "import-graph",
-    "component-parser",
-    "export-resolver",
-  ];
 
   // Replace all relative utility imports with uilint-eslint imports
   // Pattern: import { ... } from "../utils/create-rule.js" or similar
@@ -160,7 +171,7 @@ function transformRuleContent(content: string): string {
   transformed = transformed.replace(
     /import\s+{([^}]+)}\s+from\s+["']\.\.\/utils\/([^"']+)\.js["'];?/g,
     (match, imports, utilFile) => {
-      if (utilsFromPackage.includes(utilFile)) {
+      if (EXPORTED_UTILITIES.includes(utilFile)) {
         return `import {${imports}} from "uilint-eslint";`;
       }
       return match; // Keep original if not a known utility
@@ -171,7 +182,7 @@ function transformRuleContent(content: string): string {
   transformed = transformed.replace(
     /import\s+(\w+)\s+from\s+["']\.\.\/utils\/([^"']+)\.js["'];?/g,
     (match, importName, utilFile) => {
-      if (utilsFromPackage.includes(utilFile)) {
+      if (EXPORTED_UTILITIES.includes(utilFile)) {
         return `import { ${importName} } from "uilint-eslint";`;
       }
       return match;

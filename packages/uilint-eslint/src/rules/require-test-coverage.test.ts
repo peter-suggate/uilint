@@ -394,3 +394,122 @@ describeWithFixtures("require-test-coverage severity levels", () => {
     invalid: [],
   });
 });
+
+// ============================================
+// AGGREGATE COVERAGE
+// ============================================
+describeWithFixtures("require-test-coverage aggregate coverage", () => {
+  const fixtureDir = join(FIXTURES_DIR, "with-aggregate-coverage");
+
+  ruleTester.run("require-test-coverage", rule, {
+    valid: [
+      {
+        // Component with good aggregate coverage (above threshold)
+        name: "no warning when aggregate coverage meets threshold",
+        filename: join(fixtureDir, "src/WellTestedComponent.tsx"),
+        code: `
+export function WellTestedComponent() {
+  return <div>Hello World</div>;
+}
+`,
+        options: [{
+          aggregateThreshold: 70,
+          severity: { noTestFile: "off" },
+        }],
+      },
+      {
+        // Component with low aggregate but aggregateSeverity is "off"
+        name: "no warning when aggregateSeverity is off",
+        filename: join(fixtureDir, "src/Component.tsx"),
+        code: `
+import { useData } from "./useHook";
+import { formatValue } from "./utils";
+
+export function Component() {
+  const data = useData();
+  return <div>{formatValue(data)}</div>;
+}
+`,
+        options: [{
+          aggregateSeverity: "off",
+          severity: { noTestFile: "off" },
+        }],
+      },
+      {
+        // .tsx file without JSX should not trigger aggregate check
+        name: "does not check aggregate on .tsx file without JSX",
+        filename: join(fixtureDir, "src/NonJsxFile.tsx"),
+        code: `
+export function helper(value: number): number {
+  return value * 2;
+}
+`,
+        options: [{
+          aggregateThreshold: 70,
+          severity: { noTestFile: "off" },
+        }],
+      },
+      {
+        // Regular .ts file should not trigger aggregate check
+        // Also disable belowThreshold since useHook.ts has 0% coverage
+        name: "does not check aggregate on .ts files",
+        filename: join(fixtureDir, "src/useHook.ts"),
+        code: `
+export function useData() {
+  const data = fetchFromApi();
+  return data;
+}
+
+function fetchFromApi() {
+  return { value: 42 };
+}
+`,
+        options: [{
+          aggregateThreshold: 70,
+          severity: { noTestFile: "off", belowThreshold: "off" },
+        }],
+      },
+    ],
+    invalid: [
+      {
+        // Component with low aggregate coverage (below 70% threshold)
+        // Component.tsx imports useHook.ts (0% coverage) and utils.ts (50% coverage)
+        name: "reports when aggregate coverage is below threshold",
+        filename: join(fixtureDir, "src/Component.tsx"),
+        code: `
+import { useData } from "./useHook";
+import { formatValue } from "./utils";
+
+export function Component() {
+  const data = useData();
+  return <div>{formatValue(data)}</div>;
+}
+`,
+        options: [{
+          aggregateThreshold: 70,
+          severity: { noTestFile: "off" },
+        }],
+        errors: [{ messageId: "belowAggregateThreshold" }],
+      },
+      {
+        // Same component but with custom lower threshold - should still fail at 50%
+        name: "reports when aggregate coverage is below custom threshold",
+        filename: join(fixtureDir, "src/Component.tsx"),
+        code: `
+import { useData } from "./useHook";
+import { formatValue } from "./utils";
+
+export function Component() {
+  const data = useData();
+  return <div>{formatValue(data)}</div>;
+}
+`,
+        options: [{
+          aggregateThreshold: 50,
+          severity: { noTestFile: "off" },
+        }],
+        errors: [{ messageId: "belowAggregateThreshold" }],
+      },
+    ],
+  });
+});
