@@ -156,22 +156,30 @@ function buildGlobalConfigItems(selections: InstallerSelection[]): ConfigItem[] 
 }
 
 /**
- * Minimum required Node.js version
+ * Minimum required Node.js version (major.minor)
+ * Required by dependencies like chokidar, jsdom, etc.
  */
-const MIN_NODE_VERSION = 20;
+const MIN_NODE_MAJOR = 20;
+const MIN_NODE_MINOR = 19;
 
 /**
  * Check if the current Node.js version meets the minimum requirement
  */
-function checkNodeVersion(): { ok: boolean; current: string; required: number } {
+function checkNodeVersion(): { ok: boolean; current: string; required: string } {
   const ver = process.versions.node || "";
-  const majorStr = ver.split(".")[0] || "";
-  const major = Number.parseInt(majorStr, 10);
+  const parts = ver.split(".");
+  const major = Number.parseInt(parts[0] || "", 10);
+  const minor = Number.parseInt(parts[1] || "", 10);
+
+  const meetsRequirement =
+    Number.isFinite(major) &&
+    Number.isFinite(minor) &&
+    (major > MIN_NODE_MAJOR || (major === MIN_NODE_MAJOR && minor >= MIN_NODE_MINOR));
 
   return {
-    ok: Number.isFinite(major) && major >= MIN_NODE_VERSION,
+    ok: meetsRequirement,
     current: ver,
-    required: MIN_NODE_VERSION,
+    required: `${MIN_NODE_MAJOR}.${MIN_NODE_MINOR}.0`,
   };
 }
 
@@ -253,7 +261,7 @@ export function InstallApp({
   const [nodeVersionCheck, setNodeVersionCheck] = useState<{
     ok: boolean;
     current: string;
-    required: number;
+    required: string;
   } | null>(null);
   const [project, setProject] = useState<ProjectState | null>(null);
   const [detectedProjects, setDetectedProjects] = useState<DetectedProject[]>([]);
@@ -288,7 +296,7 @@ export function InstallApp({
       } else {
         setError(
           new Error(
-            `Node.js ${result.required}+ is required. You are running Node.js ${result.current}.`
+            `Node.js v${result.required}+ is required. You are running v${result.current}.`
           )
         );
         setPhase("error");
