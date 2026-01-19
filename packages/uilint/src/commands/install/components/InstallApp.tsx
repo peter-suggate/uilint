@@ -34,6 +34,7 @@ function getTargetStatus(target: InstallTarget): ItemStatus {
 }
 
 type AppPhase =
+  | "checking-requirements"
   | "scanning"
   | "select-project"
   | "configure-features"
@@ -155,6 +156,26 @@ function buildGlobalConfigItems(selections: InstallerSelection[]): ConfigItem[] 
 }
 
 /**
+ * Minimum required Node.js version
+ */
+const MIN_NODE_VERSION = 20;
+
+/**
+ * Check if the current Node.js version meets the minimum requirement
+ */
+function checkNodeVersion(): { ok: boolean; current: string; required: number } {
+  const ver = process.versions.node || "";
+  const majorStr = ver.split(".")[0] || "";
+  const major = Number.parseInt(majorStr, 10);
+
+  return {
+    ok: Number.isFinite(major) && major >= MIN_NODE_VERSION,
+    current: ver,
+    required: MIN_NODE_VERSION,
+  };
+}
+
+/**
  * Header component with app branding
  */
 function Header({ subtitle }: { subtitle?: string }): React.ReactElement {
@@ -228,7 +249,12 @@ export function InstallApp({
   onError,
 }: InstallAppProps): React.ReactElement {
   const { exit } = useApp();
-  const [phase, setPhase] = useState<AppPhase>("scanning");
+  const [phase, setPhase] = useState<AppPhase>("checking-requirements");
+  const [nodeVersionCheck, setNodeVersionCheck] = useState<{
+    ok: boolean;
+    current: string;
+    required: number;
+  } | null>(null);
   const [project, setProject] = useState<ProjectState | null>(null);
   const [detectedProjects, setDetectedProjects] = useState<DetectedProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<DetectedProject | null>(null);
@@ -247,6 +273,30 @@ export function InstallApp({
 
   // Check if Next.js overlay is selected
   const isNextSelected = selectedFeatureIds.some((id) => id.startsWith("next:"));
+
+  // Phase 0: Check requirements (Node version)
+  useEffect(() => {
+    if (phase !== "checking-requirements") return;
+
+    // Small delay for visual feedback that the check is happening
+    const timer = setTimeout(() => {
+      const result = checkNodeVersion();
+      setNodeVersionCheck(result);
+
+      if (result.ok) {
+        setPhase("scanning");
+      } else {
+        setError(
+          new Error(
+            `Node.js ${result.required}+ is required. You are running Node.js ${result.current}.`
+          )
+        );
+        setPhase("error");
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [phase]);
 
   // Phase 1: Scan project
   useEffect(() => {
@@ -445,6 +495,19 @@ export function InstallApp({
   const handleCancel = () => {
     exit();
   };
+
+  // Render: Checking requirements
+  if (phase === "checking-requirements") {
+    return (
+      <Box flexDirection="column">
+        <Header subtitle="Install" />
+        <Box>
+          <Spinner />
+          <Text> Checking requirements...</Text>
+        </Box>
+      </Box>
+    );
+  }
 
   // Render: Scanning
   if (phase === "scanning") {
