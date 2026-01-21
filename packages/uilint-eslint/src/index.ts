@@ -11,8 +11,8 @@ import consistentSpacing from "./rules/consistent-spacing.js";
 import consistentDarkMode from "./rules/consistent-dark-mode.js";
 import noDirectStoreImport from "./rules/no-direct-store-import.js";
 import preferZustandStateManagement from "./rules/prefer-zustand-state-management.js";
-import noMixedComponentLibraries from "./rules/no-mixed-component-libraries.js";
-import semantic from "./rules/semantic.js";
+import noMixedComponentLibraries from "./rules/no-mixed-component-libraries/index.js";
+import semantic from "./rules/semantic/index.js";
 import semanticVision from "./rules/semantic-vision.js";
 import enforceAbsoluteImports from "./rules/enforce-absolute-imports.js";
 import noAnyInProps from "./rules/no-any-in-props.js";
@@ -21,7 +21,7 @@ import noPropDrillingDepth from "./rules/no-prop-drilling-depth.js";
 import noSecretsInCode from "./rules/no-secrets-in-code.js";
 import requireInputValidation from "./rules/require-input-validation.js";
 import noSemanticDuplicates from "./rules/no-semantic-duplicates.js";
-import requireTestCoverage from "./rules/require-test-coverage.js";
+import requireTestCoverage from "./rules/require-test-coverage/index.js";
 
 /**
  * All available rules
@@ -423,11 +423,15 @@ export { plugin, rules, configs, meta };
 
 // Re-export utilities for custom rule creation
 export { createRule } from "./utils/create-rule.js";
+
+// Re-export styleguide utilities (from semantic rule)
 export {
   loadStyleguide,
   findStyleguidePath,
   getStyleguide,
-} from "./utils/styleguide-loader.js";
+} from "./rules/semantic/lib/styleguide-loader.js";
+
+// Re-export cache utilities (from semantic rule)
 export {
   hashContent,
   hashContentSync,
@@ -440,14 +444,14 @@ export {
   type CacheEntry,
   type CachedIssue,
   type CacheStore,
-} from "./utils/cache.js";
+} from "./rules/semantic/lib/cache.js";
 
-// Re-export import graph utilities (used by rules like no-mixed-component-libraries)
+// Re-export import graph utilities (from no-mixed-component-libraries rule)
 export {
   getComponentLibrary,
   clearCache as clearImportGraphCache,
   type LibraryName,
-} from "./utils/import-graph.js";
+} from "./rules/no-mixed-component-libraries/lib/import-graph.js";
 
 // Re-export rule registry for CLI tooling
 export {
@@ -465,26 +469,26 @@ export {
 // Re-export defineRuleMeta for rule authors
 export { defineRuleMeta } from "./utils/create-rule.js";
 
-// Re-export coverage utilities for require-test-coverage rule
+// Re-export coverage utilities (from require-test-coverage rule)
 export {
   aggregateCoverage,
   type IstanbulCoverage,
   type FileCoverageInfo,
   type AggregatedCoverage,
-} from "./utils/coverage-aggregator.js";
+} from "./rules/require-test-coverage/lib/coverage-aggregator.js";
 
 export {
   buildDependencyGraph,
   type DependencyGraph,
-} from "./utils/dependency-graph.js";
+} from "./rules/require-test-coverage/lib/dependency-graph.js";
 
 export {
   categorizeFile,
   type FileCategory,
   type FileCategoryResult,
-} from "./utils/file-categorizer.js";
+} from "./rules/require-test-coverage/lib/file-categorizer.js";
 
-// Re-export JSX coverage analyzer utilities for require-test-coverage rule
+// Re-export JSX coverage analyzer utilities (from require-test-coverage rule)
 export {
   analyzeJSXElementCoverage,
   buildDataLoc,
@@ -496,4 +500,4 @@ export {
   type SourceLocation,
   type CoverageStats,
   type JSXCoverageResult,
-} from "./utils/jsx-coverage-analyzer.js";
+} from "./rules/require-test-coverage/lib/jsx-coverage-analyzer.js";

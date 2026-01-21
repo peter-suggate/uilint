@@ -4,8 +4,8 @@ import { mkdirSync, writeFileSync, rmSync } from "fs";
 import {
   aggregateCoverage,
   type IstanbulCoverage,
-} from "./coverage-aggregator";
-import { clearDependencyCache } from "./dependency-graph";
+} from "../rules/require-test-coverage/lib/coverage-aggregator";
+import { clearDependencyCache } from "../rules/require-test-coverage/lib/dependency-graph";
 
 const FIXTURES_DIR = join(__dirname, "__fixtures__/coverage-aggregator");
 

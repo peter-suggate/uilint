@@ -87,6 +87,18 @@ export interface RuleMeta {
    * Example: ["coverage-aggregator", "dependency-graph"]
    */
   internalDependencies?: string[];
+
+  /**
+   * Whether this rule is directory-based (has lib/ folder with utilities).
+   * Directory-based rules are installed as folders with index.ts and lib/ subdirectory.
+   * Single-file rules are installed as single .ts files.
+   *
+   * When true, ESLint config imports will use:
+   *   ./.uilint/rules/rule-id/index.js
+   * When false (default):
+   *   ./.uilint/rules/rule-id.js
+   */
+  isDirectoryBased?: boolean;
 }
 
 /**

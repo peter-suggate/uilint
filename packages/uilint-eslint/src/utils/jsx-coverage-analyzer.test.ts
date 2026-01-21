@@ -14,7 +14,7 @@ import {
   type IstanbulCoverage,
   type IstanbulFileCoverage,
   type SourceLocation,
-} from "./jsx-coverage-analyzer.js";
+} from "../rules/require-test-coverage/lib/jsx-coverage-analyzer.js";
 
 const FIXTURES_DIR = join(__dirname, "__fixtures__/jsx-coverage");
 

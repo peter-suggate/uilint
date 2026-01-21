@@ -1,4 +1,4 @@
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { spawn } from "child_process";
 import { dirname, join } from "path";
 
@@ -91,6 +91,74 @@ function spawnAsync(
   });
 }
 
+/**
+ * Get the set of packages already installed in a project
+ * (both dependencies and devDependencies)
+ */
+function getInstalledPackages(projectPath: string): Set<string> {
+  const pkgJsonPath = join(projectPath, "package.json");
+  if (!existsSync(pkgJsonPath)) {
+    return new Set();
+  }
+
+  try {
+    const pkgJson = JSON.parse(readFileSync(pkgJsonPath, "utf-8")) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+
+    const installed = new Set<string>();
+    if (pkgJson.dependencies) {
+      for (const name of Object.keys(pkgJson.dependencies)) {
+        installed.add(name);
+      }
+    }
+    if (pkgJson.devDependencies) {
+      for (const name of Object.keys(pkgJson.devDependencies)) {
+        installed.add(name);
+      }
+    }
+    return installed;
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Extract package name from a package specifier (e.g., "foo@^1.0.0" -> "foo")
+ */
+function getPackageName(specifier: string): string {
+  // Handle scoped packages like @scope/pkg@version
+  if (specifier.startsWith("@")) {
+    const slashIndex = specifier.indexOf("/");
+    if (slashIndex === -1) return specifier;
+
+    const afterSlash = specifier.slice(slashIndex + 1);
+    const atIndex = afterSlash.indexOf("@");
+    if (atIndex === -1) return specifier;
+    return specifier.slice(0, slashIndex + 1 + atIndex);
+  }
+
+  // Handle unscoped packages like pkg@version
+  const atIndex = specifier.indexOf("@");
+  if (atIndex === -1) return specifier;
+  return specifier.slice(0, atIndex);
+}
+
+/**
+ * Filter out packages that are already installed
+ */
+function filterAlreadyInstalled(
+  packages: string[],
+  projectPath: string
+): string[] {
+  const installed = getInstalledPackages(projectPath);
+  return packages.filter((pkg) => {
+    const name = getPackageName(pkg);
+    return !installed.has(name);
+  });
+}
+
 export async function installDependencies(
   pm: PackageManager,
   projectPath: string,
@@ -99,27 +167,32 @@ export async function installDependencies(
 ): Promise<void> {
   if (!packages.length) return;
 
+  // Filter out packages that are already installed to avoid yarn/npm errors
+  // when trying to add a regular dependency as a dev dependency or vice versa
+  const packagesToInstall = filterAlreadyInstalled(packages, projectPath);
+  if (!packagesToInstall.length) return;
+
   const isDev = options.dev ?? true;
 
   switch (pm) {
     case "pnpm":
       await spawnAsync(
         "pnpm",
-        ["add", ...(isDev ? ["-D"] : []), ...packages],
+        ["add", ...(isDev ? ["-D"] : []), ...packagesToInstall],
         projectPath
       );
       return;
     case "yarn":
       await spawnAsync(
         "yarn",
-        ["add", ...(isDev ? ["-D"] : []), ...packages],
+        ["add", ...(isDev ? ["-D"] : []), ...packagesToInstall],
         projectPath
       );
       return;
     case "bun":
       await spawnAsync(
         "bun",
-        ["add", ...(isDev ? ["-d"] : []), ...packages],
+        ["add", ...(isDev ? ["-d"] : []), ...packagesToInstall],
         projectPath
       );
       return;
@@ -127,7 +200,7 @@ export async function installDependencies(
     default:
       await spawnAsync(
         "npm",
-        ["install", isDev ? "--save-dev" : "--save", ...packages],
+        ["install", isDev ? "--save-dev" : "--save", ...packagesToInstall],
         projectPath
       );
       return;

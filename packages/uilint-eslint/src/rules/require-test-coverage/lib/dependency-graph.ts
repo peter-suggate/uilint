@@ -16,7 +16,7 @@ import { existsSync, readFileSync, statSync } from "fs";
 import { dirname, resolve } from "path";
 import { parse } from "@typescript-eslint/typescript-estree";
 import type { TSESTree } from "@typescript-eslint/utils";
-import { resolveImportPath, parseFile } from "./export-resolver";
+import { resolveImportPath, parseFile } from "./export-resolver.js";
 
 export interface DependencyGraph {
   /** The entry file that was analyzed */

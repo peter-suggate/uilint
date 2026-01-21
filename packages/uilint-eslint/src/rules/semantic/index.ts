@@ -8,14 +8,14 @@
 import { existsSync, readFileSync } from "fs";
 import { spawnSync } from "child_process";
 import { dirname, join, relative } from "path";
-import { createRule, defineRuleMeta } from "../utils/create-rule.js";
+import { createRule, defineRuleMeta } from "../../utils/create-rule.js";
 import {
   getCacheEntry,
   hashContentSync,
   setCacheEntry,
   type CachedIssue,
-} from "../utils/cache.js";
-import { getStyleguide } from "../utils/styleguide-loader.js";
+} from "./lib/cache.js";
+import { getStyleguide } from "./lib/styleguide-loader.js";
 import { UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
 import { buildSourceScanPrompt } from "uilint-core";
 
@@ -115,6 +115,7 @@ styleguide. It catches semantic issues that pattern-based rules can't detect, li
 - Works best with detailed, specific styleguide documentation
 - Set to "off" in CI to avoid slow builds (use pre-commit hooks locally)
 `,
+  isDirectoryBased: true,
 });
 
 export default createRule<Options, MessageIds>({

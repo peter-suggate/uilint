@@ -1,0 +1,9 @@
+{
+  "name": "has-eslint-flat-ts-with-tsconfig",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@next/eslint-plugin-next": "^15.0.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}

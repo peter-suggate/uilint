@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { categorizeFile, getCategoryWeight } from "./file-categorizer";
+import { categorizeFile, getCategoryWeight } from "../rules/require-test-coverage/lib/file-categorizer";
 import { mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
 

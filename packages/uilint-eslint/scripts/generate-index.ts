@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { ruleRegistry } from "../src/rule-registry.js";
 
@@ -53,11 +53,21 @@ const imports: string[] = [];
 imports.push(`import type { Linter } from "eslint";`);
 
 // Rule imports from registry (single source of truth)
+// Detect if rule is directory-based (has index.ts) or single-file
 const used = new Set<string>();
 const ruleVars = ruleRegistry.map((r) => {
   const varBase = toVarName(r.id);
   const v = uniqueVarName(varBase, used);
-  imports.push(`import ${v} from "./rules/${r.id}.js";`);
+
+  const ruleDir = resolve(process.cwd(), "src", "rules", r.id);
+  const isDirectoryRule = existsSync(ruleDir) && statSync(ruleDir).isDirectory();
+
+  if (isDirectoryRule) {
+    imports.push(`import ${v} from "./rules/${r.id}/index.js";`);
+  } else {
+    imports.push(`import ${v} from "./rules/${r.id}.js";`);
+  }
+
   return { id: r.id, v };
 });
 
@@ -193,11 +203,15 @@ export { plugin, rules, configs, meta };
 
 // Re-export utilities for custom rule creation
 export { createRule } from "./utils/create-rule.js";
+
+// Re-export styleguide utilities (from semantic rule)
 export {
   loadStyleguide,
   findStyleguidePath,
   getStyleguide,
-} from "./utils/styleguide-loader.js";
+} from "./rules/semantic/lib/styleguide-loader.js";
+
+// Re-export cache utilities (from semantic rule)
 export {
   hashContent,
   hashContentSync,
@@ -210,14 +224,14 @@ export {
   type CacheEntry,
   type CachedIssue,
   type CacheStore,
-} from "./utils/cache.js";
+} from "./rules/semantic/lib/cache.js";
 
-// Re-export import graph utilities (used by rules like no-mixed-component-libraries)
+// Re-export import graph utilities (from no-mixed-component-libraries rule)
 export {
   getComponentLibrary,
   clearCache as clearImportGraphCache,
   type LibraryName,
-} from "./utils/import-graph.js";
+} from "./rules/no-mixed-component-libraries/lib/import-graph.js";
 
 // Re-export rule registry for CLI tooling
 export {
@@ -235,26 +249,26 @@ export {
 // Re-export defineRuleMeta for rule authors
 export { defineRuleMeta } from "./utils/create-rule.js";
 
-// Re-export coverage utilities for require-test-coverage rule
+// Re-export coverage utilities (from require-test-coverage rule)
 export {
   aggregateCoverage,
   type IstanbulCoverage,
   type FileCoverageInfo,
   type AggregatedCoverage,
-} from "./utils/coverage-aggregator.js";
+} from "./rules/require-test-coverage/lib/coverage-aggregator.js";
 
 export {
   buildDependencyGraph,
   type DependencyGraph,
-} from "./utils/dependency-graph.js";
+} from "./rules/require-test-coverage/lib/dependency-graph.js";
 
 export {
   categorizeFile,
   type FileCategory,
   type FileCategoryResult,
-} from "./utils/file-categorizer.js";
+} from "./rules/require-test-coverage/lib/file-categorizer.js";
 
-// Re-export JSX coverage analyzer utilities for require-test-coverage rule
+// Re-export JSX coverage analyzer utilities (from require-test-coverage rule)
 export {
   analyzeJSXElementCoverage,
   buildDataLoc,
@@ -266,7 +280,7 @@ export {
   type SourceLocation,
   type CoverageStats,
   type JSXCoverageResult,
-} from "./utils/jsx-coverage-analyzer.js";
+} from "./rules/require-test-coverage/lib/jsx-coverage-analyzer.js";
 `;
 
 const output =

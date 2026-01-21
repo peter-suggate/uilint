@@ -1,12 +1,27 @@
 import { defineConfig } from "tsup";
-import { readdirSync } from "fs";
+import { readdirSync, statSync } from "fs";
 import { join } from "path";
 
-// Get all rule files (excluding tests)
+// Get all rule entries (both single-file and directory-based)
 const rulesDir = join(process.cwd(), "src", "rules");
-const ruleFiles = readdirSync(rulesDir)
-  .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
-  .map((f) => join("src", "rules", f));
+const ruleEntries: Record<string, string> = {};
+
+for (const entry of readdirSync(rulesDir)) {
+  // Skip __fixtures__, __tests__, etc.
+  if (entry.startsWith("__")) continue;
+
+  const fullPath = join(rulesDir, entry);
+  const stat = statSync(fullPath);
+
+  if (stat.isDirectory()) {
+    // Directory-based rule: use index.ts as entry
+    ruleEntries[`rules/${entry}`] = join("src", "rules", entry, "index.ts");
+  } else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts")) {
+    // Single-file rule
+    const ruleName = entry.replace(".ts", "");
+    ruleEntries[`rules/${ruleName}`] = join("src", "rules", entry);
+  }
+}
 
 export default defineConfig([
   // Main entry point
@@ -23,12 +38,7 @@ export default defineConfig([
   // This is required because rules are copied to target projects and cannot
   // rely on shared chunk files that won't be present in the target
   {
-    entry: ruleFiles.reduce((acc, file) => {
-      // Output path: dist/rules/no-arbitrary-tailwind.js
-      const ruleName = file.replace("src/rules/", "").replace(".ts", "");
-      acc[`rules/${ruleName}`] = file;
-      return acc;
-    }, {} as Record<string, string>),
+    entry: ruleEntries,
     format: ["esm"],
     dts: false,
     sourcemap: true,

@@ -10,11 +10,11 @@
  */
 
 import type { TSESTree } from "@typescript-eslint/utils";
-import { createRule, defineRuleMeta } from "../utils/create-rule.js";
+import { createRule, defineRuleMeta } from "../../utils/create-rule.js";
 import {
   getComponentLibrary,
   type LibraryName,
-} from "../utils/import-graph.js";
+} from "./lib/import-graph.js";
 
 type MessageIds = "nonPreferredLibrary" | "transitiveNonPreferred";
 type Options = [
@@ -109,6 +109,7 @@ import { Card } from '@/components/ui/card';
 - **chakra**: Chakra UI (\`@chakra-ui/react\`)
 - **antd**: Ant Design (\`antd\`)
 `,
+  isDirectoryBased: true,
 });
 
 /**

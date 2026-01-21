@@ -6,8 +6,8 @@
 
 import { RuleTester } from "@typescript-eslint/rule-tester";
 import { describe, it, afterAll, beforeEach } from "vitest";
-import rule from "./no-mixed-component-libraries.js";
-import { clearCache as clearImportGraphCache } from "../utils/import-graph.js";
+import rule from "./no-mixed-component-libraries/index.js";
+import { clearCache as clearImportGraphCache } from "./no-mixed-component-libraries/lib/import-graph.js";
 
 RuleTester.afterAll = afterAll;
 RuleTester.describe = describe;

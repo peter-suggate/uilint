@@ -10,7 +10,7 @@
 
 import { RuleTester } from "@typescript-eslint/rule-tester";
 import { describe, it, afterAll, beforeEach } from "vitest";
-import rule, { clearCoverageCache } from "./require-test-coverage.js";
+import rule, { clearCoverageCache } from "./require-test-coverage/index.js";
 import { join } from "path";
 import { existsSync } from "fs";
 

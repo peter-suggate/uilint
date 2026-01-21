@@ -15,22 +15,29 @@ import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
-function assertNodeVersion(minMajor: number): void {
+function assertNodeVersion(minMajor: number, minMinor: number): void {
   const ver = process.versions.node || "";
-  const majorStr = ver.split(".")[0] || "";
-  const major = Number.parseInt(majorStr, 10);
+  const parts = ver.split(".");
+  const major = Number.parseInt(parts[0] || "", 10);
+  const minor = Number.parseInt(parts[1] || "", 10);
 
-  if (!Number.isFinite(major) || major < minMajor) {
+  const meetsRequirement =
+    Number.isFinite(major) &&
+    Number.isFinite(minor) &&
+    (major > minMajor || (major === minMajor && minor >= minMinor));
+
+  if (!meetsRequirement) {
     // Keep this dependency-free and stdout/stderr friendly.
     // eslint-disable-next-line no-console
     console.error(
-      `uilint requires Node.js >= ${minMajor}. You are running Node.js ${ver}.`
+      `uilint requires Node.js >= ${minMajor}.${minMinor}.0. You are running Node.js ${ver}.`
     );
     process.exit(1);
   }
 }
 
-assertNodeVersion(20);
+// Required by dependencies: chokidar, jsdom, readdirp, etc.
+assertNodeVersion(20, 19);
 
 const program = new Command();
 

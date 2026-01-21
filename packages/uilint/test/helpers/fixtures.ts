@@ -5,7 +5,7 @@
  * directories, reading files, and cleanup.
  */
 
-import { existsSync, mkdirSync, readFileSync, statSync, cpSync, rmSync, renameSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync, cpSync, rmSync, renameSync } from "fs";
 import { join, dirname } from "path";
 import { tmpdir } from "os";
 import { randomUUID } from "crypto";
@@ -21,6 +21,9 @@ export interface FixtureContext {
   /** Read a file from the fixture (returns content as string) */
   readFile(relativePath: string): string;
 
+  /** Write a file to the fixture */
+  writeFile(relativePath: string, content: string): void;
+
   /** Check if a file exists in the fixture */
   exists(relativePath: string): boolean;
 
@@ -29,6 +32,9 @@ export interface FixtureContext {
 
   /** Parse a JSON file from the fixture */
   readJson<T = unknown>(relativePath: string): T;
+
+  /** Write a JSON file to the fixture */
+  writeJson(relativePath: string, data: unknown): void;
 
   /** Clean up the temp directory */
   cleanup(): void;
@@ -75,6 +81,11 @@ export function useFixture(name: string): FixtureContext {
       return readFileSync(fullPath, "utf-8");
     },
 
+    writeFile(relativePath: string, content: string): void {
+      const fullPath = join(tempPath, relativePath);
+      writeFileSync(fullPath, content, "utf-8");
+    },
+
     exists(relativePath: string): boolean {
       return existsSync(join(tempPath, relativePath));
     },
@@ -91,6 +102,11 @@ export function useFixture(name: string): FixtureContext {
     readJson<T = unknown>(relativePath: string): T {
       const content = context.readFile(relativePath);
       return JSON.parse(content) as T;
+    },
+
+    writeJson(relativePath: string, data: unknown): void {
+      const content = JSON.stringify(data, null, 2) + "\n";
+      context.writeFile(relativePath, content);
     },
 
     cleanup(): void {

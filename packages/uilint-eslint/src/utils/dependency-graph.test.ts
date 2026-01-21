@@ -5,7 +5,7 @@ import {
   invalidateDependencyCache,
   clearDependencyCache,
   getDependencyCacheStats,
-} from "./dependency-graph";
+} from "../rules/require-test-coverage/lib/dependency-graph";
 
 const FIXTURES_DIR = join(__dirname, "__fixtures__/dep-graph");
 

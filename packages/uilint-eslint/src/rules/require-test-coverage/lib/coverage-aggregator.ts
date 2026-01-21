@@ -11,8 +11,8 @@
  * - type (0): .d.ts, type-only - no runtime impact
  */
 
-import { categorizeFile, type FileCategory } from "./file-categorizer";
-import { buildDependencyGraph } from "./dependency-graph";
+import { categorizeFile, type FileCategory } from "./file-categorizer.js";
+import { buildDependencyGraph } from "./dependency-graph.js";
 
 /**
  * Istanbul coverage JSON format (matching require-test-coverage.ts)

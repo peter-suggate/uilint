@@ -714,19 +714,6 @@ export function getConditionalStatements(
 }
 
 // =============================================================================
-// Phase 3: Component-Level Aggregation (TODO)
-// =============================================================================
-
-// TODO: aggregateComponentCoverage(jsxElements: JSXCoverageResult[]): ComponentCoverageStats
-// Combines coverage from multiple JSX elements in a component
-
-// TODO: findUncoveredInteractiveElements(jsxElements: JSXCoverageResult[]): UncoveredElement[]
-// Identifies elements with event handlers that have 0% coverage
-
-// TODO: calculateInteractionCoverageScore(jsxElements: JSXCoverageResult[]): number
-// Weighted coverage score focused on interactive elements
-
-// =============================================================================
 // Phase 4: Import Dependency Coverage
 // =============================================================================
 
@@ -1084,16 +1071,3 @@ export function aggregateImportCoverage(
 
   return { covered: totalCovered, total: totalStatements };
 }
-
-// =============================================================================
-// Phase 4: ESLint Integration (TODO)
-// =============================================================================
-
-// TODO: formatCoverageReport(result: JSXCoverageResult): string
-// Formats coverage result for ESLint message
-
-// TODO: shouldReportElement(result: JSXCoverageResult, threshold: number): boolean
-// Determines if an element should be reported based on coverage threshold
-
-// TODO: createCoverageViolation(result: JSXCoverageResult): ESLintViolation
-// Creates an ESLint violation object for reporting

@@ -28,6 +28,7 @@ import type {
   InjectNextConfigAction,
   InjectViteConfigAction,
   InjectVitestCoverageAction,
+  InjectTsconfigAction,
   InstallNextRoutesAction,
   RemoveEslintAction,
   RemoveReactAction,
@@ -46,6 +47,7 @@ import { formatFilesWithPrettier, touchFiles } from "../../utils/prettier.js";
 import { findWorkspaceRoot } from "uilint-core/node";
 import { detectCoverageSetup } from "../../utils/coverage-detect.js";
 import { injectCoverageConfig } from "../../utils/coverage-prepare.js";
+import { injectTsconfigExclusion } from "../../utils/tsconfig-inject.js";
 
 /**
  * Execute a single action and return the result
@@ -174,6 +176,10 @@ async function executeAction(
 
       case "inject_vitest_coverage": {
         return await executeInjectVitestCoverage(action, options);
+      }
+
+      case "inject_tsconfig": {
+        return await executeInjectTsconfig(action, options);
       }
 
       case "install_next_routes": {
@@ -379,6 +385,35 @@ async function executeInjectVitestCoverage(
     action,
     success: true,
     modifiedFiles: modified ? [vitestConfigPath] : undefined,
+  };
+}
+
+/**
+ * Execute tsconfig.json exclusion injection
+ *
+ * This action is "soft" - it succeeds even if no tsconfig.json is found.
+ * Projects without TypeScript don't need this exclusion.
+ */
+async function executeInjectTsconfig(
+  action: InjectTsconfigAction,
+  options: ExecuteOptions
+): Promise<ActionResult> {
+  const { dryRun = false } = options;
+
+  if (dryRun) {
+    return {
+      action,
+      success: true,
+      wouldDo: `Add .uilint to tsconfig.json exclude: ${action.projectPath}`,
+    };
+  }
+
+  const result = injectTsconfigExclusion(action.projectPath);
+
+  return {
+    action,
+    success: true, // Soft failure - don't fail install if tsconfig not found
+    modifiedFiles: result.modified && result.tsconfigPath ? [result.tsconfigPath] : undefined,
   };
 }
 

@@ -34,7 +34,7 @@ const mockInstallDependencies = async () => {};
 // ============================================================================
 
 describe("Rule installation - utility dependencies", () => {
-  it("transforms require-test-coverage rule imports from relative to uilint-eslint", async () => {
+  it("installs require-test-coverage as directory-based rule in TypeScript projects", async () => {
     fixture = useFixture("has-eslint-flat-ts");
 
     const state = await analyze(fixture.path);
@@ -56,26 +56,22 @@ describe("Rule installation - utility dependencies", () => {
 
     expect(result.success).toBe(true);
 
-    // Verify rule was copied
-    expect(fixture.exists(".uilint/rules/require-test-coverage.ts")).toBe(true);
+    // require-test-coverage is a directory-based rule with colocated lib/ utilities
+    // For TypeScript projects, it should be copied as a directory structure
+    expect(fixture.exists(".uilint/rules/require-test-coverage/index.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/require-test-coverage/lib")).toBe(true);
 
     // Read the copied rule content
-    const ruleContent = fixture.readFile(".uilint/rules/require-test-coverage.ts");
+    const ruleContent = fixture.readFile(".uilint/rules/require-test-coverage/index.ts");
 
-    // Verify imports were transformed to use uilint-eslint package
-    // Should NOT have relative imports to ../utils/
-    expect(ruleContent).not.toContain('from "../utils/coverage-aggregator.js"');
-    expect(ruleContent).not.toContain('from "../utils/dependency-graph.js"');
-    expect(ruleContent).not.toContain('from "../utils/file-categorizer.js"');
-    expect(ruleContent).not.toContain('from "../utils/create-rule.js"');
+    // Directory-based rules have colocated utilities, so imports should be local ./lib/
+    expect(ruleContent).toContain('./lib/coverage-aggregator');
+    expect(ruleContent).toContain('./lib/jsx-coverage-analyzer');
 
-    // Should have imports from uilint-eslint
+    // Should import createRule and defineRuleMeta from uilint-eslint package
     expect(ruleContent).toContain('from "uilint-eslint"');
-
-    // Verify specific imports are present
     expect(ruleContent).toContain("createRule");
     expect(ruleContent).toContain("defineRuleMeta");
-    expect(ruleContent).toContain("aggregateCoverage");
   });
 
   it("transforms require-test-coverage rule for JavaScript projects", async () => {
@@ -144,20 +140,20 @@ describe("Rule installation - utility dependencies", () => {
     expect(ruleContent).not.toContain('../utils/');
   });
 
-  it("can install multiple rules with different dependency requirements", async () => {
+  it("can install multiple rules with different structures (single-file and directory-based)", async () => {
     fixture = useFixture("has-eslint-flat-ts");
 
     const state = await analyze(fixture.path);
     const pkg = state.packages.find((p) => p.eslintConfigPath !== null)!;
 
-    // Mix of rules: some with complex deps, some simple
+    // Mix of rules: simple single-file and complex directory-based
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
       eslintRuleIds: [
-        "no-arbitrary-tailwind",     // Simple - no extra utils
-        "require-test-coverage",      // Complex - uses coverage-aggregator
-        "no-mixed-component-libraries", // Medium - uses import-graph
+        "no-arbitrary-tailwind",        // Simple - single file
+        "require-test-coverage",         // Directory-based - colocated lib/
+        "no-mixed-component-libraries",  // Directory-based - colocated lib/
       ],
     });
 
@@ -170,24 +166,28 @@ describe("Rule installation - utility dependencies", () => {
 
     expect(result.success).toBe(true);
 
-    // All rules should be copied
+    // Simple rule should be a single file
     expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(true);
-    expect(fixture.exists(".uilint/rules/require-test-coverage.ts")).toBe(true);
-    expect(fixture.exists(".uilint/rules/no-mixed-component-libraries.ts")).toBe(true);
 
-    // Each rule should have proper imports
+    // Directory-based rules should be directories with index.ts and lib/
+    expect(fixture.exists(".uilint/rules/require-test-coverage/index.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/require-test-coverage/lib")).toBe(true);
+    expect(fixture.exists(".uilint/rules/no-mixed-component-libraries/index.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/no-mixed-component-libraries/lib")).toBe(true);
+
+    // Simple rule should import from uilint-eslint
     const arbitraryContent = fixture.readFile(".uilint/rules/no-arbitrary-tailwind.ts");
     expect(arbitraryContent).toContain('from "uilint-eslint"');
     expect(arbitraryContent).not.toContain('../utils/');
 
-    const coverageContent = fixture.readFile(".uilint/rules/require-test-coverage.ts");
+    // Directory-based rules use colocated lib/ and import createRule from uilint-eslint
+    const coverageContent = fixture.readFile(".uilint/rules/require-test-coverage/index.ts");
+    expect(coverageContent).toContain('./lib/coverage-aggregator');
     expect(coverageContent).toContain('from "uilint-eslint"');
-    expect(coverageContent).not.toContain('../utils/');
-    expect(coverageContent).toContain("aggregateCoverage");
 
-    const mixedContent = fixture.readFile(".uilint/rules/no-mixed-component-libraries.ts");
+    const mixedContent = fixture.readFile(".uilint/rules/no-mixed-component-libraries/index.ts");
+    expect(mixedContent).toContain('./lib/import-graph');
     expect(mixedContent).toContain('from "uilint-eslint"');
-    expect(mixedContent).not.toContain('../utils/');
   });
 });
 
@@ -196,7 +196,7 @@ describe("Rule installation - utility dependencies", () => {
 // ============================================================================
 
 describe("Rule installation - config integration", () => {
-  it("require-test-coverage rule appears correctly in ESLint config", async () => {
+  it("require-test-coverage rule appears correctly in ESLint config with /index path", async () => {
     fixture = useFixture("has-eslint-flat-ts");
 
     const state = await analyze(fixture.path);
@@ -217,8 +217,8 @@ describe("Rule installation - config integration", () => {
 
     const config = fixture.readFile("eslint.config.ts");
 
-    // Rule should be imported
-    expect(config).toMatch(/from\s+["']\.\/\.uilint\/rules\/require-test-coverage["']/);
+    // Directory-based rule should be imported with /index path (TypeScript project)
+    expect(config).toMatch(/from\s+["']\.\/\.uilint\/rules\/require-test-coverage\/index["']/);
 
     // Rule should be configured
     expect(config).toContain("uilint/require-test-coverage");

@@ -8,18 +8,18 @@
  * - Statement coverage percentage
  */
 
-import { createRule, defineRuleMeta } from "../utils/create-rule.js";
+import { createRule, defineRuleMeta } from "../../utils/create-rule.js";
 import { existsSync, readFileSync, statSync } from "fs";
 import { dirname, join, basename, relative } from "path";
 import { execSync } from "child_process";
 import {
   aggregateCoverage,
   type IstanbulCoverage as AggregatorIstanbulCoverage,
-} from "../utils/coverage-aggregator.js";
+} from "./lib/coverage-aggregator.js";
 import {
   analyzeJSXElementCoverage,
   type IstanbulCoverage as JSXAnalyzerIstanbulCoverage,
-} from "../utils/jsx-coverage-analyzer.js";
+} from "./lib/jsx-coverage-analyzer.js";
 import type { TSESTree } from "@typescript-eslint/utils";
 
 /**
@@ -244,13 +244,7 @@ export function calculate() { ... }  // Warning: No test file found
 export function fetchData() { ... }  // Warning: Coverage below threshold
 \`\`\`
 `,
-  // Declare internal utility dependencies for proper transformation during installation
-  internalDependencies: [
-    "coverage-aggregator",
-    "dependency-graph",
-    "file-categorizer",
-    "jsx-coverage-analyzer",
-  ],
+  isDirectoryBased: true,
 });
 
 // Cache for loaded coverage data

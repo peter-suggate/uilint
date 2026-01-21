@@ -1,6 +1,6 @@
 {
   "name": "uilint",
-  "version": "0.2.29",
+  "version": "0.2.31",
   "description": "CLI for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -22,10 +22,11 @@
     }
   },
   "bin": {
-    "uilint": "./dist/index.js",
-    "uilint-cli": "./dist/index.js"
+    "uilint": "./bin/uilint.js",
+    "uilint-cli": "./bin/uilint.js"
   },
   "files": [
+    "bin",
     "dist",
     "skills",
     "README.md"
@@ -42,7 +43,7 @@
     "prepublishOnly": "npm run build"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.19.0"
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",

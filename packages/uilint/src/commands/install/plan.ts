@@ -238,12 +238,44 @@ export function createPlan(
         }
       );
       for (const ruleFile of ruleFiles) {
+        // For directory-based rules, create the directory structure first
+        if (ruleFile.additionalFiles && ruleFile.additionalFiles.length > 0) {
+          // Create rule directory (e.g., .uilint/rules/no-mixed-component-libraries/)
+          const ruleDir = join(rulesDir, ruleFile.ruleId);
+          actions.push({
+            type: "create_directory",
+            path: ruleDir,
+          });
+
+          // Create lib/ subdirectory if any files are in lib/
+          const hasLibFiles = ruleFile.additionalFiles.some((f) =>
+            f.relativePath.includes("/lib/")
+          );
+          if (hasLibFiles) {
+            actions.push({
+              type: "create_directory",
+              path: join(ruleDir, "lib"),
+            });
+          }
+        }
+
         // Copy implementation file
         actions.push({
           type: "create_file",
           path: join(rulesDir, ruleFile.implementation.relativePath),
           content: ruleFile.implementation.content,
         });
+
+        // Copy additional files for directory-based rules
+        if (ruleFile.additionalFiles) {
+          for (const additionalFile of ruleFile.additionalFiles) {
+            actions.push({
+              type: "create_file",
+              path: join(rulesDir, additionalFile.relativePath),
+              content: additionalFile.content,
+            });
+          }
+        }
 
         // Copy test file if it exists (only for TypeScript configs)
         if (ruleFile.test && isTypeScriptConfig) {
@@ -295,6 +327,13 @@ export function createPlan(
           hasExistingRules: pkgInfo.hasUilintRules,
         });
       }
+
+      // Add .uilint to tsconfig.json exclude to prevent build errors
+      // The rule files are loaded by ESLint at runtime, not compiled with the app
+      actions.push({
+        type: "inject_tsconfig",
+        projectPath: pkgPath,
+      });
     }
 
     // Add .uilint/.cache to .gitignore at workspace root

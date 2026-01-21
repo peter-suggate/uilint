@@ -8,13 +8,13 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { writeFileSync, mkdirSync, rmSync, existsSync, realpathSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { getComponentLibrary, clearCache } from "./import-graph";
-import { detectLibraryFromSource, LIBRARY_PATTERNS } from "./component-parser";
+import { getComponentLibrary, clearCache } from "../rules/no-mixed-component-libraries/lib/import-graph";
+import { detectLibraryFromSource, LIBRARY_PATTERNS } from "../rules/no-mixed-component-libraries/lib/component-parser";
 import {
   resolveImportPath,
   resolveExport,
   clearResolverCaches,
-} from "./export-resolver";
+} from "../rules/no-mixed-component-libraries/lib/export-resolver";
 
 describe("detectLibraryFromSource", () => {
   it("detects MUI from @mui/material", () => {

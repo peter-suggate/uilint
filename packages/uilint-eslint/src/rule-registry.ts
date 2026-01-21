@@ -17,16 +17,13 @@ export type {
 export type { RuleMeta as RuleMetadata } from "./utils/create-rule.js";
 
 // Import colocated metadata from each rule file
+// Single-file rules
 import { meta as noArbitraryTailwind } from "./rules/no-arbitrary-tailwind.js";
 import { meta as consistentSpacing } from "./rules/consistent-spacing.js";
 import { meta as consistentDarkMode } from "./rules/consistent-dark-mode.js";
 import { meta as noDirectStoreImport } from "./rules/no-direct-store-import.js";
 import { meta as preferZustandStateManagement } from "./rules/prefer-zustand-state-management.js";
-import { meta as noMixedComponentLibraries } from "./rules/no-mixed-component-libraries.js";
-import { meta as semantic } from "./rules/semantic.js";
 import { meta as semanticVision } from "./rules/semantic-vision.js";
-
-// New rules
 import { meta as enforceAbsoluteImports } from "./rules/enforce-absolute-imports.js";
 import { meta as noAnyInProps } from "./rules/no-any-in-props.js";
 import { meta as zustandUseSelectors } from "./rules/zustand-use-selectors.js";
@@ -34,7 +31,11 @@ import { meta as noSecretsInCode } from "./rules/no-secrets-in-code.js";
 import { meta as requireInputValidation } from "./rules/require-input-validation.js";
 import { meta as noPropDrillingDepth } from "./rules/no-prop-drilling-depth.js";
 import { meta as noSemanticDuplicates } from "./rules/no-semantic-duplicates.js";
-import { meta as requireTestCoverage } from "./rules/require-test-coverage.js";
+
+// Directory-based rules (complex rules with colocated utilities)
+import { meta as noMixedComponentLibraries } from "./rules/no-mixed-component-libraries/index.js";
+import { meta as semantic } from "./rules/semantic/index.js";
+import { meta as requireTestCoverage } from "./rules/require-test-coverage/index.js";
 
 import type { RuleMeta } from "./utils/create-rule.js";
 

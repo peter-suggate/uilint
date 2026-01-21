@@ -414,7 +414,8 @@ function addLocalRuleImportsAst(
   selectedRules: RuleMetadata[],
   configPath: string,
   rulesRoot: string,
-  fileExtension: string = ".js"
+  fileExtension: string = ".js",
+  isTypeScriptProject: boolean = false
 ): { importNames: Map<string, string>; changed: boolean } {
   const importNames = new Map<string, string>();
   let changed = false;
@@ -433,7 +434,11 @@ function addLocalRuleImportsAst(
   const used = collectTopLevelBindings(mod.$ast);
 
   for (const rule of selectedRules) {
-    const rulePath = `${normalizedRulesPath}/${rule.id}${fileExtension}`;
+    // Directory-based rules use /index for TypeScript projects only
+    // For JavaScript projects, all rules are bundled to single .js files
+    const rulePath = (rule.isDirectoryBased && isTypeScriptProject)
+      ? `${normalizedRulesPath}/${rule.id}/index${fileExtension}`
+      : `${normalizedRulesPath}/${rule.id}${fileExtension}`;
 
     // If the import already exists (possibly with a different local name),
     // reuse it. Magicast can't always rename existing imports.
@@ -474,7 +479,8 @@ function addLocalRuleRequiresAst(
   selectedRules: RuleMetadata[],
   configPath: string,
   rulesRoot: string,
-  fileExtension: string = ".js"
+  fileExtension: string = ".js",
+  isTypeScriptProject: boolean = false
 ): { importNames: Map<string, string>; changed: boolean } {
   const importNames = new Map<string, string>();
   let changed = false;
@@ -508,7 +514,11 @@ function addLocalRuleRequiresAst(
     used.add(importName);
 
     // Add require statement
-    const rulePath = `${normalizedRulesPath}/${rule.id}${fileExtension}`;
+    // Directory-based rules use /index for TypeScript projects only
+    // For JavaScript projects, all rules are bundled to single .js files
+    const rulePath = (rule.isDirectoryBased && isTypeScriptProject)
+      ? `${normalizedRulesPath}/${rule.id}/index${fileExtension}`
+      : `${normalizedRulesPath}/${rule.id}${fileExtension}`;
     const stmtMod = parseModule(
       `const ${importName} = require("${rulePath}");`
     );
@@ -1225,7 +1235,8 @@ export async function installEslintPlugin(
       rulesToApply,
       configPath,
       rulesRoot,
-      fileExtension
+      fileExtension,
+      isTypeScriptConfig
     );
     ruleImportNames = result.importNames;
     if (result.changed) modifiedAst = true;
@@ -1235,7 +1246,8 @@ export async function installEslintPlugin(
       rulesToApply,
       configPath,
       rulesRoot,
-      fileExtension
+      fileExtension,
+      isTypeScriptConfig
     );
     ruleImportNames = result.importNames;
     if (result.changed) modifiedAst = true;

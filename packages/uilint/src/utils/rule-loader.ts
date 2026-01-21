@@ -73,8 +73,10 @@ export interface RuleFile {
 export interface RuleFiles {
   /** Rule identifier (e.g., "no-arbitrary-tailwind") */
   ruleId: string;
-  /** Implementation file */
+  /** Implementation file (main entry point - index.ts for directory rules, or single file) */
   implementation: RuleFile;
+  /** Additional files for directory-based rules (lib/ utilities, etc.) */
+  additionalFiles?: RuleFile[];
   /** Test file (if exists) */
   test?: RuleFile;
 }
@@ -207,16 +209,16 @@ function transformImportSpecifier(specifier: string, utilFile: string): string {
 
 /**
  * Transform rule content to fix imports for copied location
- * Changes imports from "../utils/..." to "uilint-eslint"
+ * Changes imports from "../utils/..." or "../../utils/..." to "uilint-eslint"
  */
 function transformRuleContent(content: string): string {
   let transformed = content;
 
   // Replace all relative utility imports with uilint-eslint imports
-  // Pattern: import { ... } from "../utils/create-rule.js" or similar
+  // Pattern: import { ... } from "../utils/create-rule.js" or "../../utils/create-rule.js"
   // This handles any combination of imports like { createRule, defineRuleMeta }
   transformed = transformed.replace(
-    /import\s+{([^}]+)}\s+from\s+["']\.\.\/utils\/([^"']+)\.js["'];?/g,
+    /import\s+{([^}]+)}\s+from\s+["'](?:\.\.\/)+utils\/([^"']+)\.js["'];?/g,
     (match, imports, utilFile) => {
       if (EXPORTED_UTILITIES.includes(utilFile)) {
         // Transform each import specifier
@@ -231,7 +233,7 @@ function transformRuleContent(content: string): string {
 
   // Also handle default imports: import createRule from "../utils/create-rule.js"
   transformed = transformed.replace(
-    /import\s+(\w+)\s+from\s+["']\.\.\/utils\/([^"']+)\.js["'];?/g,
+    /import\s+(\w+)\s+from\s+["'](?:\.\.\/)+utils\/([^"']+)\.js["'];?/g,
     (match, importName, utilFile) => {
       if (EXPORTED_UTILITIES.includes(utilFile)) {
         return `import { ${importName} } from "uilint-eslint";`;
@@ -241,6 +243,54 @@ function transformRuleContent(content: string): string {
   );
 
   return transformed;
+}
+
+/**
+ * Check if a rule is directory-based (has index.ts/index.js) or single-file
+ */
+function isDirectoryBasedRule(rulesDir: string, ruleId: string): boolean {
+  const ruleDir = join(rulesDir, ruleId);
+  return existsSync(ruleDir) && existsSync(join(ruleDir, "index.ts"));
+}
+
+/**
+ * Load all files from a directory-based rule
+ */
+function loadDirectoryRule(
+  rulesDir: string,
+  ruleId: string
+): { files: RuleFile[]; testFile?: RuleFile } {
+  const ruleDir = join(rulesDir, ruleId);
+  const files: RuleFile[] = [];
+  let testFile: RuleFile | undefined;
+
+  function collectFiles(dir: string, relativeTo: string): void {
+    const entries = readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+      const relativePath = join(relativeTo, entry.name);
+
+      if (entry.isDirectory()) {
+        collectFiles(fullPath, relativePath);
+      } else if (entry.name.endsWith(".ts")) {
+        if (entry.name.endsWith(".test.ts")) {
+          // Handle test file separately
+          testFile = {
+            relativePath,
+            content: transformRuleContent(readFileSync(fullPath, "utf-8")),
+          };
+        } else {
+          files.push({
+            relativePath,
+            content: transformRuleContent(readFileSync(fullPath, "utf-8")),
+          });
+        }
+      }
+    }
+  }
+
+  collectFiles(ruleDir, ruleId);
+  return { files, testFile };
 }
 
 /**
@@ -256,6 +306,30 @@ export function loadRule(
   if (typescript) {
     // Load TypeScript source files
     const rulesDir = join(getUilintEslintSrcDir(), "rules");
+
+    // Check if this is a directory-based rule
+    if (isDirectoryBasedRule(rulesDir, ruleId)) {
+      const { files, testFile } = loadDirectoryRule(rulesDir, ruleId);
+
+      if (files.length === 0) {
+        throw new Error(`Rule "${ruleId}" directory exists but contains no TypeScript files`);
+      }
+
+      // Find the index.ts as the main implementation
+      const indexFile = files.find((f) => f.relativePath === join(ruleId, "index.ts"));
+      if (!indexFile) {
+        throw new Error(`Rule "${ruleId}" directory missing index.ts`);
+      }
+
+      return {
+        ruleId,
+        implementation: indexFile,
+        additionalFiles: files.filter((f) => f !== indexFile),
+        test: testFile,
+      };
+    }
+
+    // Single-file rule
     const implPath = join(rulesDir, `${ruleId}.ts`);
     const testPath = join(rulesDir, `${ruleId}.test.ts`);
 
