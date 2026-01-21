@@ -17,7 +17,6 @@ import {
 } from "./visibility-utils";
 import {
   calculateHeatmapOpacity,
-  getHeatmapColor,
   getHeatmapBorderColor,
 } from "./heatmap-colors";
 
@@ -312,20 +311,17 @@ function getBorderWidth(opacity: number, isHovered: boolean): number {
 }
 
 /**
- * Generate inner gradient that fades quickly to transparent
- * This allows the underlying UI to remain interactive
+ * Generate gradient border colors for bottom-left to top-right effect.
+ * Returns [transparentColor, opaqueColor] for use in CSS gradient.
  */
-function getInnerGradient(opacity: number, isHovered: boolean): string {
-  const displayOpacity = isHovered ? Math.min(opacity + 0.1, 0.5) : opacity;
-  const color = getHeatmapColor(displayOpacity);
-  const transparentColor = getHeatmapColor(0);
-
-  // Gradient fades from border color to transparent within ~12px
-  return `linear-gradient(to bottom, ${color} 0%, ${transparentColor} 12px),
-          linear-gradient(to top, ${color} 0%, ${transparentColor} 12px),
-          linear-gradient(to right, ${color} 0%, ${transparentColor} 12px),
-          linear-gradient(to left, ${color} 0%, ${transparentColor} 12px)`;
+function getGradientBorderColors(opacity: number): [string, string] {
+  const transparentColor = getHeatmapBorderColor(opacity * 0.2);
+  const opaqueColor = getHeatmapBorderColor(opacity);
+  return [transparentColor, opaqueColor];
 }
+
+/** Size of the clickable corner circle indicator */
+const CORNER_CIRCLE_SIZE = 12;
 
 function HeatmapRect({
   item,
@@ -338,61 +334,53 @@ function HeatmapRect({
 
   const borderWidth = getBorderWidth(opacity, isHovered);
   const displayOpacity = isHovered ? Math.min(opacity + 0.15, 0.7) : opacity;
+  const [transparentColor, opaqueColor] = getGradientBorderColors(displayOpacity);
+
+  // Outer dimensions including border
+  const outerWidth = rect.width + borderWidth * 2;
+  const outerHeight = rect.height + borderWidth * 2;
 
   return (
     <>
-      {/* Border overlay - captures mouse events on the border only */}
+      {/* Gradient border overlay - transparent at bottom-left, opaque at top-right */}
       <div
         data-ui-lint
         style={{
           position: "fixed",
           top: rect.top - borderWidth,
           left: rect.left - borderWidth,
-          width: rect.width + borderWidth * 2,
-          height: rect.height + borderWidth * 2,
-          border: `${borderWidth}px solid ${getHeatmapBorderColor(displayOpacity)}`,
+          width: outerWidth,
+          height: outerHeight,
+          background: `linear-gradient(135deg, ${transparentColor} 0%, ${opaqueColor} 100%)`,
           borderRadius: "6px",
           pointerEvents: "none",
-          transition: "border-color 150ms, border-width 150ms",
-          zIndex: isHovered ? 99998 : 99995,
-          boxSizing: "border-box",
-        }}
-      />
-
-      {/* Inner gradient glow - provides visual indication without blocking interaction */}
-      <div
-        data-ui-lint
-        style={{
-          position: "fixed",
-          top: rect.top,
-          left: rect.left,
-          width: rect.width,
-          height: rect.height,
-          background: getInnerGradient(opacity, isHovered),
-          borderRadius: "4px",
-          pointerEvents: "none",
           transition: "opacity 150ms",
-          zIndex: isHovered ? 99997 : 99994,
+          zIndex: isHovered ? 99998 : 99995,
+          // Create border frame using clip-path (outer rect minus inner rect)
+          clipPath: `polygon(
+            evenodd,
+            0 0, ${outerWidth}px 0, ${outerWidth}px ${outerHeight}px, 0 ${outerHeight}px, 0 0,
+            ${borderWidth}px ${borderWidth}px, ${borderWidth}px ${outerHeight - borderWidth}px, ${outerWidth - borderWidth}px ${outerHeight - borderWidth}px, ${outerWidth - borderWidth}px ${borderWidth}px, ${borderWidth}px ${borderWidth}px
+          )`,
         }}
       />
 
-      {/* Invisible interaction layer on the border area only */}
+      {/* Clickable corner circle at top-right */}
       <div
         data-ui-lint
         style={{
           position: "fixed",
-          top: rect.top - 8,
-          left: rect.left - 8,
-          width: rect.width + 16,
-          height: rect.height + 16,
+          top: rect.top - CORNER_CIRCLE_SIZE / 2,
+          left: rect.left + rect.width - CORNER_CIRCLE_SIZE / 2,
+          width: CORNER_CIRCLE_SIZE,
+          height: CORNER_CIRCLE_SIZE,
+          backgroundColor: opaqueColor,
+          borderRadius: "50%",
           pointerEvents: "auto",
           cursor: "pointer",
-          zIndex: 99993,
-          // Use clip-path to create a "frame" shape that only captures border area
-          clipPath: `polygon(
-            0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%,
-            8px 8px, 8px calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) 8px, 8px 8px
-          )`,
+          zIndex: 99999,
+          transition: "transform 150ms, background-color 150ms",
+          transform: isHovered ? "scale(1.2)" : "scale(1)",
         }}
         onMouseEnter={onHover}
         onMouseLeave={onLeave}
@@ -400,6 +388,7 @@ function HeatmapRect({
           e.stopPropagation();
           onClick();
         }}
+        title="Add to filter"
       />
 
       {/* Issue count tooltip on hover */}

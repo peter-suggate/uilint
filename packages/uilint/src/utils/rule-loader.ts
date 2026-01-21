@@ -208,8 +208,18 @@ function transformImportSpecifier(specifier: string, utilFile: string): string {
 }
 
 /**
+ * External packages that are re-exported from uilint-eslint.
+ * When rules import these packages directly, transform them to import from uilint-eslint instead.
+ * This ensures the dependencies are resolved correctly when rules are copied to user projects.
+ */
+const REEXPORTED_PACKAGES: Record<string, string[]> = {
+  "oxc-resolver": ["ResolverFactory"],
+};
+
+/**
  * Transform rule content to fix imports for copied location
  * Changes imports from "../utils/..." or "../../utils/..." to "uilint-eslint"
+ * Also transforms external package imports that are re-exported from uilint-eslint
  */
 function transformRuleContent(content: string): string {
   let transformed = content;
@@ -241,6 +251,29 @@ function transformRuleContent(content: string): string {
       return match;
     }
   );
+
+  // Transform external package imports that are re-exported from uilint-eslint
+  // Pattern: import { ResolverFactory } from "oxc-resolver"
+  for (const [pkgName, exports] of Object.entries(REEXPORTED_PACKAGES)) {
+    const escapedPkgName = pkgName.replace(/-/g, "\\-");
+    const regex = new RegExp(
+      `import\\s+{([^}]+)}\\s+from\\s+["']${escapedPkgName}["'];?`,
+      "g"
+    );
+    transformed = transformed.replace(regex, (match, imports) => {
+      const importNames = imports.split(",").map((s: string) => s.trim());
+      // Only transform if all imported names are re-exported from uilint-eslint
+      const allReexported = importNames.every((name: string) => {
+        // Handle "Foo as Bar" syntax - extract the original name
+        const originalName = name.split(/\s+as\s+/)[0].trim();
+        return exports.includes(originalName);
+      });
+      if (allReexported) {
+        return `import { ${imports} } from "uilint-eslint";`;
+      }
+      return match;
+    });
+  }
 
   return transformed;
 }
