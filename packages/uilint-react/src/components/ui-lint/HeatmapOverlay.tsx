@@ -3,7 +3,6 @@
 /**
  * HeatmapOverlay - Shows colored overlays on elements based on issue density
  *
- * Alternative visualization mode to ElementBadges.
  * Uses color intensity to represent issue count.
  */
 
@@ -47,9 +46,6 @@ export function HeatmapOverlay() {
   );
   const elementIssuesCache = useUILintStore(
     (s: UILintStore) => s.elementIssuesCache
-  );
-  const setInspectedElement = useUILintStore(
-    (s: UILintStore) => s.setInspectedElement
   );
 
   const [mounted, setMounted] = useState(false);

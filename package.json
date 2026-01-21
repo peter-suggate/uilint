@@ -34,7 +34,9 @@
     "version:major": "pnpm --filter 'uilint*' exec npm version major --no-git-tag-version && pnpm --filter jsx-loc-plugin exec npm version major --no-git-tag-version && npm version major --no-git-tag-version && pnpm sync:workspace",
     "publish:dry": "pnpm sync:workspace && pnpm build:packages && pnpm --filter uilint-core publish --dry-run --no-git-checks && pnpm --filter uilint-react publish --dry-run --no-git-checks && pnpm --filter uilint publish --dry-run --no-git-checks && pnpm --filter uilint-eslint publish --dry-run --no-git-checks && pnpm --filter uilint-duplicates publish --dry-run --no-git-checks && pnpm --filter jsx-loc-plugin publish --dry-run --no-git-checks",
     "publish:packages": "pnpm sync:workspace && pnpm build:packages && pnpm --filter uilint-core publish --access public --no-git-checks && pnpm --filter uilint-react publish --access public --no-git-checks && pnpm --filter uilint publish --access public --no-git-checks && pnpm --filter uilint-eslint publish --access public --no-git-checks && pnpm --filter uilint-duplicates publish --access public --no-git-checks && pnpm --filter jsx-loc-plugin publish --access public --no-git-checks",
-    "publish": "pnpm publish:packages"
+    "publish:patch": "pnpm version:patch && pnpm publish:packages",
+    "publish:minor": "pnpm version:minor && pnpm publish:packages",
+    "publish:major": "pnpm version:major && pnpm publish:packages"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",

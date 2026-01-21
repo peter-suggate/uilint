@@ -244,8 +244,6 @@ interface VisionIssueItemProps {
   isHighlighted: boolean;
   onShowInPage: () => void;
   onOpenSource: () => void;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
 }
 
 /**
@@ -256,13 +254,9 @@ function VisionIssueItem({
   isHighlighted,
   onShowInPage,
   onOpenSource,
-  onMouseEnter,
-  onMouseLeave,
 }: VisionIssueItemProps) {
   return (
     <div
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
       style={{
         padding: "12px",
         borderRadius: "8px",
@@ -439,9 +433,6 @@ export function VisionIssuesPanel({
   );
   const setHighlightedVisionElementId = useUILintStore(
     (s: UILintStore) => s.setHighlightedVisionElementId
-  );
-  const setHoveredVisionIssue = useUILintStore(
-    (s: UILintStore) => s.setHoveredVisionIssue
   );
   const appRoot = useUILintStore((s: UILintStore) => s.appRoot);
   const workspaceRoot = useUILintStore((s: UILintStore) => s.workspaceRoot);
@@ -883,8 +874,6 @@ export function VisionIssuesPanel({
                   isHighlighted={highlightedVisionElementId === issue.elementId}
                   onShowInPage={() => handleShowInPage(issue)}
                   onOpenSource={() => handleOpenSource(issue)}
-                  onMouseEnter={() => setHoveredVisionIssue(issue)}
-                  onMouseLeave={() => setHoveredVisionIssue(null)}
                 />
               ))}
             </div>

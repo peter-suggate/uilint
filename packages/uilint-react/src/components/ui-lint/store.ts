@@ -15,7 +15,6 @@ import { create } from "zustand";
 import type {
   UILintSettings,
   LocatorTarget,
-  InspectedElement,
   AutoScanState,
   ElementIssue,
   ScannedElement,
@@ -302,10 +301,6 @@ export interface UILintStore {
   locatorTarget: LocatorTarget | null;
   setLocatorTarget: (target: LocatorTarget | null) => void;
 
-  // ============ Inspection ============
-  inspectedElement: InspectedElement | null;
-  setInspectedElement: (el: InspectedElement | null) => void;
-
   // ============ Live Scanning ============
   /** Whether live scanning mode is enabled */
   liveScanEnabled: boolean;
@@ -395,8 +390,6 @@ export interface UILintStore {
   visionCurrentRoute: string | null;
   /** Highlighted vision issue element ID (for click-to-highlight) */
   highlightedVisionElementId: string | null;
-  /** Hovered vision issue (for hover-to-highlight) */
-  hoveredVisionIssue: VisionIssue | null;
   /** Capture mode: full page or region selection */
   captureMode: "full" | "region";
   /** Whether region selection is currently active */
@@ -422,8 +415,6 @@ export interface UILintStore {
   clearVisionLastError: () => void;
   /** Set highlighted vision element */
   setHighlightedVisionElementId: (id: string | null) => void;
-  /** Set hovered vision issue */
-  setHoveredVisionIssue: (issue: VisionIssue | null) => void;
   /** Set results panel visibility */
   setShowResultsPanel: (show: boolean) => void;
   /** Set active results tab */
@@ -889,10 +880,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   setAltKeyHeld: (held) => set({ altKeyHeld: held }),
   locatorTarget: null,
   setLocatorTarget: (target) => set({ locatorTarget: target }),
-
-  // ============ Inspection ============
-  inspectedElement: null,
-  setInspectedElement: (el) => set({ inspectedElement: el }),
 
   // ============ Live Scanning ============
   liveScanEnabled: false,
@@ -1403,7 +1390,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   selectedScreenshotId: null,
   visionCurrentRoute: null,
   highlightedVisionElementId: null,
-  hoveredVisionIssue: null,
   captureMode: "full",
   regionSelectionActive: false,
   selectedRegion: null,
@@ -1635,8 +1621,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   setHighlightedVisionElementId: (id) =>
     set({ highlightedVisionElementId: id }),
 
-  setHoveredVisionIssue: (issue) => set({ hoveredVisionIssue: issue }),
-
   setShowResultsPanel: (show) => set({ showResultsPanel: show }),
   setActiveResultsTab: (tab) => set({ activeResultsTab: tab }),
 
@@ -1779,7 +1763,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       visionAnalyzing: false,
       visionProgressPhase: null,
       highlightedVisionElementId: null,
-      hoveredVisionIssue: null,
       visionLastError: null,
     }),
 

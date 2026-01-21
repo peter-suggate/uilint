@@ -12,8 +12,6 @@ export type { UILintStore } from "./store";
 // UI components
 export { FloatingIcon } from "./FloatingIcon";
 export { CommandPalette } from "./command-palette";
-export { VisionIssueHighlight, InspectedElementHighlight } from "./LocatorOverlay";
-export { VisionIssueBadges } from "./VisionIssueBadge";
 export { VisionIssuesPanel } from "./VisionIssuesPanel";
 export { ScreenshotViewer } from "./ScreenshotViewer";
 

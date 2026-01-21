@@ -29,12 +29,6 @@ export function useDevToolEventHandlers(enabled: boolean) {
   const setLocatorTarget = useUILintStore(
     (s: UILintStore) => s.setLocatorTarget
   );
-  const inspectedElement = useUILintStore(
-    (s: UILintStore) => s.inspectedElement
-  );
-  const setInspectedElement = useUILintStore(
-    (s: UILintStore) => s.setInspectedElement
-  );
   const commandPaletteOpen = useUILintStore(
     (s: UILintStore) => s.commandPaletteOpen
   );
@@ -175,7 +169,7 @@ export function useDevToolEventHandlers(enabled: boolean) {
   }, [enabled, altKeyHeld, handleMouseMove, handleLocatorClick]);
 
   /**
-   * Escape key to close sidebar or command palette
+   * Escape key to close command palette
    */
   useEffect(() => {
     if (!isBrowser() || !enabled) return;
@@ -184,13 +178,11 @@ export function useDevToolEventHandlers(enabled: boolean) {
       if (e.key === "Escape") {
         if (commandPaletteOpen) {
           closeCommandPalette();
-        } else if (inspectedElement) {
-          setInspectedElement(null);
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [enabled, inspectedElement, setInspectedElement, commandPaletteOpen, closeCommandPalette]);
+  }, [enabled, commandPaletteOpen, closeCommandPalette]);
 }
