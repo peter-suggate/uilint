@@ -35,7 +35,11 @@ export const meta = defineRuleMeta({
   description: "Report cached vision analysis results from UILint browser overlay",
   defaultSeverity: "warn",
   category: "semantic",
+  icon: "👁️",
+  hint: "Vision AI for rendered UI",
+  defaultEnabled: false,
   requiresStyleguide: false,
+  postInstallInstructions: "Add the UILint browser overlay to your app and run analysis from the browser to generate cached results.",
   defaultOptions: [{ maxAgeMs: 3600000, screenshotsPath: ".uilint/screenshots" }],
   optionSchema: {
     fields: [

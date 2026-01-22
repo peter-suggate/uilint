@@ -35,6 +35,9 @@ export const meta = defineRuleMeta({
   description: "Require selector functions when accessing Zustand store state",
   defaultSeverity: "warn",
   category: "static",
+  icon: "⚡",
+  hint: "Prevents unnecessary re-renders",
+  defaultEnabled: true,
   defaultOptions: [
     { storePattern: "^use\\w*Store$", allowShallow: true, requireNamedSelectors: false },
   ],

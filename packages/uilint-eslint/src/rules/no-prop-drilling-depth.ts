@@ -35,6 +35,9 @@ export const meta = defineRuleMeta({
   description: "Warn when props are drilled through too many components",
   defaultSeverity: "warn",
   category: "static",
+  icon: "🔗",
+  hint: "Detects excessive prop passing",
+  defaultEnabled: true,
   defaultOptions: [
     {
       maxDepth: 2,

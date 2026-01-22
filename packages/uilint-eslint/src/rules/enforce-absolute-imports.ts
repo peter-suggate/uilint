@@ -35,6 +35,9 @@ export const meta = defineRuleMeta({
     "Require alias imports for paths beyond a configurable directory depth",
   defaultSeverity: "warn",
   category: "static",
+  icon: "📦",
+  hint: "Prevents deep relative imports",
+  defaultEnabled: true,
   defaultOptions: [{ maxRelativeDepth: 1, aliasPrefix: "@/" }],
   optionSchema: {
     fields: [

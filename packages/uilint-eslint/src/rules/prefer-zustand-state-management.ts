@@ -31,6 +31,9 @@ export const meta = defineRuleMeta({
   description: "Detect excessive useState/useReducer/useContext; suggest Zustand",
   defaultSeverity: "warn",
   category: "static",
+  icon: "🐻",
+  hint: "Suggests centralized state management",
+  defaultEnabled: true,
   defaultOptions: [
     {
       maxStateHooks: 3,

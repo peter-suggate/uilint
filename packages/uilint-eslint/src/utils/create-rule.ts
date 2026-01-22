@@ -38,6 +38,18 @@ export interface RuleOptionSchema {
 }
 
 /**
+ * External requirement that a rule needs to function
+ */
+export interface RuleRequirement {
+  /** Requirement type for programmatic checks */
+  type: "ollama" | "git" | "coverage" | "semantic-index" | "styleguide";
+  /** Human-readable description */
+  description: string;
+  /** Optional: how to satisfy the requirement */
+  setupHint?: string;
+}
+
+/**
  * Colocated rule metadata - exported alongside each rule
  *
  * This structure keeps all rule metadata in the same file as the rule implementation,
@@ -58,6 +70,24 @@ export interface RuleMeta {
 
   /** Category for grouping in CLI */
   category: "static" | "semantic";
+
+  /** Icon for display in CLI/UI (emoji or icon name) */
+  icon?: string;
+
+  /** Short hint about the rule type/requirements */
+  hint?: string;
+
+  /** Whether rule is enabled by default during install */
+  defaultEnabled?: boolean;
+
+  /** External requirements the rule needs */
+  requirements?: RuleRequirement[];
+
+  /** Instructions to show after installation */
+  postInstallInstructions?: string;
+
+  /** Framework compatibility */
+  frameworks?: ("next" | "vite" | "cra" | "remix")[];
 
   /** Whether this rule requires a styleguide file */
   requiresStyleguide?: boolean;

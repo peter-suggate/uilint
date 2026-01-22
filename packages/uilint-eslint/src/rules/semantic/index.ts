@@ -36,7 +36,22 @@ export const meta = defineRuleMeta({
   description: "LLM-powered semantic UI analysis using your styleguide",
   defaultSeverity: "warn",
   category: "semantic",
+  icon: "🧠",
+  hint: "LLM-powered UI analysis",
+  defaultEnabled: false,
   requiresStyleguide: true,
+  requirements: [
+    {
+      type: "ollama",
+      description: "Requires Ollama running locally",
+      setupHint: "Run: ollama serve && ollama pull qwen3-coder:30b",
+    },
+    {
+      type: "styleguide",
+      description: "Requires a styleguide file",
+      setupHint: "Run: uilint genstyleguide",
+    },
+  ],
   defaultOptions: [{ model: "qwen3-coder:30b", styleguidePath: ".uilint/styleguide.md" }],
   optionSchema: {
     fields: [

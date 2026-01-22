@@ -64,6 +64,17 @@ export const meta = defineRuleMeta({
   description: "Warn when code is semantically similar to existing code",
   defaultSeverity: "warn",
   category: "semantic",
+  icon: "🔍",
+  hint: "Finds similar code via embeddings",
+  defaultEnabled: false,
+  requirements: [
+    {
+      type: "semantic-index",
+      description: "Requires semantic index for duplicate detection",
+      setupHint: "Run: uilint duplicates index",
+    },
+  ],
+  postInstallInstructions: "Run 'uilint duplicates index' to build the semantic index before using this rule.",
   defaultOptions: [{ threshold: 0.85, indexPath: ".uilint/.duplicates-index", minLines: 3 }],
   optionSchema: {
     fields: [

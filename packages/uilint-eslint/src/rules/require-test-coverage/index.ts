@@ -20,6 +20,11 @@ import {
   analyzeJSXElementCoverage,
   type IstanbulCoverage as JSXAnalyzerIstanbulCoverage,
 } from "./lib/jsx-coverage-analyzer.js";
+import {
+  analyzeChunks,
+  getChunkThreshold,
+  type ChunkCoverageResult,
+} from "./lib/chunk-analyzer.js";
 import type { TSESTree } from "@typescript-eslint/utils";
 
 /**
@@ -50,7 +55,10 @@ type MessageIds =
   | "belowThreshold"
   | "noCoverageData"
   | "belowAggregateThreshold"
-  | "jsxBelowThreshold";
+  | "jsxBelowThreshold"
+  | "chunkBelowThreshold"
+  | "chunkSummaryBelowThreshold"
+  | "untestedFunction";
 
 type SeverityLevel = "error" | "warn" | "off";
 
@@ -84,6 +92,18 @@ type Options = [
     jsxThreshold?: number;
     /** Severity for JSX element coverage check. Default: "warn" */
     jsxSeverity?: SeverityLevel;
+    /** Enable chunk-level coverage reporting (replaces file-level). Default: false */
+    chunkCoverage?: boolean;
+    /** Threshold for strict categories (utility/hook/store). Default: 80 */
+    chunkThreshold?: number;
+    /** Focus on non-React code with relaxed thresholds for components. Default: false */
+    focusNonReact?: boolean;
+    /** Threshold for relaxed categories (component/handler). Default: 50 */
+    relaxedThreshold?: number;
+    /** Report mode: "each" (one per chunk) or "summary" (aggregated). Default: "each" */
+    chunkReportMode?: "each" | "summary";
+    /** Severity for chunk coverage. Default: "warn" */
+    chunkSeverity?: SeverityLevel;
   }
 ];
 
@@ -140,6 +160,17 @@ export const meta = defineRuleMeta({
   description: "Enforce that source files have adequate test coverage",
   defaultSeverity: "warn",
   category: "static",
+  icon: "🧪",
+  hint: "Ensures code has tests",
+  defaultEnabled: true,
+  isDirectoryBased: true,
+  requirements: [
+    {
+      type: "coverage",
+      description: "Requires test coverage data",
+      setupHint: "Run tests with coverage: npm test -- --coverage",
+    },
+  ],
   defaultOptions: [
     {
       coveragePath: "coverage/coverage-final.json",
@@ -188,6 +219,38 @@ export const meta = defineRuleMeta({
           { value: "changed", label: "Only check changed lines" },
         ],
         description: "Whether to check all code or only git-changed lines",
+      },
+      {
+        key: "chunkCoverage",
+        label: "Enable chunk-level coverage",
+        type: "boolean",
+        defaultValue: false,
+        description:
+          "Report coverage for individual functions instead of file level",
+      },
+      {
+        key: "focusNonReact",
+        label: "Focus on non-React code",
+        type: "boolean",
+        defaultValue: false,
+        description:
+          "Apply strict thresholds to utilities/stores/hooks, relaxed to components",
+      },
+      {
+        key: "chunkThreshold",
+        label: "Chunk coverage threshold",
+        type: "number",
+        defaultValue: 80,
+        description:
+          "Minimum coverage for utility/hook/store chunks (0-100)",
+      },
+      {
+        key: "relaxedThreshold",
+        label: "Relaxed threshold for React code",
+        type: "number",
+        defaultValue: 50,
+        description:
+          "Threshold for components/handlers when focusNonReact is enabled",
       },
     ],
   },
@@ -244,7 +307,6 @@ export function calculate() { ... }  // Warning: No test file found
 export function fetchData() { ... }  // Warning: Coverage below threshold
 \`\`\`
 `,
-  isDirectoryBased: true,
 });
 
 // Cache for loaded coverage data
@@ -554,6 +616,12 @@ export default createRule<Options, MessageIds>({
         "Includes {{fileCount}} files. Lowest: {{lowestFile}} ({{lowestCoverage}}%)",
       jsxBelowThreshold:
         "<{{tagName}}> element coverage is {{coverage}}%, below threshold of {{threshold}}%",
+      chunkBelowThreshold:
+        "{{category}} '{{name}}' has {{coverage}}% coverage, below {{threshold}}% threshold",
+      chunkSummaryBelowThreshold:
+        "{{count}} functions below threshold. Lowest: '{{lowestName}}' ({{lowestCoverage}}%)",
+      untestedFunction:
+        "Function '{{name}}' ({{category}}) is not covered by tests",
     },
     schema: [
       {
@@ -637,6 +705,39 @@ export default createRule<Options, MessageIds>({
             enum: ["error", "warn", "off"],
             description: "Severity for JSX element coverage check",
           },
+          chunkCoverage: {
+            type: "boolean",
+            description:
+              "Enable chunk-level coverage reporting (replaces file-level)",
+          },
+          chunkThreshold: {
+            type: "number",
+            minimum: 0,
+            maximum: 100,
+            description:
+              "Threshold for strict categories (utility/hook/store)",
+          },
+          focusNonReact: {
+            type: "boolean",
+            description:
+              "Focus on non-React code with relaxed thresholds for components",
+          },
+          relaxedThreshold: {
+            type: "number",
+            minimum: 0,
+            maximum: 100,
+            description: "Threshold for relaxed categories (component/handler)",
+          },
+          chunkReportMode: {
+            type: "string",
+            enum: ["each", "summary"],
+            description: "Report mode: one per chunk or aggregated summary",
+          },
+          chunkSeverity: {
+            type: "string",
+            enum: ["error", "warn", "off"],
+            description: "Severity for chunk coverage check",
+          },
         },
         additionalProperties: false,
       },
@@ -666,6 +767,12 @@ export default createRule<Options, MessageIds>({
       aggregateSeverity: "warn",
       jsxThreshold: 50,
       jsxSeverity: "warn",
+      chunkCoverage: false,
+      chunkThreshold: 80,
+      focusNonReact: false,
+      relaxedThreshold: 50,
+      chunkReportMode: "each",
+      chunkSeverity: "warn",
     },
   ],
   create(context) {
@@ -695,6 +802,12 @@ export default createRule<Options, MessageIds>({
     const baseBranch = options.baseBranch ?? "main";
     const jsxThreshold = options.jsxThreshold ?? 50;
     const jsxSeverity = options.jsxSeverity ?? "warn";
+    const chunkCoverage = options.chunkCoverage ?? false;
+    const chunkThreshold = options.chunkThreshold ?? 80;
+    const focusNonReact = options.focusNonReact ?? false;
+    const relaxedThreshold = options.relaxedThreshold ?? 50;
+    const chunkReportMode = options.chunkReportMode ?? "each";
+    const chunkSeverity = options.chunkSeverity ?? "warn";
 
     const filename = context.filename || context.getFilename();
     const projectRoot = findProjectRoot(dirname(filename));
@@ -809,8 +922,9 @@ export default createRule<Options, MessageIds>({
           thresholdsByPattern
         );
 
-        // Check if below threshold
+        // Check if below threshold (file-level) - skipped when chunkCoverage is enabled
         if (
+          !chunkCoverage &&
           severity.belowThreshold !== "off" &&
           coveragePercent < fileThreshold
         ) {
@@ -823,6 +937,69 @@ export default createRule<Options, MessageIds>({
               threshold: String(fileThreshold),
             },
           });
+        }
+
+        // Check chunk-level coverage (replaces file-level when enabled)
+        if (chunkCoverage && chunkSeverity !== "off" && fileCoverage) {
+          const chunks = analyzeChunks(
+            context.sourceCode.ast,
+            filename,
+            fileCoverage
+          );
+
+          if (chunkReportMode === "summary" && chunks.length > 0) {
+            // Summary mode: report one message with aggregate info
+            const lowCoverageChunks = chunks.filter((chunk) => {
+              const chunkThresholdValue = getChunkThreshold(chunk, {
+                focusNonReact,
+                chunkThreshold,
+                relaxedThreshold,
+              });
+              return chunk.coverage.percentage < chunkThresholdValue;
+            });
+
+            if (lowCoverageChunks.length > 0) {
+              const lowest = lowCoverageChunks.reduce((min, c) =>
+                c.coverage.percentage < min.coverage.percentage ? c : min
+              );
+              context.report({
+                node,
+                messageId: "chunkSummaryBelowThreshold",
+                data: {
+                  count: String(lowCoverageChunks.length),
+                  lowestName: lowest.name,
+                  lowestCoverage: String(lowest.coverage.percentage),
+                },
+              });
+            }
+          } else {
+            // Each mode: report one message per chunk below threshold
+            for (const chunk of chunks) {
+              const chunkThresholdValue = getChunkThreshold(chunk, {
+                focusNonReact,
+                chunkThreshold,
+                relaxedThreshold,
+              });
+
+              if (chunk.coverage.percentage < chunkThresholdValue) {
+                const messageId =
+                  chunk.coverage.functionCalled
+                    ? "chunkBelowThreshold"
+                    : "untestedFunction";
+
+                context.report({
+                  loc: chunk.loc,
+                  messageId,
+                  data: {
+                    name: chunk.name,
+                    category: chunk.category,
+                    coverage: String(chunk.coverage.percentage),
+                    threshold: String(chunkThresholdValue),
+                  },
+                });
+              }
+            }
+          }
         }
 
         // Check aggregate coverage for component files (JSX)

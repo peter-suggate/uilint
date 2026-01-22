@@ -36,6 +36,9 @@ export const meta = defineRuleMeta({
   description: "Detect hardcoded secrets, API keys, and tokens",
   defaultSeverity: "error",
   category: "static",
+  icon: "🔐",
+  hint: "Prevents credential leaks",
+  defaultEnabled: true,
   defaultOptions: [
     {
       checkVariableNames: true,

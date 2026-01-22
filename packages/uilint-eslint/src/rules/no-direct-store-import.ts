@@ -22,6 +22,9 @@ export const meta = defineRuleMeta({
   description: "Forbid direct Zustand store imports (use context hooks)",
   defaultSeverity: "warn",
   category: "static",
+  icon: "🏪",
+  hint: "Encourages testable store access",
+  defaultEnabled: true,
   defaultOptions: [{ storePattern: "use*Store" }],
   optionSchema: {
     fields: [

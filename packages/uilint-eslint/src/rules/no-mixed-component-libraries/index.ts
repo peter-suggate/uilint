@@ -35,6 +35,10 @@ export const meta = defineRuleMeta({
   description: "Forbid mixing component libraries (e.g., shadcn + MUI)",
   defaultSeverity: "error",
   category: "static",
+  icon: "🧩",
+  hint: "Ensures consistent UI library usage",
+  defaultEnabled: true,
+  isDirectoryBased: true,
   defaultOptions: [{ preferred: "shadcn", libraries: ["shadcn", "mui"] }],
   optionSchema: {
     fields: [
@@ -109,7 +113,7 @@ import { Card } from '@/components/ui/card';
 - **chakra**: Chakra UI (\`@chakra-ui/react\`)
 - **antd**: Ant Design (\`antd\`)
 `,
-  isDirectoryBased: true,
+
 });
 
 /**

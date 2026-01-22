@@ -3,7 +3,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { eslintInstaller } from "../../src/commands/install/installers/eslint.js";
+import { eslintInstaller, convertFieldValue, type ConfiguredRule } from "../../src/commands/install/installers/eslint.js";
+import type { OptionFieldSchema } from "uilint-eslint";
 import type { ProjectState, EslintPackageInfo } from "../../src/commands/install/types.js";
 import type { ProgressEvent } from "../../src/commands/install/installers/types.js";
 
@@ -299,6 +300,116 @@ describe("EslintInstaller", () => {
 
       const progressEvents = events.filter((e) => e.type === "progress");
       expect(progressEvents.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("convertFieldValue", () => {
+    it("should pass through non-array values unchanged", () => {
+      const field: OptionFieldSchema = {
+        key: "test",
+        label: "Test",
+        type: "text",
+      };
+
+      expect(convertFieldValue("hello", field, "default")).toBe("hello");
+      expect(convertFieldValue(42, field, 10)).toBe(42);
+      expect(convertFieldValue(true, field, false)).toBe(true);
+    });
+
+    it("should convert comma-separated text to array when default is array", () => {
+      const field: OptionFieldSchema = {
+        key: "patterns",
+        label: "Patterns",
+        type: "text",
+      };
+      const defaultValue = ["a", "b", "c"];
+
+      const result = convertFieldValue("one, two, three", field, defaultValue);
+      expect(result).toEqual(["one", "two", "three"]);
+    });
+
+    it("should filter empty values from comma-separated text", () => {
+      const field: OptionFieldSchema = {
+        key: "patterns",
+        label: "Patterns",
+        type: "text",
+      };
+      const defaultValue = ["a"];
+
+      const result = convertFieldValue("one, , two, ", field, defaultValue);
+      expect(result).toEqual(["one", "two"]);
+    });
+
+    it("should trim whitespace from comma-separated values", () => {
+      const field: OptionFieldSchema = {
+        key: "patterns",
+        label: "Patterns",
+        type: "text",
+      };
+      const defaultValue = ["a"];
+
+      const result = convertFieldValue("  one  ,  two  ", field, defaultValue);
+      expect(result).toEqual(["one", "two"]);
+    });
+
+    it("should not convert to array if field type is not text", () => {
+      const field: OptionFieldSchema = {
+        key: "test",
+        label: "Test",
+        type: "select",
+        options: [{ value: "a", label: "A" }],
+      };
+      const defaultValue = ["a", "b"];
+
+      const result = convertFieldValue("one, two", field, defaultValue);
+      expect(result).toBe("one, two");
+    });
+
+    it("should not convert to array if defaultValue is not array", () => {
+      const field: OptionFieldSchema = {
+        key: "test",
+        label: "Test",
+        type: "text",
+      };
+
+      const result = convertFieldValue("one, two", field, "default");
+      expect(result).toBe("one, two");
+    });
+  });
+
+  describe("ConfiguredRule structure", () => {
+    it("should allow rules with custom options", () => {
+      const configuredRule: ConfiguredRule = {
+        rule: {
+          id: "test-rule",
+          name: "Test Rule",
+          description: "A test rule",
+          category: "static",
+          defaultSeverity: "warn",
+          docs: "Test documentation",
+        },
+        severity: "error",
+        options: [{ customOption: "value" }],
+      };
+
+      expect(configuredRule.severity).toBe("error");
+      expect(configuredRule.options).toEqual([{ customOption: "value" }]);
+    });
+
+    it("should allow rules without custom options", () => {
+      const configuredRule: ConfiguredRule = {
+        rule: {
+          id: "test-rule",
+          name: "Test Rule",
+          description: "A test rule",
+          category: "static",
+          defaultSeverity: "warn",
+          docs: "Test documentation",
+        },
+        severity: "warn",
+      };
+
+      expect(configuredRule.options).toBeUndefined();
     });
   });
 });

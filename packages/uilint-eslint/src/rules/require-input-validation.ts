@@ -33,6 +33,9 @@ export const meta = defineRuleMeta({
   description: "Require schema validation in API route handlers",
   defaultSeverity: "warn",
   category: "static",
+  icon: "✅",
+  hint: "Enforces input validation in APIs",
+  defaultEnabled: true,
   defaultOptions: [
     {
       httpMethods: ["POST", "PUT", "PATCH", "DELETE"],

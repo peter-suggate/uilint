@@ -5,7 +5,7 @@
  */
 
 import { join } from "path";
-import { ruleRegistry, getRulesByCategory, getRuleDocs } from "uilint-eslint";
+import { ruleRegistry, getRulesByCategory, getRuleDocs, getCategoryMeta } from "uilint-eslint";
 import type {
   Installer,
   InstallTarget,
@@ -18,10 +18,143 @@ import type {
   InstallAction,
   DependencyInstall,
 } from "../types.js";
-import type { RuleMeta } from "uilint-eslint";
+import type { RuleMeta, OptionFieldSchema } from "uilint-eslint";
 import * as prompts from "../../../utils/prompts.js";
 import { detectPackageManager } from "../../../utils/package-manager.js";
 import { toInstallSpecifier } from "../versioning.js";
+
+// ============================================================================
+// Rule Options Configuration Helpers
+// ============================================================================
+
+/**
+ * Prompt for a single option field based on its schema
+ */
+async function promptForField(
+  field: OptionFieldSchema,
+  currentValue: unknown
+): Promise<unknown> {
+  const hint = field.description ? prompts.pc.dim(` ${field.description}`) : "";
+
+  switch (field.type) {
+    case "boolean":
+      return prompts.confirm({
+        message: field.label,
+        initialValue: (currentValue as boolean) ?? (field.defaultValue as boolean) ?? false,
+      });
+
+    case "number": {
+      const numResult = await prompts.text({
+        message: field.label + hint,
+        placeholder: field.placeholder || String(currentValue ?? field.defaultValue ?? ""),
+        defaultValue: String(currentValue ?? field.defaultValue ?? ""),
+        validate: (value) => {
+          const num = Number(value);
+          if (isNaN(num)) return "Please enter a valid number";
+          return undefined;
+        },
+      });
+      return Number(numResult);
+    }
+
+    case "text": {
+      const defaultVal = currentValue ?? field.defaultValue ?? "";
+      // If default is an array, join it for display
+      const displayDefault = Array.isArray(defaultVal)
+        ? defaultVal.join(", ")
+        : String(defaultVal);
+
+      return prompts.text({
+        message: field.label + hint,
+        placeholder: field.placeholder || displayDefault,
+        defaultValue: displayDefault,
+      });
+    }
+
+    case "select":
+      if (!field.options?.length) {
+        return currentValue ?? field.defaultValue;
+      }
+      return prompts.select({
+        message: field.label + hint,
+        options: field.options.map((opt) => ({
+          value: String(opt.value),
+          label: opt.label,
+        })),
+        initialValue: String(currentValue ?? field.defaultValue),
+      });
+
+    case "multiselect":
+      if (!field.options?.length) {
+        return currentValue ?? field.defaultValue;
+      }
+      return prompts.multiselect({
+        message: field.label + hint,
+        options: field.options.map((opt) => ({
+          value: String(opt.value),
+          label: opt.label,
+        })),
+        initialValues: Array.isArray(currentValue)
+          ? currentValue.map(String)
+          : Array.isArray(field.defaultValue)
+            ? (field.defaultValue as string[]).map(String)
+            : [],
+      });
+
+    default:
+      return currentValue ?? field.defaultValue;
+  }
+}
+
+/**
+ * Convert field value to the expected type for the rule options
+ * Handles comma-separated text → array conversion
+ * @internal Exported for testing
+ */
+export function convertFieldValue(
+  value: unknown,
+  field: OptionFieldSchema,
+  defaultValue: unknown
+): unknown {
+  // If defaultValue is an array but field type is text, parse comma-separated
+  if (Array.isArray(defaultValue) && field.type === "text" && typeof value === "string") {
+    return value
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return value;
+}
+
+/**
+ * Configure options for a single rule based on its schema
+ */
+async function configureRuleOptions(
+  rule: RuleMeta
+): Promise<Record<string, unknown> | undefined> {
+  if (!rule.optionSchema?.fields?.length) {
+    return undefined;
+  }
+
+  prompts.log("");
+  prompts.log(
+    prompts.pc.bold(prompts.pc.cyan(`${rule.icon ?? "⚙️"}  ${rule.name}`)) +
+    prompts.pc.dim(` - ${rule.description}`)
+  );
+
+  const baseOptions = rule.defaultOptions?.[0] ?? {};
+  const options: Record<string, unknown> = {};
+
+  for (const field of rule.optionSchema.fields) {
+    const currentValue = (baseOptions as Record<string, unknown>)[field.key];
+    const defaultValue = currentValue ?? field.defaultValue;
+
+    const value = await promptForField(field, currentValue);
+    options[field.key] = convertFieldValue(value, field, defaultValue);
+  }
+
+  return options;
+}
 
 /**
  * Calculate upgrade info for a package that already has uilint rules configured
@@ -79,8 +212,8 @@ function formatRuleOption(rule: RuleMeta): {
       : prompts.pc.yellow("warn");
   return {
     value: rule.id,
-    label: `${rule.name}`,
-    hint: `${rule.description} [${severityBadge}]`,
+    label: `${rule.icon ?? ""} ${rule.name}`.trim(),
+    hint: `${rule.hint ?? rule.description} [${severityBadge}]`,
   };
 }
 
@@ -178,19 +311,22 @@ export const eslintInstaller: Installer = {
       }));
     } else {
       // Custom selection flow
-      prompts.log(prompts.pc.dim("\n📋 Static rules (pattern-based, fast):"));
+      const staticCat = getCategoryMeta("static");
+      const semanticCat = getCategoryMeta("semantic");
+
+      prompts.log(prompts.pc.dim(`\n${staticCat?.icon ?? "📋"} ${staticCat?.name ?? "Static rules"} (${staticCat?.description ?? "pattern-based, fast"}):`));
 
       // Select static rules
       const selectedStaticIds = await prompts.multiselect({
         message: "Select static rules to enable:",
         options: staticRules.map(formatRuleOption),
-        initialValues: staticRules.map((r) => r.id),
+        initialValues: staticRules.filter((r) => r.defaultEnabled ?? staticCat?.defaultEnabled ?? true).map((r) => r.id),
       });
 
       // Ask about semantic rules
       const includeSemanticRules = await prompts.confirm({
         message: `Include semantic rules? ${prompts.pc.dim(
-          "(requires Ollama for LLM analysis)"
+          `(${semanticCat?.description ?? "LLM-powered analysis"})`
         )}`,
         initialValue: false,
       });
@@ -198,12 +334,12 @@ export const eslintInstaller: Installer = {
       let selectedSemanticIds: string[] = [];
       if (includeSemanticRules) {
         prompts.log(
-          prompts.pc.dim("\n🧠 Semantic rules (LLM-powered, slower):")
+          prompts.pc.dim(`\n${semanticCat?.icon ?? "🧠"} ${semanticCat?.name ?? "Semantic rules"} (${semanticCat?.description ?? "LLM-powered, slower"}):`)
         );
         selectedSemanticIds = await prompts.multiselect({
           message: "Select semantic rules:",
           options: semanticRules.map(formatRuleOption),
-          initialValues: semanticRules.map((r) => r.id),
+          initialValues: semanticRules.filter((r) => r.defaultEnabled ?? semanticCat?.defaultEnabled ?? false).map((r) => r.id),
         });
       }
 
@@ -251,6 +387,37 @@ export const eslintInstaller: Installer = {
           });
         }
       }
+
+    }
+
+    // Step: Configure individual rule options (applies to all modes)
+    const rulesWithOptions = configuredRules.filter(
+      (cr) => cr.rule.optionSchema && cr.rule.optionSchema.fields.length > 0
+    );
+
+    if (rulesWithOptions.length > 0) {
+      const customizeOptions = await prompts.confirm({
+        message: `Customize rule options? ${prompts.pc.dim(
+          `(${rulesWithOptions.length} rules have configurable options)`
+        )}`,
+        initialValue: false,
+      });
+
+      if (customizeOptions) {
+        for (const cr of configuredRules) {
+          if (cr.rule.optionSchema && cr.rule.optionSchema.fields.length > 0) {
+            const options = await configureRuleOptions(cr.rule);
+            if (options) {
+              // Merge with existing defaultOptions structure
+              const existingOptions =
+                cr.options && cr.options.length > 0
+                  ? (cr.options[0] as Record<string, unknown>)
+                  : ({} as Record<string, unknown>);
+              cr.options = [{ ...existingOptions, ...options }];
+            }
+          }
+        }
+      }
     }
 
     // Summary
@@ -261,17 +428,12 @@ export const eslintInstaller: Installer = {
       (r) => r.severity === "warn"
     ).length;
 
-    // Check if no-semantic-duplicates rule is selected
-    const hasSemanticDuplicates = configuredRules.some(
-      (cr) => cr.rule.id === "no-semantic-duplicates"
-    );
-
     prompts.log("");
     prompts.note(
       configuredRules
         .map(
           (cr) =>
-            `${cr.severity === "error" ? "🔴" : "🟡"} ${cr.rule.name} (${
+            `${cr.severity === "error" ? "🔴" : "🟡"} ${cr.rule.icon ?? ""} ${cr.rule.name} (${
               cr.severity
             })`
         )
@@ -279,19 +441,35 @@ export const eslintInstaller: Installer = {
       `Selected ${configuredRules.length} rules (${errorCount} errors, ${warnCount} warnings)`
     );
 
-    // Remind about duplicates index requirement
-    if (hasSemanticDuplicates) {
+    // Display post-install instructions and requirements from rule metadata
+    const rulesWithInstructions = configuredRules.filter(
+      (cr) => cr.rule.postInstallInstructions || (cr.rule.requirements?.length ?? 0) > 0
+    );
+
+    if (rulesWithInstructions.length > 0) {
       prompts.log("");
-      prompts.log(
-        prompts.pc.yellow(
-          "⚠️  The no-semantic-duplicates rule requires a semantic index."
-        )
-      );
-      prompts.log(
-        prompts.pc.dim(
-          "   Run 'uilint duplicates index' in each target app to build it."
-        )
-      );
+      prompts.log(prompts.pc.bold("📋 Setup Requirements:"));
+
+      for (const cr of rulesWithInstructions) {
+        // Show requirements
+        if (cr.rule.requirements?.length) {
+          for (const req of cr.rule.requirements) {
+            prompts.log(
+              prompts.pc.yellow(`  ⚠️  ${cr.rule.name}: ${req.description}`)
+            );
+            if (req.setupHint) {
+              prompts.log(prompts.pc.dim(`     → ${req.setupHint}`));
+            }
+          }
+        }
+
+        // Show post-install instructions
+        if (cr.rule.postInstallInstructions) {
+          prompts.log(
+            prompts.pc.cyan(`  ℹ️  ${cr.rule.name}: ${cr.rule.postInstallInstructions}`)
+          );
+        }
+      }
     }
 
     return { configuredRules };

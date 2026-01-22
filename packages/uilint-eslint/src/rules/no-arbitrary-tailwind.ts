@@ -19,6 +19,9 @@ export const meta = defineRuleMeta({
   description: "Forbid arbitrary values like w-[123px], bg-[#fff]",
   defaultSeverity: "error",
   category: "static",
+  icon: "🎨",
+  hint: "Enforces design system tokens",
+  defaultEnabled: true,
   docs: `
 ## What it does
 

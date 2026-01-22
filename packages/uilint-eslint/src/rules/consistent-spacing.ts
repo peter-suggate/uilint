@@ -23,6 +23,9 @@ export const meta = defineRuleMeta({
   description: "Enforce spacing scale (no magic numbers in gap/padding)",
   defaultSeverity: "warn",
   category: "static",
+  icon: "📐",
+  hint: "Ensures consistent spacing scale",
+  defaultEnabled: true,
   defaultOptions: [{ scale: [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16] }],
   optionSchema: {
     fields: [

@@ -11,10 +11,18 @@ export type {
   RuleMeta,
   RuleOptionSchema,
   OptionFieldSchema,
+  RuleRequirement,
 } from "./utils/create-rule.js";
 
 // Backward compatibility alias
 export type { RuleMeta as RuleMetadata } from "./utils/create-rule.js";
+
+// Re-export category registry
+export {
+  categoryRegistry,
+  getCategoryMeta,
+  type CategoryMeta,
+} from "./category-registry.js";
 
 // Import colocated metadata from each rule file
 // Single-file rules

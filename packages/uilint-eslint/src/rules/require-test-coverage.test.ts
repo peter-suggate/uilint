@@ -629,3 +629,157 @@ export function ComponentWithHandlers() {
     ],
   });
 });
+
+// ============================================
+// CHUNK-LEVEL COVERAGE
+// ============================================
+describeWithFixtures("require-test-coverage chunk-level coverage", () => {
+  const fixtureDir = join(FIXTURES_DIR, "with-chunk-coverage");
+
+  ruleTester.run("require-test-coverage", rule, {
+    valid: [
+      {
+        // Chunk coverage disabled (default) - file-level reporting only
+        name: "no chunk warnings when chunkCoverage is disabled",
+        filename: join(fixtureDir, "src/utils.ts"),
+        code: `
+export function formatName(first: string, last: string): string {
+  return \`\${first} \${last}\`;
+}
+
+export function validateEmail(email: string): boolean {
+  return email.includes("@");
+}
+
+export function calculateTotal(items: number[]): number {
+  return items.reduce((sum, item) => sum + item, 0);
+}
+
+export const formatCurrency = (amount: number): string => {
+  return \`$\${amount.toFixed(2)}\`;
+};
+`,
+        options: [{
+          chunkCoverage: false,
+          severity: { noTestFile: "off", belowThreshold: "off" },
+        }],
+      },
+      {
+        // Chunk coverage enabled but severity is off
+        name: "no chunk warnings when chunkSeverity is off",
+        filename: join(fixtureDir, "src/utils.ts"),
+        code: `
+export function formatName(first: string, last: string): string {
+  return \`\${first} \${last}\`;
+}
+`,
+        options: [{
+          chunkCoverage: true,
+          chunkSeverity: "off",
+          severity: { noTestFile: "off" },
+        }],
+      },
+      {
+        // All chunks above threshold - threshold set low enough to pass
+        name: "no chunk warnings when all functions are covered",
+        filename: join(fixtureDir, "src/utils.ts"),
+        code: `
+export function formatName(first: string, last: string): string {
+  return \`\${first} \${last}\`;
+}
+`,
+        options: [{
+          chunkCoverage: true,
+          chunkThreshold: 0, // Allow any coverage
+          severity: { noTestFile: "off" },
+        }],
+      },
+      {
+        // focusNonReact with component - relaxed threshold allows low coverage
+        name: "no warning for component when focusNonReact uses relaxed threshold",
+        filename: join(fixtureDir, "src/Button.tsx"),
+        code: `
+import React from "react";
+
+export function Button({ onClick, label }: { onClick: () => void; label: string }) {
+  return <button onClick={onClick}>{label}</button>;
+}
+`,
+        options: [{
+          chunkCoverage: true,
+          focusNonReact: true,
+          chunkThreshold: 90,
+          relaxedThreshold: 0, // Allow any coverage for components
+          severity: { noTestFile: "off" },
+          aggregateSeverity: "off",
+          jsxSeverity: "off",
+        }],
+      },
+    ],
+    invalid: [
+      {
+        // Chunk coverage enabled - reports functions below threshold
+        name: "warns on utility functions below threshold",
+        filename: join(fixtureDir, "src/utils.ts"),
+        code: `
+export function formatName(first: string, last: string): string {
+  return \`\${first} \${last}\`;
+}
+`,
+        options: [{
+          chunkCoverage: true,
+          chunkThreshold: 80,
+          severity: { noTestFile: "off" },
+        }],
+        errors: [
+          // Function below threshold (coverage data doesn't match test code line numbers)
+          { messageId: "chunkBelowThreshold" },
+        ],
+      },
+      {
+        // Summary mode - reports one message for all low coverage chunks
+        name: "reports summary when chunkReportMode is summary",
+        filename: join(fixtureDir, "src/utils.ts"),
+        code: `
+export function formatName(first: string, last: string): string {
+  return \`\${first} \${last}\`;
+}
+
+export function calculateTotal(items: number[]): number {
+  return items.reduce((sum, item) => sum + item, 0);
+}
+`,
+        options: [{
+          chunkCoverage: true,
+          chunkThreshold: 80,
+          chunkReportMode: "summary",
+          severity: { noTestFile: "off" },
+        }],
+        errors: [
+          { messageId: "chunkSummaryBelowThreshold" },
+        ],
+      },
+      {
+        // focusNonReact mode - strict threshold applies to utility functions
+        name: "strict threshold applies to utilities with focusNonReact",
+        filename: join(fixtureDir, "src/utils.ts"),
+        code: `
+export function formatName(first: string, last: string): string {
+  return \`\${first} \${last}\`;
+}
+`,
+        options: [{
+          chunkCoverage: true,
+          focusNonReact: true,
+          chunkThreshold: 100, // Set impossibly high to guarantee error
+          relaxedThreshold: 40,
+          severity: { noTestFile: "off" },
+        }],
+        errors: [
+          // Utility will be below 100% threshold
+          { messageId: "chunkBelowThreshold" },
+        ],
+      },
+    ],
+  });
+});

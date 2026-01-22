@@ -26,6 +26,9 @@ export const meta = defineRuleMeta({
   description: "Ensure consistent dark: theming (error on mix, warn on missing)",
   defaultSeverity: "error",
   category: "static",
+  icon: "🌓",
+  hint: "Ensures dark mode consistency",
+  defaultEnabled: true,
   defaultOptions: [{ warnOnMissingDarkMode: true }],
   optionSchema: {
     fields: [

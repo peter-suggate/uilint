@@ -33,6 +33,9 @@ export const meta = defineRuleMeta({
   description: "Disallow 'any' type in React component props",
   defaultSeverity: "error",
   category: "static",
+  icon: "🔒",
+  hint: "Ensures type safety in component props",
+  defaultEnabled: true,
   defaultOptions: [{ checkFCGenerics: true, allowInGenericDefaults: false }],
   optionSchema: {
     fields: [
