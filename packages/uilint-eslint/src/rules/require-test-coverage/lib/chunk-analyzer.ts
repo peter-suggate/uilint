@@ -36,8 +36,10 @@ export interface ChunkInfo {
   category: ChunkCategory;
   /** Whether this is React-related code */
   isReactRelated: boolean;
-  /** Location in source */
+  /** Location in source (full function body) */
   loc: SourceLocation;
+  /** Location of just the declaration line (for error highlighting) */
+  declarationLoc: SourceLocation;
   /** Function ID in fnMap (if found) */
   fnId: string | null;
   /** Is this an export? */
@@ -252,7 +254,20 @@ interface ExportedFunction {
     | TSESTree.ArrowFunctionExpression
     | TSESTree.FunctionExpression;
   loc: SourceLocation;
+  /** Location of just the declaration line (for highlighting) */
+  declarationLoc: SourceLocation;
   body: TSESTree.Node | null;
+}
+
+/**
+ * Get declaration location - just the first line of the function
+ * This is used for error highlighting to avoid highlighting the entire function body
+ */
+function getDeclarationLoc(loc: SourceLocation): SourceLocation {
+  return {
+    start: loc.start,
+    end: { line: loc.start.line, column: 999 },
+  };
 }
 
 function collectExportedFunctions(ast: TSESTree.Program): ExportedFunction[] {
@@ -265,10 +280,12 @@ function collectExportedFunctions(ast: TSESTree.Program): ExportedFunction[] {
       node.declaration?.type === "FunctionDeclaration" &&
       node.declaration.id
     ) {
+      const loc = node.declaration.loc;
       exports.push({
         name: node.declaration.id.name,
         node: node.declaration,
-        loc: node.declaration.loc,
+        loc,
+        declarationLoc: getDeclarationLoc(loc),
         body: node.declaration.body,
       });
     }
@@ -285,10 +302,14 @@ function collectExportedFunctions(ast: TSESTree.Program): ExportedFunction[] {
           (decl.init.type === "ArrowFunctionExpression" ||
             decl.init.type === "FunctionExpression")
         ) {
+          // For arrow functions, use the variable declaration line, not the function body
+          const loc = decl.init.loc;
+          const declarationLoc = getDeclarationLoc(decl.loc);
           exports.push({
             name: decl.id.name,
             node: decl.init,
-            loc: decl.init.loc,
+            loc,
+            declarationLoc,
             body: decl.init.body,
           });
         }
@@ -301,10 +322,12 @@ function collectExportedFunctions(ast: TSESTree.Program): ExportedFunction[] {
       node.declaration.type === "FunctionDeclaration"
     ) {
       const name = node.declaration.id?.name ?? "default";
+      const loc = node.declaration.loc;
       exports.push({
         name,
         node: node.declaration,
-        loc: node.declaration.loc,
+        loc,
+        declarationLoc: getDeclarationLoc(loc),
         body: node.declaration.body,
       });
     }
@@ -315,10 +338,12 @@ function collectExportedFunctions(ast: TSESTree.Program): ExportedFunction[] {
       (node.declaration.type === "ArrowFunctionExpression" ||
         node.declaration.type === "FunctionExpression")
     ) {
+      const loc = node.declaration.loc;
       exports.push({
         name: "default",
         node: node.declaration,
-        loc: node.declaration.loc,
+        loc,
+        declarationLoc: getDeclarationLoc(loc),
         body: node.declaration.body,
       });
     }
@@ -359,6 +384,7 @@ export function analyzeChunks(
       category,
       isReactRelated,
       loc: exported.loc,
+      declarationLoc: exported.declarationLoc,
       fnId,
       isExport: true,
       coverage,

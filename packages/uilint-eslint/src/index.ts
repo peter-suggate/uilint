@@ -200,7 +200,6 @@ const recommendedConfig: Linter.Config = {
           "threshold": 80,
           "thresholdsByPattern": [],
           "severity": {
-            "noTestFile": "warn",
             "noCoverage": "error",
             "belowThreshold": "warn"
           },
@@ -366,7 +365,6 @@ const strictConfig: Linter.Config = {
           "threshold": 80,
           "thresholdsByPattern": [],
           "severity": {
-            "noTestFile": "warn",
             "noCoverage": "error",
             "belowThreshold": "warn"
           },

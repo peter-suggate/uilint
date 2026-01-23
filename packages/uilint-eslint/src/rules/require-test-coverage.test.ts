@@ -70,40 +70,6 @@ describeWithFixtures("require-test-coverage without coverage data", () => {
 });
 
 // ============================================
-// NO TEST FILE DETECTION
-// ============================================
-describeWithFixtures("require-test-coverage no test file", () => {
-  const fixtureDir = join(FIXTURES_DIR, "with-no-tests");
-
-  ruleTester.run("require-test-coverage", rule, {
-    valid: [
-      {
-        // File that HAS a corresponding test file
-        name: "no warning when test file exists",
-        filename: join(fixtureDir, "src/hasTest.ts"),
-        code: `export function greet(name: string): string { return \`Hello, \${name}!\`; }`,
-      },
-      {
-        // noTestFile severity is off
-        name: "no warning when noTestFile severity is off",
-        filename: join(fixtureDir, "src/noTest.ts"),
-        code: `export function farewell(name: string): string { return \`Goodbye, \${name}!\`; }`,
-        options: [{ severity: { noTestFile: "off" } }],
-      },
-    ],
-    invalid: [
-      {
-        // File with NO corresponding test file
-        name: "warns when no test file found",
-        filename: join(fixtureDir, "src/noTest.ts"),
-        code: `export function farewell(name: string): string { return \`Goodbye, \${name}!\`; }`,
-        errors: [{ messageId: "noTestFile" }],
-      },
-    ],
-  });
-});
-
-// ============================================
 // FULL COVERAGE (no violations)
 // ============================================
 describeWithFixtures("require-test-coverage full coverage", () => {
@@ -123,6 +89,7 @@ export function subtract(a: number, b: number): number {
   return a - b;
 }
 `,
+        options: [{ chunkCoverage: false }],
       },
     ],
     invalid: [],
@@ -146,6 +113,7 @@ export function formatName(first: string, last: string): string {
   return \`\${first} \${last}\`;
 }
 `,
+        options: [{ chunkCoverage: false }],
       },
       {
         // Poorly-covered file (14% coverage = 1/7 statements), but threshold lowered
@@ -156,14 +124,14 @@ export function calculateTotal(items: number[]): number {
   return items.reduce((sum, item) => sum + item, 0);
 }
 `,
-        options: [{ threshold: 10 }], // 14% > 10%
+        options: [{ threshold: 10, chunkCoverage: false }], // 14% > 10%
       },
       {
         // belowThreshold severity is off
         name: "no warning when belowThreshold severity is off",
         filename: join(fixtureDir, "src/uncovered.ts"),
         code: `export function calculateTotal(items: number[]): number { return items.reduce((sum, item) => sum + item, 0); }`,
-        options: [{ severity: { belowThreshold: "off" } }],
+        options: [{ severity: { belowThreshold: "off" }, chunkSeverity: "off" }],
       },
     ],
     invalid: [
@@ -176,6 +144,7 @@ export function calculateTotal(items: number[]): number {
   return items.reduce((sum, item) => sum + item, 0);
 }
 `,
+        options: [{ chunkCoverage: false }],
         errors: [{ messageId: "belowThreshold" }],
       },
       {
@@ -183,7 +152,7 @@ export function calculateTotal(items: number[]): number {
         name: "warns when coverage below custom threshold",
         filename: join(fixtureDir, "src/covered.ts"),
         code: `export function formatName(first: string, last: string): string { return \`\${first} \${last}\`; }`,
-        options: [{ threshold: 95 }], // 90% < 95%
+        options: [{ threshold: 95, chunkCoverage: false }], // 90% < 95%
         errors: [{ messageId: "belowThreshold" }],
       },
     ],
@@ -208,6 +177,7 @@ describeWithFixtures("require-test-coverage threshold by pattern", () => {
           thresholdsByPattern: [
             { pattern: "**/uncovered.ts", threshold: 10 }, // 14% > 10%
           ],
+          chunkCoverage: false,
         }],
       },
     ],
@@ -222,6 +192,7 @@ describeWithFixtures("require-test-coverage threshold by pattern", () => {
           thresholdsByPattern: [
             { pattern: "**/components/*.tsx", threshold: 30 },
           ],
+          chunkCoverage: false,
         }],
         errors: [{ messageId: "belowThreshold" }],
       },
@@ -250,35 +221,6 @@ describeWithFixtures("require-test-coverage ignore patterns", () => {
 });
 
 // ============================================
-// TEST FILE PATTERNS
-// ============================================
-describeWithFixtures("require-test-coverage test file patterns", () => {
-  const fixtureDir = join(FIXTURES_DIR, "with-no-tests");
-
-  ruleTester.run("require-test-coverage", rule, {
-    valid: [
-      {
-        // Custom test pattern matches
-        name: "finds test with custom pattern",
-        filename: join(fixtureDir, "src/hasTest.ts"),
-        code: `export function greet(name: string): string { return \`Hello, \${name}!\`; }`,
-        options: [{ testPatterns: [".test.ts"] }],
-      },
-    ],
-    invalid: [
-      {
-        // Custom test pattern doesn't match existing test
-        name: "does not find test when pattern excludes it",
-        filename: join(fixtureDir, "src/hasTest.ts"),
-        code: `export function greet(name: string): string { return \`Hello, \${name}!\`; }`,
-        options: [{ testPatterns: [".spec.ts"] }], // Only looks for .spec.ts, not .test.ts
-        errors: [{ messageId: "noTestFile" }],
-      },
-    ],
-  });
-});
-
-// ============================================
 // MODE: ALL vs CHANGED
 // ============================================
 describeWithFixtures("require-test-coverage mode", () => {
@@ -289,29 +231,29 @@ describeWithFixtures("require-test-coverage mode", () => {
       {
         // mode: "changed" - when git shows no changes for file (no diff)
         // The file has 25% coverage but since there are no git changes,
-        // we fall back to "all" mode. But we disable belowThreshold and noTestFile.
+        // we fall back to "all" mode. But we disable belowThreshold.
         name: "no warning in changed mode when no git changes",
         filename: join(fixtureDir, "src/modified.ts"),
         code: `export function existingFunction(): string { return "I exist"; }`,
         options: [{
           mode: "changed",
           baseBranch: "main",
-          severity: { noTestFile: "off", belowThreshold: "off" },
+          severity: { belowThreshold: "off" },
+          chunkSeverity: "off",
         }],
       },
     ],
     invalid: [
       {
         // mode: "all" (default) - check all uncovered code (25% coverage < 80%)
-        // Also reports noTestFile since there's no test file for modified.ts
         name: "warns on all uncovered code in default mode",
         filename: join(fixtureDir, "src/modified.ts"),
         code: `
 export function existingFunction(): string { return "I exist"; }
 export function newFunction(): string { return "I am new"; }
 `,
+        options: [{ chunkCoverage: false }],
         errors: [
-          { messageId: "noTestFile" },
           { messageId: "belowThreshold" },
         ],
       },
@@ -332,7 +274,7 @@ describeWithFixtures("require-test-coverage coverage path", () => {
         name: "uses custom coverage path",
         filename: join(fixtureDir, "src/utils.ts"),
         code: `export function add(a: number, b: number): number { return a + b; }`,
-        options: [{ coveragePath: "coverage/coverage-final.json" }],
+        options: [{ coveragePath: "coverage/coverage-final.json", chunkCoverage: false }],
       },
     ],
     invalid: [],
@@ -352,6 +294,7 @@ describeWithFixtures("require-test-coverage message format", () => {
         name: "includes coverage percentage in error message",
         filename: join(fixtureDir, "src/uncovered.ts"),
         code: `export function calculateTotal(items: number[]): number { return items.reduce((sum, item) => sum + item, 0); }`,
+        options: [{ chunkCoverage: false }],
         errors: [
           {
             messageId: "belowThreshold",
@@ -384,7 +327,6 @@ describeWithFixtures("require-test-coverage severity levels", () => {
         code: `export function farewell(name: string): string { return \`Goodbye, \${name}!\`; }`,
         options: [{
           severity: {
-            noTestFile: "off",
             noCoverage: "off",
             belowThreshold: "off",
           },
@@ -414,7 +356,7 @@ export function WellTestedComponent() {
 `,
         options: [{
           aggregateThreshold: 70,
-          severity: { noTestFile: "off" },
+          severity: {},
         }],
       },
       {
@@ -432,7 +374,7 @@ export function Component() {
 `,
         options: [{
           aggregateSeverity: "off",
-          severity: { noTestFile: "off" },
+          severity: {},
         }],
       },
       {
@@ -446,7 +388,7 @@ export function helper(value: number): number {
 `,
         options: [{
           aggregateThreshold: 70,
-          severity: { noTestFile: "off" },
+          severity: {},
         }],
       },
       {
@@ -466,7 +408,8 @@ function fetchFromApi() {
 `,
         options: [{
           aggregateThreshold: 70,
-          severity: { noTestFile: "off", belowThreshold: "off" },
+          severity: { belowThreshold: "off" },
+          chunkSeverity: "off",
         }],
       },
     ],
@@ -487,7 +430,7 @@ export function Component() {
 `,
         options: [{
           aggregateThreshold: 70,
-          severity: { noTestFile: "off" },
+          severity: {},
         }],
         errors: [{ messageId: "belowAggregateThreshold" }],
       },
@@ -506,7 +449,7 @@ export function Component() {
 `,
         options: [{
           aggregateThreshold: 50,
-          severity: { noTestFile: "off" },
+          severity: {},
         }],
         errors: [{ messageId: "belowAggregateThreshold" }],
       },
@@ -540,7 +483,7 @@ export function WellTestedComponent() {
 `,
         options: [{
           jsxThreshold: 50,
-          severity: { noTestFile: "off", belowThreshold: "off" },
+          severity: { belowThreshold: "off" },
           aggregateSeverity: "off",
         }],
       },
@@ -560,8 +503,9 @@ export function SimpleComponent() {
 `,
         options: [{
           jsxThreshold: 50,
-          severity: { noTestFile: "off", belowThreshold: "off" },
+          severity: { belowThreshold: "off" },
           aggregateSeverity: "off",
+          chunkSeverity: "off",
         }],
       },
       {
@@ -579,8 +523,9 @@ export function ComponentWithHandlers() {
 `,
         options: [{
           jsxSeverity: "off",
-          severity: { noTestFile: "off", belowThreshold: "off" },
+          severity: { belowThreshold: "off" },
           aggregateSeverity: "off",
+          chunkSeverity: "off",
         }],
       },
     ],
@@ -617,8 +562,9 @@ export function ComponentWithHandlers() {
 `,
         options: [{
           jsxThreshold: 50,
-          severity: { noTestFile: "off", belowThreshold: "off" },
+          severity: { belowThreshold: "off" },
           aggregateSeverity: "off",
+          chunkSeverity: "off",
         }],
         errors: [
           // The <form> element has 33% coverage (below 50% threshold)
@@ -661,7 +607,7 @@ export const formatCurrency = (amount: number): string => {
 `,
         options: [{
           chunkCoverage: false,
-          severity: { noTestFile: "off", belowThreshold: "off" },
+          severity: { belowThreshold: "off" },
         }],
       },
       {
@@ -676,7 +622,7 @@ export function formatName(first: string, last: string): string {
         options: [{
           chunkCoverage: true,
           chunkSeverity: "off",
-          severity: { noTestFile: "off" },
+          severity: {},
         }],
       },
       {
@@ -691,7 +637,7 @@ export function formatName(first: string, last: string): string {
         options: [{
           chunkCoverage: true,
           chunkThreshold: 0, // Allow any coverage
-          severity: { noTestFile: "off" },
+          severity: {},
         }],
       },
       {
@@ -710,7 +656,7 @@ export function Button({ onClick, label }: { onClick: () => void; label: string 
           focusNonReact: true,
           chunkThreshold: 90,
           relaxedThreshold: 0, // Allow any coverage for components
-          severity: { noTestFile: "off" },
+          severity: {},
           aggregateSeverity: "off",
           jsxSeverity: "off",
         }],
@@ -729,34 +675,11 @@ export function formatName(first: string, last: string): string {
         options: [{
           chunkCoverage: true,
           chunkThreshold: 80,
-          severity: { noTestFile: "off" },
+          severity: {},
         }],
         errors: [
           // Function below threshold (coverage data doesn't match test code line numbers)
           { messageId: "chunkBelowThreshold" },
-        ],
-      },
-      {
-        // Summary mode - reports one message for all low coverage chunks
-        name: "reports summary when chunkReportMode is summary",
-        filename: join(fixtureDir, "src/utils.ts"),
-        code: `
-export function formatName(first: string, last: string): string {
-  return \`\${first} \${last}\`;
-}
-
-export function calculateTotal(items: number[]): number {
-  return items.reduce((sum, item) => sum + item, 0);
-}
-`,
-        options: [{
-          chunkCoverage: true,
-          chunkThreshold: 80,
-          chunkReportMode: "summary",
-          severity: { noTestFile: "off" },
-        }],
-        errors: [
-          { messageId: "chunkSummaryBelowThreshold" },
         ],
       },
       {
@@ -773,7 +696,7 @@ export function formatName(first: string, last: string): string {
           focusNonReact: true,
           chunkThreshold: 100, // Set impossibly high to guarantee error
           relaxedThreshold: 40,
-          severity: { noTestFile: "off" },
+          severity: {},
         }],
         errors: [
           // Utility will be below 100% threshold

@@ -171,7 +171,8 @@ function TextField({
 }
 
 /**
- * Select field - single selection from options
+ * Select field - cycle through options with space or left/right arrows
+ * Uses inline display to avoid conflicts with parent navigation
  */
 function SelectField({
   field,
@@ -183,54 +184,41 @@ function SelectField({
   const currentIndex = options.findIndex(
     (opt) => String(opt.value) === String(value)
   );
-  const [selectedIndex, setSelectedIndex] = useState(
-    currentIndex >= 0 ? currentIndex : 0
-  );
+  const selectedIndex = currentIndex >= 0 ? currentIndex : 0;
 
   useInput(
     (input, key) => {
       if (!isActive || options.length === 0) return;
 
-      if (key.upArrow) {
-        const newIndex = selectedIndex > 0 ? selectedIndex - 1 : options.length - 1;
-        setSelectedIndex(newIndex);
-        onChange(options[newIndex]!.value);
-      } else if (key.downArrow) {
+      // Space or right arrow cycles forward
+      if (input === " " || key.rightArrow) {
         const newIndex = selectedIndex < options.length - 1 ? selectedIndex + 1 : 0;
-        setSelectedIndex(newIndex);
+        onChange(options[newIndex]!.value);
+      }
+      // Left arrow cycles backward
+      else if (key.leftArrow) {
+        const newIndex = selectedIndex > 0 ? selectedIndex - 1 : options.length - 1;
         onChange(options[newIndex]!.value);
       }
     },
     { isActive }
   );
 
+  const selectedOption = options[selectedIndex];
+
   return (
-    <Box flexDirection="column">
-      <Box>
-        <Text color={isActive ? "cyan" : undefined}>
-          {isActive ? "› " : "  "}
-        </Text>
-        <Text>{field.label}</Text>
-        {field.description && (
-          <Text dimColor> - {field.description}</Text>
-        )}
-      </Box>
-      {isActive && (
-        <Box flexDirection="column" paddingLeft={4}>
-          {options.map((opt, i) => (
-            <Box key={String(opt.value)}>
-              <Text color={i === selectedIndex ? "cyan" : undefined}>
-                {i === selectedIndex ? "◉ " : "○ "}
-                {opt.label}
-              </Text>
-            </Box>
-          ))}
-        </Box>
-      )}
-      {!isActive && options[selectedIndex] && (
-        <Box paddingLeft={4}>
-          <Text dimColor>Selected: {options[selectedIndex]!.label}</Text>
-        </Box>
+    <Box>
+      <Text color={isActive ? "cyan" : undefined}>
+        {isActive ? "› " : "  "}
+      </Text>
+      <Text>{field.label}: </Text>
+      <Text color={isActive ? "cyan" : undefined} bold={isActive}>
+        {"◀ "}
+        {selectedOption?.label ?? "(none)"}
+        {" ▶"}
+      </Text>
+      {field.description && (
+        <Text dimColor> ({field.description})</Text>
       )}
     </Box>
   );

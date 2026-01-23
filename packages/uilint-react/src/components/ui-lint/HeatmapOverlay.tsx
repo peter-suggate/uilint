@@ -19,6 +19,7 @@ import {
   calculateHeatmapOpacity,
   getHeatmapBorderColor,
 } from "./heatmap-colors";
+import { getCoverageColor } from "./coverage-colors";
 
 /**
  * Design tokens - uses CSS variables for theme support
@@ -36,6 +37,19 @@ interface HeatmapElement {
   rect: DOMRect;
   issueCount: number;
   opacity: number;
+  coverage?: number; // Coverage percentage (0-100)
+}
+
+/**
+ * Extract data-loc value from an element's id
+ * Element IDs are in format "loc:path:line:column" when they have data-loc
+ */
+function getDataLocFromId(id: string): string | null {
+  if (id.startsWith("loc:")) {
+    const raw = id.slice(4); // Remove "loc:" prefix
+    return raw.split("#")[0] || null;
+  }
+  return null;
 }
 
 export function HeatmapOverlay() {
@@ -46,6 +60,11 @@ export function HeatmapOverlay() {
   const elementIssuesCache = useUILintStore(
     (s: UILintStore) => s.elementIssuesCache
   );
+
+  // Coverage state
+  const elementCoverageData = useUILintStore((s: UILintStore) => s.elementCoverageData);
+  const requestCoverage = useUILintStore((s: UILintStore) => s.requestCoverage);
+  const coverageStatus = useUILintStore((s: UILintStore) => s.coverageStatus);
 
   const [mounted, setMounted] = useState(false);
   const [heatmapElements, setHeatmapElements] = useState<HeatmapElement[]>([]);
@@ -72,6 +91,13 @@ export function HeatmapOverlay() {
     setMounted(true);
   }, []);
 
+  // Request coverage data when command palette opens (if not already loaded)
+  useEffect(() => {
+    if (commandPaletteOpen && coverageStatus === "idle") {
+      requestCoverage();
+    }
+  }, [commandPaletteOpen, coverageStatus, requestCoverage]);
+
   // Calculate heatmap positions and colors
   useEffect(() => {
     if (autoScanState.status === "idle") {
@@ -93,8 +119,15 @@ export function HeatmapOverlay() {
 
         const issueCount = mergedIssueCounts.get(element.id) ?? 0;
 
-        // Skip elements with no issues in heatmap mode
-        if (issueCount === 0) continue;
+        // Get coverage for this element using dataLoc
+        const dataLoc = getDataLocFromId(element.id);
+        let coverage: number | undefined;
+        if (dataLoc && elementCoverageData.size > 0) {
+          coverage = elementCoverageData.get(dataLoc);
+        }
+
+        // Show elements that have issues OR coverage data
+        if (issueCount === 0 && coverage === undefined) continue;
 
         const visible = getElementVisibleRect(element.element);
         if (!visible) continue;
@@ -116,6 +149,7 @@ export function HeatmapOverlay() {
           }),
           issueCount,
           opacity,
+          coverage,
         });
       }
 
@@ -149,7 +183,7 @@ export function HeatmapOverlay() {
       window.removeEventListener("resize", handleResize);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [autoScanState.status, autoScanState.elements, mergedIssueCounts]);
+  }, [autoScanState.status, autoScanState.elements, mergedIssueCounts, elementCoverageData]);
 
   // Filter elements based on command palette visible results
   const visibleElements = useMemo(() => {
@@ -174,7 +208,13 @@ export function HeatmapOverlay() {
     // Filter to elements that match visible command palette results
     // Visible result IDs include: rule:X, file:X, issue:X, capture:X
     // We need to match elements that have issues from visible rules/files/issues
+    // OR elements that have coverage data (coverage-only elements)
     return filteredElements.filter((el) => {
+      // If element has coverage data, always show it
+      if (el.coverage !== undefined) {
+        return true;
+      }
+
       const cached = elementIssuesCache.get(el.element.id);
       if (!cached) return false;
 
@@ -321,7 +361,8 @@ function getGradientBorderColors(opacity: number): [string, string] {
 }
 
 /** Size of the clickable corner circle indicator */
-const CORNER_CIRCLE_SIZE = 12;
+const CORNER_CIRCLE_SIZE_SMALL = 12;  // No coverage text
+const CORNER_CIRCLE_SIZE_LARGE = 26;  // With coverage text
 
 function HeatmapRect({
   item,
@@ -330,7 +371,21 @@ function HeatmapRect({
   onLeave,
   onClick,
 }: HeatmapRectProps) {
-  const { rect, issueCount, opacity } = item;
+  const { rect, issueCount, opacity, coverage } = item;
+
+  const hasCoverage = coverage !== undefined;
+  const hasIssues = issueCount > 0;
+
+  // Determine dot size and color
+  const circleSize = hasCoverage ? CORNER_CIRCLE_SIZE_LARGE : CORNER_CIRCLE_SIZE_SMALL;
+
+  // Coverage color (green/yellow/red) when coverage exists, otherwise issue amber color
+  const dotColor = hasCoverage
+    ? getCoverageColor(coverage)
+    : getHeatmapBorderColor(opacity);
+
+  // Only show border frame if element has issues
+  const showBorder = hasIssues;
 
   const borderWidth = getBorderWidth(opacity, isHovered);
   const displayOpacity = isHovered ? Math.min(opacity + 0.15, 0.7) : opacity;
@@ -340,47 +395,63 @@ function HeatmapRect({
   const outerWidth = rect.width + borderWidth * 2;
   const outerHeight = rect.height + borderWidth * 2;
 
+  // Build tooltip text
+  let tooltipText = "";
+  if (hasCoverage && hasIssues) {
+    tooltipText = `${Math.round(coverage)}% coverage · ${issueCount} issue${issueCount !== 1 ? "s" : ""}`;
+  } else if (hasCoverage) {
+    tooltipText = `${Math.round(coverage)}% coverage`;
+  } else if (hasIssues) {
+    tooltipText = `${issueCount} issue${issueCount !== 1 ? "s" : ""}`;
+  }
+
   return (
     <>
-      {/* Gradient border overlay - transparent at bottom-left, opaque at top-right */}
-      <div
-        data-ui-lint
-        style={{
-          position: "fixed",
-          top: rect.top - borderWidth,
-          left: rect.left - borderWidth,
-          width: outerWidth,
-          height: outerHeight,
-          background: `linear-gradient(135deg, ${transparentColor} 0%, ${opaqueColor} 100%)`,
-          borderRadius: "6px",
-          pointerEvents: "none",
-          transition: "opacity 150ms",
-          zIndex: isHovered ? 99998 : 99995,
-          // Create border frame using clip-path (outer rect minus inner rect)
-          clipPath: `polygon(
-            evenodd,
-            0 0, ${outerWidth}px 0, ${outerWidth}px ${outerHeight}px, 0 ${outerHeight}px, 0 0,
-            ${borderWidth}px ${borderWidth}px, ${borderWidth}px ${outerHeight - borderWidth}px, ${outerWidth - borderWidth}px ${outerHeight - borderWidth}px, ${outerWidth - borderWidth}px ${borderWidth}px, ${borderWidth}px ${borderWidth}px
-          )`,
-        }}
-      />
+      {/* Gradient border overlay - only shown if element has issues */}
+      {showBorder && (
+        <div
+          data-ui-lint
+          style={{
+            position: "fixed",
+            top: rect.top - borderWidth,
+            left: rect.left - borderWidth,
+            width: outerWidth,
+            height: outerHeight,
+            background: `linear-gradient(135deg, ${transparentColor} 0%, ${opaqueColor} 100%)`,
+            borderRadius: "6px",
+            pointerEvents: "none",
+            transition: "opacity 150ms",
+            zIndex: isHovered ? 99998 : 99995,
+            // Create border frame using clip-path (outer rect minus inner rect)
+            clipPath: `polygon(
+              evenodd,
+              0 0, ${outerWidth}px 0, ${outerWidth}px ${outerHeight}px, 0 ${outerHeight}px, 0 0,
+              ${borderWidth}px ${borderWidth}px, ${borderWidth}px ${outerHeight - borderWidth}px, ${outerWidth - borderWidth}px ${outerHeight - borderWidth}px, ${outerWidth - borderWidth}px ${borderWidth}px, ${borderWidth}px ${borderWidth}px
+            )`,
+          }}
+        />
+      )}
 
-      {/* Clickable corner circle at top-right */}
+      {/* Clickable corner dot at top-right - shows coverage % when available */}
       <div
         data-ui-lint
         style={{
           position: "fixed",
-          top: rect.top - CORNER_CIRCLE_SIZE / 2,
-          left: rect.left + rect.width - CORNER_CIRCLE_SIZE / 2,
-          width: CORNER_CIRCLE_SIZE,
-          height: CORNER_CIRCLE_SIZE,
-          backgroundColor: opaqueColor,
+          top: rect.top - circleSize / 2,
+          left: rect.left + rect.width - circleSize / 2,
+          width: circleSize,
+          height: circleSize,
+          backgroundColor: dotColor,
           borderRadius: "50%",
           pointerEvents: "auto",
           cursor: "pointer",
           zIndex: 99999,
           transition: "transform 150ms, background-color 150ms",
-          transform: isHovered ? "scale(1.2)" : "scale(1)",
+          transform: isHovered ? "scale(1.1)" : "scale(1)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: STYLES.font,
         }}
         onMouseEnter={onHover}
         onMouseLeave={onLeave}
@@ -388,11 +459,26 @@ function HeatmapRect({
           e.stopPropagation();
           onClick();
         }}
-        title="Add to filter"
-      />
+        title={tooltipText}
+      >
+        {/* Show coverage percentage inside dot when coverage is available */}
+        {hasCoverage && (
+          <span
+            style={{
+              fontSize: "9px",
+              fontWeight: 700,
+              color: "white",
+              textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+              lineHeight: 1,
+            }}
+          >
+            {Math.round(coverage)}%
+          </span>
+        )}
+      </div>
 
-      {/* Issue count tooltip on hover */}
-      {isHovered && (
+      {/* Tooltip on hover */}
+      {isHovered && tooltipText && (
         <div
           data-ui-lint
           style={{
@@ -414,7 +500,7 @@ function HeatmapRect({
             pointerEvents: "none",
           }}
         >
-          {issueCount} issue{issueCount !== 1 ? "s" : ""}
+          {tooltipText}
         </div>
       )}
     </>

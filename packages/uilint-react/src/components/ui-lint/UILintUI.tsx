@@ -19,7 +19,6 @@ export function UILintUI() {
     FloatingIcon: React.ComponentType;
     CommandPalette: React.ComponentType;
     HeatmapOverlay: React.ComponentType;
-    CoverageHeatmapOverlay: React.ComponentType;
     IndexingIndicator: React.ComponentType;
   } | null>(null);
 
@@ -29,21 +28,18 @@ export function UILintUI() {
       import("./FloatingIcon"),
       import("./command-palette"),
       import("./HeatmapOverlay"),
-      import("./CoverageHeatmapOverlay"),
       import("./IndexingIndicator"),
     ]).then(
       ([
         floatingIcon,
         commandPalette,
         heatmap,
-        coverageHeatmap,
         indexingIndicator,
       ]) => {
         setComponents({
           FloatingIcon: floatingIcon.FloatingIcon,
           CommandPalette: commandPalette.CommandPalette,
           HeatmapOverlay: heatmap.HeatmapOverlay,
-          CoverageHeatmapOverlay: coverageHeatmap.CoverageHeatmapOverlay,
           IndexingIndicator: indexingIndicator.IndexingIndicator,
         });
       }
@@ -56,7 +52,6 @@ export function UILintUI() {
     FloatingIcon,
     CommandPalette,
     HeatmapOverlay,
-    CoverageHeatmapOverlay,
     IndexingIndicator,
   } = components;
 
@@ -64,12 +59,9 @@ export function UILintUI() {
     <>
       <FloatingIcon />
       <CommandPalette />
-      {/* HeatmapOverlay shows issue density visualization -
+      {/* HeatmapOverlay shows issue density and coverage visualization -
           it internally shows/hides based on command palette selection or Alt key */}
       {liveScanEnabled && <HeatmapOverlay />}
-      {/* CoverageHeatmapOverlay shows coverage percentage overlay -
-          it internally shows/hides based on showCoverageHeatmap state */}
-      {liveScanEnabled && <CoverageHeatmapOverlay />}
       <IndexingIndicator />
     </>
   );

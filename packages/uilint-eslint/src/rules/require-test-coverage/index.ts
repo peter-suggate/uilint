@@ -20,11 +20,7 @@ import {
   analyzeJSXElementCoverage,
   type IstanbulCoverage as JSXAnalyzerIstanbulCoverage,
 } from "./lib/jsx-coverage-analyzer.js";
-import {
-  analyzeChunks,
-  getChunkThreshold,
-  type ChunkCoverageResult,
-} from "./lib/chunk-analyzer.js";
+import { analyzeChunks, getChunkThreshold } from "./lib/chunk-analyzer.js";
 import type { TSESTree } from "@typescript-eslint/utils";
 
 /**
@@ -50,14 +46,12 @@ function simpleGlobMatch(pattern: string, path: string): boolean {
 }
 
 type MessageIds =
-  | "noTestFile"
   | "noCoverage"
   | "belowThreshold"
   | "noCoverageData"
   | "belowAggregateThreshold"
   | "jsxBelowThreshold"
   | "chunkBelowThreshold"
-  | "chunkSummaryBelowThreshold"
   | "untestedFunction";
 
 type SeverityLevel = "error" | "warn" | "off";
@@ -72,7 +66,6 @@ type Options = [
     thresholdsByPattern?: Array<{ pattern: string; threshold: number }>;
     /** Severity levels for different issue types */
     severity?: {
-      noTestFile?: SeverityLevel;
       noCoverage?: SeverityLevel;
       belowThreshold?: SeverityLevel;
     };
@@ -100,8 +93,6 @@ type Options = [
     focusNonReact?: boolean;
     /** Threshold for relaxed categories (component/handler). Default: 50 */
     relaxedThreshold?: number;
-    /** Report mode: "each" (one per chunk) or "summary" (aggregated). Default: "each" */
-    chunkReportMode?: "each" | "summary";
     /** Severity for chunk coverage. Default: "warn" */
     chunkSeverity?: SeverityLevel;
   }
@@ -177,7 +168,6 @@ export const meta = defineRuleMeta({
       threshold: 80,
       thresholdsByPattern: [],
       severity: {
-        noTestFile: "warn",
         noCoverage: "error",
         belowThreshold: "warn",
       },
@@ -224,7 +214,7 @@ export const meta = defineRuleMeta({
         key: "chunkCoverage",
         label: "Enable chunk-level coverage",
         type: "boolean",
-        defaultValue: false,
+        defaultValue: true,
         description:
           "Report coverage for individual functions instead of file level",
       },
@@ -603,8 +593,6 @@ export default createRule<Options, MessageIds>({
       description: "Enforce that source files have adequate test coverage",
     },
     messages: {
-      noTestFile:
-        "No test file found for '{{fileName}}'. Expected one of: {{patterns}}",
       noCoverage:
         "No coverage data found for '{{fileName}}' in coverage report",
       belowThreshold:
@@ -618,8 +606,6 @@ export default createRule<Options, MessageIds>({
         "<{{tagName}}> element coverage is {{coverage}}%, below threshold of {{threshold}}%",
       chunkBelowThreshold:
         "{{category}} '{{name}}' has {{coverage}}% coverage, below {{threshold}}% threshold",
-      chunkSummaryBelowThreshold:
-        "{{count}} functions below threshold. Lowest: '{{lowestName}}' ({{lowestCoverage}}%)",
       untestedFunction:
         "Function '{{name}}' ({{category}}) is not covered by tests",
     },
@@ -653,7 +639,6 @@ export default createRule<Options, MessageIds>({
           severity: {
             type: "object",
             properties: {
-              noTestFile: { type: "string", enum: ["error", "warn", "off"] },
               noCoverage: { type: "string", enum: ["error", "warn", "off"] },
               belowThreshold: {
                 type: "string",
@@ -728,11 +713,6 @@ export default createRule<Options, MessageIds>({
             maximum: 100,
             description: "Threshold for relaxed categories (component/handler)",
           },
-          chunkReportMode: {
-            type: "string",
-            enum: ["each", "summary"],
-            description: "Report mode: one per chunk or aggregated summary",
-          },
           chunkSeverity: {
             type: "string",
             enum: ["error", "warn", "off"],
@@ -749,7 +729,6 @@ export default createRule<Options, MessageIds>({
       threshold: 80,
       thresholdsByPattern: [],
       severity: {
-        noTestFile: "warn",
         noCoverage: "error",
         belowThreshold: "warn",
       },
@@ -767,11 +746,10 @@ export default createRule<Options, MessageIds>({
       aggregateSeverity: "warn",
       jsxThreshold: 50,
       jsxSeverity: "warn",
-      chunkCoverage: false,
+      chunkCoverage: true,
       chunkThreshold: 80,
       focusNonReact: false,
       relaxedThreshold: 50,
-      chunkReportMode: "each",
       chunkSeverity: "warn",
     },
   ],
@@ -781,7 +759,6 @@ export default createRule<Options, MessageIds>({
     const threshold = options.threshold ?? 80;
     const thresholdsByPattern = options.thresholdsByPattern ?? [];
     const severity = {
-      noTestFile: options.severity?.noTestFile ?? "warn",
       noCoverage: options.severity?.noCoverage ?? "error",
       belowThreshold: options.severity?.belowThreshold ?? "warn",
     };
@@ -802,11 +779,10 @@ export default createRule<Options, MessageIds>({
     const baseBranch = options.baseBranch ?? "main";
     const jsxThreshold = options.jsxThreshold ?? 50;
     const jsxSeverity = options.jsxSeverity ?? "warn";
-    const chunkCoverage = options.chunkCoverage ?? false;
+    const chunkCoverage = options.chunkCoverage ?? true;
     const chunkThreshold = options.chunkThreshold ?? 80;
     const focusNonReact = options.focusNonReact ?? false;
     const relaxedThreshold = options.relaxedThreshold ?? 50;
-    const chunkReportMode = options.chunkReportMode ?? "each";
     const chunkSeverity = options.chunkSeverity ?? "warn";
 
     const filename = context.filename || context.getFilename();
@@ -863,21 +839,6 @@ export default createRule<Options, MessageIds>({
             });
           }
           return;
-        }
-
-        // Check for test file
-        if (severity.noTestFile !== "off") {
-          if (!testFileExists(filename, testPatterns)) {
-            context.report({
-              node,
-              messageId: "noTestFile",
-              data: {
-                fileName: basename(filename),
-                patterns: testPatterns.join(", "),
-              },
-            });
-            // Don't return - continue to check coverage
-          }
         }
 
         // Find coverage for this file
@@ -947,57 +908,30 @@ export default createRule<Options, MessageIds>({
             fileCoverage
           );
 
-          if (chunkReportMode === "summary" && chunks.length > 0) {
-            // Summary mode: report one message with aggregate info
-            const lowCoverageChunks = chunks.filter((chunk) => {
-              const chunkThresholdValue = getChunkThreshold(chunk, {
-                focusNonReact,
-                chunkThreshold,
-                relaxedThreshold,
-              });
-              return chunk.coverage.percentage < chunkThresholdValue;
+          // Report one message per chunk below threshold, highlighting just the declaration
+          for (const chunk of chunks) {
+            const chunkThresholdValue = getChunkThreshold(chunk, {
+              focusNonReact,
+              chunkThreshold,
+              relaxedThreshold,
             });
 
-            if (lowCoverageChunks.length > 0) {
-              const lowest = lowCoverageChunks.reduce((min, c) =>
-                c.coverage.percentage < min.coverage.percentage ? c : min
-              );
+            if (chunk.coverage.percentage < chunkThresholdValue) {
+              const messageId =
+                chunk.coverage.functionCalled
+                  ? "chunkBelowThreshold"
+                  : "untestedFunction";
+
               context.report({
-                node,
-                messageId: "chunkSummaryBelowThreshold",
+                loc: chunk.declarationLoc,
+                messageId,
                 data: {
-                  count: String(lowCoverageChunks.length),
-                  lowestName: lowest.name,
-                  lowestCoverage: String(lowest.coverage.percentage),
+                  name: chunk.name,
+                  category: chunk.category,
+                  coverage: String(chunk.coverage.percentage),
+                  threshold: String(chunkThresholdValue),
                 },
               });
-            }
-          } else {
-            // Each mode: report one message per chunk below threshold
-            for (const chunk of chunks) {
-              const chunkThresholdValue = getChunkThreshold(chunk, {
-                focusNonReact,
-                chunkThreshold,
-                relaxedThreshold,
-              });
-
-              if (chunk.coverage.percentage < chunkThresholdValue) {
-                const messageId =
-                  chunk.coverage.functionCalled
-                    ? "chunkBelowThreshold"
-                    : "untestedFunction";
-
-                context.report({
-                  loc: chunk.loc,
-                  messageId,
-                  data: {
-                    name: chunk.name,
-                    category: chunk.category,
-                    coverage: String(chunk.coverage.percentage),
-                    threshold: String(chunkThresholdValue),
-                  },
-                });
-              }
             }
           }
         }
@@ -1079,13 +1013,13 @@ export default createRule<Options, MessageIds>({
                 tagName = openingElement.name.name;
               } else if (openingElement.name.type === "JSXMemberExpression") {
                 // For Foo.Bar, use "Foo.Bar"
-                let current = openingElement.name;
+                let current: TSESTree.JSXTagNameExpression = openingElement.name;
                 const parts: string[] = [];
                 while (current.type === "JSXMemberExpression") {
                   if (current.property.type === "JSXIdentifier") {
                     parts.unshift(current.property.name);
                   }
-                  current = current.object as TSESTree.JSXMemberExpression | TSESTree.JSXIdentifier;
+                  current = current.object;
                 }
                 if (current.type === "JSXIdentifier") {
                   parts.unshift(current.name);
