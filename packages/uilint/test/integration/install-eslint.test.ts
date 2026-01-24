@@ -436,6 +436,46 @@ describe("ESLint installation - existing uilint rules", () => {
     expect(updatedConfig).toContain("uilint/consistent-spacing");
     expect(updatedConfig).toContain("uilint/consistent-dark-mode");
   });
+
+  it("does not create duplicate plugins sections when adding rules", async () => {
+    fixture = useFixture("has-eslint-with-uilint");
+
+    const state = await analyze(fixture.path);
+    const pkg = state.packages.find((p) => p.eslintConfigPath !== null)!;
+
+    // Get initial config to verify structure
+    const initialConfig = fixture.readFile("eslint.config.mjs");
+    // Count how many times 'plugins:' appears in initial config
+    const initialPluginsCount = (initialConfig.match(/plugins\s*:/g) || [])
+      .length;
+
+    // Select additional rules to add
+    const prompter = mockPrompter({
+      installItems: ["eslint"],
+      eslintPackagePaths: [pkg.path],
+      eslintRuleIds: ["consistent-spacing", "consistent-dark-mode"],
+    });
+
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+    await execute(plan, {
+      installDependencies: mockInstallDependencies,
+    });
+
+    const updatedConfig = fixture.readFile("eslint.config.mjs");
+
+    // Count plugins sections - should be the same as before (no duplicates)
+    const updatedPluginsCount = (updatedConfig.match(/plugins\s*:/g) || [])
+      .length;
+    expect(updatedPluginsCount).toBe(initialPluginsCount);
+
+    // Verify new rules were added to the existing config block
+    expect(updatedConfig).toContain("uilint/consistent-spacing");
+    expect(updatedConfig).toContain("uilint/consistent-dark-mode");
+
+    // Verify the original rule is still there
+    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
+  });
 });
 
 // ============================================================================
