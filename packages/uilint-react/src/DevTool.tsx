@@ -4,6 +4,7 @@
  * Main DevTool React root
  *
  * Manages all UILint functionality:
+ * - Plugin initialization
  * - WebSocket connection to ESLint server
  * - UI component rendering
  */
@@ -11,7 +12,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { UILint } from "./ui";
 import { websocket } from "./core/services/websocket";
+import { initializePlugins } from "./core/store";
+import { pluginRegistry } from "./core/plugin-system/registry";
+import { eslintPlugin } from "./plugins/eslint";
 import { injectDevToolStyles } from "./styles/inject-styles";
+
+// Track if plugins have been initialized
+let pluginsInitialized = false;
 
 // Inlined CSS (compiled by Tailwind/PostCSS during Vite build)
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -86,14 +93,28 @@ export function DevTool({ enabled = true }: DevToolProps) {
   }, [enabled]);
 
   /**
-   * Auto-connect to the UILint WebSocket server for server-side ESLint results.
-   * Connect only after hydration, and disconnect on unmount/disable.
+   * Initialize plugins and connect to WebSocket server.
+   * This registers the ESLint plugin and sets up message handlers.
    */
   useEffect(() => {
     if (!isBrowser() || !enabled) return;
     if (!isMounted) return;
 
-    websocket.connect();
+    async function init() {
+      // Register and initialize plugins (only once)
+      if (!pluginsInitialized) {
+        pluginRegistry.register(eslintPlugin);
+        await initializePlugins();
+        pluginsInitialized = true;
+        console.log("[DevTool] Plugins initialized");
+      }
+
+      // Connect to WebSocket server
+      websocket.connect();
+    }
+
+    init();
+
     return () => {
       websocket.disconnect();
     };
