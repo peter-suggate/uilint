@@ -49,6 +49,10 @@ for item in .*; do
     esac
 done
 
+# Update package name to test-app
+echo "Updating package name to test-app..."
+sed 's/"name": "[^"]*"/"name": "test-app"/' "$TEST_APP_DIR/package.json" > "$TEST_APP_DIR/package.json.tmp" && mv "$TEST_APP_DIR/package.json.tmp" "$TEST_APP_DIR/package.json"
+
 echo "Installing dependencies..."
 cd "$ROOT_DIR" && pnpm install
 
