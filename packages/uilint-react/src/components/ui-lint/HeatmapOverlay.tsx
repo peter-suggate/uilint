@@ -18,7 +18,8 @@ import {
 } from "./visibility-utils";
 import {
   calculateHeatmapOpacity,
-  getHeatmapBorderColor,
+  getSeverityBorderColor,
+  type IssueSeverity,
 } from "./heatmap-colors";
 
 /** Debounce time in ms after scroll/movement stops before fading back in */
@@ -40,6 +41,7 @@ interface HeatmapElement {
   rect: DOMRect;
   issueCount: number;
   opacity: number;
+  severity: IssueSeverity;
 }
 
 export function HeatmapOverlay() {
@@ -70,6 +72,9 @@ export function HeatmapOverlay() {
   const inspectorElementId = useUILintStore((s: UILintStore) => s.inspectorElementId);
   const inspectorRuleId = useUILintStore((s: UILintStore) => s.inspectorRuleId);
   const elementIssuesCache = useUILintStore((s: UILintStore) => s.elementIssuesCache);
+
+  // Rule configs for determining severity
+  const ruleConfigs = useUILintStore((s: UILintStore) => s.ruleConfigs);
 
   useEffect(() => {
     setMounted(true);
@@ -143,6 +148,22 @@ export function HeatmapOverlay() {
 
         const opacity = calculateHeatmapOpacity(issueCount, maxIssues);
 
+        // Determine max severity from element's issues
+        const dataLoc = getDataLocFromSource(element.source);
+        const elementData = elementIssuesCache.get(dataLoc);
+        let severity: IssueSeverity = "warn";
+        if (elementData) {
+          for (const issue of elementData.issues) {
+            if (issue.ruleId) {
+              const ruleConfig = ruleConfigs.get(issue.ruleId);
+              if (ruleConfig?.severity === "error") {
+                severity = "error";
+                break; // Error is max severity, no need to check more
+              }
+            }
+          }
+        }
+
         // Track position for movement detection
         const prevPos = lastPositionsRef.current.get(element.id);
         currentPositions.set(element.id, { top: visible.top, left: visible.left });
@@ -164,6 +185,7 @@ export function HeatmapOverlay() {
           }),
           issueCount,
           opacity,
+          severity,
         });
       }
 
@@ -256,7 +278,7 @@ export function HeatmapOverlay() {
       window.removeEventListener("resize", handleResize);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [autoScanState.status, autoScanState.elements, mergedIssueCounts, inspectorOpen, inspectorDocked, inspectorWidth, shouldShowElement]);
+  }, [autoScanState.status, autoScanState.elements, mergedIssueCounts, inspectorOpen, inspectorDocked, inspectorWidth, shouldShowElement, ruleConfigs, elementIssuesCache]);
 
   // Get inspector actions from store
   const openInspector = useUILintStore((s: UILintStore) => s.openInspector);
@@ -331,9 +353,12 @@ function getBorderWidth(opacity: number, isHovered: boolean): number {
  * Generate gradient border colors for bottom-left to top-right effect.
  * Returns [transparentColor, opaqueColor] for use in CSS gradient.
  */
-function getGradientBorderColors(opacity: number): [string, string] {
-  const transparentColor = getHeatmapBorderColor(opacity * 0.2);
-  const opaqueColor = getHeatmapBorderColor(opacity);
+function getGradientBorderColors(
+  opacity: number,
+  severity: IssueSeverity
+): [string, string] {
+  const transparentColor = getSeverityBorderColor(opacity * 0.2, severity);
+  const opaqueColor = getSeverityBorderColor(opacity, severity);
   return [transparentColor, opaqueColor];
 }
 
@@ -350,11 +375,14 @@ function HeatmapRect({
   onLeave,
   onClick,
 }: HeatmapRectProps) {
-  const { rect, issueCount, opacity } = item;
+  const { rect, issueCount, opacity, severity } = item;
 
   const borderWidth = getBorderWidth(opacity, isHovered);
   const displayOpacity = isHovered ? Math.min(opacity + 0.15, 0.7) : opacity;
-  const [transparentColor, opaqueColor] = getGradientBorderColors(displayOpacity);
+  const [transparentColor, opaqueColor] = getGradientBorderColors(
+    displayOpacity,
+    severity
+  );
 
   // Outer dimensions including border
   const outerWidth = rect.width + borderWidth * 2;
@@ -374,7 +402,7 @@ function HeatmapRect({
           left: rect.left - borderWidth,
           width: outerWidth,
           height: outerHeight,
-          background: `linear-gradient(135deg, ${transparentColor} 0%, ${opaqueColor} 100%)`,
+          background: `linear-gradient(45deg, ${transparentColor} 0%, ${opaqueColor} 100%)`,
           borderRadius: 0,
           pointerEvents: "none",
           transition: "opacity 150ms",
