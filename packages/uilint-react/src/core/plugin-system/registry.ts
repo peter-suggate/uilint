@@ -13,8 +13,8 @@ import type {
   Analyzer,
   InspectorPanel,
   RuleUIContribution,
+  RuleMeta,
 } from "./types";
-import type { RuleMeta } from "../../components/ui-lint/command-palette/types";
 
 /**
  * Wrapper for a registered plugin with initialization state

@@ -4,26 +4,22 @@
  * Main DevTool React root
  *
  * Manages all UILint functionality:
- * - Event handlers (Alt key, mouse tracking, escape key)
  * - WebSocket connection to ESLint server
- * - Auto-scan initialization
- * - Navigation detection for auto-vision
- * - UI component rendering via portals
+ * - UI component rendering
  */
 
 import React, { useState, useEffect, useRef } from "react";
-import { useUILintStore, type UILintStore } from "./components/ui-lint/store";
-import { useDOMObserver } from "./components/ui-lint/useDOMObserver";
-import { useDevToolEventHandlers } from "./components/ui-lint/hooks/useDevToolEventHandlers";
-import { useAutoScans } from "./components/ui-lint/hooks/useAutoScans";
-import { UILintUI } from "./components/ui-lint/UILintUI";
+import { UILint } from "./ui";
+import { websocket } from "./core/services/websocket";
 import { injectDevToolStyles } from "./styles/inject-styles";
-import { DEVTOOL_ROOT_CLASS } from "./components/ui-lint/portal-host";
 
 // Inlined CSS (compiled by Tailwind/PostCSS during Vite build)
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - Vite handles ?inline for CSS
 import devtoolsCss from "./styles/globals.css?inline";
+
+/** Portal root class name */
+const DEVTOOL_ROOT_CLASS = "uilint-devtool-root";
 
 export type DevToolProps = {
   enabled?: boolean;
@@ -39,30 +35,12 @@ function isBrowser(): boolean {
 /**
  * Main devtool React root.
  *
- * Handles all UILint functionality including event handlers,
- * WebSocket connection, auto-scans, and UI rendering.
+ * Handles WebSocket connection and UI rendering.
  */
 export function DevTool({ enabled = true }: DevToolProps) {
   const [isMounted, setIsMounted] = useState(false);
   const portalRootRef = useRef<HTMLElement | null>(null);
   const createdPortalRootRef = useRef(false);
-
-  // WebSocket (ESLint server) actions
-  const connectWebSocket = useUILintStore(
-    (s: UILintStore) => s.connectWebSocket
-  );
-  const disconnectWebSocket = useUILintStore(
-    (s: UILintStore) => s.disconnectWebSocket
-  );
-
-  // Mount DOM observer for navigation detection
-  useDOMObserver(enabled && isMounted);
-
-  // Event handlers (Alt key, mouse tracking, escape key)
-  useDevToolEventHandlers(enabled);
-
-  // Auto-scan initialization and navigation detection
-  useAutoScans(enabled, isMounted);
 
   /**
    * Set mounted state after hydration
@@ -73,9 +51,6 @@ export function DevTool({ enabled = true }: DevToolProps) {
 
   /**
    * Ensure the devtool styles + portal host exist.
-   *
-   * Without this, CSS variables like `--uilint-backdrop` will be undefined when
-   * consumers use DevTool directly (i.e. not via the web-component entry).
    */
   useEffect(() => {
     if (!isBrowser() || !enabled) return;
@@ -118,14 +93,14 @@ export function DevTool({ enabled = true }: DevToolProps) {
     if (!isBrowser() || !enabled) return;
     if (!isMounted) return;
 
-    connectWebSocket();
+    websocket.connect();
     return () => {
-      disconnectWebSocket();
+      websocket.disconnect();
     };
-  }, [enabled, isMounted, connectWebSocket, disconnectWebSocket]);
+  }, [enabled, isMounted]);
 
   // Don't render UI until mounted (prevents hydration mismatch)
   if (!enabled || !isMounted) return null;
 
-  return <UILintUI />;
+  return <UILint enabled={enabled} />;
 }
