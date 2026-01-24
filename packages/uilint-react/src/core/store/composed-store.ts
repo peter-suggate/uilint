@@ -16,13 +16,30 @@
 
 import { create, type StoreApi, type UseBoundStore } from "zustand";
 import { createCoreSlice, type CoreSlice } from "./core-slice";
-import { pluginRegistry } from "../plugin-system/registry";
+import { pluginRegistry, type PluginRegistry } from "../plugin-system/registry";
 import type {
   Plugin,
   PluginServices,
   WebSocketService,
   DOMObserverService,
 } from "../plugin-system/types";
+
+// ============================================================================
+// Factory Options
+// ============================================================================
+
+/**
+ * Options for creating a composed store instance.
+ * Allows dependency injection for testing and customization.
+ */
+export interface ComposedStoreOptions {
+  /** Custom WebSocket service implementation */
+  websocket?: WebSocketService;
+  /** Custom DOM observer service implementation */
+  domObserver?: DOMObserverService;
+  /** Custom plugin registry instance */
+  registry?: PluginRegistry;
+}
 
 // ============================================================================
 // Plugin Slice Types
@@ -190,28 +207,33 @@ const createDefaultDOMObserverService = (): DOMObserverService => ({
 // ============================================================================
 
 /**
- * Create the composed store with core slice and plugin support.
- *
- * @param options - Optional configuration for the store
- * @returns The created store instance
+ * Internal result from creating a store with factory function.
+ * Contains both the store and the plugin services for that store.
  */
-export function createComposedStore(options?: {
-  websocket?: WebSocketService;
-  domObserver?: DOMObserverService;
-}): UseBoundStore<StoreApi<ComposedStore>> {
-  // Return existing instance if already created
-  if (storeInstance) {
-    return storeInstance;
-  }
+interface StoreCreationResult {
+  store: UseBoundStore<StoreApi<ComposedStore>>;
+  services: PluginServices;
+}
 
+/**
+ * Internal factory function that creates a new store instance.
+ * Does NOT use singletons - creates a fresh store every time.
+ * Used internally by both createComposedStore and createComposedStoreFactory.
+ *
+ * @param options - Configuration for the store
+ * @returns The created store and plugin services
+ */
+function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationResult {
   // Create plugin services that the core slice and plugins will use
-  const websocket = options?.websocket ?? createDefaultWebSocketService();
-  const domObserver = options?.domObserver ?? createDefaultDOMObserverService();
+  const websocket = options.websocket ?? createDefaultWebSocketService();
+  const domObserver = options.domObserver ?? createDefaultDOMObserverService();
+
+  let services: PluginServices;
 
   // Create the store
-  storeInstance = create<ComposedStore>()((set, get) => {
+  const store = create<ComposedStore>()((set, get) => {
     // Create plugin services that wrap the store's getState/setState
-    pluginServicesInstance = {
+    services = {
       websocket: {
         get isConnected() {
           return websocket.isConnected;
@@ -258,7 +280,7 @@ export function createComposedStore(options?: {
     };
 
     // Initialize the core slice with services
-    const coreSliceCreator = createCoreSlice(pluginServicesInstance);
+    const coreSliceCreator = createCoreSlice(services);
     const coreSlice = coreSliceCreator(set, get, {
       setState: set,
       getState: get,
@@ -328,6 +350,67 @@ export function createComposedStore(options?: {
     };
   });
 
+  // services is definitely assigned after store creation
+  return { store, services: services! };
+}
+
+/**
+ * Factory function for creating isolated store instances.
+ * Use this in tests to get fresh stores with injected dependencies.
+ *
+ * Unlike createComposedStore(), this does NOT use a singleton pattern.
+ * Each call creates a completely new, isolated store instance.
+ *
+ * @param options - Dependencies and configuration for the store
+ * @returns A new store instance (not a singleton)
+ *
+ * @example
+ * ```typescript
+ * // In tests
+ * const mockWebSocket = createMockWebSocketService();
+ * const mockDomObserver = createMockDOMObserverService();
+ * const testRegistry = createPluginRegistry();
+ *
+ * const store = createComposedStoreFactory({
+ *   websocket: mockWebSocket,
+ *   domObserver: mockDomObserver,
+ *   registry: testRegistry,
+ * });
+ *
+ * // Each test gets its own isolated store
+ * expect(store.getState().commandPalette.open).toBe(false);
+ * ```
+ */
+export function createComposedStoreFactory(
+  options: ComposedStoreOptions = {}
+): UseBoundStore<StoreApi<ComposedStore>> {
+  const { store } = createStoreInternal(options);
+  return store;
+}
+
+/**
+ * Create the composed store with core slice and plugin support.
+ * Uses a singleton pattern - returns the same instance if already created.
+ *
+ * For testing, use createComposedStoreFactory() instead which creates
+ * isolated instances.
+ *
+ * @param options - Optional configuration for the store
+ * @returns The singleton store instance
+ */
+export function createComposedStore(
+  options?: ComposedStoreOptions
+): UseBoundStore<StoreApi<ComposedStore>> {
+  // Return existing instance if already created
+  if (storeInstance) {
+    return storeInstance;
+  }
+
+  // Create new store and services
+  const result = createStoreInternal(options);
+  storeInstance = result.store;
+  pluginServicesInstance = result.services;
+
   return storeInstance;
 }
 
@@ -377,13 +460,12 @@ export function useComposedStore<T>(selector?: (state: ComposedStore) => T) {
  * Initialize all registered plugins and merge their slices into the store.
  * This should be called after the store is created and before rendering.
  *
- * @param options - Optional configuration for services
+ * @param options - Optional configuration for services and registry
  * @returns Promise that resolves when all plugins are initialized
  */
-export async function initializePlugins(options?: {
-  websocket?: WebSocketService;
-  domObserver?: DOMObserverService;
-}): Promise<void> {
+export async function initializePlugins(
+  options?: ComposedStoreOptions
+): Promise<void> {
   // Ensure the store is created with the provided services
   const store = createComposedStore(options);
 
@@ -392,11 +474,14 @@ export async function initializePlugins(options?: {
     throw new Error("[ComposedStore] Plugin services not initialized");
   }
 
+  // Use provided registry or default singleton
+  const registry = options?.registry ?? pluginRegistry;
+
   // Initialize all registered plugins
-  await pluginRegistry.initializeAll(pluginServicesInstance);
+  await registry.initializeAll(pluginServicesInstance);
 
   // Collect slices from plugins that have createSlice
-  const plugins = pluginRegistry.getPlugins();
+  const plugins = registry.getPlugins();
 
   for (const plugin of plugins) {
     if (plugin.createSlice && plugin.id) {
@@ -463,11 +548,33 @@ export function getPluginServices(): PluginServices | null {
 /**
  * Reset the store instance.
  * Primarily useful for testing.
+ *
+ * @param options - Optional configuration to immediately create a new store with
+ * @returns The new store instance if options were provided, undefined otherwise
+ *
+ * @example
+ * ```typescript
+ * // Simple reset
+ * resetStore();
+ *
+ * // Reset and immediately create new store with mocks
+ * const store = resetStore({
+ *   websocket: mockWebSocket,
+ *   domObserver: mockDomObserver,
+ * });
+ * ```
  */
-export function resetStore(): void {
+export function resetStore(
+  options?: ComposedStoreOptions
+): UseBoundStore<StoreApi<ComposedStore>> | void {
   // Zustand stores don't have a destroy method, just clear the reference
   storeInstance = null;
   pluginServicesInstance = null;
+
+  // If options provided, immediately create a new store
+  if (options) {
+    return createComposedStore(options);
+  }
 }
 
 // ============================================================================

@@ -426,7 +426,17 @@ export class PluginRegistry {
 }
 
 /**
+ * Factory function to create a new PluginRegistry instance.
+ * Use this in tests to get isolated registry instances.
+ *
+ * @returns A new PluginRegistry instance
+ */
+export function createPluginRegistry(): PluginRegistry {
+  return new PluginRegistry();
+}
+
+/**
  * Singleton instance of the plugin registry.
  * Use this for global plugin management.
  */
-export const pluginRegistry = new PluginRegistry();
+export const pluginRegistry = createPluginRegistry();

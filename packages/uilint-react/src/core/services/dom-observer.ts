@@ -9,6 +9,7 @@
  * - Debounced reconciliation for handling streaming/suspense
  * - Subscribe/unsubscribe pattern for add/remove notifications
  * - Filtering for node_modules and UILint's own UI
+ * - Dependency injection for testability
  */
 
 // =============================================================================
@@ -22,8 +23,73 @@ export const DATA_LOC_ATTR = "data-loc";
 export const RECONCILE_DEBOUNCE_MS = 100;
 
 // =============================================================================
+// Pure Functions (Testable without DOM)
+// =============================================================================
+
+/**
+ * Generate a unique element ID from data-loc and occurrence number
+ * @param dataLoc - The parsed data-loc value (path:line:column)
+ * @param occurrence - The occurrence number (1-based) for elements with same dataLoc
+ * @returns Unique ID in format "loc:path:line:column#occurrence"
+ */
+export function generateElementId(dataLoc: string, occurrence: number): string {
+  return `loc:${dataLoc}#${occurrence}`;
+}
+
+/**
+ * Parse a raw data-loc attribute value, normalizing runtime ID format if present
+ * @param rawDataLoc - The raw data-loc attribute value
+ * @returns The normalized data-loc value (path:line:column) or null if invalid
+ */
+export function parseDataLoc(rawDataLoc: string): string | null {
+  if (!rawDataLoc) {
+    return null;
+  }
+
+  let dataLoc = rawDataLoc;
+
+  // Normalize data-loc: strip runtime ID format if present
+  // Runtime format: "loc:path:line:column#occurrence"
+  if (dataLoc.startsWith("loc:")) {
+    dataLoc = dataLoc.slice(4); // Remove "loc:" prefix
+    const hashIndex = dataLoc.lastIndexOf("#");
+    if (hashIndex !== -1) {
+      dataLoc = dataLoc.slice(0, hashIndex); // Remove "#occurrence" suffix
+    }
+  }
+
+  return dataLoc || null;
+}
+
+/**
+ * Check if a path should be filtered based on node_modules presence
+ * @param path - The file path to check
+ * @param hideNodeModules - Whether to filter node_modules paths
+ * @returns True if the path should be filtered out
+ */
+export function shouldFilterPath(
+  path: string,
+  hideNodeModules: boolean
+): boolean {
+  return hideNodeModules && path.includes("node_modules");
+}
+
+// =============================================================================
 // Types
 // =============================================================================
+
+/**
+ * Options for creating a DOMObserverService instance
+ * Enables dependency injection for testing
+ */
+export interface DOMObserverOptions {
+  /** Root element to observe (defaults to document.body) */
+  root?: Element;
+  /** MutationObserver implementation (defaults to window.MutationObserver) */
+  MutationObserverImpl?: typeof MutationObserver;
+  /** Custom querySelectorAll function (defaults to document.querySelectorAll) */
+  querySelectorAll?: (selector: string) => NodeListOf<Element>;
+}
 
 /**
  * Information about a scanned DOM element with data-loc attribute
@@ -75,7 +141,8 @@ export interface DOMObserverService {
 /**
  * DOM Observer Service Implementation
  *
- * Singleton service that tracks data-loc elements in the DOM.
+ * Service that tracks data-loc elements in the DOM.
+ * Supports dependency injection for testability.
  */
 export class DOMObserverServiceImpl implements DOMObserverService {
   // ---------------------------------------------------------------------------
@@ -89,6 +156,21 @@ export class DOMObserverServiceImpl implements DOMObserverService {
   private removedHandlers: Set<ElementRemovedHandler> = new Set();
   private isRunning: boolean = false;
   private hideNodeModules: boolean = true;
+
+  // Injected dependencies
+  private readonly options: DOMObserverOptions;
+
+  // ---------------------------------------------------------------------------
+  // Constructor
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Create a new DOMObserverService instance
+   * @param options - Optional configuration for dependency injection
+   */
+  constructor(options: DOMObserverOptions = {}) {
+    this.options = options;
+  }
 
   // ---------------------------------------------------------------------------
   // Public Methods
@@ -109,8 +191,8 @@ export class DOMObserverServiceImpl implements DOMObserverService {
    * Start observing the DOM for data-loc elements
    */
   start(): void {
-    // SSR guard
-    if (typeof window === "undefined") {
+    // SSR guard - skip if no window/document and no injected dependencies
+    if (typeof window === "undefined" && !this.options.root) {
       return;
     }
 
@@ -120,14 +202,28 @@ export class DOMObserverServiceImpl implements DOMObserverService {
 
     this.isRunning = true;
 
-    // Create MutationObserver
-    this.observer = new MutationObserver(this.handleMutations.bind(this));
+    // Get MutationObserver implementation (injected or global)
+    const MutationObserverImpl =
+      this.options.MutationObserverImpl ??
+      (typeof window !== "undefined" ? window.MutationObserver : undefined);
 
-    // Observe document.body for child additions/removals
-    this.observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+    // Get root element (injected or document.body)
+    const root =
+      this.options.root ??
+      (typeof document !== "undefined" ? document.body : undefined);
+
+    // Create MutationObserver if implementation is available
+    if (MutationObserverImpl && root) {
+      this.observer = new MutationObserverImpl(
+        this.handleMutations.bind(this)
+      );
+
+      // Observe root element for child additions/removals
+      this.observer.observe(root, {
+        childList: true,
+        subtree: true,
+      });
+    }
 
     // Run initial scan
     this.reconcile();
@@ -323,8 +419,15 @@ export class DOMObserverServiceImpl implements DOMObserverService {
    * Scan the DOM for all elements with data-loc attributes
    */
   private scanElements(): ScannedElementInfo[] {
-    // SSR guard
-    if (typeof window === "undefined" || typeof document === "undefined") {
+    // Get querySelectorAll function (injected or from document)
+    const querySelectorAllFn =
+      this.options.querySelectorAll ??
+      (typeof document !== "undefined"
+        ? document.querySelectorAll.bind(document)
+        : undefined);
+
+    // SSR guard - skip if no query function available
+    if (!querySelectorAllFn) {
       return [];
     }
 
@@ -334,7 +437,7 @@ export class DOMObserverServiceImpl implements DOMObserverService {
     const occurrenceByDataLoc = new Map<string, number>();
 
     // Query all elements with data-loc attribute
-    const locElements = document.querySelectorAll(`[${DATA_LOC_ATTR}]`);
+    const locElements = querySelectorAllFn(`[${DATA_LOC_ATTR}]`);
 
     for (const el of locElements) {
       // Skip elements inside UILint's own UI
@@ -342,22 +445,13 @@ export class DOMObserverServiceImpl implements DOMObserverService {
         continue;
       }
 
-      // Get the data-loc value
-      let dataLoc = el.getAttribute(DATA_LOC_ATTR);
+      // Get and parse the data-loc value using pure function
+      const rawDataLoc = el.getAttribute(DATA_LOC_ATTR);
+      const dataLoc = parseDataLoc(rawDataLoc ?? "");
       if (!dataLoc) continue;
 
-      // Normalize data-loc: strip runtime ID format if present
-      // Runtime format: "loc:path:line:column#occurrence"
-      if (dataLoc.startsWith("loc:")) {
-        dataLoc = dataLoc.slice(4); // Remove "loc:" prefix
-        const hashIndex = dataLoc.lastIndexOf("#");
-        if (hashIndex !== -1) {
-          dataLoc = dataLoc.slice(0, hashIndex); // Remove "#occurrence" suffix
-        }
-      }
-
-      // Skip node_modules if filtering is enabled
-      if (this.hideNodeModules && this.isNodeModulesPath(dataLoc)) {
+      // Skip node_modules if filtering is enabled using pure function
+      if (shouldFilterPath(dataLoc, this.hideNodeModules)) {
         continue;
       }
 
@@ -365,8 +459,8 @@ export class DOMObserverServiceImpl implements DOMObserverService {
       const occurrence = (occurrenceByDataLoc.get(dataLoc) ?? 0) + 1;
       occurrenceByDataLoc.set(dataLoc, occurrence);
 
-      // Generate unique ID
-      const id = `loc:${dataLoc}#${occurrence}`;
+      // Generate unique ID using pure function
+      const id = generateElementId(dataLoc, occurrence);
 
       elements.push({
         id,
@@ -386,20 +480,29 @@ export class DOMObserverServiceImpl implements DOMObserverService {
   private isInsideUILintUI(element: Element): boolean {
     return element.closest("[data-ui-lint]") !== null;
   }
-
-  /**
-   * Check if a path contains node_modules
-   */
-  private isNodeModulesPath(path: string): boolean {
-    return path.includes("node_modules");
-  }
 }
 
 // =============================================================================
-// Singleton Export
+// Factory Function
+// =============================================================================
+
+/**
+ * Create a new DOMObserverService instance with optional dependency injection
+ * @param options - Optional configuration for dependency injection (useful for testing)
+ * @returns A new DOMObserverService instance
+ */
+export function createDOMObserverService(
+  options?: DOMObserverOptions
+): DOMObserverService {
+  return new DOMObserverServiceImpl(options);
+}
+
+// =============================================================================
+// Singleton Export (Backward Compatibility)
 // =============================================================================
 
 /**
  * Shared DOM observer service instance
+ * @deprecated Use createDOMObserverService() for new code that needs testability
  */
 export const domObserver: DOMObserverService = new DOMObserverServiceImpl();

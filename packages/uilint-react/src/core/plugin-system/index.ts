@@ -17,7 +17,12 @@ export type {
 } from "./types";
 
 // Registry
-export { PluginRegistry, pluginRegistry, sortByDependencies } from "./registry";
+export {
+  PluginRegistry,
+  pluginRegistry,
+  createPluginRegistry,
+  sortByDependencies,
+} from "./registry";
 
 // Loader
 export {

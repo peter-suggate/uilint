@@ -16,6 +16,7 @@ export {
 export {
   // Store creation and hooks
   createComposedStore,
+  createComposedStoreFactory,
   useComposedStore,
   initializePlugins,
   // Store utilities
@@ -26,6 +27,7 @@ export {
   getPluginSlice,
   createScopedPluginServices,
   // Types
+  type ComposedStoreOptions,
   type PluginSliceMap,
   type AnyPluginSlice,
   type PluginSlices,

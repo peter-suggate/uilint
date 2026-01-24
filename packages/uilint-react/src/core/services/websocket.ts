@@ -15,6 +15,19 @@ export type MessageHandler<T = unknown> = (data: T) => void;
 export type ConnectionHandler = (connected: boolean) => void;
 
 /**
+ * Options for dependency injection in WebSocketService
+ * Allows injecting mock implementations for testing
+ */
+export interface WebSocketServiceOptions {
+  /** Factory function to create WebSocket instances */
+  createWebSocket?: (url: string) => WebSocket;
+  /** Custom setTimeout implementation */
+  setTimeout?: typeof globalThis.setTimeout;
+  /** Custom clearTimeout implementation */
+  clearTimeout?: typeof globalThis.clearTimeout;
+}
+
+/**
  * WebSocket service interface
  */
 export interface WebSocketService {
@@ -38,8 +51,24 @@ export class WebSocketServiceImpl implements WebSocketService {
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private intentionalDisconnect: boolean = false;
 
+  // Injectable dependencies with defaults
+  private readonly createWebSocket: (url: string) => WebSocket;
+  private readonly _setTimeout: typeof globalThis.setTimeout;
+  private readonly _clearTimeout: typeof globalThis.clearTimeout;
+
   public isConnected: boolean = false;
   public url: string = DEFAULT_WS_URL;
+
+  /**
+   * Create a new WebSocket service instance
+   * @param options - Optional dependency injection options for testing
+   */
+  constructor(private options: WebSocketServiceOptions = {}) {
+    this.createWebSocket =
+      options.createWebSocket ?? ((url: string) => new WebSocket(url));
+    this._setTimeout = options.setTimeout ?? globalThis.setTimeout;
+    this._clearTimeout = options.clearTimeout ?? globalThis.clearTimeout;
+  }
 
   /**
    * Connect to the WebSocket server
@@ -67,7 +96,7 @@ export class WebSocketServiceImpl implements WebSocketService {
     this.intentionalDisconnect = false;
 
     try {
-      this.ws = new WebSocket(this.url);
+      this.ws = this.createWebSocket(this.url);
       this.setupEventHandlers();
     } catch (error) {
       console.error("[WebSocket] Failed to create WebSocket:", error);
@@ -84,7 +113,7 @@ export class WebSocketServiceImpl implements WebSocketService {
 
     // Clear any pending reconnect
     if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
+      this._clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
 
@@ -260,7 +289,7 @@ export class WebSocketServiceImpl implements WebSocketService {
 
     // Clear any existing timeout
     if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
+      this._clearTimeout(this.reconnectTimeout);
     }
 
     // Calculate delay with exponential backoff
@@ -271,11 +300,22 @@ export class WebSocketServiceImpl implements WebSocketService {
       `[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
     );
 
-    this.reconnectTimeout = setTimeout(() => {
+    this.reconnectTimeout = this._setTimeout(() => {
       this.reconnectTimeout = null;
       this.connect(this.url);
     }, delay);
   }
+}
+
+/**
+ * Factory function to create a WebSocket service instance
+ * @param options - Optional dependency injection options for testing
+ * @returns A new WebSocket service instance
+ */
+export function createWebSocketService(
+  options?: WebSocketServiceOptions
+): WebSocketService {
+  return new WebSocketServiceImpl(options);
 }
 
 // Export singleton instance

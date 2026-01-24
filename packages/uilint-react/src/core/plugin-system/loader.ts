@@ -1,4 +1,5 @@
 import type { Plugin } from "./types";
+import { sortByDependencies } from "./registry";
 
 /**
  * Plugin manifest for dynamic loading
@@ -86,8 +87,8 @@ export async function loadPlugins(
       return false;
     }
 
-    if (!plugin.meta?.id) {
-      console.warn("Plugin missing meta.id, skipping:", plugin);
+    if (!plugin.id) {
+      console.warn("Plugin missing id, skipping:", plugin);
       return false;
     }
 
@@ -96,63 +97,6 @@ export async function loadPlugins(
 
   // Sort by dependencies
   return sortByDependencies(loadedPlugins);
-}
-
-/**
- * Topological sort of plugins based on dependencies
- * @param plugins - Array of plugins to sort
- * @returns Sorted array with dependencies loaded first
- */
-function sortByDependencies(plugins: Plugin[]): Plugin[] {
-  const pluginMap = new Map<string, Plugin>();
-  const visited = new Set<string>();
-  const visiting = new Set<string>();
-  const sorted: Plugin[] = [];
-
-  // Build plugin lookup map
-  for (const plugin of plugins) {
-    pluginMap.set(plugin.meta.id, plugin);
-  }
-
-  function visit(pluginId: string): void {
-    // Already processed
-    if (visited.has(pluginId)) {
-      return;
-    }
-
-    // Circular dependency detection
-    if (visiting.has(pluginId)) {
-      console.warn(
-        `Circular dependency detected involving plugin "${pluginId}". ` +
-          "Dependency order may not be correct."
-      );
-      return;
-    }
-
-    const plugin = pluginMap.get(pluginId);
-    if (!plugin) {
-      return;
-    }
-
-    visiting.add(pluginId);
-
-    // Visit dependencies first
-    const dependencies = plugin.meta.dependencies ?? [];
-    for (const depId of dependencies) {
-      visit(depId);
-    }
-
-    visiting.delete(pluginId);
-    visited.add(pluginId);
-    sorted.push(plugin);
-  }
-
-  // Visit all plugins
-  for (const plugin of plugins) {
-    visit(plugin.meta.id);
-  }
-
-  return sorted;
 }
 
 /**
