@@ -14,6 +14,7 @@ import type {
   CommandPaletteFilter,
 } from "./types";
 import type { ScannedElement, ElementIssue, ESLintIssue, ScreenshotCapture } from "../types";
+import { getDataLocFromSource } from "../types";
 import { groupBySourceFile } from "../dom-utils";
 
 /**
@@ -399,11 +400,16 @@ export function buildSearchableItems(
   for (const file of sourceFiles) {
     let issueCount = 0;
 
-    // Count element issues
+    // Count element issues (lookup by dataLoc, avoid double-counting same dataLoc)
+    const countedDataLocs = new Set<string>();
     for (const el of file.elements) {
-      const cached = elementIssuesCache.get(el.id);
-      if (cached) {
-        issueCount += cached.issues.length;
+      const dataLoc = getDataLocFromSource(el.source);
+      if (!countedDataLocs.has(dataLoc)) {
+        countedDataLocs.add(dataLoc);
+        const cached = elementIssuesCache.get(dataLoc);
+        if (cached) {
+          issueCount += cached.issues.length;
+        }
       }
     }
 
@@ -433,16 +439,20 @@ export function buildSearchableItems(
   }
 
   // Add individual issues (for search)
-  for (const [elementId, elementIssue] of elementIssuesCache) {
+  // Cache is keyed by dataLoc (path:line:column), so find elements by matching their dataLoc
+  for (const [dataLoc, elementIssue] of elementIssuesCache) {
     for (const issue of elementIssue.issues) {
-      // Find the element to get its file
-      const element = elements.find((el) => el.id === elementId);
+      // Find an element with this dataLoc to get metadata
+      const element = elements.find(
+        (el) => getDataLocFromSource(el.source) === dataLoc
+      );
       const filePath = element?.source.fileName || "";
+      const elementId = element?.id;
 
       items.push({
         type: "issue",
         category: "issues",
-        id: `issue:${elementId}:${issue.ruleId}:${issue.line}:${issue.column}`,
+        id: `issue:${dataLoc}:${issue.ruleId}:${issue.line}:${issue.column}`,
         searchText: `${issue.message} ${issue.ruleId} ${getDisplayName(filePath)}`,
         title: issue.message,
         subtitle: `${issue.ruleId} - ${getDisplayName(filePath)}`,

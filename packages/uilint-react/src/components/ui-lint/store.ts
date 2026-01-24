@@ -28,6 +28,7 @@ import {
   DEFAULT_SETTINGS,
   DEFAULT_AUTO_SCAN_STATE,
   DEFAULT_AUTO_SCAN_SETTINGS,
+  getDataLocFromSource,
 } from "./types";
 import {
   scanDOMForSources,
@@ -303,12 +304,13 @@ export interface UILintStore {
   scanLock: boolean;
 
   // Internal scan actions
-  updateElementIssue: (id: string, issue: ElementIssue) => void;
+  /** Update issue cache for a dataLoc key */
+  updateElementIssue: (dataLoc: string, issue: ElementIssue) => void;
   updateFileIssues: (filePath: string, issues: ESLintIssue[]) => void;
 
   // ============ DOM Observer ============
-  /** Remove scan results for elements that no longer exist in DOM */
-  removeStaleResults: (elementIds: string[]) => void;
+  /** Remove scan results for dataLocs that no longer have elements in DOM */
+  removeStaleResults: (dataLocs: string[]) => void;
 
   // ============ File/Element Selection ============
   /** Currently hovered file path in scan results */
@@ -550,21 +552,6 @@ export interface UILintStore {
 }
 
 /**
- * Extract data-loc value from an element's id
- * Element IDs are in format "loc:path:line:column" when they have data-loc
- */
-function getDataLocFromId(id: string): string | null {
-  if (id.startsWith("loc:")) {
-    // Format:
-    // - old: "loc:path:line:column"
-    // - new: "loc:path:line:column#occurrence"
-    const raw = id.slice(4); // Remove "loc:" prefix
-    return raw.split("#")[0] || null;
-  }
-  return null;
-}
-
-/**
  * Scan an entire source file for issues via WebSocket
  * Returns ESLint issues (including semantic rule) with dataLoc values
  */
@@ -600,60 +587,46 @@ async function scanFileForIssues(
 }
 
 /**
- * Match ESLint issues to elements by dataLoc and update the cache
- * Returns unmapped issues (those without dataLoc or with dataLoc that don't match any element)
+ * Match ESLint issues to elements by dataLoc and update the cache.
+ * Uses dataLoc (path:line:column) as the cache key, so multiple DOM elements
+ * from the same source location share a single cache entry.
  */
 function distributeIssuesToElements(
   issues: ESLintIssue[],
   elements: ScannedElement[],
   filePath: string,
-  updateElementIssue: (id: string, issue: ElementIssue) => void,
+  updateElementIssue: (dataLoc: string, issue: ElementIssue) => void,
   updateFileIssues: (filePath: string, issues: ESLintIssue[]) => void,
   hasError: boolean
 ): void {
-  // Create a map from dataLoc to element IDs.
-  // Multiple DOM elements can share the same dataLoc (e.g. list rendering),
-  // so we must apply ESLint issues to all matching instances.
-  const dataLocToElementIds = new Map<string, string[]>();
+  // Collect unique dataLocs from elements
+  const knownDataLocs = new Set<string>();
   for (const el of elements) {
-    const dataLoc = getDataLocFromId(el.id);
-    if (dataLoc) {
-      const existing = dataLocToElementIds.get(dataLoc);
-      if (existing) existing.push(el.id);
-      else dataLocToElementIds.set(dataLoc, [el.id]);
-    }
+    const dataLoc = getDataLocFromSource(el.source);
+    knownDataLocs.add(dataLoc);
   }
 
-  // Group ESLint issues by element
-  const issuesByElement = new Map<string, ESLintIssue[]>();
+  // Group issues by dataLoc
+  const issuesByDataLoc = new Map<string, ESLintIssue[]>();
   const unmappedIssues: ESLintIssue[] = [];
 
   for (const issue of issues) {
-    if (issue.dataLoc) {
-      const elementIds = dataLocToElementIds.get(issue.dataLoc);
-      if (elementIds && elementIds.length > 0) {
-        // Issue maps to one or more elements
-        for (const elementId of elementIds) {
-          const existing = issuesByElement.get(elementId) || [];
-          existing.push(issue);
-          issuesByElement.set(elementId, existing);
-        }
-      } else {
-        // Issue has dataLoc but doesn't match any scanned element
-        unmappedIssues.push(issue);
-      }
+    if (issue.dataLoc && knownDataLocs.has(issue.dataLoc)) {
+      const existing = issuesByDataLoc.get(issue.dataLoc) || [];
+      existing.push(issue);
+      issuesByDataLoc.set(issue.dataLoc, existing);
     } else {
-      // Issue has no dataLoc (file-level or component-level issue)
+      // Issue has no dataLoc or doesn't match any scanned element
       unmappedIssues.push(issue);
     }
   }
 
-  // Update each element with its issues
-  for (const el of elements) {
-    const elementIssues = issuesByElement.get(el.id) || [];
-    updateElementIssue(el.id, {
-      elementId: el.id,
-      issues: elementIssues,
+  // Update cache for each unique dataLoc
+  for (const dataLoc of knownDataLocs) {
+    const dataLocIssues = issuesByDataLoc.get(dataLoc) || [];
+    updateElementIssue(dataLoc, {
+      dataLoc,
+      issues: dataLocIssues,
       status: hasError ? "error" : "complete",
     });
   }
@@ -889,10 +862,12 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     const topLevelByFile = identifyTopLevelElements(elements);
 
     // Compute merged issue counts (filtered by disabled rules)
+    // Still keyed by element ID for UI display, but lookup by dataLoc
     const mergedCounts = new Map<string, number>();
 
     for (const el of elements) {
-      const cached = state.elementIssuesCache.get(el.id);
+      const dataLoc = getDataLocFromSource(el.source);
+      const cached = state.elementIssuesCache.get(dataLoc);
       // Filter out issues from disabled rules
       const filteredIssues = cached
         ? filterIssuesByDisabledRules(cached.issues, disabledRules)
@@ -964,14 +939,18 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     // Get all scannable elements using data-loc
     const elements = scanDOMForSources(document.body, hideNodeModules);
 
-    // Initialize cache with pending status
+    // Initialize cache with pending status, keyed by dataLoc
     const initialCache = new Map<string, ElementIssue>();
     for (const el of elements) {
-      initialCache.set(el.id, {
-        elementId: el.id,
-        issues: [],
-        status: "pending",
-      });
+      const dataLoc = getDataLocFromSource(el.source);
+      // Only add if not already present (multiple elements can share same dataLoc)
+      if (!initialCache.has(dataLoc)) {
+        initialCache.set(dataLoc, {
+          dataLoc,
+          issues: [],
+          status: "pending",
+        });
+      }
     }
 
     // Set initial state synchronously
@@ -1010,15 +989,19 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     // Skip if no new elements
     if (newElements.length === 0) return;
 
-    // Add new elements to cache with pending status
+    // Add new elements to cache with pending status, keyed by dataLoc
     set((s) => {
       const newCache = new Map(s.elementIssuesCache);
       for (const el of newElements) {
-        newCache.set(el.id, {
-          elementId: el.id,
-          issues: [],
-          status: "pending",
-        });
+        const dataLoc = getDataLocFromSource(el.source);
+        // Only add if not already present (multiple elements can share same dataLoc)
+        if (!newCache.has(dataLoc)) {
+          newCache.set(dataLoc, {
+            dataLoc,
+            issues: [],
+            status: "pending",
+          });
+        }
       }
       return {
         elementIssuesCache: newCache,
@@ -1034,13 +1017,18 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     const sourceFiles = groupBySourceFile(newElements);
 
     for (const sourceFile of sourceFiles) {
-      // Mark elements as scanning
+      // Mark unique dataLocs as scanning
+      const seenDataLocs = new Set<string>();
       for (const el of sourceFile.elements) {
-        get().updateElementIssue(el.id, {
-          elementId: el.id,
-          issues: [],
-          status: "scanning",
-        });
+        const dataLoc = getDataLocFromSource(el.source);
+        if (!seenDataLocs.has(dataLoc)) {
+          seenDataLocs.add(dataLoc);
+          get().updateElementIssue(dataLoc, {
+            dataLoc,
+            issues: [],
+            status: "scanning",
+          });
+        }
       }
 
       // Yield to browser
@@ -1092,13 +1080,18 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       // Update progress
       get()._setScanState({ currentIndex: processedElements });
 
-      // Mark all elements in this file as scanning
+      // Mark all unique dataLocs in this file as scanning
+      const seenDataLocs = new Set<string>();
       for (const el of sourceFile.elements) {
-        get().updateElementIssue(el.id, {
-          elementId: el.id,
-          issues: [],
-          status: "scanning",
-        });
+        const dataLoc = getDataLocFromSource(el.source);
+        if (!seenDataLocs.has(dataLoc)) {
+          seenDataLocs.add(dataLoc);
+          get().updateElementIssue(dataLoc, {
+            dataLoc,
+            issues: [],
+            status: "scanning",
+          });
+        }
       }
 
       // Yield to browser to show "scanning" state
@@ -1145,13 +1138,24 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   // ============ DOM Observer ============
   removeStaleResults: (elementIds) =>
     set((state) => {
-      const newCache = new Map(state.elementIssuesCache);
+      // Remove elements by ID from autoScanState
+      const removedIdSet = new Set(elementIds);
       const newElements = state.autoScanState.elements.filter(
-        (el) => !elementIds.includes(el.id)
+        (el) => !removedIdSet.has(el.id)
       );
 
-      for (const id of elementIds) {
-        newCache.delete(id);
+      // Find dataLocs that no longer have any elements
+      const remainingDataLocs = new Set<string>();
+      for (const el of newElements) {
+        remainingDataLocs.add(getDataLocFromSource(el.source));
+      }
+
+      // Remove cache entries for dataLocs with no remaining elements
+      const newCache = new Map(state.elementIssuesCache);
+      for (const dataLoc of newCache.keys()) {
+        if (!remainingDataLocs.has(dataLoc)) {
+          newCache.delete(dataLoc);
+        }
       }
 
       return {
@@ -2101,26 +2105,36 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
           const sourceFiles = groupBySourceFile(state.autoScanState.elements);
           const sf = sourceFiles.find((s) => s.path === filePath);
           if (sf) {
-            // Mark elements as scanning
+            // Mark unique dataLocs as scanning
+            const seenDataLocs = new Set<string>();
             for (const el of sf.elements) {
-              const existing = state.elementIssuesCache.get(el.id);
-              state.updateElementIssue(el.id, {
-                elementId: el.id,
-                issues: existing?.issues || [],
-                status: "scanning",
-              });
+              const dataLoc = getDataLocFromSource(el.source);
+              if (!seenDataLocs.has(dataLoc)) {
+                seenDataLocs.add(dataLoc);
+                const existing = state.elementIssuesCache.get(dataLoc);
+                state.updateElementIssue(dataLoc, {
+                  dataLoc,
+                  issues: existing?.issues || [],
+                  status: "scanning",
+                });
+              }
             }
 
             // Fire-and-forget re-lint; updates will land via lint:result
             state.requestFileLint(filePath).catch(() => {
-              // Mark elements as error on failure
+              // Mark dataLocs as error on failure
+              const errorDataLocs = new Set<string>();
               for (const el of sf.elements) {
-                const existing = state.elementIssuesCache.get(el.id);
-                state.updateElementIssue(el.id, {
-                  elementId: el.id,
-                  issues: existing?.issues || [],
-                  status: "error",
-                });
+                const dataLoc = getDataLocFromSource(el.source);
+                if (!errorDataLocs.has(dataLoc)) {
+                  errorDataLocs.add(dataLoc);
+                  const existing = state.elementIssuesCache.get(dataLoc);
+                  state.updateElementIssue(dataLoc, {
+                    dataLoc,
+                    issues: existing?.issues || [],
+                    status: "error",
+                  });
+                }
               }
             });
           }
@@ -2213,14 +2227,18 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
           // Re-run scan with existing elements if we have them
           const elements = state.autoScanState.elements;
           if (elements.length > 0) {
-            // Re-initialize cache with pending status
+            // Re-initialize cache with pending status, keyed by dataLoc
             const initialCache = new Map<string, ElementIssue>();
             for (const el of elements) {
-              initialCache.set(el.id, {
-                elementId: el.id,
-                issues: [],
-                status: "pending",
-              });
+              const dataLoc = getDataLocFromSource(el.source);
+              // Only add if not already present (multiple elements can share same dataLoc)
+              if (!initialCache.has(dataLoc)) {
+                initialCache.set(dataLoc, {
+                  dataLoc,
+                  issues: [],
+                  status: "pending",
+                });
+              }
             }
 
             set({

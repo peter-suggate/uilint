@@ -164,10 +164,13 @@ export interface ESLintIssue {
 }
 
 /**
- * Cached issue data for a scanned element
+ * Cached issue data for a source location (dataLoc)
+ * Multiple DOM elements can share the same dataLoc (e.g., list items),
+ * so we key by dataLoc (path:line:column) rather than element ID.
  */
 export interface ElementIssue {
-  elementId: string;
+  /** The dataLoc key (format: "path:line:column") */
+  dataLoc: string;
   /** ESLint rule violations from uilint-eslint (including semantic rule) */
   issues: ESLintIssue[];
   status: "pending" | "scanning" | "complete" | "error";
@@ -243,6 +246,14 @@ export const DEFAULT_SETTINGS: UILintSettings = {
   hideNodeModules: true,
   autoScanEnabled: false,
 };
+
+/**
+ * Construct a dataLoc string from a source location
+ * Format: "path:line:column"
+ */
+export function getDataLocFromSource(source: SourceLocation): string {
+  return `${source.fileName}:${source.lineNumber}:${source.columnNumber ?? 0}`;
+}
 
 /**
  * Default auto-scan state

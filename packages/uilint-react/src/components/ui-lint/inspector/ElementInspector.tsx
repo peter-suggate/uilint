@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Icons } from "../command-palette/icons";
 import { FullFileViewer } from "./FullFileViewer";
 import { useUILintStore, type UILintStore } from "../store";
+import { getDataLocFromSource } from "../types";
 
 interface ElementInspectorProps {
   elementId: string;
@@ -24,8 +25,9 @@ export function ElementInspector({ elementId }: ElementInspectorProps) {
     [autoScanState.elements, elementId]
   );
 
-  // Get issues for this element
-  const elementData = elementIssuesCache.get(elementId);
+  // Get issues for this element by looking up its dataLoc
+  const dataLoc = element ? getDataLocFromSource(element.source) : null;
+  const elementData = dataLoc ? elementIssuesCache.get(dataLoc) : null;
   const issues = elementData?.issues ?? [];
 
   // Extract element source info
