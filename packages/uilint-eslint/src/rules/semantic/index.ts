@@ -41,6 +41,8 @@ export const meta = defineRuleMeta({
   hint: "LLM-powered UI analysis",
   defaultEnabled: false,
   requiresStyleguide: true,
+  plugin: "semantic",
+  customInspector: "semantic-issue",
   requirements: [
     {
       type: "ollama",

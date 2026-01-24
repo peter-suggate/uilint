@@ -5,7 +5,8 @@
  * Uses html-to-image for DOM-to-image capture.
  */
 
-import { DATA_UILINT_ID } from "../components/ui-lint/types";
+/** Data attribute used to mark scanned elements */
+const DATA_UILINT_ID = "data-loc";
 
 /**
  * Element manifest entry for vision analysis

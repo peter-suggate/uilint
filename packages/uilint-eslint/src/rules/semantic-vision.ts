@@ -40,6 +40,9 @@ export const meta = defineRuleMeta({
   hint: "Vision AI for rendered UI",
   defaultEnabled: false,
   requiresStyleguide: false,
+  plugin: "vision",
+  customInspector: "vision-issue",
+  heatmapColor: "#8B5CF6",
   postInstallInstructions: "Add the UILint browser overlay to your app and run analysis from the browser to generate cached results.",
   defaultOptions: [{ maxAgeMs: 3600000, screenshotsPath: ".uilint/screenshots" }],
   optionSchema: {

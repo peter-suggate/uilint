@@ -4,7 +4,15 @@ import React, { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { Violation } from "./types";
 import { getElementBySnapshotId } from "./snapshot";
-import { getUILintPortalHost } from "../components/ui-lint/portal-host";
+
+/** Get portal host element for rendering overlays */
+function getUILintPortalHost(): HTMLElement {
+  if (typeof document === "undefined") {
+    throw new Error("getUILintPortalHost() called outside of a DOM environment");
+  }
+  const root = document.querySelector<HTMLElement>(".uilint-devtool-root");
+  return root ?? document.body;
+}
 
 interface HighlightRect {
   top: number;
