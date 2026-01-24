@@ -273,7 +273,6 @@ It checks for:
     { pattern: "**/generated/**", threshold: 0 },
   ],
   severity: {
-    noTestFile: "warn",
     noCoverage: "error",
     belowThreshold: "warn",
   },
@@ -285,12 +284,6 @@ It checks for:
 \`\`\`
 
 ## Examples
-
-### Files without tests:
-\`\`\`ts
-// src/utils.ts - No corresponding test file
-export function calculate() { ... }  // Warning: No test file found
-\`\`\`
 
 ### Below threshold:
 \`\`\`ts
@@ -393,48 +386,6 @@ function calculateCoverage(fileCoverage: IstanbulCoverage[string]): number {
 
   const covered = keys.filter((key) => statements[key] > 0).length;
   return Math.round((covered / keys.length) * 100);
-}
-
-/**
- * Check if a test file exists for the given source file
- */
-function testFileExists(filePath: string, testPatterns: string[]): boolean {
-  const dir = dirname(filePath);
-  const ext = filePath.match(/\.(tsx?|jsx?)$/)?.[0] || ".ts";
-  const baseName = basename(filePath, ext);
-
-  for (const pattern of testPatterns) {
-    if (pattern.startsWith("__tests__/")) {
-      // Check __tests__ directory
-      const testDir = join(dir, "__tests__");
-      const testFile = join(
-        testDir,
-        `${baseName}${pattern.replace("__tests__/", "")}`
-      );
-      if (existsSync(testFile)) {
-        return true;
-      }
-      // Also check with extensions
-      for (const testExt of [
-        ".test.ts",
-        ".test.tsx",
-        ".spec.ts",
-        ".spec.tsx",
-      ]) {
-        if (existsSync(join(testDir, `${baseName}${testExt}`))) {
-          return true;
-        }
-      }
-    } else {
-      // Pattern is an extension like ".test.ts"
-      const testFile = join(dir, `${baseName}${pattern}`);
-      if (existsSync(testFile)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
 }
 
 /**
