@@ -220,8 +220,11 @@ function getGradientBorderColors(opacity: number): [string, string] {
   return [transparentColor, opaqueColor];
 }
 
-/** Size of the clickable corner circle indicator */
-const CORNER_CIRCLE_SIZE = 12;
+/** Size of the clickable corner plus icon indicator */
+const PLUS_SIZE = 14;
+const PLUS_SIZE_HOVER = 22;
+const PLUS_THICKNESS = 2;
+const PLUS_THICKNESS_HOVER = 3;
 
 function HeatmapRect({
   item,
@@ -270,26 +273,28 @@ function HeatmapRect({
         }}
       />
 
-      {/* Clickable corner dot at top-right */}
+      {/* Clickable corner plus icon at top-right */}
       <div
         data-ui-lint
         style={{
           position: "fixed",
-          top: rect.top - CORNER_CIRCLE_SIZE / 2,
-          left: rect.left + rect.width - CORNER_CIRCLE_SIZE / 2,
-          width: CORNER_CIRCLE_SIZE,
-          height: CORNER_CIRCLE_SIZE,
-          backgroundColor: dotColor,
-          borderRadius: "50%",
+          top: rect.top - (isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE) / 2,
+          left: rect.left + rect.width - (isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE) / 2,
+          width: isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE,
+          height: isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE,
+          backgroundColor: isHovered ? dotColor : `${dotColor}26`,
+          border: `${isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS}px solid ${dotColor}`,
+          borderRadius: isHovered ? 4 : 3,
           pointerEvents: "auto",
           cursor: "pointer",
           zIndex: 99999,
-          transition: "transform 150ms, background-color 150ms",
-          transform: isHovered ? "scale(1.1)" : "scale(1)",
+          transition: "all 150ms ease-out",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: STYLES.font,
+          boxShadow: isHovered
+            ? `0 2px 8px ${dotColor}66`
+            : `0 0 4px ${dotColor}4D`,
         }}
         onMouseEnter={onHover}
         onMouseLeave={onLeave}
@@ -298,7 +303,30 @@ function HeatmapRect({
           onClick();
         }}
         title={tooltipText}
-      />
+      >
+        {/* Horizontal arm of plus */}
+        <div
+          style={{
+            position: "absolute",
+            width: isHovered ? 10 : 6,
+            height: isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS,
+            backgroundColor: isHovered ? "white" : dotColor,
+            borderRadius: 1,
+            transition: "all 150ms ease-out",
+          }}
+        />
+        {/* Vertical arm of plus */}
+        <div
+          style={{
+            position: "absolute",
+            width: isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS,
+            height: isHovered ? 10 : 6,
+            backgroundColor: isHovered ? "white" : dotColor,
+            borderRadius: 1,
+            transition: "all 150ms ease-out",
+          }}
+        />
+      </div>
 
       {/* Tooltip on hover */}
       {isHovered && (
