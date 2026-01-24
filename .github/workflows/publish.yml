@@ -25,7 +25,7 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      - run: pnpm install
+      - run: pnpm install --no-frozen-lockfile
 
       - name: Bump versions
         run: pnpm version:patch
