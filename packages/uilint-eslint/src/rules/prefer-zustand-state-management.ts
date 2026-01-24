@@ -27,6 +27,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "prefer-zustand-state-management",
+  version: "1.0.0",
   name: "Prefer Zustand State Management",
   description: "Detect excessive useState/useReducer/useContext; suggest Zustand",
   defaultSeverity: "warn",

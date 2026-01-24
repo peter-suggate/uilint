@@ -147,6 +147,7 @@ interface IstanbulCoverage {
  */
 export const meta = defineRuleMeta({
   id: "require-test-coverage",
+  version: "1.0.0",
   name: "Require Test Coverage",
   description: "Enforce that source files have adequate test coverage",
   defaultSeverity: "warn",

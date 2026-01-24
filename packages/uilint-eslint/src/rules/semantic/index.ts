@@ -32,6 +32,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "semantic",
+  version: "1.0.0",
   name: "Semantic Analysis",
   description: "LLM-powered semantic UI analysis using your styleguide",
   defaultSeverity: "warn",

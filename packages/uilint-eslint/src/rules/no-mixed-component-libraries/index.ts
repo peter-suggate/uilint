@@ -31,6 +31,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "no-mixed-component-libraries",
+  version: "1.0.0",
   name: "No Mixed Component Libraries",
   description: "Forbid mixing component libraries (e.g., shadcn + MUI)",
   defaultSeverity: "error",

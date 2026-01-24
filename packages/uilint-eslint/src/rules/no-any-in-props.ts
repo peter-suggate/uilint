@@ -29,6 +29,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "no-any-in-props",
+  version: "1.0.0",
   name: "No Any in Props",
   description: "Disallow 'any' type in React component props",
   defaultSeverity: "error",

@@ -50,6 +50,22 @@ export interface RuleRequirement {
 }
 
 /**
+ * Rule migration definition for updating rule options between versions
+ */
+export interface RuleMigration {
+  /** Source version (semver) */
+  from: string;
+  /** Target version (semver) */
+  to: string;
+  /** Human-readable description of what changed */
+  description: string;
+  /** Function to migrate options from old format to new format */
+  migrate: (oldOptions: unknown[]) => unknown[];
+  /** Whether this migration contains breaking changes */
+  breaking?: boolean;
+}
+
+/**
  * Colocated rule metadata - exported alongside each rule
  *
  * This structure keeps all rule metadata in the same file as the rule implementation,
@@ -58,6 +74,9 @@ export interface RuleRequirement {
 export interface RuleMeta {
   /** Rule identifier (e.g., "no-arbitrary-tailwind") - must match filename */
   id: string;
+
+  /** Semantic version of the rule (e.g., "1.0.0") */
+  version: string;
 
   /** Display name for CLI (e.g., "No Arbitrary Tailwind") */
   name: string;
@@ -129,6 +148,12 @@ export interface RuleMeta {
    *   ./.uilint/rules/rule-id.js
    */
   isDirectoryBased?: boolean;
+
+  /**
+   * Migrations for updating rule options between versions.
+   * Migrations are applied in order to transform options from older versions.
+   */
+  migrations?: RuleMigration[];
 }
 
 /**

@@ -32,6 +32,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "no-secrets-in-code",
+  version: "1.0.0",
   name: "No Secrets in Code",
   description: "Detect hardcoded secrets, API keys, and tokens",
   defaultSeverity: "error",

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "installedAt": "2024-01-01T00:00:00Z",
+  "uilintVersion": "0.1.0",
+  "rules": {
+    "consistent-spacing": {
+      "version": "0.9.0",
+      "installedAt": "2024-01-01T00:00:00Z"
+    }
+  }
+}

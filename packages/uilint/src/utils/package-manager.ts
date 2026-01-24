@@ -237,3 +237,99 @@ export async function runTestsWithCoverage(
   const { command, args } = getTestCoverageCommand(pm);
   await spawnAsync(command, args, projectPath);
 }
+
+/**
+ * UILint packages that can be updated
+ */
+export const UILINT_PACKAGES = [
+  "uilint",
+  "uilint-eslint",
+  "uilint-core",
+  "uilint-react",
+] as const;
+
+export type UilintPackage = (typeof UILINT_PACKAGES)[number];
+
+/**
+ * Get installed uilint packages and their versions
+ */
+export function getInstalledUilintPackages(
+  projectPath: string
+): Map<UilintPackage, string> {
+  const pkgJsonPath = join(projectPath, "package.json");
+  if (!existsSync(pkgJsonPath)) {
+    return new Map();
+  }
+
+  try {
+    const pkgJson = JSON.parse(readFileSync(pkgJsonPath, "utf-8")) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+
+    const result = new Map<UilintPackage, string>();
+    const allDeps = {
+      ...pkgJson.dependencies,
+      ...pkgJson.devDependencies,
+    };
+
+    for (const pkg of UILINT_PACKAGES) {
+      if (allDeps[pkg]) {
+        result.set(pkg, allDeps[pkg]);
+      }
+    }
+
+    return result;
+  } catch {
+    return new Map();
+  }
+}
+
+/**
+ * Update packages to their latest versions
+ */
+export async function updatePackages(
+  pm: PackageManager,
+  projectPath: string,
+  packages: string[],
+  options: { dev?: boolean } = { dev: true }
+): Promise<void> {
+  if (!packages.length) return;
+
+  const isDev = options.dev ?? true;
+
+  // Use @latest to update to latest version
+  const packagesWithLatest = packages.map((pkg) => `${pkg}@latest`);
+
+  switch (pm) {
+    case "pnpm":
+      await spawnAsync(
+        "pnpm",
+        ["add", ...(isDev ? ["-D"] : []), ...packagesWithLatest],
+        projectPath
+      );
+      return;
+    case "yarn":
+      await spawnAsync(
+        "yarn",
+        ["add", ...(isDev ? ["-D"] : []), ...packagesWithLatest],
+        projectPath
+      );
+      return;
+    case "bun":
+      await spawnAsync(
+        "bun",
+        ["add", ...(isDev ? ["-d"] : []), ...packagesWithLatest],
+        projectPath
+      );
+      return;
+    case "npm":
+    default:
+      await spawnAsync(
+        "npm",
+        ["install", isDev ? "--save-dev" : "--save", ...packagesWithLatest],
+        projectPath
+      );
+      return;
+  }
+}

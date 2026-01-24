@@ -29,6 +29,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "require-input-validation",
+  version: "1.0.0",
   name: "Require Input Validation",
   description: "Require schema validation in API route handlers",
   defaultSeverity: "warn",

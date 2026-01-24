@@ -263,4 +263,22 @@ program
 // Duplicates command group - semantic code duplicate detection
 program.addCommand(createDuplicatesCommand());
 
+// Upgrade command - update installed rules
+program
+  .command("upgrade")
+  .description("Update installed ESLint rules to latest versions")
+  .option("--check", "Show available updates without applying")
+  .option("-y, --yes", "Auto-confirm all updates")
+  .option("--dry-run", "Show what would change without modifying files")
+  .option("--rule <id>", "Upgrade only a specific rule")
+  .action(async (options) => {
+    const { upgrade } = await import("./commands/upgrade.js");
+    await upgrade({
+      check: options.check,
+      yes: options.yes,
+      dryRun: options.dryRun,
+      rule: options.rule,
+    });
+  });
+
 program.parse();

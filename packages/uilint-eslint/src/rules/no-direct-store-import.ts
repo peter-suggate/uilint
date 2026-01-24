@@ -18,6 +18,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "no-direct-store-import",
+  version: "1.0.0",
   name: "No Direct Store Import",
   description: "Forbid direct Zustand store imports (use context hooks)",
   defaultSeverity: "warn",

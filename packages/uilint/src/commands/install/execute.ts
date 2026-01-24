@@ -15,6 +15,7 @@ import {
   rmSync,
 } from "fs";
 import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import type {
   InstallPlan,
   InstallAction,
@@ -36,6 +37,7 @@ import type {
   RemoveViteConfigAction,
   RemoveNextRoutesAction,
   RemoveDirectoryAction,
+  UpdateManifestAction,
 } from "./types.js";
 import { installDependencies as defaultInstallDependencies } from "../../utils/package-manager.js";
 import { installEslintPlugin, uninstallEslintPlugin } from "../../utils/eslint-config-inject.js";
@@ -48,6 +50,7 @@ import { findWorkspaceRoot } from "uilint-core/node";
 import { detectCoverageSetup } from "../../utils/coverage-detect.js";
 import { injectCoverageConfig } from "../../utils/coverage-prepare.js";
 import { injectTsconfigExclusion } from "../../utils/tsconfig-inject.js";
+import { updateManifestRule } from "../../utils/manifest.js";
 
 /**
  * Execute a single action and return the result
@@ -209,6 +212,10 @@ async function executeAction(
 
       case "remove_directory": {
         return await executeRemoveDirectory(action, options);
+      }
+
+      case "update_manifest": {
+        return await executeUpdateManifest(action, options);
       }
 
       default: {
@@ -646,6 +653,59 @@ async function executeRemoveDirectory(
   }
 
   return { action, success: true };
+}
+
+/**
+ * Execute manifest update
+ */
+async function executeUpdateManifest(
+  action: UpdateManifestAction,
+  options: ExecuteOptions
+): Promise<ActionResult> {
+  const { dryRun = false } = options;
+
+  if (dryRun) {
+    const ruleCount = Object.keys(action.rules).length;
+    return {
+      action,
+      success: true,
+      wouldDo: `Update manifest with ${ruleCount} rule(s) in: ${action.projectPath}`,
+    };
+  }
+
+  try {
+    // Get the CLI version for the manifest
+    const cliVersion = getCliVersion();
+
+    // Update manifest for each rule
+    for (const [ruleId, version] of Object.entries(action.rules)) {
+      updateManifestRule(action.projectPath, ruleId, version, cliVersion);
+    }
+
+    return { action, success: true };
+  } catch (error) {
+    return {
+      action,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * Get CLI version from package.json
+ */
+function getCliVersion(): string {
+  try {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const pkgPath = join(__dirname, "..", "..", "..", "package.json");
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
+      version?: string;
+    };
+    return pkg.version || "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
 }
 
 /**

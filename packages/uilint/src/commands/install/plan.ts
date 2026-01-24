@@ -334,6 +334,18 @@ export function createPlan(
         type: "inject_tsconfig",
         projectPath: pkgPath,
       });
+
+      // Update manifest with installed rule versions
+      const ruleVersions: Record<string, string> = {};
+      for (const rule of selectedRules) {
+        // Use version from RuleMeta, default to "1.0.0" if not specified
+        ruleVersions[rule.id] = rule.version ?? "1.0.0";
+      }
+      actions.push({
+        type: "update_manifest",
+        projectPath: pkgPath,
+        rules: ruleVersions,
+      });
     }
 
     // Add .uilint/.cache to .gitignore at workspace root

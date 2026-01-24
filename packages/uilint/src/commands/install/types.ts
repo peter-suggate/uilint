@@ -266,6 +266,13 @@ export interface RemoveDirectoryAction {
   path: string;
 }
 
+export interface UpdateManifestAction {
+  type: "update_manifest";
+  projectPath: string;
+  /** Map of rule IDs to versions to record in the manifest */
+  rules: Record<string, string>;
+}
+
 export type InstallAction =
   | CreateFileAction
   | MergeJsonAction
@@ -284,7 +291,8 @@ export type InstallAction =
   | RemoveNextConfigAction
   | RemoveViteConfigAction
   | RemoveNextRoutesAction
-  | RemoveDirectoryAction;
+  | RemoveDirectoryAction
+  | UpdateManifestAction;
 
 export interface DependencyInstall {
   packagePath: string;

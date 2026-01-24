@@ -12,6 +12,7 @@ export type {
   RuleOptionSchema,
   OptionFieldSchema,
   RuleRequirement,
+  RuleMigration,
 } from "./utils/create-rule.js";
 
 // Backward compatibility alias

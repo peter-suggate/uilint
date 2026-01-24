@@ -15,6 +15,7 @@ type Options = [];
  */
 export const meta = defineRuleMeta({
   id: "no-arbitrary-tailwind",
+  version: "1.0.0",
   name: "No Arbitrary Tailwind",
   description: "Forbid arbitrary values like w-[123px], bg-[#fff]",
   defaultSeverity: "error",

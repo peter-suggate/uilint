@@ -19,6 +19,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "consistent-spacing",
+  version: "1.0.0",
   name: "Consistent Spacing",
   description: "Enforce spacing scale (no magic numbers in gap/padding)",
   defaultSeverity: "warn",

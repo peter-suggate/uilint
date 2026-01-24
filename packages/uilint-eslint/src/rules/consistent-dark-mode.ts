@@ -22,6 +22,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "consistent-dark-mode",
+  version: "1.0.0",
   name: "Consistent Dark Mode",
   description: "Ensure consistent dark: theming (error on mix, warn on missing)",
   defaultSeverity: "error",

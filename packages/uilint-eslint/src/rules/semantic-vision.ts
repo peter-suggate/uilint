@@ -31,6 +31,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "semantic-vision",
+  version: "1.0.0",
   name: "Vision Analysis",
   description: "Report cached vision analysis results from UILint browser overlay",
   defaultSeverity: "warn",

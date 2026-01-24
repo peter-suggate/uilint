@@ -60,6 +60,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "no-semantic-duplicates",
+  version: "1.0.0",
   name: "No Semantic Duplicates",
   description: "Warn when code is semantically similar to existing code",
   defaultSeverity: "warn",

@@ -31,6 +31,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "zustand-use-selectors",
+  version: "1.0.0",
   name: "Zustand Use Selectors",
   description: "Require selector functions when accessing Zustand store state",
   defaultSeverity: "warn",

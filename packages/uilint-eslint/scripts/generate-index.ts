@@ -247,6 +247,7 @@ export {
   type OptionFieldSchema,
   type RuleOptionSchema,
   type RuleRequirement,
+  type RuleMigration,
   type CategoryMeta,
 } from "./rule-registry.js";
 

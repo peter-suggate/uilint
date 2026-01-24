@@ -31,6 +31,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "no-prop-drilling-depth",
+  version: "1.0.0",
   name: "No Prop Drilling Depth",
   description: "Warn when props are drilled through too many components",
   defaultSeverity: "warn",

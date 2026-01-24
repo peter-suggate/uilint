@@ -30,6 +30,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "enforce-absolute-imports",
+  version: "1.0.0",
   name: "Enforce Absolute Imports",
   description:
     "Require alias imports for paths beyond a configurable directory depth",
