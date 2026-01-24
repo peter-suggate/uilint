@@ -6,10 +6,11 @@
  * Uses color intensity to represent issue count.
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useUILintStore, type UILintStore } from "./store";
 import type { ScannedElement } from "./types";
+import { getDataLocFromSource } from "./types";
 import { getUILintPortalHost } from "./portal-host";
 import {
   getElementVisibleRect,
@@ -19,6 +20,9 @@ import {
   calculateHeatmapOpacity,
   getHeatmapBorderColor,
 } from "./heatmap-colors";
+
+/** Debounce time in ms after scroll/movement stops before fading back in */
+const MOVEMENT_DEBOUNCE_MS = 150;
 
 /**
  * Design tokens - uses CSS variables for theme support
@@ -47,15 +51,58 @@ export function HeatmapOverlay() {
   const [mounted, setMounted] = useState(false);
   const [heatmapElements, setHeatmapElements] = useState<HeatmapElement[]>([]);
   const [hoveredElementId, setHoveredElementId] = useState<string | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
+
+  // Refs for scroll/movement detection
+  const scrollTimeoutRef = useRef<number | null>(null);
+  const lastPositionsRef = useRef<Map<string, { top: number; left: number }>>(new Map());
+
+  // Alt key state - overlay only shows when alt is held (with exceptions)
+  const altKeyHeld = useUILintStore((s: UILintStore) => s.altKeyHeld);
 
   // Inspector state - positions need to update when sidebar opens/closes/resizes
   const inspectorOpen = useUILintStore((s: UILintStore) => s.inspectorOpen);
   const inspectorDocked = useUILintStore((s: UILintStore) => s.inspectorDocked);
   const inspectorWidth = useUILintStore((s: UILintStore) => s.inspectorWidth);
 
+  // Inspector mode state - for determining which elements to show when alt is not held
+  const inspectorMode = useUILintStore((s: UILintStore) => s.inspectorMode);
+  const inspectorElementId = useUILintStore((s: UILintStore) => s.inspectorElementId);
+  const inspectorRuleId = useUILintStore((s: UILintStore) => s.inspectorRuleId);
+  const elementIssuesCache = useUILintStore((s: UILintStore) => s.elementIssuesCache);
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Helper to determine if an element should be visible
+  const shouldShowElement = useCallback(
+    (element: ScannedElement): boolean => {
+      // Always show if alt is held
+      if (altKeyHeld) return true;
+
+      // Show if this specific element is being inspected
+      if (inspectorOpen && inspectorMode === "element" && inspectorElementId === element.id) {
+        return true;
+      }
+
+      // Show if a rule is being inspected and this element has issues from that rule
+      if (inspectorOpen && inspectorMode === "rule" && inspectorRuleId) {
+        const dataLoc = getDataLocFromSource(element.source);
+        const elementData = elementIssuesCache.get(dataLoc);
+        if (elementData) {
+          const fullRuleId = `uilint/${inspectorRuleId}`;
+          const hasRuleIssue = elementData.issues.some(
+            (issue) => issue.ruleId === fullRuleId || issue.ruleId === inspectorRuleId
+          );
+          if (hasRuleIssue) return true;
+        }
+      }
+
+      return false;
+    },
+    [altKeyHeld, inspectorOpen, inspectorMode, inspectorElementId, inspectorRuleId, elementIssuesCache]
+  );
 
   // Calculate heatmap positions and colors
   useEffect(() => {
@@ -66,6 +113,8 @@ export function HeatmapOverlay() {
 
     const updatePositions = () => {
       const elements: HeatmapElement[] = [];
+      const currentPositions = new Map<string, { top: number; left: number }>();
+      let hasPositionChanges = false;
 
       // Find max issue count for normalization
       let maxIssues = 0;
@@ -81,6 +130,9 @@ export function HeatmapOverlay() {
         // Only show elements that have issues
         if (issueCount === 0) continue;
 
+        // Check visibility based on alt key and inspector state
+        if (!shouldShowElement(element)) continue;
+
         const visible = getElementVisibleRect(element.element);
         if (!visible) continue;
 
@@ -90,6 +142,17 @@ export function HeatmapOverlay() {
         if (isElementCoveredByOverlay(element.element, testX, testY)) continue;
 
         const opacity = calculateHeatmapOpacity(issueCount, maxIssues);
+
+        // Track position for movement detection
+        const prevPos = lastPositionsRef.current.get(element.id);
+        currentPositions.set(element.id, { top: visible.top, left: visible.left });
+
+        if (prevPos) {
+          const movedDistance = Math.abs(visible.top - prevPos.top) + Math.abs(visible.left - prevPos.left);
+          if (movedDistance > 2) {
+            hasPositionChanges = true;
+          }
+        }
 
         elements.push({
           element,
@@ -102,6 +165,23 @@ export function HeatmapOverlay() {
           issueCount,
           opacity,
         });
+      }
+
+      // Update position tracking
+      lastPositionsRef.current = currentPositions;
+
+      // Trigger moving state if positions changed significantly
+      if (hasPositionChanges) {
+        setIsMoving(true);
+        // Clear existing timeout
+        if (scrollTimeoutRef.current !== null) {
+          clearTimeout(scrollTimeoutRef.current);
+        }
+        // Set timeout to clear moving state after debounce
+        scrollTimeoutRef.current = window.setTimeout(() => {
+          setIsMoving(false);
+          scrollTimeoutRef.current = null;
+        }, MOVEMENT_DEBOUNCE_MS);
       }
 
       setHeatmapElements(elements);
@@ -126,8 +206,40 @@ export function HeatmapOverlay() {
       updatePositions();
     }, 250);
 
-    const handleScroll = () => scheduleUpdate();
-    const handleResize = () => scheduleUpdate();
+    const handleScroll = () => {
+      // Set moving state immediately on scroll
+      setIsMoving(true);
+
+      // Clear existing timeout
+      if (scrollTimeoutRef.current !== null) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+
+      // Set timeout to clear moving state after scroll stops
+      scrollTimeoutRef.current = window.setTimeout(() => {
+        setIsMoving(false);
+        scrollTimeoutRef.current = null;
+      }, MOVEMENT_DEBOUNCE_MS);
+
+      scheduleUpdate();
+    };
+
+    const handleResize = () => {
+      // Set moving state on resize too
+      setIsMoving(true);
+
+      if (scrollTimeoutRef.current !== null) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+
+      scrollTimeoutRef.current = window.setTimeout(() => {
+        setIsMoving(false);
+        scrollTimeoutRef.current = null;
+      }, MOVEMENT_DEBOUNCE_MS);
+
+      scheduleUpdate();
+    };
+
     const handleVisibility = () => {
       if (document.visibilityState === "visible") scheduleUpdate();
     };
@@ -139,12 +251,12 @@ export function HeatmapOverlay() {
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
       if (transitionTimeoutId !== null) clearTimeout(transitionTimeoutId);
+      if (scrollTimeoutRef.current !== null) clearTimeout(scrollTimeoutRef.current);
       window.removeEventListener("scroll", handleScroll, true);
       window.removeEventListener("resize", handleResize);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [autoScanState.status, autoScanState.elements, mergedIssueCounts, inspectorOpen, inspectorDocked, inspectorWidth]);
-
+  }, [autoScanState.status, autoScanState.elements, mergedIssueCounts, inspectorOpen, inspectorDocked, inspectorWidth, shouldShowElement]);
 
   // Get inspector actions from store
   const openInspector = useUILintStore((s: UILintStore) => s.openInspector);
@@ -168,6 +280,9 @@ export function HeatmapOverlay() {
   if (!mounted) return null;
   if (autoScanState.status === "idle") return null;
 
+  // Don't render anything if no elements to show
+  if (heatmapElements.length === 0) return null;
+
   const content = (
     <div
       data-ui-lint
@@ -175,7 +290,11 @@ export function HeatmapOverlay() {
       onPointerDown={handleUILintInteraction}
       onClick={handleUILintInteraction}
       onKeyDown={handleUILintInteraction}
-      style={{ pointerEvents: "none" }}
+      style={{
+        pointerEvents: "none",
+        opacity: isMoving ? 0 : 1,
+        transition: "opacity 150ms ease-in-out",
+      }}
     >
       {heatmapElements.map((item) => (
         <HeatmapRect
@@ -288,7 +407,8 @@ function HeatmapRect({
           pointerEvents: "auto",
           cursor: "pointer",
           zIndex: 99999,
-          transition: "all 150ms ease-out",
+          // Only transition visual properties, not position (top/left)
+          transition: "width 150ms ease-out, height 150ms ease-out, background-color 150ms ease-out, border 150ms ease-out, border-radius 150ms ease-out, box-shadow 150ms ease-out",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -312,7 +432,7 @@ function HeatmapRect({
             height: isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS,
             backgroundColor: isHovered ? "white" : dotColor,
             borderRadius: 1,
-            transition: "all 150ms ease-out",
+            transition: "width 150ms ease-out, height 150ms ease-out, background-color 150ms ease-out",
           }}
         />
         {/* Vertical arm of plus */}
@@ -323,7 +443,7 @@ function HeatmapRect({
             height: isHovered ? 10 : 6,
             backgroundColor: isHovered ? "white" : dotColor,
             borderRadius: 1,
-            transition: "all 150ms ease-out",
+            transition: "width 150ms ease-out, height 150ms ease-out, background-color 150ms ease-out",
           }}
         />
       </div>
