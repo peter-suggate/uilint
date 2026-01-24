@@ -503,7 +503,7 @@ export interface UILintStore {
   /** Whether inspector sidebar is open */
   inspectorOpen: boolean;
   /** Current inspector mode */
-  inspectorMode: "rule" | "issue" | "element" | null;
+  inspectorMode: "rule" | "issue" | "element" | "fixes" | null;
   /** Rule ID when showing rule details */
   inspectorRuleId: string | null;
   /** Issue data when showing issue details */
@@ -522,9 +522,11 @@ export interface UILintStore {
   // Inspector actions
   /** Open inspector with specific content */
   openInspector: (
-    mode: "rule" | "issue" | "element",
+    mode: "rule" | "issue" | "element" | "fixes",
     data: { ruleId?: string; issue?: ESLintIssue; elementId?: string; filePath?: string }
   ) => void;
+  /** Open inspector in fixes mode */
+  openFixesInspector: () => void;
   /** Close inspector sidebar */
   closeInspector: () => void;
   /** Set inspector to show rule details */
@@ -1932,10 +1934,23 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       state.inspectorElementId = data.elementId;
       state.inspectorRuleId = null;
       state.inspectorIssue = null;
+    } else if (mode === "fixes") {
+      state.inspectorRuleId = null;
+      state.inspectorIssue = null;
+      state.inspectorElementId = null;
     }
 
     set(state);
   },
+
+  openFixesInspector: () =>
+    set({
+      inspectorOpen: true,
+      inspectorMode: "fixes",
+      inspectorRuleId: null,
+      inspectorIssue: null,
+      inspectorElementId: null,
+    }),
 
   closeInspector: () =>
     set({
