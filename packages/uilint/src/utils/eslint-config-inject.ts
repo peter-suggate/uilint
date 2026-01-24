@@ -589,12 +589,127 @@ ${rulesPropsCode}
   arrayExpr.elements.push(objExpr);
 }
 
+/**
+ * Update an existing uilint config block with new rules.
+ * This modifies the existing config object instead of creating a new one.
+ *
+ * Handles both plugin formats:
+ * - `plugins: { uilint: uilint }` (old format with identifier)
+ * - `plugins: { uilint: { rules: {...} } }` (new format with rules object)
+ */
+function updateExistingUilintConfigBlock(
+  configObj: any,
+  selectedRules: RuleMetadata[],
+  ruleImportNames: Map<string, string>
+): void {
+  const pluginsObj = getObjectPropertyValue(configObj, "plugins");
+  const rulesObj = getObjectPropertyValue(configObj, "rules");
+
+  // Update the plugins.uilint object to include the new rule imports
+  if (pluginsObj?.type === "ObjectExpression") {
+    const uilintPluginProp = pluginsObj.properties?.find(
+      (p: any) =>
+        (p.type === "ObjectProperty" || p.type === "Property") &&
+        ((p.key?.type === "Identifier" && p.key.name === "uilint") ||
+          (isStringLiteral(p.key) && p.key.value === "uilint"))
+    );
+
+    if (uilintPluginProp) {
+      const uilintValue = uilintPluginProp.value;
+
+      // Check if it's the old format (identifier like `uilint`) or new format (object with rules)
+      if (uilintValue?.type === "Identifier") {
+        // Old format: `plugins: { uilint: uilint }`
+        // Replace with new format: `plugins: { uilint: { rules: {...} } }`
+        const pluginRulesCode = Array.from(ruleImportNames.entries())
+          .map(([ruleId, importName]) => `"${ruleId}": ${importName}`)
+          .join(", ");
+
+        const newPluginObjCode = `{ rules: { ${pluginRulesCode} } }`;
+        const newPluginObj = (parseExpression(newPluginObjCode) as any).$ast;
+        uilintPluginProp.value = newPluginObj;
+      } else if (uilintValue?.type === "ObjectExpression") {
+        // New format: `plugins: { uilint: { rules: {...} } }`
+        // Find or create the rules object inside
+        let pluginRulesObj = getObjectPropertyValue(uilintValue, "rules");
+
+        if (!pluginRulesObj || pluginRulesObj.type !== "ObjectExpression") {
+          // Create the rules property
+          const rulesCode = `{ rules: {} }`;
+          const tempObj = (parseExpression(rulesCode) as any).$ast;
+          pluginRulesObj = tempObj.properties[0].value;
+          uilintValue.properties.push(tempObj.properties[0]);
+        }
+
+        // Add each rule import to the plugins.uilint.rules object
+        for (const [ruleId, importName] of ruleImportNames.entries()) {
+          // Check if already exists
+          const exists = pluginRulesObj.properties?.some(
+            (p: any) =>
+              (p.type === "ObjectProperty" || p.type === "Property") &&
+              isStringLiteral(p.key) &&
+              p.key.value === ruleId
+          );
+
+          if (!exists) {
+            const propCode = `{ "${ruleId}": ${importName} }`;
+            const tempObj = (parseExpression(propCode) as any).$ast;
+            pluginRulesObj.properties.push(tempObj.properties[0]);
+          }
+        }
+      }
+    }
+  }
+
+  // Add new rules or update existing ones in the rules object
+  if (rulesObj?.type === "ObjectExpression") {
+    for (const rule of selectedRules) {
+      const ruleKey = `uilint/${rule.id}`;
+
+      // Generate the new value for this rule
+      const valueCode =
+        rule.defaultOptions && rule.defaultOptions.length > 0
+          ? `["${rule.defaultSeverity}", ...${JSON.stringify(
+              rule.defaultOptions,
+              null,
+              2
+            )}]`
+          : `"${rule.defaultSeverity}"`;
+
+      // Find existing rule property
+      const existingPropIndex = rulesObj.properties?.findIndex(
+        (p: any) =>
+          (p.type === "ObjectProperty" || p.type === "Property") &&
+          isStringLiteral(p.key) &&
+          p.key.value === ruleKey
+      );
+
+      const propCode = `{ "${ruleKey}": ${valueCode} }`;
+      const tempObj = (parseExpression(propCode) as any).$ast;
+      const newProp = tempObj.properties[0];
+
+      if (existingPropIndex !== undefined && existingPropIndex >= 0) {
+        // Update existing rule with new value
+        rulesObj.properties[existingPropIndex] = newProp;
+      } else {
+        // Add new rule
+        rulesObj.properties.push(newProp);
+      }
+    }
+  }
+}
+
 function getUilintEslintConfigInfoFromSourceAst(source: string):
   | {
       info: UilintEslintConfigInfo;
       mod: any;
       arrayExpr: any;
       kind: "esm" | "cjs";
+      existingConfig: {
+        configObj: any | null;
+        rulesObj: any | null;
+        safeToMutate: boolean;
+      };
     }
   | { error: string } {
   try {
@@ -619,6 +734,7 @@ function getUilintEslintConfigInfoFromSourceAst(source: string):
       mod,
       arrayExpr: found.arrayExpr,
       kind: found.kind,
+      existingConfig: existingUilint,
     };
   } catch {
     return {
@@ -1162,7 +1278,7 @@ export async function installEslintPlugin(
     };
   }
 
-  const { info, mod, arrayExpr, kind } = ast;
+  const { info, mod, arrayExpr, kind, existingConfig } = ast;
   const configuredIds = info.configuredRuleIds;
 
   const missingRules = getMissingSelectedRules(
@@ -1253,9 +1369,19 @@ export async function installEslintPlugin(
     if (result.changed) modifiedAst = true;
   }
 
-  // Add config block with local rules
+  // Add config block with local rules (or update existing one)
   if (ruleImportNames && ruleImportNames.size > 0) {
-    appendUilintConfigBlockToArray(arrayExpr, rulesToApply, ruleImportNames);
+    if (existingConfig.configObj !== null) {
+      // Update the existing config block instead of creating a new one
+      updateExistingUilintConfigBlock(
+        existingConfig.configObj,
+        rulesToApply,
+        ruleImportNames
+      );
+    } else {
+      // No existing config block, append a new one
+      appendUilintConfigBlockToArray(arrayExpr, rulesToApply, ruleImportNames);
+    }
     modifiedAst = true;
   }
 
