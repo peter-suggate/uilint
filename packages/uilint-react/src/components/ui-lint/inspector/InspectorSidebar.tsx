@@ -8,6 +8,7 @@ import { useUILintStore, type UILintStore } from "../store";
 import { RuleInspector } from "./RuleInspector";
 import { IssueInspector } from "./IssueInspector";
 import { ElementInspector } from "./ElementInspector";
+import { FixesInspector } from "./FixesInspector";
 import { ResizeHandle } from "./ResizeHandle";
 import { getUILintPortalHost } from "../portal-host";
 
@@ -154,6 +155,8 @@ export function InspectorSidebar() {
       ? "Issue Details"
       : inspectorMode === "element"
       ? "Element Issues"
+      : inspectorMode === "fixes"
+      ? "Fix Issues"
       : "Inspector";
 
   // Render content based on mode
@@ -171,6 +174,9 @@ export function InspectorSidebar() {
       )}
       {inspectorMode === "element" && inspectorElementId && (
         <ElementInspector elementId={inspectorElementId} />
+      )}
+      {inspectorMode === "fixes" && (
+        <FixesInspector />
       )}
     </>
   );

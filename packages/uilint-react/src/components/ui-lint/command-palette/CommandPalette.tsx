@@ -68,11 +68,12 @@ function calculatePalettePosition(iconPos: FloatingIconPosition | null): {
 
 /**
  * Build suggested action items based on current state
- * Actions are organized into categories: settings, vision
+ * Actions are organized into categories: settings, vision, actions
  */
 function buildActionItems(
   wsConnected: boolean,
-  liveScanEnabled: boolean
+  liveScanEnabled: boolean,
+  hasIssues: boolean
 ): SearchableItem[] {
   const actions: SearchableItem[] = [];
 
@@ -100,6 +101,19 @@ function buildActionItems(
         : "Enable real-time code quality analysis",
       data: { type: "action", actionType: "toggle-scan" } as ActionSearchData,
     });
+
+    // Fix issues action (shown when there are issues)
+    if (hasIssues) {
+      actions.push({
+        type: "action",
+        category: "actions",
+        id: "action:fix-issues",
+        searchText: "fix issues errors warnings prompt copy clipboard",
+        title: "Fix all issues",
+        subtitle: "Generate a prompt to fix all lint issues",
+        data: { type: "action", actionType: "fix-issues" } as ActionSearchData,
+      });
+    }
 
     // Vision category: Capture actions
     actions.push({
@@ -192,6 +206,7 @@ export function CommandPalette() {
     connectWebSocket,
     addCommandPaletteFilter,
     removeCommandPaletteFilter,
+    openFixesInspector,
   } = useUILintStore.getState();
 
   // Track selected item for persistent heatmap display
@@ -199,10 +214,23 @@ export function CommandPalette() {
     (s: UILintStore) => s.selectedCommandPaletteItemId
   );
 
+  // Check if there are any issues
+  const hasIssues = useMemo(() => {
+    // Check element issues
+    for (const [, elementIssue] of elementIssuesCache) {
+      if (elementIssue.issues.length > 0) return true;
+    }
+    // Check file-level issues
+    for (const [, issues] of fileIssuesCache) {
+      if (issues.length > 0) return true;
+    }
+    return false;
+  }, [elementIssuesCache, fileIssuesCache]);
+
   // Build action items
   const actionItems = useMemo(
-    () => buildActionItems(wsConnected, liveScanEnabled),
-    [wsConnected, liveScanEnabled]
+    () => buildActionItems(wsConnected, liveScanEnabled, hasIssues),
+    [wsConnected, liveScanEnabled, hasIssues]
   );
 
   // Build searchable items from scan results
@@ -352,6 +380,10 @@ export function CommandPalette() {
             setRegionSelectionActive(true);
             closeCommandPalette();
             break;
+          case "fix-issues":
+            openFixesInspector();
+            closeCommandPalette();
+            break;
         }
       }
       // Other item types (rules, files, issues) add filters via onAddFilter
@@ -365,6 +397,7 @@ export function CommandPalette() {
       disableLiveScan,
       triggerVisionAnalysis,
       setRegionSelectionActive,
+      openFixesInspector,
     ]
   );
 
