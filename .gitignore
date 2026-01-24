@@ -35,5 +35,10 @@ coverage/
 # Testing outputs
 # /.uilint/
 
-# UILint cache
-apps/test-app/.uilint/.cache/eslint-semantic.json
+# Generated test app (from template)
+apps/test-app/
+
+# UILint generated files in template (keep styleguide.md)
+apps/test-app-template/.uilint/.cache/
+apps/test-app-template/.uilint/.duplicates-index/
+apps/test-app-template/.uilint/rules/
