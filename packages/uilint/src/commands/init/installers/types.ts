@@ -153,14 +153,14 @@ export interface Installer {
   ): AsyncGenerator<ProgressEvent>;
 
   /**
-   * Generate uninstallation plan for selected targets (optional)
-   * Only implement this if the installer supports uninstallation
+   * Generate removal plan for selected targets (optional)
+   * Only implement this if the installer supports removal
    *
-   * @param targets - Selected targets to uninstall
+   * @param targets - Selected targets to remove
    * @param project - Full project state
-   * @returns Uninstallation actions
+   * @returns Removal actions
    */
-  planUninstall?(
+  planRemove?(
     targets: InstallTarget[],
     project: ProjectState
   ): {

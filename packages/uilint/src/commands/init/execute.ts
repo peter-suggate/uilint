@@ -40,11 +40,11 @@ import type {
   UpdateManifestAction,
 } from "./types.js";
 import { installDependencies as defaultInstallDependencies } from "../../utils/package-manager.js";
-import { installEslintPlugin, uninstallEslintPlugin } from "../../utils/eslint-config-inject.js";
-import { installReactUILintOverlay, uninstallReactUILintOverlay } from "../../utils/react-inject.js";
-import { installJsxLocPlugin, uninstallJsxLocPlugin } from "../../utils/next-config-inject.js";
-import { installViteJsxLocPlugin, uninstallViteJsxLocPlugin } from "../../utils/vite-config-inject.js";
-import { installNextUILintRoutes, uninstallNextUILintRoutes } from "../../utils/next-routes.js";
+import { installEslintPlugin, removeEslintPlugin } from "../../utils/eslint-config-inject.js";
+import { installReactUILintOverlay, removeReactUILintOverlay } from "../../utils/react-inject.js";
+import { installJsxLocPlugin, removeJsxLocPlugin } from "../../utils/next-config-inject.js";
+import { installViteJsxLocPlugin, removeViteJsxLocPlugin } from "../../utils/vite-config-inject.js";
+import { installNextUILintRoutes, removeNextUILintRoutes } from "../../utils/next-routes.js";
 import { formatFilesWithPrettier, touchFiles } from "../../utils/prettier.js";
 import { findWorkspaceRoot } from "uilint-core/node";
 import { detectCoverageSetup } from "../../utils/coverage-detect.js";
@@ -481,11 +481,11 @@ async function executeInstallNextRoutes(
 }
 
 // ============================================================================
-// Uninstall action executors
+// Remove action executors
 // ============================================================================
 
 /**
- * Execute ESLint uninstallation
+ * Execute ESLint removal
  */
 async function executeRemoveEslint(
   action: RemoveEslintAction,
@@ -501,7 +501,7 @@ async function executeRemoveEslint(
     };
   }
 
-  const result = await uninstallEslintPlugin({
+  const result = await removeEslintPlugin({
     projectPath: action.packagePath,
   });
 
@@ -530,7 +530,7 @@ async function executeRemoveReact(
     };
   }
 
-  const result = await uninstallReactUILintOverlay({
+  const result = await removeReactUILintOverlay({
     projectPath: action.projectPath,
     appRoot: action.appRoot,
     mode: action.mode,
@@ -561,7 +561,7 @@ async function executeRemoveNextConfig(
     };
   }
 
-  const result = await uninstallJsxLocPlugin({
+  const result = await removeJsxLocPlugin({
     projectPath: action.projectPath,
   });
 
@@ -590,7 +590,7 @@ async function executeRemoveViteConfig(
     };
   }
 
-  const result = await uninstallViteJsxLocPlugin({
+  const result = await removeViteJsxLocPlugin({
     projectPath: action.projectPath,
   });
 
@@ -619,7 +619,7 @@ async function executeRemoveNextRoutes(
     };
   }
 
-  const result = await uninstallNextUILintRoutes({
+  const result = await removeNextUILintRoutes({
     projectPath: action.projectPath,
     appRoot: action.appRoot,
   });

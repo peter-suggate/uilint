@@ -6,7 +6,7 @@
  * - Pre-selection behavior
  * - Keyboard shortcuts that work reliably in the test environment
  *
- * Note: Toggle behavior is tested via integration tests in test/integration/uninstall.test.ts
+ * Note: Toggle behavior is tested via integration tests in test/integration/remove.test.ts
  * since the ink-testing-library has limitations with keyboard input processing.
  */
 
@@ -175,7 +175,7 @@ describe("ConfigSelector", () => {
 
       expect(onSubmit).toHaveBeenCalledWith(
         ["new-item"], // Selected for install
-        [] // No uninstalls
+        [] // No removals
       );
     });
 

@@ -713,13 +713,13 @@ export async function installReactUILintOverlay(
   };
 }
 
-export interface UninstallReactOverlayOptions {
+export interface RemoveReactOverlayOptions {
   projectPath: string;
   appRoot: string;
   mode?: "next" | "vite";
 }
 
-export interface UninstallReactOverlayResult {
+export interface RemoveReactOverlayResult {
   success: boolean;
   error?: string;
   modifiedFiles?: string[];
@@ -728,13 +728,13 @@ export interface UninstallReactOverlayResult {
 /**
  * Remove uilint-react devtools from React files
  *
- * This is a best-effort uninstall that:
+ * This is a best-effort removal that:
  * 1. Removes uilint-react/devtools import
  * 2. Removes <uilint-devtools /> element
  */
-export async function uninstallReactUILintOverlay(
-  options: UninstallReactOverlayOptions
-): Promise<UninstallReactOverlayResult> {
+export async function removeReactUILintOverlay(
+  options: RemoveReactOverlayOptions
+): Promise<RemoveReactOverlayResult> {
   const { projectPath, appRoot, mode = "next" } = options;
 
   const candidates = getDefaultCandidates(projectPath, appRoot);

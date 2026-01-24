@@ -97,7 +97,7 @@ export const genstyleguideInstaller: Installer = {
     };
   },
 
-  planUninstall(
+  planRemove(
     targets: InstallTarget[],
     project: ProjectState
   ): {

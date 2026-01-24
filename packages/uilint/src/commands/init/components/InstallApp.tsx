@@ -58,7 +58,7 @@ export interface InstallAppProps {
     selections: InstallerSelection[],
     eslintRules?: ConfiguredRule[],
     injectionPointConfig?: InjectionPointConfig,
-    uninstallSelections?: InstallerSelection[]
+    removeSelections?: InstallerSelection[]
   ) => void;
   /** Callback when error occurs */
   onError?: (error: Error) => void;
@@ -269,7 +269,7 @@ export function InstallApp({
   const [selections, setSelections] = useState<InstallerSelection[]>([]);
   const [configItems, setConfigItems] = useState<ConfigItem[]>([]);
   const [selectedFeatureIds, setSelectedFeatureIds] = useState<string[]>([]);
-  const [uninstallFeatureIds, setUninstallFeatureIds] = useState<string[]>([]);
+  const [removeFeatureIds, setRemoveFeatureIds] = useState<string[]>([]);
   const [error, setError] = useState<Error | null>(null);
 
   // Injection point state
@@ -378,9 +378,9 @@ export function InstallApp({
   };
 
   // Handle feature selection submission
-  const handleFeatureSubmit = (selectedIds: string[], uninstallIds: string[]) => {
+  const handleFeatureSubmit = (selectedIds: string[], removeIds: string[]) => {
     setSelectedFeatureIds(selectedIds);
-    setUninstallFeatureIds(uninstallIds);
+    setRemoveFeatureIds(removeIds);
 
     // Check if Next.js overlay is selected - if so, check injection points
     const nextSelected = selectedIds.some((id) => id.startsWith("next:"));
@@ -470,7 +470,7 @@ export function InstallApp({
     injectionConfig?: InjectionPointConfig
   ) => {
     const selectedSet = new Set(selectedIds);
-    const uninstallSet = new Set(uninstallFeatureIds);
+    const removeSet = new Set(removeFeatureIds);
 
     // Build install selections
     const updatedSelections = selections.map((sel) => {
@@ -484,20 +484,20 @@ export function InstallApp({
       };
     });
 
-    // Build uninstall selections
-    const uninstallSelections = selections.map((sel) => {
-      const uninstallTargets = sel.targets.filter((t) =>
-        uninstallSet.has(`${sel.installer.id}:${t.id}`)
+    // Build remove selections
+    const removeSelections = selections.map((sel) => {
+      const removeTargets = sel.targets.filter((t) =>
+        removeSet.has(`${sel.installer.id}:${t.id}`)
       );
       return {
         ...sel,
-        targets: uninstallTargets,
-        selected: uninstallTargets.length > 0,
+        targets: removeTargets,
+        selected: removeTargets.length > 0,
       };
     }).filter((sel) => sel.selected);
 
     setSelections(updatedSelections);
-    onComplete(updatedSelections, eslintRules, injectionConfig, uninstallSelections.length > 0 ? uninstallSelections : undefined);
+    onComplete(updatedSelections, eslintRules, injectionConfig, removeSelections.length > 0 ? removeSelections : undefined);
   };
 
   const handleCancel = () => {
