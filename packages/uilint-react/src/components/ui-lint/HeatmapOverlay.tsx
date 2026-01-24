@@ -337,13 +337,11 @@ function getGradientBorderColors(opacity: number): [string, string] {
   return [transparentColor, opaqueColor];
 }
 
-/** Size of the clickable corner plus icon indicator */
-const PLUS_SIZE = 14;
-const PLUS_SIZE_HOVER = 22;
+/** Size of the diagonal corner tab indicator */
+const TAB_SIZE = 20;
+const TAB_SIZE_HOVER = 28;
 const PLUS_THICKNESS = 2;
-const PLUS_THICKNESS_HOVER = 3;
-/** Inset distance from corner for plus icon */
-const PLUS_INSET = 4;
+const PLUS_THICKNESS_HOVER = 2.5;
 
 function HeatmapRect({
   item,
@@ -353,8 +351,6 @@ function HeatmapRect({
   onClick,
 }: HeatmapRectProps) {
   const { rect, issueCount, opacity } = item;
-
-  const dotColor = getHeatmapBorderColor(opacity);
 
   const borderWidth = getBorderWidth(opacity, isHovered);
   const displayOpacity = isHovered ? Math.min(opacity + 0.15, 0.7) : opacity;
@@ -392,29 +388,22 @@ function HeatmapRect({
         }}
       />
 
-      {/* Clickable corner plus icon at top-right (inset) */}
+      {/* Diagonal corner tab at top-right - integrated with border */}
       <div
         data-ui-lint
         style={{
           position: "fixed",
-          top: rect.top + PLUS_INSET,
-          left: rect.left + rect.width - (isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE) - PLUS_INSET,
-          width: isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE,
-          height: isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE,
-          backgroundColor: dotColor,
-          border: `${isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS}px solid ${dotColor}`,
-          borderRadius: isHovered ? 4 : 3,
+          top: rect.top - borderWidth,
+          left: rect.left + rect.width - (isHovered ? TAB_SIZE_HOVER : TAB_SIZE) + borderWidth,
+          width: isHovered ? TAB_SIZE_HOVER : TAB_SIZE,
+          height: isHovered ? TAB_SIZE_HOVER : TAB_SIZE,
+          backgroundColor: opaqueColor,
           pointerEvents: "auto",
           cursor: "pointer",
           zIndex: 99999,
-          // Only transition visual properties, not position (top/left)
-          transition: "width 150ms ease-out, height 150ms ease-out, background-color 150ms ease-out, border 150ms ease-out, border-radius 150ms ease-out, box-shadow 150ms ease-out",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: isHovered
-            ? `0 2px 8px ${dotColor}66`
-            : `0 0 4px ${dotColor}4D`,
+          transition: "width 150ms ease-out, height 150ms ease-out, left 150ms ease-out",
+          // Diagonal triangle: top-right corner
+          clipPath: "polygon(100% 0, 0 0, 100% 100%)",
         }}
         onMouseEnter={onHover}
         onMouseLeave={onLeave}
@@ -424,28 +413,42 @@ function HeatmapRect({
         }}
         title={tooltipText}
       >
-        {/* Horizontal arm of plus */}
+        {/* Plus icon positioned on the diagonal */}
         <div
           style={{
             position: "absolute",
-            width: isHovered ? 10 : 6,
-            height: isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS,
-            backgroundColor: isHovered ? "white" : dotColor,
-            borderRadius: 1,
-            transition: "width 150ms ease-out, height 150ms ease-out, background-color 150ms ease-out",
+            top: isHovered ? 8 : 5,
+            right: isHovered ? 5 : 3,
+            width: isHovered ? 12 : 8,
+            height: isHovered ? 12 : 8,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
-        />
-        {/* Vertical arm of plus */}
-        <div
-          style={{
-            position: "absolute",
-            width: isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS,
-            height: isHovered ? 10 : 6,
-            backgroundColor: isHovered ? "white" : dotColor,
-            borderRadius: 1,
-            transition: "width 150ms ease-out, height 150ms ease-out, background-color 150ms ease-out",
-          }}
-        />
+        >
+          {/* Horizontal arm */}
+          <div
+            style={{
+              position: "absolute",
+              width: isHovered ? 10 : 6,
+              height: isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS,
+              backgroundColor: "white",
+              borderRadius: 1,
+              transition: "width 150ms ease-out, height 150ms ease-out",
+            }}
+          />
+          {/* Vertical arm */}
+          <div
+            style={{
+              position: "absolute",
+              width: isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS,
+              height: isHovered ? 10 : 6,
+              backgroundColor: "white",
+              borderRadius: 1,
+              transition: "width 150ms ease-out, height 150ms ease-out",
+            }}
+          />
+        </div>
       </div>
 
       {/* Tooltip on hover */}
