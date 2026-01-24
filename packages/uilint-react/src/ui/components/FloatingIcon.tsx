@@ -12,7 +12,13 @@ interface Position {
   y: number;
 }
 
-const DEFAULT_POSITION: Position = { x: window.innerWidth / 2 - 24, y: 16 };
+/** SSR-safe default position - only accesses window on client */
+function getDefaultPosition(): Position {
+  if (typeof window === "undefined") {
+    return { x: 0, y: 16 };
+  }
+  return { x: window.innerWidth / 2 - 24, y: 16 };
+}
 
 export function FloatingIcon() {
   const openCommandPalette = useComposedStore((s) => s.openCommandPalette);
@@ -33,7 +39,7 @@ export function FloatingIcon() {
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const currentPosition = position ?? DEFAULT_POSITION;
+  const currentPosition = position ?? getDefaultPosition();
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return; // Left click only
