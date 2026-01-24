@@ -1,6 +1,6 @@
 {
   "name": "uilint-react",
-  "version": "0.2.47",
+  "version": "0.2.48",
   "description": "React component for AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
