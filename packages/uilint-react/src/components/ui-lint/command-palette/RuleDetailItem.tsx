@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import type { AvailableRule, RuleConfig, OptionFieldSchema } from "../store";
 
 interface RuleDetailItemProps {
@@ -32,49 +31,62 @@ function SeveritySelector({
   const options: Array<{
     value: "error" | "warn" | "off";
     label: string;
+    description: string;
     activeClass: string;
   }> = [
     {
       value: "error",
       label: "Error",
+      description: "Show as errors that must be fixed",
       activeClass: "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30",
     },
     {
       value: "warn",
       label: "Warn",
+      description: "Show as warnings for review",
       activeClass: "bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30",
     },
     {
       value: "off",
       label: "Off",
+      description: "Disable this rule entirely",
       activeClass: "bg-zinc-500/20 text-zinc-600 dark:text-muted-foreground border-zinc-500/30",
     },
   ];
 
+  const currentOption = options.find((opt) => opt.value === value);
+
   return (
-    <div className="flex items-center gap-1 p-0.5 bg-white/30 dark:bg-white/10 rounded-md">
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          onClick={() => {
-            if (opt.value !== value && !disabled) {
-              onChange(opt.value);
-            }
-          }}
-          disabled={disabled}
-          className={cn(
-            "px-3 py-1 rounded text-xs font-medium transition-all border",
-            value === opt.value
-              ? opt.activeClass
-              : "border-transparent text-muted-foreground hover:bg-hover",
-            disabled && "opacity-50 cursor-not-allowed"
-          )}
-          data-ui-lint
-        >
-          {opt.label}
-        </button>
-      ))}
+    <div className="space-y-2">
+      <div className="flex items-center gap-1 p-0.5 bg-white/30 dark:bg-white/10 rounded-md">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => {
+              if (opt.value !== value && !disabled) {
+                onChange(opt.value);
+              }
+            }}
+            disabled={disabled}
+            className={cn(
+              "px-3 py-1 rounded text-xs font-medium transition-all border",
+              value === opt.value
+                ? opt.activeClass
+                : "border-transparent text-muted-foreground hover:bg-hover",
+              disabled && "opacity-50 cursor-not-allowed"
+            )}
+            data-ui-lint
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {currentOption && (
+        <p className="text-[10px] text-muted-foreground">
+          {currentOption.description}
+        </p>
+      )}
     </div>
   );
 }
@@ -259,29 +271,25 @@ export function RuleDetailItem({
   onSetRuleConfig,
   issueCount = 0,
 }: RuleDetailItemProps) {
-  const [severity, setSeverity] = useState<"error" | "warn" | "off">(
-    currentConfig.severity
-  );
-  const [options, setOptions] = useState<Record<string, unknown>>(
-    currentConfig.options ?? {}
-  );
   const [showDocs, setShowDocs] = useState(false);
 
-  // Sync with external changes
-  useEffect(() => {
-    setSeverity(currentConfig.severity);
-    setOptions(currentConfig.options ?? {});
-  }, [currentConfig]);
+  // Get current values from config (all changes apply immediately)
+  const severity = currentConfig.severity;
+  const options = currentConfig.options ?? {};
 
-  const handleSave = () => {
+  // Handle severity change - apply immediately
+  const handleSeverityChange = (newSeverity: "error" | "warn" | "off") => {
     if (!onSetRuleConfig) return;
     const hasOptions = rule.optionSchema && Object.keys(options).length > 0;
-    onSetRuleConfig(rule.id, severity, hasOptions ? options : undefined);
+    onSetRuleConfig(rule.id, newSeverity, hasOptions ? options : undefined);
   };
 
-  const hasChanges =
-    severity !== currentConfig.severity ||
-    JSON.stringify(options) !== JSON.stringify(currentConfig.options ?? {});
+  // Handle option change - apply immediately
+  const handleOptionChange = (key: string, value: unknown) => {
+    if (!onSetRuleConfig) return;
+    const newOptions = { ...options, [key]: value };
+    onSetRuleConfig(rule.id, severity, newOptions);
+  };
 
   const hasOptions = rule.optionSchema && rule.optionSchema.fields.length > 0;
 
@@ -349,7 +357,7 @@ export function RuleDetailItem({
         </label>
         <SeveritySelector
           value={severity}
-          onChange={setSeverity}
+          onChange={handleSeverityChange}
           disabled={isUpdating}
         />
       </div>
@@ -365,9 +373,7 @@ export function RuleDetailItem({
               key={field.key}
               field={field}
               value={options[field.key]}
-              onChange={(val) =>
-                setOptions((prev) => ({ ...prev, [field.key]: val }))
-              }
+              onChange={(val) => handleOptionChange(field.key, val)}
               disabled={isUpdating}
             />
           ))}
@@ -410,21 +416,11 @@ export function RuleDetailItem({
         </div>
       )}
 
-      {/* Footer with rule ID and save button */}
-      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted border-t border-border">
+      {/* Footer with rule ID */}
+      <div className="px-3 py-2 bg-muted border-t border-border">
         <code className="text-[10px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-surface">
           uilint/{rule.id}
         </code>
-        {onSetRuleConfig && hasChanges && (
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleSave}
-            disabled={isUpdating}
-          >
-            {isUpdating ? "Saving..." : "Save"}
-          </Button>
-        )}
       </div>
     </div>
   );
