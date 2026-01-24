@@ -4,7 +4,7 @@
  * Tests for vision plugin state slice, commands, and exports.
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   createVisionSlice,
   defaultVisionState,
@@ -1040,12 +1040,18 @@ describe("Vision Plugin - Plugin Exports", () => {
 
 describe("Vision Plugin - localStorage Settings", () => {
   beforeEach(() => {
+    // Stub window so that typeof window !== "undefined" check passes
+    vi.stubGlobal("window", {});
     // Clear localStorage mock
     vi.stubGlobal("localStorage", {
       getItem: vi.fn(),
       setItem: vi.fn(),
       removeItem: vi.fn(),
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   describe("loadVisionAutoScanSettings", () => {

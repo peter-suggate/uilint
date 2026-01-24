@@ -610,23 +610,25 @@ describe("WebSocketServiceImpl", () => {
       service.connect();
       mockWebSocket.simulateOpen();
 
-      // First close
+      // First close - delay should be 1000ms (2^0)
       mockWebSocket.simulateClose();
       expect(setTimeoutMock).toHaveBeenLastCalledWith(
         expect.any(Function),
         RECONNECT_BASE_DELAY * 1 // 2^0 = 1
       );
 
-      // Simulate reconnect attempt
+      // Simulate failed reconnect attempt (connection closes without opening)
       mockWebSocket = new MockWebSocket();
       createWebSocketMock.mockReturnValue(mockWebSocket as unknown as WebSocket);
 
-      // Trigger the reconnect
+      // Trigger the reconnect (calls connect())
       const reconnectFn = setTimeoutMock.mock.calls[0][0];
       reconnectFn();
-      mockWebSocket.simulateOpen();
+
+      // Connection fails immediately (no simulateOpen - connection never establishes)
       mockWebSocket.simulateClose();
 
+      // Second attempt should use 2000ms delay (2^1)
       expect(setTimeoutMock).toHaveBeenLastCalledWith(
         expect.any(Function),
         RECONNECT_BASE_DELAY * 2 // 2^1 = 2
@@ -640,20 +642,30 @@ describe("WebSocketServiceImpl", () => {
       service.connect();
       mockWebSocket.simulateOpen();
 
-      // Simulate max reconnect attempts
-      for (let i = 0; i < MAX_RECONNECT_ATTEMPTS; i++) {
-        mockWebSocket.simulateClose();
+      // Initial close triggers first reconnect attempt
+      mockWebSocket.simulateClose();
+
+      // Simulate remaining reconnect attempts (all fail)
+      for (let i = 1; i < MAX_RECONNECT_ATTEMPTS; i++) {
         mockWebSocket = new MockWebSocket();
         createWebSocketMock.mockReturnValue(mockWebSocket as unknown as WebSocket);
 
-        if (i < MAX_RECONNECT_ATTEMPTS - 1) {
-          const reconnectFn = setTimeoutMock.mock.calls[setTimeoutMock.mock.calls.length - 1][0];
-          reconnectFn();
-          mockWebSocket.simulateOpen();
-        }
+        // Trigger the reconnect callback
+        const reconnectFn = setTimeoutMock.mock.calls[setTimeoutMock.mock.calls.length - 1][0];
+        reconnectFn();
+
+        // Connection fails immediately (no open)
+        mockWebSocket.simulateClose();
       }
 
-      // After max attempts, should not schedule more reconnects
+      // Now we've used all MAX_RECONNECT_ATTEMPTS
+      // Next close should trigger the max attempts warning
+      mockWebSocket = new MockWebSocket();
+      createWebSocketMock.mockReturnValue(mockWebSocket as unknown as WebSocket);
+
+      const lastReconnectFn = setTimeoutMock.mock.calls[setTimeoutMock.mock.calls.length - 1][0];
+      lastReconnectFn();
+
       setTimeoutMock.mockClear();
       mockWebSocket.simulateClose();
 

@@ -40,9 +40,10 @@ function createMockSlice(): {
   const slice = createSemanticPluginSlice(set, get);
 
   // Update the slice reference to use the current state
+  // Note: state must come last to override the initial values in slice
   const getState = () => ({
-    ...state,
     ...slice,
+    ...state,
   });
 
   return { slice, getState };
