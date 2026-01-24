@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   publish:
     # Skip if commit message contains [skip ci] or is a version bump commit
