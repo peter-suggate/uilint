@@ -473,8 +473,6 @@ export interface UILintStore {
   ruleConfigUpdating: Map<string, boolean>;
   /** Active filters for the command palette (shown as chips) */
   commandPaletteFilters: CommandPaletteFilter[];
-  /** IDs of visible results in command palette (for heatmap sync) */
-  visibleCommandPaletteResultIds: Set<string>;
 
   // Command Palette actions
   openCommandPalette: () => void;
@@ -500,8 +498,6 @@ export interface UILintStore {
   clearCommandPaletteFilters: () => void;
   /** Open command palette with a specific filter applied */
   openCommandPaletteWithFilter: (filter: CommandPaletteFilter) => void;
-  /** Update visible result IDs (called by CommandPalette when results change) */
-  setVisibleCommandPaletteResultIds: (ids: Set<string>) => void;
 
   // ============ Inspector Sidebar ============
   /** Whether inspector sidebar is open */
@@ -1776,7 +1772,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   ruleConfigs: new Map(),
   ruleConfigUpdating: new Map(),
   commandPaletteFilters: [],
-  visibleCommandPaletteResultIds: new Set(),
 
   openCommandPalette: () =>
     set({
@@ -1794,7 +1789,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       expandedItemId: null,
       highlightedRuleId: null,
       commandPaletteFilters: [],
-      visibleCommandPaletteResultIds: new Set(),
     }),
 
   setCommandPaletteQuery: (query) =>
@@ -1892,9 +1886,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
       expandedItemId: null,
       commandPaletteFilters: [filter],
     }),
-
-  setVisibleCommandPaletteResultIds: (ids) =>
-    set({ visibleCommandPaletteResultIds: ids }),
 
   // ============ Inspector Sidebar ============
   inspectorOpen: false,

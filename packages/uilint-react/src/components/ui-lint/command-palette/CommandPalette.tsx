@@ -192,7 +192,6 @@ export function CommandPalette() {
     connectWebSocket,
     addCommandPaletteFilter,
     removeCommandPaletteFilter,
-    setVisibleCommandPaletteResultIds,
   } = useUILintStore.getState();
 
   // Track selected item for persistent heatmap display
@@ -317,14 +316,6 @@ export function CommandPalette() {
   const handleScrollComplete = useCallback(() => {
     setScrollToCategory(null);
   }, []);
-
-  // Sync visible result IDs to store for heatmap filtering
-  useEffect(() => {
-    if (isOpen) {
-      const ids = new Set(searchResults.map((r) => r.item.id));
-      setVisibleCommandPaletteResultIds(ids);
-    }
-  }, [isOpen, searchResults, setVisibleCommandPaletteResultIds]);
 
   // Total item count for keyboard navigation
   const itemCount = searchResults.length;

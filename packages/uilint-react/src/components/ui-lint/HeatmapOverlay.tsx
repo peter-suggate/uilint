@@ -43,30 +43,15 @@ export function HeatmapOverlay() {
   const mergedIssueCounts = useUILintStore(
     (s: UILintStore) => s.mergedIssueCounts
   );
-  const elementIssuesCache = useUILintStore(
-    (s: UILintStore) => s.elementIssuesCache
-  );
 
   const [mounted, setMounted] = useState(false);
   const [heatmapElements, setHeatmapElements] = useState<HeatmapElement[]>([]);
   const [hoveredElementId, setHoveredElementId] = useState<string | null>(null);
 
-  // File filtering state
-  const hoveredFilePath = useUILintStore((s: UILintStore) => s.hoveredFilePath);
-  const selectedFilePath = useUILintStore(
-    (s: UILintStore) => s.selectedFilePath
-  );
-
-  // Command palette state - heatmaps show when command palette is open
-  const commandPaletteOpen = useUILintStore(
-    (s: UILintStore) => s.commandPaletteOpen
-  );
-  const visibleCommandPaletteResultIds = useUILintStore(
-    (s: UILintStore) => s.visibleCommandPaletteResultIds
-  );
-
-  // Alt key state - when held, show all heatmap items for selection
-  const altKeyHeld = useUILintStore((s: UILintStore) => s.altKeyHeld);
+  // Inspector state - positions need to update when sidebar opens/closes/resizes
+  const inspectorOpen = useUILintStore((s: UILintStore) => s.inspectorOpen);
+  const inspectorDocked = useUILintStore((s: UILintStore) => s.inspectorDocked);
+  const inspectorWidth = useUILintStore((s: UILintStore) => s.inspectorWidth);
 
   useEffect(() => {
     setMounted(true);
@@ -123,6 +108,8 @@ export function HeatmapOverlay() {
     };
 
     let rafId: number | null = null;
+    let transitionTimeoutId: number | null = null;
+
     const scheduleUpdate = () => {
       if (rafId !== null) return;
       rafId = requestAnimationFrame(() => {
@@ -132,6 +119,12 @@ export function HeatmapOverlay() {
     };
 
     scheduleUpdate();
+
+    // Also update after CSS transition completes (sidebar uses 0.2s transition)
+    transitionTimeoutId = window.setTimeout(() => {
+      transitionTimeoutId = null;
+      updatePositions();
+    }, 250);
 
     const handleScroll = () => scheduleUpdate();
     const handleResize = () => scheduleUpdate();
@@ -145,95 +138,13 @@ export function HeatmapOverlay() {
 
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
+      if (transitionTimeoutId !== null) clearTimeout(transitionTimeoutId);
       window.removeEventListener("scroll", handleScroll, true);
       window.removeEventListener("resize", handleResize);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [autoScanState.status, autoScanState.elements, mergedIssueCounts]);
+  }, [autoScanState.status, autoScanState.elements, mergedIssueCounts, inspectorOpen, inspectorDocked, inspectorWidth]);
 
-  // Filter elements based on command palette visible results
-  const visibleElements = useMemo(() => {
-    // If alt key is held, show ALL heatmap elements for selection
-    if (altKeyHeld) return heatmapElements;
-
-    // If command palette is not open, show nothing
-    if (!commandPaletteOpen) return [];
-
-    // If no visible results, show nothing
-    if (visibleCommandPaletteResultIds.size === 0) return [];
-
-    // Filter by file path (existing behavior)
-    let filteredElements = heatmapElements;
-    const activeFilePath = selectedFilePath || hoveredFilePath;
-    if (activeFilePath) {
-      filteredElements = filteredElements.filter(
-        (el) => el.element.source.fileName === activeFilePath
-      );
-    }
-
-    // Filter to elements that match visible command palette results
-    // Visible result IDs include: rule:X, file:X, issue:X, capture:X
-    // We need to match elements that have issues from visible rules/files/issues
-    return filteredElements.filter((el) => {
-      const cached = elementIssuesCache.get(el.element.id);
-      if (!cached) return false;
-
-      // Check each visible result ID to see if this element matches
-      for (const resultId of visibleCommandPaletteResultIds) {
-        // Match rule results - show elements with issues from this rule
-        if (resultId.startsWith("rule:")) {
-          const ruleId = resultId.replace("rule:", "");
-          const fullRuleId = `uilint/${ruleId}`;
-          if (cached.issues.some((issue) => issue.ruleId === fullRuleId)) {
-            return true;
-          }
-        }
-
-        // Match file results - show elements from this file
-        if (resultId.startsWith("file:")) {
-          const filePath = resultId.replace("file:", "");
-          if (el.element.source.fileName === filePath) {
-            return true;
-          }
-        }
-
-        // Match issue results - show element that has this specific issue
-        if (resultId.startsWith("issue:")) {
-          const parts = resultId.split(":");
-
-          if (parts[1] === "file") {
-            // File-level issue - show all elements in that file
-            const filePath = parts[2];
-            if (el.element.source.fileName === filePath) {
-              return true;
-            }
-          } else {
-            // Element-level issue - extract elementId
-            const elementIdParts = [];
-            let i = 1;
-            while (i < parts.length && !parts[i].startsWith("uilint")) {
-              elementIdParts.push(parts[i]);
-              i++;
-            }
-            const targetElementId = elementIdParts.join(":");
-            if (el.element.id === targetElementId || el.element.id.startsWith(targetElementId)) {
-              return true;
-            }
-          }
-        }
-      }
-
-      return false;
-    });
-  }, [
-    heatmapElements,
-    commandPaletteOpen,
-    visibleCommandPaletteResultIds,
-    altKeyHeld,
-    selectedFilePath,
-    hoveredFilePath,
-    elementIssuesCache,
-  ]);
 
   // Get inspector actions from store
   const openInspector = useUILintStore((s: UILintStore) => s.openInspector);
@@ -266,7 +177,7 @@ export function HeatmapOverlay() {
       onKeyDown={handleUILintInteraction}
       style={{ pointerEvents: "none" }}
     >
-      {visibleElements.map((item) => (
+      {heatmapElements.map((item) => (
         <HeatmapRect
           key={item.element.id}
           item={item}
