@@ -292,8 +292,6 @@ export function HeatmapOverlay() {
       onKeyDown={handleUILintInteraction}
       style={{
         pointerEvents: "none",
-        opacity: isMoving ? 0 : 1,
-        transition: "opacity 150ms ease-in-out",
       }}
     >
       {heatmapElements.map((item) => (
@@ -344,6 +342,8 @@ const PLUS_SIZE = 14;
 const PLUS_SIZE_HOVER = 22;
 const PLUS_THICKNESS = 2;
 const PLUS_THICKNESS_HOVER = 3;
+/** Inset distance from corner for plus icon */
+const PLUS_INSET = 4;
 
 function HeatmapRect({
   item,
@@ -379,7 +379,7 @@ function HeatmapRect({
           width: outerWidth,
           height: outerHeight,
           background: `linear-gradient(135deg, ${transparentColor} 0%, ${opaqueColor} 100%)`,
-          borderRadius: "6px",
+          borderRadius: 0,
           pointerEvents: "none",
           transition: "opacity 150ms",
           zIndex: isHovered ? 99998 : 99995,
@@ -392,16 +392,16 @@ function HeatmapRect({
         }}
       />
 
-      {/* Clickable corner plus icon at top-right */}
+      {/* Clickable corner plus icon at top-right (inset) */}
       <div
         data-ui-lint
         style={{
           position: "fixed",
-          top: rect.top - (isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE) / 2,
-          left: rect.left + rect.width - (isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE) / 2,
+          top: rect.top + PLUS_INSET,
+          left: rect.left + rect.width - (isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE) - PLUS_INSET,
           width: isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE,
           height: isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE,
-          backgroundColor: isHovered ? dotColor : `${dotColor}26`,
+          backgroundColor: dotColor,
           border: `${isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS}px solid ${dotColor}`,
           borderRadius: isHovered ? 4 : 3,
           pointerEvents: "auto",
