@@ -235,23 +235,8 @@ export function CommandPalette() {
     commandPaletteFilters
   );
 
-  // Get active loc filters for expanded issue rendering
-  const activeLocFilters = useMemo(
-    () => commandPaletteFilters.filter((f) => f.type === "loc"),
-    [commandPaletteFilters]
-  );
-
-  // Get active rule filters for expanded rule rendering
-  const activeRuleFilters = useMemo(
-    () => commandPaletteFilters.filter((f) => f.type === "rule"),
-    [commandPaletteFilters]
-  );
-
-  // Get active coverage filters for coverage code preview
-  const activeCoverageFilters = useMemo(
-    () => commandPaletteFilters.filter((f) => f.type === "coverage"),
-    [commandPaletteFilters]
-  );
+  // Get openInspector from store for sidebar integration
+  const openInspector = useUILintStore((s: UILintStore) => s.openInspector);
 
   // State for scroll-to-category
   const [scrollToCategory, setScrollToCategory] = useState<string | null>(null);
@@ -561,9 +546,7 @@ export function CommandPalette() {
             liveScanEnabled={liveScanEnabled}
             disabledRules={disabledRules}
             onAddFilter={handleAddFilter}
-            activeLocFilters={activeLocFilters}
-            activeRuleFilters={activeRuleFilters}
-            activeCoverageFilters={activeCoverageFilters}
+            onOpenInspector={openInspector}
             scrollToCategory={scrollToCategory}
             onScrollComplete={handleScrollComplete}
             availableRules={availableRules}

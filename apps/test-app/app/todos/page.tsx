@@ -24,94 +24,33 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
 import { Trash2, Plus, CheckCircle2 } from "lucide-react";
-
-type Todo = {
-  id: number;
-  title: string;
-  completed: boolean;
-  priority: "low" | "medium" | "high";
-  category: string;
-};
-
-const initialTodos: Todo[] = [
-  {
-    id: 1,
-    title: "Design new landing page",
-    completed: false,
-    priority: "high",
-    category: "Work",
-  },
-  {
-    id: 2,
-    title: "Review pull requests",
-    completed: true,
-    priority: "medium",
-    category: "Work",
-  },
-  {
-    id: 3,
-    title: "Buy groceries",
-    completed: false,
-    priority: "medium",
-    category: "Personal",
-  },
-  {
-    id: 4,
-    title: "Call dentist",
-    completed: false,
-    priority: "low",
-    category: "Personal",
-  },
-  {
-    id: 5,
-    title: "Finish quarterly report",
-    completed: false,
-    priority: "high",
-    category: "Work",
-  },
-  {
-    id: 6,
-    title: "Plan weekend trip",
-    completed: true,
-    priority: "low",
-    category: "Personal",
-  },
-];
+import {
+  useTodoStore,
+  selectCompletedCount,
+  selectPendingCount,
+} from "../stores/todoStore";
 
 export default function TodosPage() {
-  const [todos, setTodos] = useState<Todo[]>(initialTodos);
+  const todos = useTodoStore((state) => state.todos);
+  const addTodoToStore = useTodoStore((state) => state.addTodo);
+  const toggleTodo = useTodoStore((state) => state.toggleTodo);
+  const deleteTodo = useTodoStore((state) => state.deleteTodo);
+  const completedCount = useTodoStore(selectCompletedCount);
+  const pendingCount = useTodoStore(selectPendingCount);
+
   const [newTodo, setNewTodo] = useState("");
-
-  const toggleTodo = (id: number) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
-    );
-  };
-
-  const deleteTodo = (id: number) => {
-    setTodos(todos.filter((todo) => todo.id !== id));
-  };
 
   const addTodo = () => {
     if (newTodo.trim()) {
-      setTodos([
-        ...todos,
-        {
-          id: Math.max(...todos.map((t) => t.id), 0) + 1,
-          title: newTodo,
-          completed: false,
-          priority: "medium",
-          category: "Work",
-        },
-      ]);
+      addTodoToStore({
+        title: newTodo,
+        completed: false,
+        priority: "medium",
+        category: "Work",
+      });
       setNewTodo("");
     }
   };
-
-  const completedCount = todos.filter((t) => t.completed).length;
-  const pendingCount = todos.filter((t) => !t.completed).length;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">

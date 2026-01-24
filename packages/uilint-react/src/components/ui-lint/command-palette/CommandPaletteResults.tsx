@@ -8,10 +8,7 @@ import {
   CommandPaletteItem,
   CommandPaletteSectionHeader,
 } from "./CommandPaletteItem";
-import { SourceCodePreview } from "./SourceCodePreview";
-import { CoverageCodePreview } from "./CoverageCodePreview";
 import { RuleToggleItem } from "./RuleToggleItem";
-import { RuleDetailItem } from "./RuleDetailItem";
 import type {
   ScoredSearchResult,
   CategoryType,
@@ -23,6 +20,7 @@ import type {
   CommandPaletteFilter,
 } from "./types";
 import type { AvailableRule, RuleConfig } from "../store";
+import type { ESLintIssue } from "../types";
 
 interface CommandPaletteResultsProps {
   results: ScoredSearchResult[];
@@ -39,12 +37,11 @@ interface CommandPaletteResultsProps {
   disabledRules: Set<string>;
   /** Called when a filter should be added (e.g., clicking a rule adds rule filter) */
   onAddFilter?: (filter: CommandPaletteFilter) => void;
-  /** Active loc filters - issues matching these should be expanded */
-  activeLocFilters?: CommandPaletteFilter[];
-  /** Active rule filters - rules matching these should show details at top */
-  activeRuleFilters?: CommandPaletteFilter[];
-  /** Active coverage filters - shows coverage code preview */
-  activeCoverageFilters?: CommandPaletteFilter[];
+  /** Called when user wants to open inspector for detailed view */
+  onOpenInspector?: (
+    mode: "rule" | "issue" | "element",
+    data: { ruleId?: string; issue?: ESLintIssue; elementId?: string; filePath?: string }
+  ) => void;
   /** Category ID to scroll to (e.g., "rules" or "file:/path/to/file.tsx") */
   scrollToCategory?: string | null;
   /** Called after scrolling to category completes */
@@ -82,6 +79,7 @@ const STANDARD_CATEGORIES: CategoryType[] = ["settings", "vision", "files", "cap
 /**
  * Results list for command palette - unified view with category sections
  * Issues are grouped by file with per-file headers
+ * Clicking items opens the inspector sidebar for detailed viewing
  */
 export function CommandPaletteResults({
   results,
@@ -94,9 +92,7 @@ export function CommandPaletteResults({
   liveScanEnabled,
   disabledRules,
   onAddFilter,
-  activeLocFilters = [],
-  activeRuleFilters = [],
-  activeCoverageFilters = [],
+  onOpenInspector,
   scrollToCategory,
   onScrollComplete,
   availableRules = [],
@@ -187,35 +183,6 @@ export function CommandPaletteResults({
   return (
     <ScrollArea className="max-h-[400px] flex-1" ref={scrollRef}>
       <div className="py-2">
-        {/* 0. Coverage section - when coverage filter is active */}
-        {activeCoverageFilters.length > 0 && (
-          <div className="mb-2">
-            <CommandPaletteSectionHeader
-              icon={<Icons.File className="w-3.5 h-3.5" />}
-              categoryId="coverage"
-            >
-              Coverage
-            </CommandPaletteSectionHeader>
-            {activeCoverageFilters.map((filter) => {
-              // Parse the filter value: "filePath:lineNumber:columnNumber"
-              const parts = filter.value.split(":");
-              const columnNumber = parts.length > 2 ? parseInt(parts.pop()!, 10) : undefined;
-              const lineNumber = parseInt(parts.pop()!, 10);
-              const filePath = parts.join(":");
-
-              return (
-                <div key={filter.value} className="px-2 pb-2">
-                  <CoverageCodePreview
-                    filePath={filePath}
-                    lineNumber={lineNumber}
-                    columnNumber={columnNumber}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        )}
-
         {/* 1. Rules section - FIRST */}
         {(standardGroups.get("rules")?.length ?? 0) > 0 && (
           <div className="mb-2">
@@ -234,52 +201,32 @@ export function CommandPaletteResults({
               const isUpdating = ruleConfigUpdating?.get(ruleId) ?? false;
               const currentSeverity = ruleConfig?.severity ?? availableRule?.defaultSeverity ?? "error";
 
-              // Check if this rule matches an active rule filter
-              const matchesRuleFilter = activeRuleFilters.some(
-                (f) => f.value === ruleId || f.value === `uilint/${ruleId}`
-              );
-
               return (
                 <div key={result.item.id} data-index={index}>
-                  {/* Show expanded detail when matching a rule filter */}
-                  {matchesRuleFilter && availableRule ? (
-                    <RuleDetailItem
-                      rule={availableRule}
-                      currentConfig={ruleConfig ?? { severity: currentSeverity }}
-                      isUpdating={isUpdating}
-                      onSetRuleConfig={onSetRuleConfig}
-                      issueCount={result.item.issueCount}
-                    />
-                  ) : (
-                    <RuleToggleItem
-                      id={ruleId}
-                      name={result.item.title}
-                      description={result.item.subtitle || ruleData.rule.description}
-                      category={ruleData.rule.category}
-                      severity={currentSeverity}
-                      isSelected={selectedIndex === index}
-                      isUpdating={isUpdating}
-                      onSeverityChange={(id, severity) => {
-                        if (onSetRuleConfig) {
-                          // When changing severity via toggle, preserve existing options
-                          const existingOptions = ruleConfigs?.get(id)?.options;
-                          onSetRuleConfig(id, severity, existingOptions);
-                        }
-                      }}
-                      onClick={(id) => {
-                        // Add rule filter when clicking on a rule
-                        if (onAddFilter) {
-                          onAddFilter({
-                            type: "rule",
-                            value: id,
-                            label: result.item.title,
-                          });
-                        }
-                      }}
-                      onMouseEnter={() => onHover(result.item.id)}
-                      issueCount={result.item.issueCount}
-                    />
-                  )}
+                  <RuleToggleItem
+                    id={ruleId}
+                    name={result.item.title}
+                    description={result.item.subtitle || ruleData.rule.description}
+                    category={ruleData.rule.category}
+                    severity={currentSeverity}
+                    isSelected={selectedIndex === index}
+                    isUpdating={isUpdating}
+                    onSeverityChange={(id, severity) => {
+                      if (onSetRuleConfig) {
+                        // When changing severity via toggle, preserve existing options
+                        const existingOptions = ruleConfigs?.get(id)?.options;
+                        onSetRuleConfig(id, severity, existingOptions);
+                      }
+                    }}
+                    onClick={(id) => {
+                      // Open inspector for rule details
+                      if (onOpenInspector) {
+                        onOpenInspector("rule", { ruleId: id });
+                      }
+                    }}
+                    onMouseEnter={() => onHover(result.item.id)}
+                    issueCount={result.item.issueCount}
+                  />
                 </div>
               );
             })}
@@ -318,7 +265,7 @@ export function CommandPaletteResults({
                 liveScanEnabled={liveScanEnabled}
                 disabledRules={disabledRules}
                 onAddFilter={onAddFilter}
-                activeLocFilters={activeLocFilters}
+                onOpenInspector={onOpenInspector}
               />
             ))}
           </div>
@@ -348,7 +295,7 @@ export function CommandPaletteResults({
                 liveScanEnabled={liveScanEnabled}
                 disabledRules={disabledRules}
                 onAddFilter={onAddFilter}
-                activeLocFilters={activeLocFilters}
+                onOpenInspector={onOpenInspector}
               />
             ))}
           </div>
@@ -378,7 +325,7 @@ export function CommandPaletteResults({
                 liveScanEnabled={liveScanEnabled}
                 disabledRules={disabledRules}
                 onAddFilter={onAddFilter}
-                activeLocFilters={activeLocFilters}
+                onOpenInspector={onOpenInspector}
               />
             ))}
           </div>
@@ -408,7 +355,7 @@ export function CommandPaletteResults({
                 liveScanEnabled={liveScanEnabled}
                 disabledRules={disabledRules}
                 onAddFilter={onAddFilter}
-                activeLocFilters={activeLocFilters}
+                onOpenInspector={onOpenInspector}
               />
             ))}
           </div>
@@ -433,7 +380,7 @@ function ResultItem({
   liveScanEnabled,
   disabledRules,
   onAddFilter,
-  activeLocFilters = [],
+  onOpenInspector,
 }: {
   result: ScoredSearchResult;
   index: number;
@@ -447,7 +394,10 @@ function ResultItem({
   liveScanEnabled: boolean;
   disabledRules: Set<string>;
   onAddFilter?: (filter: CommandPaletteFilter) => void;
-  activeLocFilters?: CommandPaletteFilter[];
+  onOpenInspector?: (
+    mode: "rule" | "issue" | "element",
+    data: { ruleId?: string; issue?: ESLintIssue; elementId?: string; filePath?: string }
+  ) => void;
 }) {
   const { item } = result;
 
@@ -532,8 +482,7 @@ function ResultItem({
             isPinned={isPinned}
             onMouseEnter={() => onHover(item.id)}
             onMouseLeave={() => onHover(null)}
-            onAddFilter={onAddFilter}
-            activeLocFilters={activeLocFilters}
+            onOpenInspector={onOpenInspector}
           />
         </div>
       );
@@ -793,96 +742,7 @@ function FileItem({
 }
 
 /**
- * Helper to check if a loc string matches the filter value
- * Handles both exact match and match without column
- */
-function matchesLoc(loc: string, locValue: string): boolean {
-  if (loc === locValue) {
-    return true;
-  }
-  // Check if filter (without column) matches the loc's file:line portion
-  const lastIdx = loc.lastIndexOf(":");
-  const secondLastIdx = loc.lastIndexOf(":", lastIdx - 1);
-  if (secondLastIdx >= 0) {
-    const fileAndLine = loc.slice(0, lastIdx);
-    if (fileAndLine === locValue) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Parse filePath:line:column from a loc string
- */
-function parseLocParts(loc: string): { filePath: string; line: number; column?: number } | null {
-  const lastIdx = loc.lastIndexOf(":");
-  const secondLastIdx = loc.lastIndexOf(":", lastIdx - 1);
-  if (secondLastIdx < 0) return null;
-
-  const filePath = loc.slice(0, secondLastIdx);
-  const line = parseInt(loc.slice(secondLastIdx + 1, lastIdx), 10);
-  const column = parseInt(loc.slice(lastIdx + 1), 10);
-
-  if (isNaN(line)) return null;
-  return { filePath, line, column: isNaN(column) ? undefined : column };
-}
-
-/**
- * Check if an issue matches any of the active loc filters
- * Uses the same matching logic as applyFilter in use-fuzzy-search.ts
- */
-function issueMatchesLocFilter(
-  issue: IssueSearchData,
-  locFilters: CommandPaletteFilter[]
-): boolean {
-  if (locFilters.length === 0) return false;
-
-  for (const filter of locFilters) {
-    const locValue = filter.value;
-
-    // Method 1: Check if the issue's dataLoc matches the filter value
-    // dataLoc format is: filePath:line:column (element source location)
-    if (issue.issue.dataLoc && matchesLoc(issue.issue.dataLoc, locValue)) {
-      return true;
-    }
-
-    // Method 2: Check if the elementId contains the location
-    // elementId format is: loc:path:line:column#occurrence
-    if (issue.elementId) {
-      // Extract location from elementId (remove "loc:" prefix and "#occurrence" suffix)
-      const withoutPrefix = issue.elementId.replace(/^loc:/, "");
-      const withoutOccurrence = withoutPrefix.replace(/#\d+$/, "");
-      if (matchesLoc(withoutOccurrence, locValue)) {
-        return true;
-      }
-    }
-
-    // Method 3: For file-level issues, check the elementLoc (first element in file)
-    if (issue.elementLoc && matchesLoc(issue.elementLoc, locValue)) {
-      return true;
-    }
-
-    // Method 4: Check if the issue's own line:column matches the filter value
-    // The issue has its own line/column (where the issue occurs within the element)
-    // which may differ from the element's dataLoc (where the element starts)
-    const filterParts = parseLocParts(locValue);
-    if (filterParts && issue.issue.line === filterParts.line) {
-      // Check if filePath matches
-      if (issue.filePath === filterParts.filePath) {
-        // If filter has column, check column match too
-        if (filterParts.column === undefined || issue.issue.column === filterParts.column) {
-          return true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
-/**
- * Individual issue item - click adds filter
- * When matching an active loc filter, renders expanded detail view
+ * Individual issue item - click opens inspector with issue details
  */
 function IssueItem({
   id,
@@ -893,8 +753,7 @@ function IssueItem({
   isPinned,
   onMouseEnter,
   onMouseLeave,
-  onAddFilter,
-  activeLocFilters = [],
+  onOpenInspector,
 }: {
   id: string;
   title: string;
@@ -904,8 +763,10 @@ function IssueItem({
   isPinned: boolean;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  onAddFilter?: (filter: CommandPaletteFilter) => void;
-  activeLocFilters?: CommandPaletteFilter[];
+  onOpenInspector?: (
+    mode: "rule" | "issue" | "element",
+    data: { ruleId?: string; issue?: ESLintIssue; elementId?: string; filePath?: string }
+  ) => void;
 }) {
   // Build cursor:// URL for opening in Cursor
   const cursorUrl =
@@ -913,46 +774,18 @@ function IssueItem({
       ? `cursor://file/${issue.filePath}:${issue.issue.line}${issue.issue.column ? `:${issue.issue.column}` : ""}`
       : null;
 
-  // Extract filename for display label
-  const fileName = issue.filePath?.split("/").pop() || issue.filePath;
-  const locationLabel = issue.issue.line
-    ? `${fileName}:${issue.issue.line}${issue.issue.column ? `:${issue.issue.column}` : ""}`
-    : fileName;
-
-  // Check if this issue should be expanded (matches an active loc filter)
-  const isExpanded = issueMatchesLocFilter(issue, activeLocFilters);
-
   const handleClick = useCallback(() => {
-    // Don't add another filter if already expanded (already matches a loc filter)
-    if (isExpanded) return;
-
-    // Add loc filter for any issue with a file path and location
-    if (onAddFilter && issue.filePath && issue.issue.line) {
-      // Value encodes the full location: filePath:line:column
-      const locValue = `${issue.filePath}:${issue.issue.line}${issue.issue.column ? `:${issue.issue.column}` : ""}`;
-      onAddFilter({
-        type: "loc",
-        value: locValue,
-        label: locationLabel,
+    // Open inspector for issue details
+    if (onOpenInspector && issue.filePath) {
+      onOpenInspector("issue", {
+        issue: issue.issue,
+        elementId: issue.elementId,
+        filePath: issue.filePath,
       });
     }
-  }, [onAddFilter, issue.filePath, issue.issue.line, issue.issue.column, locationLabel, isExpanded]);
+  }, [onOpenInspector, issue]);
 
-  // Render expanded view when matching a loc filter
-  if (isExpanded) {
-    return (
-      <ExpandedIssueItem
-        issue={issue}
-        isSelected={isSelected}
-        isPinned={isPinned}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-        cursorUrl={cursorUrl}
-      />
-    );
-  }
-
-  // Render compact view
+  // Always render compact view - detailed view is now in the inspector sidebar
   return (
     <div
       className={cn(
@@ -985,109 +818,6 @@ function IssueItem({
         isSelected={isSelected}
         onClick={handleClick}
       />
-    </div>
-  );
-}
-
-/**
- * Expanded issue item showing full detail content inline
- * Displays when an issue matches an active loc filter
- */
-function ExpandedIssueItem({
-  issue,
-  isSelected,
-  isPinned,
-  onMouseEnter,
-  onMouseLeave,
-  cursorUrl,
-}: {
-  issue: IssueSearchData;
-  isSelected: boolean;
-  isPinned: boolean;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
-  cursorUrl: string | null;
-}) {
-  const { issue: eslintIssue, filePath } = issue;
-
-  return (
-    <div
-      className={cn(
-        "mx-2 my-1 rounded-lg overflow-hidden",
-        "border border-border",
-        "bg-surface-elevated",
-        isSelected && "ring-2 ring-border",
-        isPinned && "ring-1 ring-border"
-      )}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-    >
-      {/* Header */}
-      <div className="flex items-start gap-3 p-3 pb-2">
-        <div
-          className={cn(
-            "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0",
-            "bg-muted"
-          )}
-        >
-          <Icons.AlertTriangle className="w-3.5 h-3.5 text-muted-foreground" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground leading-snug">
-            {eslintIssue.message}
-          </p>
-        </div>
-      </div>
-
-      {/* Location */}
-      <div className="flex items-center gap-2 px-3 pb-2 text-xs text-muted-foreground">
-        <Icons.File className="w-3.5 h-3.5 flex-shrink-0" />
-        <span className="truncate font-mono text-[11px]">{filePath}</span>
-        <span className="text-text-disabled">:</span>
-        <span className="font-mono">{eslintIssue.line}</span>
-        {eslintIssue.column && (
-          <>
-            <span className="text-text-disabled">:</span>
-            <span className="font-mono">{eslintIssue.column}</span>
-          </>
-        )}
-      </div>
-
-      {/* Source code preview */}
-      {filePath && eslintIssue.line && (
-        <div className="px-3 pb-3">
-          <SourceCodePreview
-            filePath={filePath}
-            lineNumber={eslintIssue.line}
-            columnNumber={eslintIssue.column}
-            maxHeightClass="max-h-48"
-          />
-        </div>
-      )}
-
-      {/* Footer with rule ID and actions */}
-      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted border-t border-border">
-        {eslintIssue.ruleId && (
-          <code className="text-[10px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-surface">
-            {eslintIssue.ruleId}
-          </code>
-        )}
-        {cursorUrl && (
-          <a
-            href={cursorUrl}
-            onClick={(e) => e.stopPropagation()}
-            className={cn(
-              "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md",
-              "bg-accent text-accent-foreground",
-              "hover:bg-accent/90 transition-colors",
-              "text-xs font-medium"
-            )}
-          >
-            <Icons.ExternalLink className="w-3 h-3" />
-            Open in Cursor
-          </a>
-        )}
-      </div>
     </div>
   );
 }

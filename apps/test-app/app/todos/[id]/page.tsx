@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "../../components/ui/button";
@@ -27,36 +27,76 @@ import {
 import { ArrowLeft, Save, Trash2, Calendar } from "lucide-react";
 import SaveIcon from "@mui/icons-material/Save";
 import DeleteIcon from "@mui/icons-material/Delete";
+import { useTodoStore, type Todo, type Priority } from "../../stores/todoStore";
 
 export default function TodoDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const todoId = params.id as string;
+  const todoId = parseInt(params.id as string);
 
-  // Mock data
-  const [todo, setTodo] = useState({
-    id: parseInt(todoId),
-    title: "Design new landing page",
-    description:
-      "Create a modern, responsive landing page with hero section, features, and testimonials",
+  const storeTodo = useTodoStore((state) => state.getTodoById(todoId));
+  const updateTodo = useTodoStore((state) => state.updateTodo);
+  const deleteTodoFromStore = useTodoStore((state) => state.deleteTodo);
+
+  // Local state for editing (mirrors store data)
+  const [todo, setTodo] = useState<Todo & { description?: string; dueDate?: string; tags?: string[]; notes?: string }>({
+    id: todoId,
+    title: "",
+    description: "",
     completed: false,
-    priority: "high",
+    priority: "medium",
     category: "Work",
-    dueDate: "2024-02-15",
-    tags: ["design", "frontend", "urgent"],
-    notes: "Remember to use the new brand colors and typography guidelines.",
+    dueDate: "",
+    tags: [],
+    notes: "",
   });
 
   const [isEditing, setIsEditing] = useState(false);
 
+  // Sync local state with store
+  useEffect(() => {
+    if (storeTodo) {
+      setTodo({
+        ...storeTodo,
+        description: storeTodo.description || "",
+        dueDate: storeTodo.dueDate || "",
+        tags: storeTodo.tags || [],
+        notes: storeTodo.notes || "",
+      });
+    }
+  }, [storeTodo]);
+
   const handleSave = () => {
+    updateTodo(todoId, {
+      title: todo.title,
+      description: todo.description,
+      completed: todo.completed,
+      priority: todo.priority,
+      category: todo.category,
+      dueDate: todo.dueDate,
+      tags: todo.tags,
+      notes: todo.notes,
+    });
     setIsEditing(false);
-    // Save logic here
   };
 
   const handleDelete = () => {
+    deleteTodoFromStore(todoId);
     router.push("/todos");
   };
+
+  if (!storeTodo) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Todo not found</h1>
+          <Link href="/todos">
+            <Button>Back to Todos</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
@@ -269,12 +309,14 @@ export default function TodoDetailPage() {
                 ) : (
                   <div className="flex items-center text-purple-700 font-medium text-base">
                     <Calendar className="w-5 h-5 mr-2" />
-                    {new Date(todo.dueDate).toLocaleDateString("en-US", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                    {todo.dueDate
+                      ? new Date(todo.dueDate).toLocaleDateString("en-US", {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })
+                      : "No due date set"}
                   </div>
                 )}
               </div>
@@ -292,7 +334,7 @@ export default function TodoDetailPage() {
                 fullWidth
                 size="small"
                 placeholder="Add tags (comma-separated)"
-                value={todo.tags.join(", ")}
+                value={(todo.tags || []).join(", ")}
                 onChange={(e) =>
                   setTodo({
                     ...todo,
@@ -302,7 +344,7 @@ export default function TodoDetailPage() {
               />
             ) : (
               <Stack direction="row" spacing={1}>
-                {todo.tags.map((tag, idx) => (
+                {(todo.tags || []).map((tag, idx) => (
                   <span
                     key={idx}
                     className="inline-block bg-gray-200 text-gray-700 text-sm px-3 py-1 rounded hover:bg-gray-300 transition-colors"

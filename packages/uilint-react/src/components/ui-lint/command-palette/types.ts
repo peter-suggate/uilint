@@ -181,20 +181,10 @@ export interface ElementContext {
 
 /**
  * Filter chip for the command palette search
- * Allows filtering by rule, issue, loc (source location), file, capture, or coverage
+ * Allows filtering by rule, issue, loc (source location), file, or capture
  */
 export interface CommandPaletteFilter {
-  type: "rule" | "issue" | "loc" | "file" | "capture" | "coverage";
+  type: "rule" | "issue" | "loc" | "file" | "capture";
   value: string;
   label: string;
-}
-
-/**
- * Istanbul coverage data for a single file
- */
-export interface IstanbulFileCoverage {
-  /** Maps statement ID to location range */
-  statementMap: Record<string, { start: { line: number; column: number }; end: { line: number; column: number } }>;
-  /** Maps statement ID to hit count */
-  s: Record<string, number>;
 }

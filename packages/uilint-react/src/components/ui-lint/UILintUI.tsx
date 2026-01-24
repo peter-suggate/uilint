@@ -20,6 +20,7 @@ export function UILintUI() {
     CommandPalette: React.ComponentType;
     HeatmapOverlay: React.ComponentType;
     IndexingIndicator: React.ComponentType;
+    InspectorSidebar: React.ComponentType;
   } | null>(null);
 
   useEffect(() => {
@@ -29,18 +30,21 @@ export function UILintUI() {
       import("./command-palette"),
       import("./HeatmapOverlay"),
       import("./IndexingIndicator"),
+      import("./inspector"),
     ]).then(
       ([
         floatingIcon,
         commandPalette,
         heatmap,
         indexingIndicator,
+        inspector,
       ]) => {
         setComponents({
           FloatingIcon: floatingIcon.FloatingIcon,
           CommandPalette: commandPalette.CommandPalette,
           HeatmapOverlay: heatmap.HeatmapOverlay,
           IndexingIndicator: indexingIndicator.IndexingIndicator,
+          InspectorSidebar: inspector.InspectorSidebar,
         });
       }
     );
@@ -53,16 +57,19 @@ export function UILintUI() {
     CommandPalette,
     HeatmapOverlay,
     IndexingIndicator,
+    InspectorSidebar,
   } = components;
 
   return (
     <>
       <FloatingIcon />
       <CommandPalette />
-      {/* HeatmapOverlay shows issue density and coverage visualization -
+      {/* HeatmapOverlay shows issue density visualization -
           it internally shows/hides based on command palette selection or Alt key */}
       {liveScanEnabled && <HeatmapOverlay />}
       <IndexingIndicator />
+      {/* Inspector sidebar - handles both docked and floating modes internally */}
+      <InspectorSidebar />
     </>
   );
 }

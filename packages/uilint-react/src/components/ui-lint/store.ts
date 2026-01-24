@@ -34,7 +34,7 @@ import {
   groupBySourceFile,
   identifyTopLevelElements,
 } from "./dom-utils";
-import type { CommandPaletteFilter, IstanbulFileCoverage } from "./command-palette/types";
+import type { CommandPaletteFilter } from "./command-palette/types";
 import type {
   VisionIssue,
   VisionAnalysisResult,
@@ -238,20 +238,6 @@ interface DuplicatesIndexingErrorMessage {
   error: string;
 }
 
-// Coverage heatmap messages
-interface CoverageResultMessage {
-  type: "coverage:result";
-  coverage: Record<string, unknown>;
-  timestamp: number;
-  requestId?: string;
-}
-
-interface CoverageErrorMessage {
-  type: "coverage:error";
-  error: string;
-  requestId?: string;
-}
-
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
@@ -266,9 +252,7 @@ type ServerMessage =
   | DuplicatesIndexingStartMessage
   | DuplicatesIndexingProgressMessage
   | DuplicatesIndexingCompleteMessage
-  | DuplicatesIndexingErrorMessage
-  | CoverageResultMessage
-  | CoverageErrorMessage;
+  | DuplicatesIndexingErrorMessage;
 
 /**
  * UILint Store State and Actions
@@ -464,28 +448,6 @@ export interface UILintStore {
   /** Compute top-level elements and merged issue counts for heatmap display */
   computeHeatmapData: () => void;
 
-  // ============ Coverage Heatmap ============
-  /** Coverage data by file path (percentage 0-100) */
-  coverageData: Map<string, number>;
-  /** Element-level coverage data by dataLoc (percentage 0-100) */
-  elementCoverageData: Map<string, number>;
-  /** Raw Istanbul coverage data by file path (for line-level coverage display) */
-  coverageRawData: Map<string, IstanbulFileCoverage>;
-  /** Coverage analysis status */
-  coverageStatus: "idle" | "loading" | "ready" | "error";
-  /** Whether coverage heatmap visualization is shown */
-  showCoverageHeatmap: boolean;
-  /** Coverage data last error */
-  coverageLastError: string | null;
-  /** Request coverage data from server */
-  requestCoverage: () => void;
-  /** Toggle coverage heatmap visibility */
-  toggleCoverageHeatmap: () => void;
-  /** Clear coverage data */
-  clearCoverageData: () => void;
-  /** Update element-level coverage from ESLint issues */
-  updateElementCoverage: (dataLoc: string, percentage: number) => void;
-
   // ============ Command Palette ============
   /** Whether command palette is open */
   commandPaletteOpen: boolean;
@@ -540,6 +502,49 @@ export interface UILintStore {
   openCommandPaletteWithFilter: (filter: CommandPaletteFilter) => void;
   /** Update visible result IDs (called by CommandPalette when results change) */
   setVisibleCommandPaletteResultIds: (ids: Set<string>) => void;
+
+  // ============ Inspector Sidebar ============
+  /** Whether inspector sidebar is open */
+  inspectorOpen: boolean;
+  /** Current inspector mode */
+  inspectorMode: "rule" | "issue" | "element" | null;
+  /** Rule ID when showing rule details */
+  inspectorRuleId: string | null;
+  /** Issue data when showing issue details */
+  inspectorIssue: { issue: ESLintIssue; elementId?: string; filePath: string } | null;
+  /** Element ID when showing element details */
+  inspectorElementId: string | null;
+  /** Whether inspector is docked (participates in layout) or floating */
+  inspectorDocked: boolean;
+  /** Width when docked (resizable) */
+  inspectorWidth: number;
+  /** Position when floating */
+  inspectorFloatingPosition: { x: number; y: number } | null;
+  /** Size when floating */
+  inspectorFloatingSize: { width: number; height: number } | null;
+
+  // Inspector actions
+  /** Open inspector with specific content */
+  openInspector: (
+    mode: "rule" | "issue" | "element",
+    data: { ruleId?: string; issue?: ESLintIssue; elementId?: string; filePath?: string }
+  ) => void;
+  /** Close inspector sidebar */
+  closeInspector: () => void;
+  /** Set inspector to show rule details */
+  setInspectorRule: (ruleId: string) => void;
+  /** Set inspector to show issue details */
+  setInspectorIssue: (issue: ESLintIssue, elementId?: string, filePath?: string) => void;
+  /** Set inspector to show element details */
+  setInspectorElement: (elementId: string) => void;
+  /** Toggle between docked and floating mode */
+  toggleInspectorDocked: () => void;
+  /** Set inspector width (docked mode) */
+  setInspectorWidth: (width: number) => void;
+  /** Set inspector position (floating mode) */
+  setInspectorFloatingPosition: (pos: { x: number; y: number }) => void;
+  /** Set inspector size (floating mode) */
+  setInspectorFloatingSize: (size: { width: number; height: number }) => void;
 
   // ============ Internal ============
   _setScanState: (state: Partial<AutoScanState>) => void;
@@ -601,7 +606,6 @@ async function scanFileForIssues(
 /**
  * Match ESLint issues to elements by dataLoc and update the cache
  * Returns unmapped issues (those without dataLoc or with dataLoc that don't match any element)
- * Also extracts element-level coverage from jsxBelowThreshold issues
  */
 function distributeIssuesToElements(
   issues: ESLintIssue[],
@@ -609,7 +613,6 @@ function distributeIssuesToElements(
   filePath: string,
   updateElementIssue: (id: string, issue: ElementIssue) => void,
   updateFileIssues: (filePath: string, issues: ESLintIssue[]) => void,
-  updateElementCoverage: (dataLoc: string, percentage: number) => void,
   hasError: boolean
 ): void {
   // Create a map from dataLoc to element IDs.
@@ -630,17 +633,6 @@ function distributeIssuesToElements(
   const unmappedIssues: ESLintIssue[] = [];
 
   for (const issue of issues) {
-    // Extract element-level coverage from jsxBelowThreshold issues
-    if (issue.ruleId === "@uilint/require-test-coverage" && issue.dataLoc) {
-      // Try to extract coverage percentage from the message
-      // Message format: "<tagName> element coverage is XX%, below threshold of YY%"
-      const coverageMatch = issue.message.match(/coverage is (\d+)%/);
-      if (coverageMatch) {
-        const coverage = parseInt(coverageMatch[1], 10);
-        updateElementCoverage(issue.dataLoc, coverage);
-      }
-    }
-
     if (issue.dataLoc) {
       const elementIds = dataLocToElementIds.get(issue.dataLoc);
       if (elementIds && elementIds.length > 0) {
@@ -1068,7 +1060,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
         sourceFile.path,
         get().updateElementIssue,
         get().updateFileIssues,
-        get().updateElementCoverage,
         error ?? false
       );
 
@@ -1127,7 +1118,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
         sourceFile.path,
         get().updateElementIssue,
         get().updateFileIssues,
-        get().updateElementCoverage,
         error ?? false
       );
 
@@ -1773,66 +1763,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   duplicatesIndexError: null,
   duplicatesIndexStats: null,
 
-  // ============ Coverage Heatmap ============
-  coverageData: new Map(),
-  elementCoverageData: new Map(),
-  coverageRawData: new Map(),
-  coverageStatus: "idle",
-  showCoverageHeatmap:
-    typeof window !== "undefined"
-      ? JSON.parse(
-          localStorage.getItem("uilint:showCoverageHeatmap") || "false"
-        )
-      : false,
-  coverageLastError: null,
-
-  requestCoverage: () => {
-    const { wsConnection, wsConnected } = get();
-    if (!wsConnected || !wsConnection) {
-      set({ coverageLastError: "WebSocket not connected" });
-      return;
-    }
-
-    set({ coverageStatus: "loading", coverageLastError: null });
-    wsConnection.send(JSON.stringify({ type: "coverage:request" }));
-  },
-
-  toggleCoverageHeatmap: () => {
-    const newValue = !get().showCoverageHeatmap;
-    set({ showCoverageHeatmap: newValue });
-
-    // Request coverage data when enabling
-    if (newValue) {
-      get().requestCoverage();
-    }
-
-    // Persist to localStorage
-    if (typeof window !== "undefined") {
-      localStorage.setItem(
-        "uilint:showCoverageHeatmap",
-        JSON.stringify(newValue)
-      );
-    }
-  },
-
-  clearCoverageData: () => {
-    set({
-      coverageData: new Map(),
-      elementCoverageData: new Map(),
-      coverageRawData: new Map(),
-      coverageStatus: "idle",
-      coverageLastError: null,
-    });
-  },
-
-  updateElementCoverage: (dataLoc, percentage) => {
-    set((state) => {
-      const next = new Map(state.elementCoverageData);
-      next.set(dataLoc, percentage);
-      return { elementCoverageData: next };
-    });
-  },
-
   // ============ Command Palette ============
   commandPaletteOpen: false,
   commandPaletteQuery: "",
@@ -1966,6 +1896,121 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   setVisibleCommandPaletteResultIds: (ids) =>
     set({ visibleCommandPaletteResultIds: ids }),
 
+  // ============ Inspector Sidebar ============
+  inspectorOpen: false,
+  inspectorMode: null,
+  inspectorRuleId: null,
+  inspectorIssue: null,
+  inspectorElementId: null,
+  inspectorDocked:
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("uilint:inspectorDocked") ?? "true")
+      : true,
+  inspectorWidth:
+    typeof window !== "undefined"
+      ? parseInt(localStorage.getItem("uilint:inspectorWidth") ?? "400", 10)
+      : 400,
+  inspectorFloatingPosition:
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("uilint:inspectorFloatingPosition") ?? "null")
+      : null,
+  inspectorFloatingSize:
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("uilint:inspectorFloatingSize") ?? "null")
+      : null,
+
+  openInspector: (mode, data) => {
+    const state: Partial<UILintStore> = {
+      inspectorOpen: true,
+      inspectorMode: mode,
+    };
+
+    if (mode === "rule" && data.ruleId) {
+      state.inspectorRuleId = data.ruleId;
+      state.inspectorIssue = null;
+      state.inspectorElementId = null;
+    } else if (mode === "issue" && data.issue && data.filePath) {
+      state.inspectorIssue = {
+        issue: data.issue,
+        elementId: data.elementId,
+        filePath: data.filePath,
+      };
+      state.inspectorRuleId = null;
+      state.inspectorElementId = null;
+    } else if (mode === "element" && data.elementId) {
+      state.inspectorElementId = data.elementId;
+      state.inspectorRuleId = null;
+      state.inspectorIssue = null;
+    }
+
+    set(state);
+  },
+
+  closeInspector: () =>
+    set({
+      inspectorOpen: false,
+      inspectorMode: null,
+      inspectorRuleId: null,
+      inspectorIssue: null,
+      inspectorElementId: null,
+    }),
+
+  setInspectorRule: (ruleId) =>
+    set({
+      inspectorOpen: true,
+      inspectorMode: "rule",
+      inspectorRuleId: ruleId,
+      inspectorIssue: null,
+      inspectorElementId: null,
+    }),
+
+  setInspectorIssue: (issue, elementId, filePath) =>
+    set({
+      inspectorOpen: true,
+      inspectorMode: "issue",
+      inspectorIssue: { issue, elementId, filePath: filePath ?? "" },
+      inspectorRuleId: null,
+      inspectorElementId: null,
+    }),
+
+  setInspectorElement: (elementId) =>
+    set({
+      inspectorOpen: true,
+      inspectorMode: "element",
+      inspectorElementId: elementId,
+      inspectorRuleId: null,
+      inspectorIssue: null,
+    }),
+
+  toggleInspectorDocked: () => {
+    const newValue = !get().inspectorDocked;
+    set({ inspectorDocked: newValue });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("uilint:inspectorDocked", JSON.stringify(newValue));
+    }
+  },
+
+  setInspectorWidth: (width) => {
+    set({ inspectorWidth: width });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("uilint:inspectorWidth", String(width));
+    }
+  },
+
+  setInspectorFloatingPosition: (pos) => {
+    set({ inspectorFloatingPosition: pos });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("uilint:inspectorFloatingPosition", JSON.stringify(pos));
+    }
+  },
+
+  setInspectorFloatingSize: (size) => {
+    set({ inspectorFloatingSize: size });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("uilint:inspectorFloatingSize", JSON.stringify(size));
+    }
+  },
+
   _handleWsMessage: (data: ServerMessage) => {
     switch (data.type) {
       case "lint:result": {
@@ -1990,7 +2035,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
               filePath,
               state.updateElementIssue,
               state.updateFileIssues,
-              state.updateElementCoverage,
               false
             );
           } else {
@@ -2336,60 +2380,6 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
           duplicatesIndexError: error,
         });
         console.error("[UILint] Duplicates indexing error:", error);
-        break;
-      }
-
-      case "coverage:result": {
-        const { coverage } = data as CoverageResultMessage;
-        const coverageMap = new Map<string, number>();
-        const coverageRawMap = new Map<string, IstanbulFileCoverage>();
-
-        // Parse Istanbul coverage format into file → percentage map and raw data
-        for (const [filePath, fileCov] of Object.entries(coverage)) {
-          const cov = fileCov as {
-            s?: Record<string, number>;
-            statementMap?: Record<string, { start: { line: number; column: number }; end: { line: number; column: number } }>;
-          };
-          if (cov.s) {
-            const statements = cov.s;
-            const total = Object.keys(statements).length;
-            const covered = Object.values(statements).filter(
-              (v) => v > 0
-            ).length;
-            coverageMap.set(
-              filePath,
-              total > 0 ? (covered / total) * 100 : 100
-            );
-
-            // Store raw data for line-level coverage display
-            if (cov.statementMap) {
-              coverageRawMap.set(filePath, {
-                statementMap: cov.statementMap,
-                s: cov.s,
-              });
-            }
-          }
-        }
-
-        set({
-          coverageData: coverageMap,
-          coverageRawData: coverageRawMap,
-          coverageStatus: "ready",
-          coverageLastError: null,
-        });
-        console.log(
-          `[UILint] Coverage data received: ${coverageMap.size} files`
-        );
-        break;
-      }
-
-      case "coverage:error": {
-        const { error } = data as CoverageErrorMessage;
-        set({
-          coverageStatus: "error",
-          coverageLastError: error,
-        });
-        console.error("[UILint] Coverage error:", error);
         break;
       }
 
