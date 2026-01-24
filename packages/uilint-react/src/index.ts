@@ -2,12 +2,39 @@
 // This package exports React components/hooks, so consumers must treat it as client-side.
 "use client";
 
-// UILint Components
+// =============================================================================
+// NEW UI Components (from ui/)
+// =============================================================================
 export {
+  UILint,
   FloatingIcon,
   CommandPalette,
-  // Zustand store for direct access
-  useUILintStore,
+  InspectorSidebar,
+  // Hooks
+  useIssues,
+  useKeyboardShortcuts,
+  useElementRects,
+  // Type utilities
+  parseDataLoc,
+  createIssueId,
+  severityFromNumber,
+  severityToColor,
+  fromESLintIssue,
+} from "./ui";
+
+export type {
+  Issue,
+  IssueSeverity,
+  IssueStatus,
+  RawESLintIssue,
+  UILintProps,
+} from "./ui";
+
+// =============================================================================
+// Legacy Utilities (kept for compatibility)
+// These are used by scanner, consistency, and other modules
+// =============================================================================
+export {
   // DOM utilities (data-loc based)
   scanDOMForSources,
   groupBySourceFile,
@@ -29,6 +56,7 @@ export {
   DEFAULT_SETTINGS,
   DATA_UILINT_ID,
 } from "./components/ui-lint";
+
 export type {
   SourceLocation,
   ScannedElement,
@@ -38,16 +66,18 @@ export type {
   CachedSource,
   LocatorTarget,
   InspectedElement,
-  UILintStore,
 } from "./components/ui-lint";
 
+// =============================================================================
 // Consistency analysis
+// =============================================================================
 export {
   createSnapshot,
   cleanupDataElements,
   getElementBySnapshotId,
   ConsistencyHighlighter,
 } from "./consistency/index";
+
 export type {
   StyleSnapshot,
   ElementRole,
@@ -59,7 +89,9 @@ export type {
   ConsistencyResult,
 } from "./consistency/types";
 
-// Re-export core types for convenience
+// =============================================================================
+// Core types (from uilint-core)
+// =============================================================================
 import type {
   UILintIssue,
   StyleGuide,
@@ -78,7 +110,9 @@ export type {
   AnalysisResult,
 };
 
+// =============================================================================
 // Scanner utilities (browser-specific)
+// =============================================================================
 export { scanDOM } from "./scanner/dom-scanner";
 export { isBrowser, isJSDOM, isNode } from "./scanner/environment";
 

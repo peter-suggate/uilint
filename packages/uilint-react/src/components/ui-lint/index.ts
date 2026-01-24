@@ -1,19 +1,9 @@
 /**
- * UILint Source Visualization Components
+ * UILint Legacy Utilities
  *
- * A dev overlay for inspecting React components and analyzing code with LLM.
- * Use Alt+Click on any element to open the inspector sidebar.
+ * These utilities are kept for backward compatibility.
+ * New UI components are in /ui/ directory.
  */
-
-// Zustand store for direct access
-export { useUILintStore } from "./store";
-export type { UILintStore } from "./store";
-
-// UI components
-export { FloatingIcon } from "./FloatingIcon";
-export { CommandPalette } from "./command-palette";
-export { VisionIssuesPanel } from "./VisionIssuesPanel";
-export { ScreenshotViewer } from "./ScreenshotViewer";
 
 // DOM utilities (data-loc based)
 export {
@@ -27,9 +17,6 @@ export {
   getDisplayName,
   getSourceFromDataLoc,
 } from "./dom-utils";
-
-// DOM observation hook (for navigation detection)
-export { useDOMObserver, getDataLocElementCount } from "./useDOMObserver";
 
 // Source fetching
 export {

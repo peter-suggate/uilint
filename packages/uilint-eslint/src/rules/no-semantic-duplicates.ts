@@ -68,6 +68,8 @@ export const meta = defineRuleMeta({
   icon: "🔍",
   hint: "Finds similar code via embeddings",
   defaultEnabled: false,
+  plugin: "semantic",
+  customInspector: "duplicates",
   requirements: [
     {
       type: "semantic-index",

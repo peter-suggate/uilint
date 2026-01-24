@@ -154,6 +154,35 @@ export interface RuleMeta {
    * Migrations are applied in order to transform options from older versions.
    */
   migrations?: RuleMigration[];
+
+  /**
+   * Which UI plugin should handle this rule.
+   * Defaults based on category:
+   * - "static" category → "eslint" plugin
+   * - "semantic" category → "semantic" plugin
+   *
+   * Special cases:
+   * - "vision" for semantic-vision rule
+   */
+  plugin?: "eslint" | "vision" | "semantic";
+
+  /**
+   * Custom inspector panel ID to use for this rule's issues.
+   * If not specified, uses the plugin's default issue inspector.
+   *
+   * Examples:
+   * - "vision-issue" for VisionIssueInspector
+   * - "duplicates" for DuplicatesInspector
+   * - "semantic-issue" for SemanticIssueInspector
+   */
+  customInspector?: string;
+
+  /**
+   * Custom heatmap color for this rule's issues.
+   * CSS color value (hex, rgb, hsl, or named color).
+   * If not specified, uses severity-based coloring.
+   */
+  heatmapColor?: string;
 }
 
 /**
