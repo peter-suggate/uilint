@@ -26,7 +26,10 @@ interface ConsistencyHighlighterProps {
 }
 
 const HIGHLIGHT_COLOR = "#3b82f6"; // Blue
-const DOT_SIZE = 8;
+const PLUS_SIZE = 14; // Size of plus icon
+const PLUS_SIZE_HOVER = 22; // Expanded size on hover
+const PLUS_THICKNESS = 2; // Thickness of plus arms
+const PLUS_THICKNESS_HOVER = 3; // Thickness when hovered
 const BORDER_WIDTH = 2;
 
 /**
@@ -70,24 +73,64 @@ function getAllViolatingIds(violations: Violation[]): Set<string> {
 }
 
 /**
- * Overview dot component - small indicator for violating elements
+ * Overview plus icon component - indicator for violating elements
+ * Expands and fills in on hover for better clickability
  */
-function OverviewDot({ rect }: { rect: HighlightRect }) {
+function OverviewPlusIcon({ rect }: { rect: HighlightRect }) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const size = isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE;
+  const thickness = isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS;
+  const armLength = isHovered ? 10 : 6;
+
   return (
     <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         position: "fixed",
-        top: rect.top - DOT_SIZE / 2,
-        left: rect.left + rect.width - DOT_SIZE / 2,
-        width: DOT_SIZE,
-        height: DOT_SIZE,
-        borderRadius: "50%",
-        backgroundColor: HIGHLIGHT_COLOR,
-        pointerEvents: "none",
+        top: rect.top - size / 2,
+        left: rect.left + rect.width - size / 2,
+        width: size,
+        height: size,
+        borderRadius: isHovered ? 4 : 3,
+        backgroundColor: isHovered ? HIGHLIGHT_COLOR : "rgba(59, 130, 246, 0.15)",
+        border: `${thickness}px solid ${HIGHLIGHT_COLOR}`,
+        pointerEvents: "auto",
+        cursor: "pointer",
         zIndex: 99997,
-        boxShadow: "0 0 4px rgba(59, 130, 246, 0.5)",
+        boxShadow: isHovered
+          ? "0 2px 8px rgba(59, 130, 246, 0.4)"
+          : "0 0 4px rgba(59, 130, 246, 0.3)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "all 0.15s ease-out",
       }}
-    />
+    >
+      {/* Horizontal arm of plus */}
+      <div
+        style={{
+          position: "absolute",
+          width: armLength,
+          height: thickness,
+          backgroundColor: isHovered ? "white" : HIGHLIGHT_COLOR,
+          borderRadius: 1,
+          transition: "all 0.15s ease-out",
+        }}
+      />
+      {/* Vertical arm of plus */}
+      <div
+        style={{
+          position: "absolute",
+          width: thickness,
+          height: armLength,
+          backgroundColor: isHovered ? "white" : HIGHLIGHT_COLOR,
+          borderRadius: 1,
+          transition: "all 0.15s ease-out",
+        }}
+      />
+    </div>
   );
 }
 
@@ -243,9 +286,11 @@ export function ConsistencyHighlighter({
 
   const content = (
     <>
-      {/* Overview dots when no violation selected */}
+      {/* Overview plus icons when no violation selected */}
       {!activeViolation &&
-        overviewHighlights.map((h) => <OverviewDot key={h.id} rect={h.rect} />)}
+        overviewHighlights.map((h) => (
+          <OverviewPlusIcon key={h.id} rect={h.rect} />
+        ))}
 
       {/* Active highlights for selected violation */}
       {activeViolation &&
