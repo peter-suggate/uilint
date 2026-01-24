@@ -37,8 +37,3 @@ coverage/
 
 # Generated test app (from template)
 apps/test-app/
-
-# UILint generated files in template (keep styleguide.md)
-apps/test-app-template/.uilint/.cache/
-apps/test-app-template/.uilint/.duplicates-index/
-apps/test-app-template/.uilint/rules/

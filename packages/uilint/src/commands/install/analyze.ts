@@ -133,8 +133,15 @@ export async function analyze(
     }
   }
 
-  // Find all packages and enrich with ESLint info
-  const rawPackages = findPackages(workspaceRoot);
+  // Find packages to configure ESLint in
+  // If projectPath is a package itself, only include that package (not the whole workspace)
+  // This prevents installing into sibling packages when running from a specific project
+  let rawPackages = findPackages(workspaceRoot);
+  const projectHasPackageJson = existsSync(join(projectPath, "package.json"));
+  if (projectHasPackageJson && projectPath !== workspaceRoot) {
+    // Filter to only include the current project
+    rawPackages = rawPackages.filter((pkg) => pkg.path === projectPath);
+  }
   const packages: EslintPackageInfo[] = rawPackages.map((pkg) => {
     const eslintConfigPath = findEslintConfigFile(pkg.path);
     let eslintConfigFilename: string | null = null;
