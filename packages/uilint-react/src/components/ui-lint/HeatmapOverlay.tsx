@@ -18,7 +18,8 @@ import {
 } from "./visibility-utils";
 import {
   calculateHeatmapOpacity,
-  getHeatmapBorderColor,
+  getSeverityBorderColor,
+  type IssueSeverity,
 } from "./heatmap-colors";
 
 /** Debounce time in ms after scroll/movement stops before fading back in */
@@ -40,6 +41,7 @@ interface HeatmapElement {
   rect: DOMRect;
   issueCount: number;
   opacity: number;
+  severity: IssueSeverity;
 }
 
 export function HeatmapOverlay() {
@@ -70,6 +72,9 @@ export function HeatmapOverlay() {
   const inspectorElementId = useUILintStore((s: UILintStore) => s.inspectorElementId);
   const inspectorRuleId = useUILintStore((s: UILintStore) => s.inspectorRuleId);
   const elementIssuesCache = useUILintStore((s: UILintStore) => s.elementIssuesCache);
+
+  // Rule configs for determining severity
+  const ruleConfigs = useUILintStore((s: UILintStore) => s.ruleConfigs);
 
   useEffect(() => {
     setMounted(true);
@@ -143,6 +148,22 @@ export function HeatmapOverlay() {
 
         const opacity = calculateHeatmapOpacity(issueCount, maxIssues);
 
+        // Determine max severity from element's issues
+        const dataLoc = getDataLocFromSource(element.source);
+        const elementData = elementIssuesCache.get(dataLoc);
+        let severity: IssueSeverity = "warn";
+        if (elementData) {
+          for (const issue of elementData.issues) {
+            if (issue.ruleId) {
+              const ruleConfig = ruleConfigs.get(issue.ruleId);
+              if (ruleConfig?.severity === "error") {
+                severity = "error";
+                break; // Error is max severity, no need to check more
+              }
+            }
+          }
+        }
+
         // Track position for movement detection
         const prevPos = lastPositionsRef.current.get(element.id);
         currentPositions.set(element.id, { top: visible.top, left: visible.left });
@@ -164,6 +185,7 @@ export function HeatmapOverlay() {
           }),
           issueCount,
           opacity,
+          severity,
         });
       }
 
@@ -256,7 +278,7 @@ export function HeatmapOverlay() {
       window.removeEventListener("resize", handleResize);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [autoScanState.status, autoScanState.elements, mergedIssueCounts, inspectorOpen, inspectorDocked, inspectorWidth, shouldShowElement]);
+  }, [autoScanState.status, autoScanState.elements, mergedIssueCounts, inspectorOpen, inspectorDocked, inspectorWidth, shouldShowElement, ruleConfigs, elementIssuesCache]);
 
   // Get inspector actions from store
   const openInspector = useUILintStore((s: UILintStore) => s.openInspector);
@@ -292,8 +314,6 @@ export function HeatmapOverlay() {
       onKeyDown={handleUILintInteraction}
       style={{
         pointerEvents: "none",
-        opacity: isMoving ? 0 : 1,
-        transition: "opacity 150ms ease-in-out",
       }}
     >
       {heatmapElements.map((item) => (
@@ -333,17 +353,20 @@ function getBorderWidth(opacity: number, isHovered: boolean): number {
  * Generate gradient border colors for bottom-left to top-right effect.
  * Returns [transparentColor, opaqueColor] for use in CSS gradient.
  */
-function getGradientBorderColors(opacity: number): [string, string] {
-  const transparentColor = getHeatmapBorderColor(opacity * 0.2);
-  const opaqueColor = getHeatmapBorderColor(opacity);
+function getGradientBorderColors(
+  opacity: number,
+  severity: IssueSeverity
+): [string, string] {
+  const transparentColor = getSeverityBorderColor(opacity * 0.2, severity);
+  const opaqueColor = getSeverityBorderColor(opacity, severity);
   return [transparentColor, opaqueColor];
 }
 
-/** Size of the clickable corner plus icon indicator */
-const PLUS_SIZE = 14;
-const PLUS_SIZE_HOVER = 22;
+/** Size of the diagonal corner tab indicator */
+const TAB_SIZE = 20;
+const TAB_SIZE_HOVER = 28;
 const PLUS_THICKNESS = 2;
-const PLUS_THICKNESS_HOVER = 3;
+const PLUS_THICKNESS_HOVER = 2.5;
 
 function HeatmapRect({
   item,
@@ -352,13 +375,14 @@ function HeatmapRect({
   onLeave,
   onClick,
 }: HeatmapRectProps) {
-  const { rect, issueCount, opacity } = item;
-
-  const dotColor = getHeatmapBorderColor(opacity);
+  const { rect, issueCount, opacity, severity } = item;
 
   const borderWidth = getBorderWidth(opacity, isHovered);
   const displayOpacity = isHovered ? Math.min(opacity + 0.15, 0.7) : opacity;
-  const [transparentColor, opaqueColor] = getGradientBorderColors(displayOpacity);
+  const [transparentColor, opaqueColor] = getGradientBorderColors(
+    displayOpacity,
+    severity
+  );
 
   // Outer dimensions including border
   const outerWidth = rect.width + borderWidth * 2;
@@ -378,8 +402,8 @@ function HeatmapRect({
           left: rect.left - borderWidth,
           width: outerWidth,
           height: outerHeight,
-          background: `linear-gradient(135deg, ${transparentColor} 0%, ${opaqueColor} 100%)`,
-          borderRadius: "6px",
+          background: `linear-gradient(45deg, ${transparentColor} 0%, ${opaqueColor} 100%)`,
+          borderRadius: 0,
           pointerEvents: "none",
           transition: "opacity 150ms",
           zIndex: isHovered ? 99998 : 99995,
@@ -392,29 +416,22 @@ function HeatmapRect({
         }}
       />
 
-      {/* Clickable corner plus icon at top-right */}
+      {/* Diagonal corner tab at top-right - integrated with border */}
       <div
         data-ui-lint
         style={{
           position: "fixed",
-          top: rect.top - (isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE) / 2,
-          left: rect.left + rect.width - (isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE) / 2,
-          width: isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE,
-          height: isHovered ? PLUS_SIZE_HOVER : PLUS_SIZE,
-          backgroundColor: isHovered ? dotColor : `${dotColor}26`,
-          border: `${isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS}px solid ${dotColor}`,
-          borderRadius: isHovered ? 4 : 3,
+          top: rect.top - borderWidth,
+          left: rect.left + rect.width - (isHovered ? TAB_SIZE_HOVER : TAB_SIZE) + borderWidth,
+          width: isHovered ? TAB_SIZE_HOVER : TAB_SIZE,
+          height: isHovered ? TAB_SIZE_HOVER : TAB_SIZE,
+          backgroundColor: opaqueColor,
           pointerEvents: "auto",
           cursor: "pointer",
           zIndex: 99999,
-          // Only transition visual properties, not position (top/left)
-          transition: "width 150ms ease-out, height 150ms ease-out, background-color 150ms ease-out, border 150ms ease-out, border-radius 150ms ease-out, box-shadow 150ms ease-out",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: isHovered
-            ? `0 2px 8px ${dotColor}66`
-            : `0 0 4px ${dotColor}4D`,
+          transition: "width 150ms ease-out, height 150ms ease-out, left 150ms ease-out",
+          // Diagonal triangle: top-right corner
+          clipPath: "polygon(100% 0, 0 0, 100% 100%)",
         }}
         onMouseEnter={onHover}
         onMouseLeave={onLeave}
@@ -424,28 +441,42 @@ function HeatmapRect({
         }}
         title={tooltipText}
       >
-        {/* Horizontal arm of plus */}
+        {/* Plus icon positioned on the diagonal */}
         <div
           style={{
             position: "absolute",
-            width: isHovered ? 10 : 6,
-            height: isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS,
-            backgroundColor: isHovered ? "white" : dotColor,
-            borderRadius: 1,
-            transition: "width 150ms ease-out, height 150ms ease-out, background-color 150ms ease-out",
+            top: isHovered ? 8 : 5,
+            right: isHovered ? 5 : 3,
+            width: isHovered ? 12 : 8,
+            height: isHovered ? 12 : 8,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
-        />
-        {/* Vertical arm of plus */}
-        <div
-          style={{
-            position: "absolute",
-            width: isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS,
-            height: isHovered ? 10 : 6,
-            backgroundColor: isHovered ? "white" : dotColor,
-            borderRadius: 1,
-            transition: "width 150ms ease-out, height 150ms ease-out, background-color 150ms ease-out",
-          }}
-        />
+        >
+          {/* Horizontal arm */}
+          <div
+            style={{
+              position: "absolute",
+              width: isHovered ? 10 : 6,
+              height: isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS,
+              backgroundColor: "white",
+              borderRadius: 1,
+              transition: "width 150ms ease-out, height 150ms ease-out",
+            }}
+          />
+          {/* Vertical arm */}
+          <div
+            style={{
+              position: "absolute",
+              width: isHovered ? PLUS_THICKNESS_HOVER : PLUS_THICKNESS,
+              height: isHovered ? 10 : 6,
+              backgroundColor: "white",
+              borderRadius: 1,
+              transition: "width 150ms ease-out, height 150ms ease-out",
+            }}
+          />
+        </div>
       </div>
 
       {/* Tooltip on hover */}
