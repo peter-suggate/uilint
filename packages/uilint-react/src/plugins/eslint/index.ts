@@ -10,11 +10,22 @@ import { eslintCommands } from "./commands";
 import {
   createESLintSlice,
   createESLintActions,
-  ESLINT_WS_MESSAGE_TYPES,
   type ESLintPluginSlice,
   type ESLintSlice,
 } from "./slice";
 import type { AvailableRule, RuleConfig, ESLintIssue } from "./types";
+import { fromESLintIssue, type Issue } from "../../ui/types";
+
+/** WebSocket message types handled by ESLint plugin */
+const ESLINT_WS_MESSAGE_TYPES = [
+  "lint:result",
+  "lint:progress",
+  "file:changed",
+  "workspace:info",
+  "rules:metadata",
+  "rule:config:result",
+  "rule:config:changed",
+] as const;
 
 /**
  * ESLint Plugin Definition
@@ -92,30 +103,29 @@ export const eslintPlugin: Plugin = {
    */
   getIssues: (state: unknown) => {
     const eslintState = state as ESLintPluginSlice;
-    const issues = new Map<string, import("../../core/plugin-system/types").PluginIssue[]>();
 
-    // Convert ElementIssue cache to PluginIssue format
-    if (eslintState.elementIssuesCache) {
-      eslintState.elementIssuesCache.forEach((elementIssue, dataLoc) => {
-        const pluginIssues = elementIssue.issues.map((issue) => ({
-          id: `eslint-${dataLoc}-${issue.line}-${issue.column ?? 0}-${issue.ruleId ?? "unknown"}`,
-          message: issue.message,
-          severity: "warning" as const, // ESLint issues default to warning
-          dataLoc,
-          line: issue.line,
-          column: issue.column,
-          ruleId: issue.ruleId,
-        }));
+    // Convert unified Issue[] to PluginIssue[] format
+    const pluginIssues = new Map<string, import("../../core/plugin-system/types").PluginIssue[]>();
 
-        if (pluginIssues.length > 0) {
-          issues.set(dataLoc, pluginIssues);
-        }
-      });
-    }
+    eslintState.issues.forEach((issues, dataLoc) => {
+      const converted = issues.map((issue) => ({
+        id: issue.id,
+        message: issue.message,
+        severity: issue.severity,
+        dataLoc: issue.dataLoc,
+        line: issue.line,
+        column: issue.column,
+        ruleId: issue.ruleId,
+      }));
+
+      if (converted.length > 0) {
+        pluginIssues.set(dataLoc, converted);
+      }
+    });
 
     return {
       pluginId: "eslint",
-      issues,
+      issues: pluginIssues,
     };
   },
 
@@ -221,14 +231,34 @@ function handleWebSocketMessage(
 ): void {
   switch (message.type) {
     case "lint:result": {
-      const { filePath, issues } = message;
-      console.log("[ESLint Plugin] Received lint result:", filePath, issues.length, "issues");
+      const { filePath, issues: rawIssues } = message;
+      console.log("[ESLint Plugin] Received lint result:", filePath, rawIssues.length, "issues");
 
-      // Update the eslint issues cache
-      const state = services.getState<{ eslintIssuesCache: Map<string, ESLintIssue[]> }>();
-      const newCache = new Map(state.eslintIssuesCache);
-      newCache.set(filePath, issues);
-      services.setState({ eslintIssuesCache: newCache });
+      // Convert raw issues to unified Issue type
+      const converted = rawIssues
+        .map((raw) =>
+          fromESLintIssue({
+            ...raw,
+            dataLoc: raw.dataLoc || `${filePath}:${raw.line}:${raw.column || 0}`,
+          })
+        )
+        .filter((issue): issue is Issue => issue !== null);
+
+      // Group issues by dataLoc
+      const byDataLoc = new Map<string, Issue[]>();
+      for (const issue of converted) {
+        const existing = byDataLoc.get(issue.dataLoc) || [];
+        byDataLoc.set(issue.dataLoc, [...existing, issue]);
+      }
+
+      // Get current state and update issues for each dataLoc
+      const state = services.getState<ESLintPluginSlice>();
+      for (const [dataLoc, issues] of byDataLoc) {
+        // Merge with the main issues Map
+        const currentIssues = new Map(state.issues);
+        currentIssues.set(dataLoc, issues);
+        services.setState({ issues: currentIssues });
+      }
       break;
     }
 
@@ -242,11 +272,15 @@ function handleWebSocketMessage(
       const { filePath } = message;
       console.log("[ESLint Plugin] File changed:", filePath);
 
-      // Invalidate cache for this file
-      const state = services.getState<{ eslintIssuesCache: Map<string, ESLintIssue[]> }>();
-      const newCache = new Map(state.eslintIssuesCache);
-      newCache.delete(filePath);
-      services.setState({ eslintIssuesCache: newCache });
+      // Invalidate cache for this file - remove all issues with matching filePath
+      const state = services.getState<ESLintPluginSlice>();
+      const newIssues = new Map(state.issues);
+      for (const [dataLoc] of newIssues) {
+        if (dataLoc.startsWith(filePath + ":")) {
+          newIssues.delete(dataLoc);
+        }
+      }
+      services.setState({ issues: newIssues });
       break;
     }
 
