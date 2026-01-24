@@ -16,6 +16,7 @@ interface ElementInspectorProps {
  */
 export function ElementInspector({ elementId }: ElementInspectorProps) {
   const elementIssuesCache = useUILintStore((s: UILintStore) => s.elementIssuesCache);
+  const fileIssuesCache = useUILintStore((s: UILintStore) => s.fileIssuesCache);
   const autoScanState = useUILintStore((s: UILintStore) => s.autoScanState);
   const setInspectorIssue = useUILintStore((s: UILintStore) => s.setInspectorIssue);
 
@@ -28,10 +29,22 @@ export function ElementInspector({ elementId }: ElementInspectorProps) {
   // Get issues for this element by looking up its dataLoc
   const dataLoc = element ? getDataLocFromSource(element.source) : null;
   const elementData = dataLoc ? elementIssuesCache.get(dataLoc) : null;
-  const issues = elementData?.issues ?? [];
+  const elementIssues = elementData?.issues ?? [];
 
-  // Extract element source info
+  // Extract element source info (needed for file issues lookup)
   const filePath = element?.source.fileName ?? "";
+
+  // Get file-level issues - only truly file-wide issues with no specific line location
+  const fileIssues = filePath
+    ? (fileIssuesCache.get(filePath) ?? []).filter(
+        (issue) => !issue.line && !issue.column
+      )
+    : [];
+
+  // Combine element-specific issues with file-level issues
+  const allIssues = [...elementIssues, ...fileIssues];
+
+  // Extract remaining element source info
   const lineNumber = element?.source.lineNumber;
   const columnNumber = element?.source.columnNumber;
   const fileName = filePath.split("/").pop() || filePath;
@@ -65,7 +78,7 @@ export function ElementInspector({ elementId }: ElementInspectorProps) {
               {element.tagName || "Unknown"}
             </p>
           </div>
-          {issues.length > 0 && (
+          {allIssues.length > 0 && (
             <span
               className={cn(
                 "inline-flex items-center justify-center",
@@ -75,7 +88,7 @@ export function ElementInspector({ elementId }: ElementInspectorProps) {
                 "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
               )}
             >
-              {issues.length}
+              {allIssues.length}
             </span>
           )}
         </div>
@@ -100,13 +113,13 @@ export function ElementInspector({ elementId }: ElementInspectorProps) {
       </div>
 
       {/* Issues list - if any */}
-      {issues.length > 0 && (
+      {allIssues.length > 0 && (
         <div className="p-4 border-b border-border">
           <label className="text-xs font-medium text-text-secondary mb-2 block">
-            Issues ({issues.length})
+            Issues ({allIssues.length})
           </label>
           <div className="space-y-1">
-            {issues.map((issue, idx) => (
+            {allIssues.map((issue, idx) => (
               <button
                 key={`${issue.ruleId}-${issue.line}-${idx}`}
                 type="button"

@@ -94,7 +94,9 @@ function OverviewPlusIcon({ rect }: { rect: HighlightRect }) {
         width: size,
         height: size,
         borderRadius: isHovered ? 4 : 3,
-        backgroundColor: isHovered ? HIGHLIGHT_COLOR : "rgba(59, 130, 246, 0.15)",
+        backgroundColor: isHovered
+          ? HIGHLIGHT_COLOR
+          : "rgba(59, 130, 246, 0.15)",
         border: `${thickness}px solid ${HIGHLIGHT_COLOR}`,
         pointerEvents: "auto",
         cursor: "pointer",
