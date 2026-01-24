@@ -21,9 +21,13 @@ import { useFuzzySearch, buildSearchableItems } from "./use-fuzzy-search";
 import type {
   SearchableItem,
   ActionSearchData,
+  PluginCommandSearchData,
   IssueSearchData,
   CommandPaletteFilter,
+  CategoryType,
 } from "./types";
+import { pluginRegistry } from "../../../core/plugin-system/registry";
+import type { Command, PluginServices } from "../../../core/plugin-system/types";
 
 /** Palette dimensions */
 const PALETTE_WIDTH = 720; // Wider to accommodate sidebar
@@ -67,17 +71,65 @@ function calculatePalettePosition(iconPos: FloatingIconPosition | null): {
 }
 
 /**
- * Build suggested action items based on current state
+ * Map plugin command categories to command palette categories
+ * Plugin categories are normalized to lowercase for matching
+ */
+function mapPluginCategoryToPaletteCategory(pluginCategory: string): CategoryType {
+  const normalized = pluginCategory.toLowerCase();
+
+  switch (normalized) {
+    case "eslint":
+    case "settings":
+      return "settings";
+    case "vision":
+      return "vision";
+    case "semantic":
+    case "actions":
+      return "actions";
+    default:
+      return "actions";
+  }
+}
+
+/**
+ * Convert a plugin Command to a SearchableItem
+ */
+function commandToSearchableItem(command: Command): SearchableItem {
+  const category = mapPluginCategoryToPaletteCategory(command.category);
+  const searchText = [
+    command.title,
+    command.subtitle || "",
+    ...(command.keywords || []),
+  ].join(" ");
+
+  return {
+    type: "action",
+    category,
+    id: `command:${command.id}`,
+    searchText,
+    title: command.title,
+    subtitle: command.subtitle,
+    data: {
+      type: "plugin-command",
+      commandId: command.id,
+      icon: typeof command.icon === "string" ? command.icon : undefined,
+    } as PluginCommandSearchData,
+  };
+}
+
+/**
+ * Build action items from plugin commands based on current state
  * Actions are organized into categories: settings, vision, actions
  */
 function buildActionItems(
   wsConnected: boolean,
-  liveScanEnabled: boolean,
-  hasIssues: boolean
+  _liveScanEnabled: boolean,
+  _hasIssues: boolean,
+  storeState: UILintStore
 ): SearchableItem[] {
   const actions: SearchableItem[] = [];
 
-  // Connection action (shown when not connected)
+  // Connection action (shown when not connected) - this is a core action, not from plugins
   if (!wsConnected) {
     actions.push({
       type: "action",
@@ -88,56 +140,24 @@ function buildActionItems(
       subtitle: "Run `npx uilint serve` to start the analysis server",
       data: { type: "action", actionType: "connect" } as ActionSearchData,
     });
-  } else {
-    // Settings category: ESLint scan toggle
-    actions.push({
-      type: "action",
-      category: "settings",
-      id: "action:toggle-scan",
-      searchText: "eslint scan lint toggle enable disable settings",
-      title: "ESLint Scanning",
-      subtitle: liveScanEnabled
-        ? "Live scanning is active - click to disable"
-        : "Enable real-time code quality analysis",
-      data: { type: "action", actionType: "toggle-scan" } as ActionSearchData,
-    });
+  }
 
-    // Fix issues action (shown when there are issues)
-    if (hasIssues) {
-      actions.push({
-        type: "action",
-        category: "actions",
-        id: "action:fix-issues",
-        searchText: "fix issues errors warnings prompt copy clipboard",
-        title: "Fix all issues",
-        subtitle: "Generate a prompt to fix all lint issues",
-        data: { type: "action", actionType: "fix-issues" } as ActionSearchData,
-      });
+  // Get all commands from registered plugins
+  const pluginCommands = pluginRegistry.getAllCommands();
+
+  // Filter and convert plugin commands to searchable items
+  for (const command of pluginCommands) {
+    // Check if command is available in current state
+    if (command.isAvailable) {
+      const isAvailable = command.isAvailable(storeState);
+      if (!isAvailable) {
+        continue;
+      }
     }
 
-    // Vision category: Capture actions
-    actions.push({
-      type: "action",
-      category: "vision",
-      id: "action:capture-full",
-      searchText: "capture screenshot full page vision analyze ai",
-      title: "Capture Full Page",
-      subtitle: "AI-powered visual consistency analysis of the entire viewport",
-      data: { type: "action", actionType: "capture-full" } as ActionSearchData,
-    });
-
-    actions.push({
-      type: "action",
-      category: "vision",
-      id: "action:capture-region",
-      searchText: "capture screenshot region select area vision analyze ai",
-      title: "Capture Region",
-      subtitle: "Select a specific area of the page to analyze",
-      data: {
-        type: "action",
-        actionType: "capture-region",
-      } as ActionSearchData,
-    });
+    // Convert command to searchable item
+    const item = commandToSearchableItem(command);
+    actions.push(item);
   }
 
   return actions;
@@ -227,11 +247,12 @@ export function CommandPalette() {
     return false;
   }, [elementIssuesCache, fileIssuesCache]);
 
-  // Build action items
-  const actionItems = useMemo(
-    () => buildActionItems(wsConnected, liveScanEnabled, hasIssues),
-    [wsConnected, liveScanEnabled, hasIssues]
-  );
+  // Build action items from plugin commands
+  const actionItems = useMemo(() => {
+    // Get the current store state for isAvailable checks
+    const storeState = useUILintStore.getState() as UILintStore;
+    return buildActionItems(wsConnected, liveScanEnabled, hasIssues, storeState);
+  }, [wsConnected, liveScanEnabled, hasIssues, elementIssuesCache]);
 
   // Build searchable items from scan results
   const searchableItems = useMemo(() => {
@@ -358,30 +379,68 @@ export function CommandPalette() {
 
       // Handle action items directly
       if (item.type === "action") {
+        // Check if this is a plugin command
+        if (item.data.type === "plugin-command") {
+          const commandData = item.data as PluginCommandSearchData;
+
+          // Find the command in the plugin registry
+          const allCommands = pluginRegistry.getAllCommands();
+          const command = allCommands.find((cmd) => cmd.id === commandData.commandId);
+
+          if (command) {
+            // Get services from the registry, or construct a minimal services object
+            const registryServices = pluginRegistry.getServices();
+
+            // Construct services object - prefer registry services if available
+            const services: PluginServices = registryServices ?? {
+              websocket: {
+                isConnected: wsConnected,
+                url: "",
+                connect: () => {},
+                disconnect: () => {},
+                send: (msg: unknown) => {
+                  // Use store's sendMessage if available
+                  const state = useUILintStore.getState() as unknown as { sendMessage?: (msg: unknown) => void };
+                  if (typeof state.sendMessage === "function") {
+                    state.sendMessage(msg);
+                  }
+                },
+                on: () => () => {},
+                onConnectionChange: () => () => {},
+              },
+              domObserver: {
+                start: () => {},
+                stop: () => {},
+                onElementsAdded: () => () => {},
+                onElementsRemoved: () => () => {},
+              },
+              getState: <T = unknown>() => useUILintStore.getState() as T,
+              setState: <T = unknown>(partial: Partial<T>) => useUILintStore.setState(partial as Partial<UILintStore>),
+              openInspector: (mode, data) => openInspector(mode, data as Parameters<typeof openInspector>[1]),
+              closeCommandPalette,
+            };
+
+            // Execute the command
+            try {
+              const result = command.execute(services);
+              // Handle async commands
+              if (result instanceof Promise) {
+                result.catch((error) => {
+                  console.error(`[CommandPalette] Command "${command.id}" failed:`, error);
+                });
+              }
+            } catch (error) {
+              console.error(`[CommandPalette] Command "${command.id}" failed:`, error);
+            }
+          }
+          return;
+        }
+
+        // Handle legacy hardcoded actions
         const actionData = item.data as ActionSearchData;
         switch (actionData.actionType) {
           case "connect":
             connectWebSocket();
-            closeCommandPalette();
-            break;
-          case "toggle-scan":
-            if (liveScanEnabled) {
-              disableLiveScan();
-            } else {
-              enableLiveScan(true);
-            }
-            // Don't close palette - let user see the state change
-            break;
-          case "capture-full":
-            triggerVisionAnalysis();
-            closeCommandPalette();
-            break;
-          case "capture-region":
-            setRegionSelectionActive(true);
-            closeCommandPalette();
-            break;
-          case "fix-issues":
-            openFixesInspector();
             closeCommandPalette();
             break;
         }
@@ -390,14 +449,10 @@ export function CommandPalette() {
     },
     [
       searchResults,
-      liveScanEnabled,
+      wsConnected,
       closeCommandPalette,
       connectWebSocket,
-      enableLiveScan,
-      disableLiveScan,
-      triggerVisionAnalysis,
-      setRegionSelectionActive,
-      openFixesInspector,
+      openInspector,
     ]
   );
 

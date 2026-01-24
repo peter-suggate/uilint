@@ -506,6 +506,10 @@ export interface UILintStore {
   inspectorOpen: boolean;
   /** Current inspector mode */
   inspectorMode: "rule" | "issue" | "element" | "fixes" | null;
+  /** Active plugin panel ID (when showing a plugin-provided panel) */
+  inspectorPanelId: string | null;
+  /** Data payload for the active plugin panel */
+  inspectorPanelData: Record<string, unknown> | null;
   /** Rule ID when showing rule details */
   inspectorRuleId: string | null;
   /** Issue data when showing issue details */
@@ -527,6 +531,8 @@ export interface UILintStore {
     mode: "rule" | "issue" | "element" | "fixes",
     data: { ruleId?: string; issue?: ESLintIssue; elementId?: string; filePath?: string }
   ) => void;
+  /** Open inspector with a plugin panel */
+  openInspectorPanel: (panelId: string, data?: Record<string, unknown>) => void;
   /** Open inspector in fixes mode */
   openFixesInspector: () => void;
   /** Close inspector sidebar */
@@ -1896,6 +1902,8 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
   // ============ Inspector Sidebar ============
   inspectorOpen: false,
   inspectorMode: null,
+  inspectorPanelId: null,
+  inspectorPanelData: null,
   inspectorRuleId: null,
   inspectorIssue: null,
   inspectorElementId: null,
@@ -1920,6 +1928,9 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     const state: Partial<UILintStore> = {
       inspectorOpen: true,
       inspectorMode: mode,
+      // Clear plugin panel state when opening a built-in mode
+      inspectorPanelId: null,
+      inspectorPanelData: null,
     };
 
     if (mode === "rule" && data.ruleId) {
@@ -1947,10 +1958,23 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     set(state);
   },
 
+  openInspectorPanel: (panelId, data) =>
+    set({
+      inspectorOpen: true,
+      inspectorMode: null,
+      inspectorPanelId: panelId,
+      inspectorPanelData: data ?? null,
+      inspectorRuleId: null,
+      inspectorIssue: null,
+      inspectorElementId: null,
+    }),
+
   openFixesInspector: () =>
     set({
       inspectorOpen: true,
       inspectorMode: "fixes",
+      inspectorPanelId: null,
+      inspectorPanelData: null,
       inspectorRuleId: null,
       inspectorIssue: null,
       inspectorElementId: null,
@@ -1960,6 +1984,8 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     set({
       inspectorOpen: false,
       inspectorMode: null,
+      inspectorPanelId: null,
+      inspectorPanelData: null,
       inspectorRuleId: null,
       inspectorIssue: null,
       inspectorElementId: null,
@@ -1969,6 +1995,8 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     set({
       inspectorOpen: true,
       inspectorMode: "rule",
+      inspectorPanelId: null,
+      inspectorPanelData: null,
       inspectorRuleId: ruleId,
       inspectorIssue: null,
       inspectorElementId: null,
@@ -1978,6 +2006,8 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     set({
       inspectorOpen: true,
       inspectorMode: "issue",
+      inspectorPanelId: null,
+      inspectorPanelData: null,
       inspectorIssue: { issue, elementId, filePath: filePath ?? "" },
       inspectorRuleId: null,
       inspectorElementId: null,
@@ -1987,6 +2017,8 @@ export const useUILintStore = create<UILintStore>()((set, get) => ({
     set({
       inspectorOpen: true,
       inspectorMode: "element",
+      inspectorPanelId: null,
+      inspectorPanelData: null,
       inspectorElementId: elementId,
       inspectorRuleId: null,
       inspectorIssue: null,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useRef, useEffect, useState } from "react";
+import React, { useCallback, useRef, useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Icons } from "../command-palette/icons";
@@ -11,6 +11,8 @@ import { ElementInspector } from "./ElementInspector";
 import { FixesInspector } from "./FixesInspector";
 import { ResizeHandle } from "./ResizeHandle";
 import { getUILintPortalHost } from "../portal-host";
+import { pluginRegistry } from "../../../core/plugin-system/registry";
+import type { InspectorPanelProps, PluginServices } from "../../../core/plugin-system/types";
 
 const MIN_WIDTH = 320;
 const MAX_WIDTH = 800;
@@ -29,6 +31,8 @@ const DEFAULT_FLOATING_HEIGHT = 500;
 export function InspectorSidebar() {
   const inspectorOpen = useUILintStore((s: UILintStore) => s.inspectorOpen);
   const inspectorMode = useUILintStore((s: UILintStore) => s.inspectorMode);
+  const inspectorPanelId = useUILintStore((s: UILintStore) => s.inspectorPanelId);
+  const inspectorPanelData = useUILintStore((s: UILintStore) => s.inspectorPanelData);
   const inspectorRuleId = useUILintStore((s: UILintStore) => s.inspectorRuleId);
   const inspectorIssue = useUILintStore((s: UILintStore) => s.inspectorIssue);
   const inspectorElementId = useUILintStore((s: UILintStore) => s.inspectorElementId);
@@ -42,6 +46,46 @@ export function InspectorSidebar() {
   const setInspectorWidth = useUILintStore((s: UILintStore) => s.setInspectorWidth);
   const setInspectorFloatingPosition = useUILintStore((s: UILintStore) => s.setInspectorFloatingPosition);
   const setInspectorFloatingSize = useUILintStore((s: UILintStore) => s.setInspectorFloatingSize);
+  const openInspector = useUILintStore((s: UILintStore) => s.openInspector);
+
+  // Get all inspector panels from registered plugins
+  const pluginPanels = useMemo(() => pluginRegistry.getAllInspectorPanels(), []);
+
+  // Find the active plugin panel if one is selected
+  const activePluginPanel = useMemo(
+    () => (inspectorPanelId ? pluginPanels.find((p) => p.id === inspectorPanelId) : null),
+    [inspectorPanelId, pluginPanels]
+  );
+
+  // Create plugin services object for passing to panel components
+  const pluginServices = useMemo((): PluginServices => {
+    const services = pluginRegistry.getServices();
+    if (services) {
+      return services;
+    }
+    // Fallback services if registry not initialized
+    return {
+      websocket: {
+        isConnected: false,
+        url: "",
+        connect: () => {},
+        disconnect: () => {},
+        send: () => {},
+        on: () => () => {},
+        onConnectionChange: () => () => {},
+      },
+      domObserver: {
+        start: () => {},
+        stop: () => {},
+        onElementsAdded: () => () => {},
+        onElementsRemoved: () => () => {},
+      },
+      getState: <T = unknown>() => useUILintStore.getState() as T,
+      setState: <T = unknown>(partial: Partial<T>) => useUILintStore.setState(partial as Partial<UILintStore>),
+      openInspector: (mode, data) => openInspector(mode, data as Parameters<typeof openInspector>[1]),
+      closeCommandPalette: () => useUILintStore.getState().closeCommandPalette(),
+    };
+  }, [openInspector]);
 
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -142,44 +186,83 @@ export function InspectorSidebar() {
     }
   }, [inspectorDocked, inspectorFloatingPosition, setInspectorFloatingPosition, mounted]);
 
+  // Get title based on mode or active plugin panel
+  // (computed before early returns to satisfy React hooks rules)
+  const title = useMemo(() => {
+    // If a plugin panel is active, use its title
+    if (activePluginPanel) {
+      const panelTitle = activePluginPanel.title;
+      if (typeof panelTitle === "function") {
+        // Dynamic title function
+        return panelTitle({
+          data: inspectorPanelData ?? undefined,
+          services: pluginServices,
+        });
+      }
+      return panelTitle;
+    }
+
+    // Built-in mode titles
+    switch (inspectorMode) {
+      case "rule":
+        return "Rule Details";
+      case "issue":
+        return "Issue Details";
+      case "element":
+        return "Element Issues";
+      case "fixes":
+        return "Fix Issues";
+      default:
+        return "Inspector";
+    }
+  }, [activePluginPanel, inspectorMode, inspectorPanelData, pluginServices]);
+
+  // Render content based on mode or active plugin panel
+  // (computed before early returns to satisfy React hooks rules)
+  const content = useMemo(() => {
+    // If a plugin panel is active, render its component
+    if (activePluginPanel) {
+      const PanelComponent = activePluginPanel.component;
+      const panelProps: InspectorPanelProps = {
+        data: inspectorPanelData ?? undefined,
+        services: pluginServices,
+      };
+      return <PanelComponent {...panelProps} />;
+    }
+
+    // Render built-in inspectors based on mode
+    return (
+      <>
+        {inspectorMode === "rule" && inspectorRuleId && (
+          <RuleInspector ruleId={inspectorRuleId} />
+        )}
+        {inspectorMode === "issue" && inspectorIssue && (
+          <IssueInspector
+            issue={inspectorIssue.issue}
+            elementId={inspectorIssue.elementId}
+            filePath={inspectorIssue.filePath}
+          />
+        )}
+        {inspectorMode === "element" && inspectorElementId && (
+          <ElementInspector elementId={inspectorElementId} />
+        )}
+        {inspectorMode === "fixes" && <FixesInspector />}
+      </>
+    );
+  }, [
+    activePluginPanel,
+    inspectorMode,
+    inspectorPanelData,
+    pluginServices,
+    inspectorRuleId,
+    inspectorIssue,
+    inspectorElementId,
+  ]);
+
   if (!mounted || !inspectorOpen) return null;
 
   const portalHost = getUILintPortalHost();
   if (!portalHost) return null;
-
-  // Get title based on mode
-  const title =
-    inspectorMode === "rule"
-      ? "Rule Details"
-      : inspectorMode === "issue"
-      ? "Issue Details"
-      : inspectorMode === "element"
-      ? "Element Issues"
-      : inspectorMode === "fixes"
-      ? "Fix Issues"
-      : "Inspector";
-
-  // Render content based on mode
-  const content = (
-    <>
-      {inspectorMode === "rule" && inspectorRuleId && (
-        <RuleInspector ruleId={inspectorRuleId} />
-      )}
-      {inspectorMode === "issue" && inspectorIssue && (
-        <IssueInspector
-          issue={inspectorIssue.issue}
-          elementId={inspectorIssue.elementId}
-          filePath={inspectorIssue.filePath}
-        />
-      )}
-      {inspectorMode === "element" && inspectorElementId && (
-        <ElementInspector elementId={inspectorElementId} />
-      )}
-      {inspectorMode === "fixes" && (
-        <FixesInspector />
-      )}
-    </>
-  );
 
   // Floating mode
   if (!inspectorDocked) {

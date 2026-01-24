@@ -46,7 +46,7 @@ export interface SearchableItem {
   /** Issue count for files/elements/rules */
   issueCount?: number;
   /** Original data for actions */
-  data: ActionSearchData | FileSearchData | RuleSearchData | ElementSearchData | IssueSearchData | CaptureSearchData;
+  data: ActionSearchData | PluginCommandSearchData | FileSearchData | RuleSearchData | ElementSearchData | IssueSearchData | CaptureSearchData;
 }
 
 /**
@@ -67,6 +67,16 @@ export type ActionType =
 export interface ActionSearchData {
   type: "action";
   actionType: ActionType;
+  icon?: string;
+}
+
+/**
+ * Plugin command search result data
+ * Used for commands dynamically loaded from plugins
+ */
+export interface PluginCommandSearchData {
+  type: "plugin-command";
+  commandId: string;
   icon?: string;
 }
 
