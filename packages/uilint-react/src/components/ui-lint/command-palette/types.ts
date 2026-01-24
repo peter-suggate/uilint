@@ -58,7 +58,8 @@ export type ActionType =
   | "start-scan"
   | "stop-scan"
   | "capture-full"
-  | "capture-region";
+  | "capture-region"
+  | "fix-issues";
 
 /**
  * Action search result data
