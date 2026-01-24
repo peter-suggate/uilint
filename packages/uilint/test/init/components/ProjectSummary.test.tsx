@@ -5,8 +5,8 @@
 import { describe, it, expect } from "vitest";
 import React from "react";
 import { render } from "ink-testing-library";
-import { ProjectSummary } from "../../../src/commands/install/components/ProjectSummary.js";
-import type { ProjectState } from "../../../src/commands/install/types.js";
+import { ProjectSummary } from "../../../src/commands/init/components/ProjectSummary.js";
+import type { ProjectState } from "../../../src/commands/init/types.js";
 
 // Helper to create mock state
 function createMockState(

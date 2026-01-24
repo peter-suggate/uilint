@@ -5,8 +5,8 @@
 import { describe, it, expect } from "vitest";
 import React from "react";
 import { render } from "ink-testing-library";
-import { CompletionSummary } from "../../../src/commands/install/components/CompletionSummary.js";
-import type { InstallResult } from "../../../src/commands/install/types.js";
+import { CompletionSummary } from "../../../src/commands/init/components/CompletionSummary.js";
+import type { InstallResult } from "../../../src/commands/init/types.js";
 
 // Helper to create mock result
 function createMockResult(

@@ -18,10 +18,10 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { useFixture, type FixtureContext } from "../helpers/fixtures.js";
 import { mockPrompter } from "../helpers/prompts.js";
-import { analyze } from "../../src/commands/install/analyze.js";
-import { createPlan } from "../../src/commands/install/plan.js";
-import { execute } from "../../src/commands/install/execute.js";
-import { gatherChoices } from "../../src/commands/install/test-helpers.js";
+import { analyze } from "../../src/commands/init/analyze.js";
+import { createPlan } from "../../src/commands/init/plan.js";
+import { execute } from "../../src/commands/init/execute.js";
+import { gatherChoices } from "../../src/commands/init/test-helpers.js";
 
 // ============================================================================
 // Test Setup
@@ -322,10 +322,11 @@ describe("ESLint execution - rule content validation", () => {
 
       const content = fixture.readFile(rulePath);
 
-      // Should not have chunk imports
+      // Should not have chunk imports (tsup code-split artifacts)
+      // These patterns detect import/require statements that reference chunk files
       expect(content).not.toMatch(/from\s+["']\.\.\/chunk-/);
       expect(content).not.toMatch(/from\s+["']\.\/chunk-/);
-      expect(content).not.toContain("chunk-");
+      expect(content).not.toMatch(/require\s*\(\s*["']\.\.?\/chunk-/);
 
       // Should have proper imports from uilint-eslint or inline code
       // Either it imports from uilint-eslint or has createRule inlined

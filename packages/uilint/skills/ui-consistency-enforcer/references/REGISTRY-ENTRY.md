@@ -159,5 +159,5 @@ Here's a complete registry entry for a rule that enforces design system buttons:
 ## After Adding Entry
 
 1. Run `pnpm -C packages/uilint-eslint generate:index` to regenerate the index
-2. The rule will now appear in `uilint install` prompts
-3. Users can configure it interactively during installation
+2. The rule will now appear in `uilint init` prompts
+3. Users can configure it interactively during initialization

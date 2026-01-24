@@ -17,7 +17,7 @@ import {
   ConfigSelector,
   type ConfigItem,
   type ItemStatus,
-} from "../../../src/commands/install/components/MultiSelect.js";
+} from "../../../src/commands/init/components/MultiSelect.js";
 
 // Helper to create mock items
 function createItem(

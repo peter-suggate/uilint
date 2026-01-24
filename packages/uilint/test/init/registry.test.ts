@@ -8,14 +8,14 @@ import {
   getAllInstallers,
   getInstallerById,
   clearInstallers,
-} from "../../src/commands/install/installers/registry.js";
+} from "../../src/commands/init/installers/registry.js";
 import type {
   Installer,
   InstallerConfig,
   ProgressEvent,
   InstallTarget,
-} from "../../src/commands/install/installers/types.js";
-import type { ProjectState } from "../../src/commands/install/types.js";
+} from "../../src/commands/init/installers/types.js";
+import type { ProjectState } from "../../src/commands/init/types.js";
 
 // Mock installer factory
 function createMockInstaller(

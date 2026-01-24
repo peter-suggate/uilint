@@ -5,9 +5,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { skillInstaller } from "../../../src/commands/install/installers/skill.js";
+import { skillInstaller } from "../../../src/commands/init/installers/skill.js";
 import { createMockProjectState } from "../helpers/mock-state.js";
-import type { ProgressEvent } from "../../../src/commands/install/installers/types.js";
+import type { ProgressEvent } from "../../../src/commands/init/installers/types.js";
 
 // Mock existsSync to control skill installation state
 vi.mock("fs", async (importOriginal) => {

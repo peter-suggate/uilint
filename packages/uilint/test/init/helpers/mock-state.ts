@@ -7,7 +7,7 @@ import type {
   NextAppInfo,
   ViteAppInfo,
   EslintPackageInfo,
-} from "../../../src/commands/install/types.js";
+} from "../../../src/commands/init/types.js";
 
 /**
  * Create a minimal mock ProjectState for testing

@@ -8,7 +8,7 @@ import {
   PendingTask,
   RunningTask,
   CompletedTask,
-} from "../../../src/commands/install/components/TaskComponents.js";
+} from "../../../src/commands/init/components/TaskComponents.js";
 import { renderInk, frameContains } from "../helpers/render-utils.js";
 
 describe("PendingTask", () => {

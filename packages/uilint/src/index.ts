@@ -170,14 +170,14 @@ program
     });
   });
 
-// Install command
+// Init command
 program
-  .command("install")
-  .description("Install UILint integration")
+  .command("init")
+  .description("Initialize UILint integration")
   .option("--force", "Overwrite existing configuration files")
   .action(async (options) => {
-    const { installUI } = await import("./commands/install-ui.js");
-    await installUI({ force: options.force });
+    const { initUI } = await import("./commands/init-ui.js");
+    await initUI({ force: options.force });
   });
 
 // Serve command - WebSocket server for UI overlay

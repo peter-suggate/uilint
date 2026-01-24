@@ -7,10 +7,10 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { useFixture, type FixtureContext } from "../helpers/fixtures.js";
 import { mockPrompter } from "../helpers/prompts.js";
-import { analyze } from "../../src/commands/install/analyze.js";
-import { createPlan } from "../../src/commands/install/plan.js";
-import { execute } from "../../src/commands/install/execute.js";
-import { gatherChoices } from "../../src/commands/install/test-helpers.js";
+import { analyze } from "../../src/commands/init/analyze.js";
+import { createPlan } from "../../src/commands/init/plan.js";
+import { execute } from "../../src/commands/init/execute.js";
+import { gatherChoices } from "../../src/commands/init/test-helpers.js";
 
 let fixture: FixtureContext | null = null;
 

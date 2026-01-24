@@ -114,7 +114,7 @@ export default function RootLayout({ children }) {
 The easiest way to set up UILint in your Next.js app:
 
 ```bash
-npx uilint install
+npx uilint init
 ```
 
 This will:
@@ -180,7 +180,7 @@ The CLI provides powerful commands for analyzing HTML, managing style guides, an
 | `uilint scan`    | Scan HTML for UI consistency issues               |
 | `uilint query`   | Query the style guide for specific rules          |
 | `uilint update`  | Update existing style guide with new styles       |
-| `uilint install` | Install Cursor integration (commands + ESLint)     |
+| `uilint init`    | Initialize UILint integration (commands + ESLint)  |
 
 ---
 

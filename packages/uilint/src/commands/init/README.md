@@ -1,13 +1,13 @@
-# Install Command
+# Init Command
 
-This directory contains the `uilint install` command with an interactive Ink-based UI.
+This directory contains the `uilint init` command with an interactive Ink-based UI.
 
 ## Architecture
 
 ### Directory Structure
 
 ```
-install/
+init/
 ├── analyze.ts              # Project scanning (phase 1)
 ├── plan.ts                 # Plan generation (phase 2)
 ├── execute.ts              # Side effect execution (phase 3)
@@ -130,13 +130,13 @@ COMPLETE
 
 ```bash
 # Interactive configuration dashboard
-uilint install
+uilint init
 
 # Force overwrite existing files
-uilint install --force
+uilint init --force
 ```
 
-The installer shows a configuration dashboard with:
+The init command shows a configuration dashboard with:
 - Detected project context (package manager, frameworks, configs)
 - Features grouped by category
 - Installation status for each feature
@@ -160,10 +160,10 @@ The installer shows a configuration dashboard with:
 
 ```bash
 # Run installer tests
-pnpm --filter uilint test test/unit/install
+pnpm --filter uilint test test/unit/init
 
 # Test UI manually
-pnpm uilint install
+pnpm uilint init
 ```
 
 ## Components

@@ -5,12 +5,12 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { nextOverlayInstaller } from "../../../src/commands/install/installers/next-overlay.js";
+import { nextOverlayInstaller } from "../../../src/commands/init/installers/next-overlay.js";
 import {
   createMockProjectState,
   createMockNextApp,
 } from "../helpers/mock-state.js";
-import type { ProgressEvent } from "../../../src/commands/install/installers/types.js";
+import type { ProgressEvent } from "../../../src/commands/init/installers/types.js";
 
 describe("NextOverlayInstaller", () => {
   describe("metadata", () => {

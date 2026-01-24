@@ -52,7 +52,7 @@ done
 echo "Installing dependencies..."
 cd "$ROOT_DIR" && pnpm install
 
-echo "Running uilint install..."
-cd "$TEST_APP_DIR" && node "$UILINT_CLI" install
+echo "Running uilint init..."
+cd "$TEST_APP_DIR" && node "$UILINT_CLI" init
 
 echo "Done! Test app is ready at apps/test-app"

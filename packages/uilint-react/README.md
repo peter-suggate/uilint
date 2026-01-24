@@ -12,10 +12,10 @@ React component for AI-powered UI consistency checking in running applications.
 npm install uilint-react uilint-core
 ```
 
-Or use the CLI to install everything automatically:
+Or use the CLI to initialize everything automatically:
 
 ```bash
-npx uilint install
+npx uilint init
 ```
 
 ## Usage in a Running App

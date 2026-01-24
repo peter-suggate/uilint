@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * Ink-based installer entry point
- * 
- * This is a temporary wrapper to run the new Ink UI installer.
- * Usage: uilint install-ink [options]
+ * Ink-based init entry point
+ *
+ * This is a temporary wrapper to run the Ink UI init flow.
+ * Usage: uilint init-ink [options]
  */
 
 import { render } from "ink";
 import React from "react";
-import { InstallApp } from "./install/components/InstallApp.js";
-import type { InstallItem } from "./install/types.js";
+import { InstallApp } from "./init/components/InstallApp.js";
+import type { InstallItem } from "./init/types.js";
 
-export interface InstallInkOptions {
+export interface InitInkOptions {
   force?: boolean;
   genstyleguide?: boolean;
   eslint?: boolean;
@@ -23,9 +23,9 @@ export interface InstallInkOptions {
 }
 
 /**
- * Run the Ink-based installer
+ * Run the Ink-based init flow
  */
-export async function installInk(options: InstallInkOptions = {}): Promise<void> {
+export async function initInk(options: InitInkOptions = {}): Promise<void> {
   const projectPath = process.cwd();
 
   // Build preselected items based on flags

@@ -9,12 +9,12 @@ import { describe, it, expect } from "vitest";
 import {
   createPlan,
   getMissingRules,
-} from "../../src/commands/install/plan.js";
+} from "../../src/commands/init/plan.js";
 import type {
   ProjectState,
   UserChoices,
   EslintPackageInfo,
-} from "../../src/commands/install/types.js";
+} from "../../src/commands/init/types.js";
 import { ruleRegistry, type RuleMetadata } from "uilint-eslint";
 
 // ============================================================================

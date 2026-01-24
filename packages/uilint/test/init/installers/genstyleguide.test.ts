@@ -5,9 +5,9 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { genstyleguideInstaller } from "../../../src/commands/install/installers/genstyleguide.js";
+import { genstyleguideInstaller } from "../../../src/commands/init/installers/genstyleguide.js";
 import { createMockProjectState } from "../helpers/mock-state.js";
-import type { ProgressEvent } from "../../../src/commands/install/installers/types.js";
+import type { ProgressEvent } from "../../../src/commands/init/installers/types.js";
 
 describe("GenstyleguideInstaller", () => {
   describe("metadata", () => {

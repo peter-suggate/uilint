@@ -1,7 +1,7 @@
 /**
- * Install command with new Ink-based UI
+ * Init command with Ink-based UI
  *
- * This is the new installer flow that shows:
+ * This is the init flow that shows:
  * 1. Project selection (which Next.js/Vite app to configure)
  * 2. Feature selection (what to install)
  * 3. ESLint rule configuration (if ESLint selected)
@@ -10,28 +10,28 @@
 
 import React from "react";
 import { render } from "ink";
-import { InstallApp, type InjectionPointConfig } from "./install/components/InstallApp.js";
-import { analyze } from "./install/analyze.js";
-import { execute } from "./install/execute.js";
+import { InstallApp, type InjectionPointConfig } from "./init/components/InstallApp.js";
+import { analyze } from "./init/analyze.js";
+import { execute } from "./init/execute.js";
 import type {
   InstallOptions,
   ExecuteOptions,
   UserChoices,
   InstallItem,
   ProjectState,
-} from "./install/types.js";
+} from "./init/types.js";
 import type {
   InstallerSelection,
   InstallTarget,
-} from "./install/installers/types.js";
-import type { ConfiguredRule } from "./install/components/RuleSelector.js";
+} from "./init/installers/types.js";
+import type { ConfiguredRule } from "./init/components/RuleSelector.js";
 import { ruleRegistry } from "uilint-eslint";
 import { pc } from "../utils/prompts.js";
 import { detectCoverageSetup } from "../utils/coverage-detect.js";
 import { runTestsWithCoverage, detectPackageManager } from "../utils/package-manager.js";
 
 // Import installers to trigger registration
-import "./install/installers/index.js";
+import "./init/installers/index.js";
 
 function limitList(items: string[], max: number): string[] {
   if (items.length <= max) return items;
@@ -227,12 +227,12 @@ function isInteractiveTerminal(): boolean {
 }
 
 /**
- * Main install function with new UI
+ * Main init function with Ink UI
  *
  * @param options - CLI options
  * @param executeOptions - Options for the execute phase
  */
-export async function installUI(
+export async function initUI(
   options: InstallOptions = {},
   executeOptions: ExecuteOptions = {}
 ): Promise<void> {
@@ -241,7 +241,7 @@ export async function installUI(
   // Check if terminal supports interactive mode
   if (!isInteractiveTerminal()) {
     console.error("\n✗ Interactive mode requires a TTY terminal.");
-    console.error("Run uilint install in an interactive terminal.\n");
+    console.error("Run uilint init in an interactive terminal.\n");
     process.exit(1);
   }
 
@@ -266,7 +266,7 @@ export async function installUI(
         }
 
         // Generate install plan using existing plan logic
-        const { createPlan } = await import("./install/plan.js");
+        const { createPlan } = await import("./init/plan.js");
         const plan = createPlan(project, choices, { force: options.force });
 
         // Generate uninstall plan actions

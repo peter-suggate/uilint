@@ -1753,7 +1753,7 @@ export function updateRuleSeverityInConfig(
     if (!ruleInfo) {
       return {
         success: false,
-        error: `Rule "uilint/${ruleId}" not found in config. Use 'uilint install' to add new rules.`,
+        error: `Rule "uilint/${ruleId}" not found in config. Use 'uilint init' to add new rules.`,
       };
     }
 
@@ -1828,7 +1828,7 @@ export function updateRuleConfigInConfig(
     if (!ruleInfo) {
       return {
         success: false,
-        error: `Rule "uilint/${ruleId}" not found in config. Use 'uilint install' to add new rules.`,
+        error: `Rule "uilint/${ruleId}" not found in config. Use 'uilint init' to add new rules.`,
       };
     }
 

@@ -8,18 +8,18 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { useFixture, type FixtureContext } from "../helpers/fixtures.js";
 import { mockPrompter } from "../helpers/prompts.js";
-import { analyze } from "../../src/commands/install/analyze.js";
-import { createPlan } from "../../src/commands/install/plan.js";
-import { execute } from "../../src/commands/install/execute.js";
-import { gatherChoices } from "../../src/commands/install/test-helpers.js";
-import { getAllInstallers } from "../../src/commands/install/installers/registry.js";
-import type { ProjectState, InstallAction } from "../../src/commands/install/types.js";
-import type { InstallerSelection, InstallTarget } from "../../src/commands/install/installers/types.js";
+import { analyze } from "../../src/commands/init/analyze.js";
+import { createPlan } from "../../src/commands/init/plan.js";
+import { execute } from "../../src/commands/init/execute.js";
+import { gatherChoices } from "../../src/commands/init/test-helpers.js";
+import { getAllInstallers } from "../../src/commands/init/installers/registry.js";
+import type { ProjectState, InstallAction } from "../../src/commands/init/types.js";
+import type { InstallerSelection, InstallTarget } from "../../src/commands/init/installers/types.js";
 import { writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 
 // Import installers to trigger registration
-import "../../src/commands/install/installers/index.js";
+import "../../src/commands/init/installers/index.js";
 
 // ============================================================================
 // Test Setup

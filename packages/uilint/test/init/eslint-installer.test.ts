@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { eslintInstaller, convertFieldValue, type ConfiguredRule } from "../../src/commands/install/installers/eslint.js";
+import { eslintInstaller, convertFieldValue, type ConfiguredRule } from "../../src/commands/init/installers/eslint.js";
 import type { OptionFieldSchema } from "uilint-eslint";
-import type { ProjectState, EslintPackageInfo } from "../../src/commands/install/types.js";
-import type { ProgressEvent } from "../../src/commands/install/installers/types.js";
+import type { ProjectState, EslintPackageInfo } from "../../src/commands/init/types.js";
+import type { ProgressEvent } from "../../src/commands/init/installers/types.js";
 
 // Helper to create mock project state
 function createMockState(overrides?: Partial<ProjectState>): ProjectState {

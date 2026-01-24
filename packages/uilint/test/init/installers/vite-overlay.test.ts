@@ -5,12 +5,12 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { viteOverlayInstaller } from "../../../src/commands/install/installers/vite-overlay.js";
+import { viteOverlayInstaller } from "../../../src/commands/init/installers/vite-overlay.js";
 import {
   createMockProjectState,
   createMockViteApp,
 } from "../helpers/mock-state.js";
-import type { ProgressEvent } from "../../../src/commands/install/installers/types.js";
+import type { ProgressEvent } from "../../../src/commands/init/installers/types.js";
 
 describe("ViteOverlayInstaller", () => {
   describe("metadata", () => {

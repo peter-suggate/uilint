@@ -36,7 +36,7 @@ UILint expects a style guide at `.uilint/styleguide.md`.
 The recommended way to generate one is via Cursor:
 
 ```bash
-npx uilint install
+npx uilint init
 ```
 
 Then run the Cursor command:

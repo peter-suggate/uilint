@@ -8,7 +8,7 @@ import { render } from "ink-testing-library";
 import {
   ProgressList,
   type Task,
-} from "../../../src/commands/install/components/ProgressList.js";
+} from "../../../src/commands/init/components/ProgressList.js";
 
 // Helper to create mock tasks
 function createTask(overrides?: Partial<Task>): Task {
