@@ -109,6 +109,7 @@ export function FloatingIcon() {
         boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
         zIndex: 99999,
         transition: isDragging ? "none" : "background 0.2s",
+        pointerEvents: "auto",
       }}
       title={`UILint: ${issueCount} issues${isConnected ? "" : " (disconnected)"}`}
     >

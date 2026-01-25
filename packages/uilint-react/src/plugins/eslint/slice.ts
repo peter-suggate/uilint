@@ -6,7 +6,7 @@
 
 import type { PluginServices } from "../../core/plugin-system/types";
 import type { Issue } from "../../ui/types";
-import type { AvailableRule } from "./types";
+import type { AvailableRule, RuleConfig } from "./types";
 
 /** Scan status - single source of truth for scanning state */
 export type ScanStatus = "idle" | "scanning" | "complete" | "error";
@@ -29,6 +29,10 @@ export interface ESLintSlice {
   disabledRules: Set<string>;
   /** Workspace root path */
   workspaceRoot: string | null;
+  /** Current rule configurations (severity + options) */
+  ruleConfigs: Map<string, RuleConfig>;
+  /** Rules currently being updated */
+  ruleConfigUpdating: Map<string, boolean>;
 }
 
 /**
@@ -78,6 +82,8 @@ export const initialESLintState: ESLintSlice = {
   availableRules: [],
   disabledRules: new Set(),
   workspaceRoot: null,
+  ruleConfigs: new Map(),
+  ruleConfigUpdating: new Map(),
 };
 
 /**

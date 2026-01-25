@@ -5,7 +5,7 @@
  * Extracts ESLint-related state and functionality from the main store.
  */
 
-import type { Plugin, PluginServices, RuleMeta, ScannedElementInfo } from "../../core/plugin-system/types";
+import type { Plugin, PluginServices, RuleMeta, ScannedElementInfo, RuleDefinition } from "../../core/plugin-system/types";
 import { eslintCommands } from "./commands";
 import {
   createESLintSlice,
@@ -16,6 +16,7 @@ import {
 import type { AvailableRule, RuleConfig, ESLintIssue } from "./types";
 import { fromESLintIssue, type Issue } from "../../ui/types";
 import { extractUniqueFilePaths } from "./scanner";
+import { RulePanel } from "./panels";
 
 /** WebSocket message types handled by ESLint plugin */
 const ESLINT_WS_MESSAGE_TYPES = [
@@ -81,10 +82,13 @@ export const eslintPlugin: Plugin = {
    * Inspector panels contributed by this plugin
    */
   inspectorPanels: [
-    // TODO: Import from ./panels/ when created
-    // { id: "eslint-issues", title: "Issues", component: IssuesPanel },
-    // { id: "eslint-rules", title: "Rules", component: RulesPanel },
-    // { id: "eslint-fixes", title: "Fixes", component: FixesPanel },
+    {
+      id: "eslint-rule",
+      title: ({ data }) =>
+        data?.ruleId ? `Rule: ${data.ruleId}` : "Rule Details",
+      component: RulePanel,
+      priority: 10,
+    },
   ],
 
   /**
@@ -128,6 +132,104 @@ export const eslintPlugin: Plugin = {
       pluginId: "eslint",
       issues: pluginIssues,
     };
+  },
+
+  /**
+   * Get available rules from this plugin
+   */
+  getRules: (services: PluginServices): RuleDefinition[] => {
+    const fullState = services.getState<{ plugins: { eslint?: ESLintPluginSlice } }>();
+    const state = fullState.plugins?.eslint;
+
+    if (!state?.availableRules) {
+      return [];
+    }
+
+    // Get current configs for severity lookup
+    const configs = state.ruleConfigs ?? new Map<string, RuleConfig>();
+
+    return state.availableRules.map((rule: AvailableRule): RuleDefinition => {
+      const config = configs.get(rule.id);
+      // Map "warn" to "warning" for the unified interface
+      const severity = config?.severity ?? rule.currentSeverity ?? rule.defaultSeverity;
+      const normalizedSeverity = severity === "warn" ? "warning" : severity;
+
+      return {
+        id: rule.id,
+        name: rule.name,
+        description: rule.description,
+        category: rule.category,
+        severity: normalizedSeverity as "error" | "warning" | "off",
+        fixable: false, // ESLint rules may be fixable, but we don't have this info from the server yet
+        pluginId: "eslint",
+        docs: rule.docs,
+      };
+    });
+  },
+
+  /**
+   * Set severity for a rule
+   */
+  setRuleSeverity: (
+    ruleId: string,
+    severity: "error" | "warning" | "off",
+    services: PluginServices
+  ): void => {
+    // Map "warning" back to "warn" for ESLint
+    const eslintSeverity = severity === "warning" ? "warn" : severity;
+
+    // Mark rule as updating
+    const state = services.getState<{ ruleConfigUpdating: Map<string, boolean> }>();
+    const updating = new Map(state.ruleConfigUpdating ?? new Map());
+    updating.set(ruleId, true);
+    services.setState({ ruleConfigUpdating: updating });
+
+    // Send WebSocket message to update rule severity
+    services.websocket.send({
+      type: "rule:config:set",
+      ruleId,
+      severity: eslintSeverity,
+      requestId: `rule-severity-${Date.now()}`,
+    });
+
+    console.log("[ESLint Plugin] Setting rule severity:", ruleId, "->", eslintSeverity);
+  },
+
+  /**
+   * Get configuration options for a rule
+   */
+  getRuleConfig: (ruleId: string, services: PluginServices): Record<string, unknown> => {
+    const fullState = services.getState<{ plugins: { eslint?: ESLintPluginSlice } }>();
+    const state = fullState.plugins?.eslint;
+    const configs = state?.ruleConfigs ?? new Map<string, RuleConfig>();
+    const config = configs.get(ruleId);
+
+    return config?.options ?? {};
+  },
+
+  /**
+   * Set configuration options for a rule
+   */
+  setRuleConfig: (
+    ruleId: string,
+    config: Record<string, unknown>,
+    services: PluginServices
+  ): void => {
+    // Mark rule as updating
+    const state = services.getState<{ ruleConfigUpdating: Map<string, boolean> }>();
+    const updating = new Map(state.ruleConfigUpdating ?? new Map());
+    updating.set(ruleId, true);
+    services.setState({ ruleConfigUpdating: updating });
+
+    // Send WebSocket message to update rule options
+    services.websocket.send({
+      type: "rule:config:set",
+      ruleId,
+      options: config,
+      requestId: `rule-config-${Date.now()}`,
+    });
+
+    console.log("[ESLint Plugin] Setting rule config:", ruleId, config);
   },
 
   /**
