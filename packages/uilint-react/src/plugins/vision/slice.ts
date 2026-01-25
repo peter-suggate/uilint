@@ -13,13 +13,23 @@ import type {
   VisionAnalysisResult,
   CaptureMode,
   CaptureRegion,
+  VisionStage,
 } from "./types";
 import { DEFAULT_VISION_AUTO_SCAN_SETTINGS } from "./types";
+import type { PluginServices } from "../../core/plugin-system/types";
+import {
+  captureScreenshot,
+  captureScreenshotRegion,
+  collectElementManifest,
+  getCurrentRoute,
+} from "../../scanner/vision-capture";
 
 /**
  * Vision plugin state
  */
 export interface VisionSliceState {
+  /** Whether vision/LLM capability is available (Ollama connected and model available) */
+  visionAvailable: boolean;
   /** Whether vision analysis is in progress */
   visionAnalyzing: boolean;
   /** Current vision analysis progress phase */
@@ -56,6 +66,8 @@ export interface VisionSliceState {
  * Vision plugin actions
  */
 export interface VisionSliceActions {
+  /** Set vision availability status (based on LLM/Ollama connection) */
+  setVisionAvailable: (available: boolean) => void;
   /** Trigger vision analysis for current page */
   triggerVisionAnalysis: () => Promise<void>;
   /** Clear vision results */
@@ -103,6 +115,7 @@ export type VisionSlice = VisionSliceState & VisionSliceActions;
  * Default vision slice state
  */
 export const defaultVisionState: VisionSliceState = {
+  visionAvailable: false,
   visionAnalyzing: false,
   visionProgressPhase: null,
   visionLastError: null,
@@ -176,6 +189,9 @@ export function createVisionSlice(
     autoScanSettings: loadVisionAutoScanSettings(),
 
     // Actions
+    setVisionAvailable: (available) =>
+      set({ visionAvailable: available } as Partial<VisionSlice>),
+
     triggerVisionAnalysis: async () => {
       // Implementation would be provided by the plugin when integrated with services
       console.warn("[Vision Plugin] triggerVisionAnalysis called without integration");
@@ -354,5 +370,147 @@ export function createVisionSlice(
 
     setVisionCurrentRoute: (route) =>
       set({ visionCurrentRoute: route } as Partial<VisionSlice>),
+  };
+}
+
+/**
+ * Timeout for waiting for screenshot:saved response (in milliseconds)
+ */
+const SCREENSHOT_SAVE_TIMEOUT = 10000;
+
+/**
+ * Create the triggerVisionAnalysis function that integrates with PluginServices
+ *
+ * This factory creates a function that:
+ * 1. Captures a screenshot (full page or region based on state)
+ * 2. Builds an element manifest
+ * 3. Sends the screenshot to the server for saving
+ * 4. Waits for the saved filename
+ * 5. Sends the analysis request
+ *
+ * @param services - Plugin services providing WebSocket and state access
+ * @returns The triggerVisionAnalysis async function
+ */
+export function createTriggerVisionAnalysis(
+  services: PluginServices
+): () => Promise<void> {
+  return async () => {
+    const { websocket, getState } = services;
+    const state = getState<VisionSlice>();
+
+    // Get current route early for error reporting
+    const route = getCurrentRoute();
+
+    try {
+      // Update state to show analysis is starting
+      state.setVisionAnalyzing(true);
+      state.setVisionProgressPhase("capturing");
+      state.setVisionCurrentRoute(route);
+
+      // Determine capture mode and region
+      const { captureMode, selectedRegion } = state;
+      const isRegionCapture = captureMode === "region" && selectedRegion !== null;
+
+      // Capture screenshot
+      let dataUrl: string;
+      if (isRegionCapture && selectedRegion) {
+        dataUrl = await captureScreenshotRegion(selectedRegion);
+      } else {
+        dataUrl = await captureScreenshot();
+      }
+
+      // Build element manifest (pass region for filtering if region capture)
+      const manifest = collectElementManifest(
+        document.body,
+        isRegionCapture && selectedRegion ? selectedRegion : undefined
+      );
+
+      const timestamp = Date.now();
+      const captureId = `capture_${timestamp}`;
+
+      // Add screenshot to history immediately
+      state.addScreenshotToHistory({
+        id: captureId,
+        route,
+        dataUrl,
+        timestamp,
+        type: isRegionCapture ? "region" : "full",
+        region: isRegionCapture && selectedRegion ? selectedRegion : undefined,
+      });
+
+      // Clear region selection after capture if it was a region capture
+      if (isRegionCapture) {
+        state.setRegionSelectionActive(false);
+        state.setSelectedRegion(null);
+      }
+
+      // Update progress phase
+      state.setVisionProgressPhase("saving");
+
+      // Send screenshot:save message and wait for response
+      const filename = await new Promise<string>((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          unsubscribe();
+          reject(new Error("Timeout waiting for screenshot:saved response"));
+        }, SCREENSHOT_SAVE_TIMEOUT);
+
+        const unsubscribe = websocket.on("screenshot:saved", (message) => {
+          clearTimeout(timeoutId);
+          unsubscribe();
+          const data = message as { filename?: string; error?: string };
+          if (data.error) {
+            reject(new Error(data.error));
+          } else if (data.filename) {
+            resolve(data.filename);
+          } else {
+            reject(new Error("Invalid screenshot:saved response"));
+          }
+        });
+
+        // Send the save request
+        websocket.send({
+          type: "screenshot:save",
+          dataUrl,
+          route,
+          timestamp,
+        });
+      });
+
+      // Update progress phase
+      state.setVisionProgressPhase("analyzing");
+
+      // Send vision:analyze message
+      websocket.send({
+        type: "vision:analyze",
+        route,
+        timestamp,
+        screenshot: dataUrl,
+        screenshotFile: filename,
+        manifest,
+      });
+
+      // Note: The analyzing state will be cleared by the vision:result handler in the plugin's initialize function
+    } catch (error) {
+      // Handle errors gracefully
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      // Check for timeout/websocket errors first (they may contain "screenshot:saved" in message)
+      const stage: VisionStage =
+        errorMessage.includes("Timeout") || errorMessage.includes("websocket")
+          ? "ws"
+          : errorMessage.includes("capture") || errorMessage.includes("Screenshot capture")
+            ? "capture"
+            : "capture";
+
+      state.setVisionLastError({
+        stage,
+        message: errorMessage,
+        route,
+        timestamp: Date.now(),
+      });
+
+      // Reset analyzing state on error
+      state.setVisionAnalyzing(false);
+      state.setVisionProgressPhase(null);
+    }
   };
 }

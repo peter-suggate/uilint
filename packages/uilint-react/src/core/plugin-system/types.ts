@@ -240,6 +240,43 @@ export interface RuleUIContribution {
 }
 
 // ============================================================================
+// Toolbar Action Contributions
+// ============================================================================
+
+/**
+ * A toolbar action that appears in the floating toolbar
+ */
+export interface ToolbarAction {
+  /** Unique action identifier */
+  id: string;
+  /** Icon to display (React component, emoji, or icon name string) */
+  icon: ReactNode;
+  /** Tooltip text shown on hover */
+  tooltip: string;
+  /** Optional keyboard shortcut hint */
+  shortcut?: string;
+  /** Priority for ordering (higher = appears first, default: 0) */
+  priority?: number;
+  /**
+   * Predicate to determine if the action is visible
+   * @param state Current application state
+   * @returns true if the action should be shown
+   */
+  isVisible?: (state: unknown) => boolean;
+  /**
+   * Predicate to determine if the action is enabled
+   * @param state Current application state
+   * @returns true if the action can be clicked
+   */
+  isEnabled?: (state: unknown) => boolean;
+  /**
+   * Execute the action
+   * @param services Plugin services
+   */
+  onClick: (services: PluginServices) => void | Promise<void>;
+}
+
+// ============================================================================
 // Complete Plugin Definition
 // ============================================================================
 
@@ -294,6 +331,9 @@ export interface Plugin<TSlice = unknown> {
 
   /** Analyzers contributed by this plugin */
   analyzers?: Analyzer[];
+
+  /** Toolbar actions contributed by this plugin (shown in floating icon) */
+  toolbarActions?: ToolbarAction[];
 
   /** Per-rule UI contributions */
   ruleContributions?: RuleUIContribution[];

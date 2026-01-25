@@ -15,6 +15,7 @@ import type {
   RuleUIContribution,
   RuleMeta,
   RuleDefinition,
+  ToolbarAction,
 } from "./types";
 
 /**
@@ -262,6 +263,25 @@ export class PluginRegistry {
 
     // Sort by priority (higher priority first, default to 0)
     return panels.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+  }
+
+  /**
+   * Aggregate all toolbar actions from all registered plugins.
+   * Actions are sorted by priority (higher priority first).
+   *
+   * @returns Array of all toolbar actions, sorted by priority
+   */
+  getAllToolbarActions(): ToolbarAction[] {
+    const actions: ToolbarAction[] = [];
+
+    for (const { plugin } of this.plugins.values()) {
+      if (plugin.toolbarActions) {
+        actions.push(...plugin.toolbarActions);
+      }
+    }
+
+    // Sort by priority (higher priority first, default to 0)
+    return actions.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
   }
 
   /**

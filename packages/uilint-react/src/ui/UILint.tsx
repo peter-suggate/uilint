@@ -6,13 +6,17 @@
  * - HeatmapOverlay: Colored borders on elements with issues
  * - CommandPalette: Search interface for issues
  * - InspectorSidebar: Detail panel for issues/elements
+ * - RegionSelector: Full-screen overlay for region capture
  */
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback } from "react";
 import { FloatingIcon } from "./components/FloatingIcon";
 import { HeatmapOverlay } from "./components/HeatmapOverlay";
 import { CommandPalette } from "./components/CommandPalette";
 import { InspectorSidebar } from "./components/Inspector";
+import { RegionSelector } from "./components/RegionSelector";
 import { useKeyboardShortcuts } from "./hooks";
+import { useComposedStore } from "../core/store";
+import type { VisionSlice } from "../plugins/vision/slice";
 
 // Track if we created the portal (for cleanup)
 let portalCreatedByUs = false;
@@ -55,6 +59,35 @@ export function UILint({ enabled = true }: UILintProps) {
   // Set up keyboard shortcuts (Cmd+K, etc.)
   useKeyboardShortcuts();
 
+  // Get vision state for region selection
+  const visionState = useComposedStore(
+    (s) => s.plugins?.vision as VisionSlice | undefined
+  );
+  const regionSelectionActive = visionState?.regionSelectionActive ?? false;
+  const setSelectedRegion = visionState?.setSelectedRegion;
+  const setRegionSelectionActive = visionState?.setRegionSelectionActive;
+  const triggerVisionAnalysis = visionState?.triggerVisionAnalysis;
+
+  // Handle region selection completed
+  const handleRegionSelected = useCallback(
+    (region: { x: number; y: number; width: number; height: number }) => {
+      if (setSelectedRegion && setRegionSelectionActive && triggerVisionAnalysis) {
+        setSelectedRegion(region);
+        setRegionSelectionActive(false);
+        // Trigger vision analysis with the selected region
+        triggerVisionAnalysis();
+      }
+    },
+    [setSelectedRegion, setRegionSelectionActive, triggerVisionAnalysis]
+  );
+
+  // Handle region selection cancelled
+  const handleRegionCancel = useCallback(() => {
+    if (setRegionSelectionActive) {
+      setRegionSelectionActive(false);
+    }
+  }, [setRegionSelectionActive]);
+
   // Ensure portal container exists
   useEffect(() => {
     if (enabled) {
@@ -75,6 +108,11 @@ export function UILint({ enabled = true }: UILintProps) {
       <HeatmapOverlay />
       <CommandPalette />
       <InspectorSidebar />
+      <RegionSelector
+        active={regionSelectionActive}
+        onRegionSelected={handleRegionSelected}
+        onCancel={handleRegionCancel}
+      />
     </>
   );
 }

@@ -2,6 +2,8 @@
  * Vision Plugin Tests
  *
  * Tests for vision plugin state slice, commands, and exports.
+ *
+ * @vitest-environment jsdom
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
@@ -1419,7 +1421,64 @@ describe("Vision Plugin - fetchPersistedScreenshots", () => {
 // triggerVisionAnalysis Tests
 // ============================================================================
 
+// Mock the vision-capture module
+vi.mock("../../scanner/vision-capture", () => ({
+  captureScreenshot: vi.fn(),
+  captureScreenshotRegion: vi.fn(),
+  collectElementManifest: vi.fn(),
+  getCurrentRoute: vi.fn(),
+}));
+
+import {
+  captureScreenshot,
+  captureScreenshotRegion,
+  collectElementManifest,
+  getCurrentRoute,
+} from "../../scanner/vision-capture";
+import { createTriggerVisionAnalysis } from "./slice";
+
+/**
+ * Create a fully mocked VisionSlice state with all action methods
+ */
+function createFullyMockedVisionState(overrides: Partial<VisionSlice> = {}): VisionSlice {
+  return {
+    ...defaultVisionState,
+    // All action methods as mocks
+    setVisionAvailable: vi.fn(),
+    triggerVisionAnalysis: vi.fn().mockResolvedValue(undefined),
+    clearVisionResults: vi.fn(),
+    clearVisionLastError: vi.fn(),
+    setHighlightedVisionElementId: vi.fn(),
+    setCaptureMode: vi.fn(),
+    setRegionSelectionActive: vi.fn(),
+    setSelectedRegion: vi.fn(),
+    setSelectedScreenshotId: vi.fn(),
+    fetchPersistedScreenshots: vi.fn().mockResolvedValue(undefined),
+    updateVisionAutoScanSettings: vi.fn(),
+    setVisionAnalyzing: vi.fn(),
+    setVisionProgressPhase: vi.fn(),
+    setVisionLastError: vi.fn(),
+    setVisionResult: vi.fn(),
+    updateVisionIssuesCache: vi.fn(),
+    addScreenshotToHistory: vi.fn(),
+    updateScreenshotInHistory: vi.fn(),
+    setVisionCurrentRoute: vi.fn(),
+    ...overrides,
+  } as VisionSlice;
+}
+
 describe("Vision Plugin - triggerVisionAnalysis", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Set up default mock implementations
+    (getCurrentRoute as ReturnType<typeof vi.fn>).mockReturnValue("/test-route");
+    (collectElementManifest as ReturnType<typeof vi.fn>).mockReturnValue([
+      { id: "el1", text: "Button", dataLoc: "src/app.tsx:10:5", rect: { x: 0, y: 0, width: 100, height: 50 }, tagName: "button" },
+    ]);
+    (captureScreenshot as ReturnType<typeof vi.fn>).mockResolvedValue("data:image/png;base64,fullpage");
+    (captureScreenshotRegion as ReturnType<typeof vi.fn>).mockResolvedValue("data:image/png;base64,region");
+  });
+
   it("logs warning when called without integration", async () => {
     const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { state } = createMockSlice();
@@ -1431,5 +1490,334 @@ describe("Vision Plugin - triggerVisionAnalysis", () => {
     );
 
     consoleSpy.mockRestore();
+  });
+
+  describe("with services integration", () => {
+    /**
+     * Helper to set up mock services with websocket that responds to screenshot:save
+     */
+    function setupWebsocketMock(services: PluginServices, filename: string) {
+      let screenshotSavedHandler: ((msg: unknown) => void) | null = null;
+
+      // Mock websocket.on to capture the handler for screenshot:saved
+      (services.websocket.on as ReturnType<typeof vi.fn>).mockImplementation(
+        (type: string, handler: (msg: unknown) => void) => {
+          if (type === "screenshot:saved") {
+            screenshotSavedHandler = handler;
+          }
+          return vi.fn(); // Return unsubscribe function
+        }
+      );
+
+      // Mock websocket.send to trigger the handler when screenshot:save is sent
+      (services.websocket.send as ReturnType<typeof vi.fn>).mockImplementation(
+        (message: unknown) => {
+          const msg = message as { type?: string };
+          if (msg.type === "screenshot:save" && screenshotSavedHandler) {
+            // Use queueMicrotask to simulate async response
+            queueMicrotask(() => {
+              screenshotSavedHandler!({ filename });
+            });
+          }
+        }
+      );
+    }
+
+    it("captures full page screenshot when captureMode is 'full'", async () => {
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "full",
+        selectedRegion: null,
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      setupWebsocketMock(services, "test-screenshot.png");
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+      await triggerVisionAnalysis();
+
+      expect(captureScreenshot).toHaveBeenCalled();
+      expect(captureScreenshotRegion).not.toHaveBeenCalled();
+    });
+
+    it("captures region screenshot when captureMode is 'region' and selectedRegion exists", async () => {
+      const region: CaptureRegion = { x: 10, y: 20, width: 200, height: 300 };
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "region",
+        selectedRegion: region,
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      setupWebsocketMock(services, "test-region.png");
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+      await triggerVisionAnalysis();
+
+      expect(captureScreenshotRegion).toHaveBeenCalledWith(region);
+      expect(captureScreenshot).not.toHaveBeenCalled();
+    });
+
+    it("falls back to full page capture when captureMode is 'region' but no selectedRegion", async () => {
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "region",
+        selectedRegion: null,
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      setupWebsocketMock(services, "test-fallback.png");
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+      await triggerVisionAnalysis();
+
+      expect(captureScreenshot).toHaveBeenCalled();
+      expect(captureScreenshotRegion).not.toHaveBeenCalled();
+    });
+
+    it("sends screenshot:save message via websocket", async () => {
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "full",
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      setupWebsocketMock(services, "saved.png");
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+      await triggerVisionAnalysis();
+
+      expect(services.websocket.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "screenshot:save",
+          dataUrl: "data:image/png;base64,fullpage",
+          route: "/test-route",
+          timestamp: expect.any(Number),
+        })
+      );
+    });
+
+    it("sends vision:analyze message after screenshot saved", async () => {
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "full",
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      setupWebsocketMock(services, "analysis-test.png");
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+      await triggerVisionAnalysis();
+
+      // First call is screenshot:save, second is vision:analyze
+      const sendCalls = (services.websocket.send as ReturnType<typeof vi.fn>).mock.calls;
+      expect(sendCalls.length).toBeGreaterThanOrEqual(2);
+
+      const analyzeCall = sendCalls.find((call) => call[0]?.type === "vision:analyze");
+      expect(analyzeCall).toBeDefined();
+      expect(analyzeCall[0]).toEqual(
+        expect.objectContaining({
+          type: "vision:analyze",
+          route: "/test-route",
+          screenshot: "data:image/png;base64,fullpage",
+          screenshotFile: "analysis-test.png",
+          manifest: expect.any(Array),
+        })
+      );
+    });
+
+    it("sets visionAnalyzing to true during capture", async () => {
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "full",
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      setupWebsocketMock(services, "test.png");
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+      await triggerVisionAnalysis();
+
+      expect(mockState.setVisionAnalyzing).toHaveBeenCalledWith(true);
+    });
+
+    it("adds screenshot to history", async () => {
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "full",
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      setupWebsocketMock(services, "history-test.png");
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+      await triggerVisionAnalysis();
+
+      expect(mockState.addScreenshotToHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: expect.any(String),
+          route: "/test-route",
+          dataUrl: "data:image/png;base64,fullpage",
+          type: "full",
+          timestamp: expect.any(Number),
+        })
+      );
+    });
+
+    it("adds screenshot to history with region type and bounds when capturing region", async () => {
+      const region: CaptureRegion = { x: 50, y: 100, width: 300, height: 400 };
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "region",
+        selectedRegion: region,
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      setupWebsocketMock(services, "region-history.png");
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+      await triggerVisionAnalysis();
+
+      expect(mockState.addScreenshotToHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "region",
+          region: region,
+          dataUrl: "data:image/png;base64,region",
+        })
+      );
+    });
+
+    it("handles capture errors gracefully", async () => {
+      const captureError = new Error("Screenshot capture failed");
+      (captureScreenshot as ReturnType<typeof vi.fn>).mockRejectedValue(captureError);
+
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "full",
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+      await triggerVisionAnalysis();
+
+      expect(mockState.setVisionLastError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stage: "capture",
+          message: expect.stringContaining("Screenshot capture failed"),
+          route: "/test-route",
+          timestamp: expect.any(Number),
+        })
+      );
+      // Should set analyzing to false after error
+      expect(mockState.setVisionAnalyzing).toHaveBeenLastCalledWith(false);
+    });
+
+    it("handles websocket save timeout gracefully", async () => {
+      // Use fake timers from the start
+      vi.useFakeTimers();
+
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "full",
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+
+      // Don't set up the websocket mock to respond - simulating timeout
+      (services.websocket.on as ReturnType<typeof vi.fn>).mockImplementation(() => vi.fn());
+      (services.websocket.send as ReturnType<typeof vi.fn>).mockImplementation(() => {});
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+
+      // Start the function but don't await yet
+      const promise = triggerVisionAnalysis();
+
+      // Advance timers past the 10-second timeout
+      await vi.advanceTimersByTimeAsync(15000);
+
+      // Now await the promise
+      await promise;
+
+      // Restore real timers
+      vi.useRealTimers();
+
+      // Should have set an error for the timeout
+      expect(mockState.setVisionLastError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stage: "ws",
+          message: expect.stringContaining("Timeout"),
+        })
+      );
+      expect(mockState.setVisionAnalyzing).toHaveBeenLastCalledWith(false);
+    });
+
+    it("clears region selection after region capture", async () => {
+      const region: CaptureRegion = { x: 10, y: 20, width: 200, height: 300 };
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "region",
+        selectedRegion: region,
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      setupWebsocketMock(services, "region-clear.png");
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+      await triggerVisionAnalysis();
+
+      expect(mockState.setRegionSelectionActive).toHaveBeenCalledWith(false);
+      expect(mockState.setSelectedRegion).toHaveBeenCalledWith(null);
+    });
+
+    it("sets progress phase during each step", async () => {
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "full",
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      setupWebsocketMock(services, "progress-test.png");
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+      await triggerVisionAnalysis();
+
+      const phaseCalls = (mockState.setVisionProgressPhase as ReturnType<typeof vi.fn>).mock.calls;
+      expect(phaseCalls.some((call) => call[0] === "capturing")).toBe(true);
+      expect(phaseCalls.some((call) => call[0] === "saving")).toBe(true);
+      expect(phaseCalls.some((call) => call[0] === "analyzing")).toBe(true);
+    });
+
+    it("passes region to collectElementManifest for region capture", async () => {
+      const region: CaptureRegion = { x: 10, y: 20, width: 200, height: 300 };
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "region",
+        selectedRegion: region,
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      setupWebsocketMock(services, "manifest-region.png");
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+      await triggerVisionAnalysis();
+
+      expect(collectElementManifest).toHaveBeenCalledWith(document.body, region);
+    });
+
+    it("does not pass region to collectElementManifest for full page capture", async () => {
+      const services = createMockServices();
+      const mockState = createFullyMockedVisionState({
+        captureMode: "full",
+      });
+
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      setupWebsocketMock(services, "manifest-full.png");
+
+      const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+      await triggerVisionAnalysis();
+
+      expect(collectElementManifest).toHaveBeenCalledWith(document.body, undefined);
+    });
   });
 });

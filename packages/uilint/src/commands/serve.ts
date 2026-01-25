@@ -9,6 +9,7 @@
  * - Client -> Server: { type: 'subscribe:file', filePath: string }
  * - Client -> Server: { type: 'cache:invalidate', filePath?: string }
  * - Client -> Server: { type: 'vision:analyze', route: string, timestamp: number, screenshot?: string, screenshotFile?: string, manifest: ElementManifest[], requestId?: string }
+ * - Client -> Server: { type: 'vision:check', requestId?: string }
  * - Client -> Server: { type: 'config:set', key: string, value: any }
  * - Client -> Server: { type: 'rule:config:set', ruleId: string, severity: 'error'|'warn'|'off', options?: object, requestId?: string }
  * - Server -> Client: { type: 'lint:result', filePath: string, issues: Issue[], requestId?: string }
@@ -16,6 +17,7 @@
  * - Server -> Client: { type: 'file:changed', filePath: string }
  * - Server -> Client: { type: 'vision:result', route: string, issues: VisionIssue[], analysisTime: number, error?: string, requestId?: string }
  * - Server -> Client: { type: 'vision:progress', route: string, phase: string, requestId?: string }
+ * - Server -> Client: { type: 'vision:status', available: boolean, model?: string, requestId?: string }
  * - Server -> Client: { type: 'config:update', key: string, value: any }
  * - Server -> Client: { type: 'rule:config:result', ruleId: string, severity: string, options?: object, success: boolean, error?: string, requestId?: string }
  * - Server -> Client: { type: 'rule:config:changed', ruleId: string, severity: string, options?: object }
@@ -33,9 +35,12 @@
  * - Client -> Server: { type: 'source:fetch', filePath: string, requestId?: string }
  * - Server -> Client: { type: 'source:result', filePath: string, content: string, totalLines: number, relativePath: string, requestId?: string }
  * - Server -> Client: { type: 'source:error', filePath: string, error: string, requestId?: string }
+ * - Client -> Server: { type: 'screenshot:save', dataUrl: string, route: string, timestamp: number, requestId?: string }
+ * - Server -> Client: { type: 'screenshot:saved', filename: string, path: string, requestId?: string }
+ * - Server -> Client: { type: 'screenshot:error', error: string, requestId?: string }
  */
 
-import { existsSync, statSync, readdirSync, readFileSync } from "fs";
+import { existsSync, statSync, readdirSync, readFileSync, mkdirSync, writeFileSync } from "fs";
 import { createRequire } from "module";
 import { dirname, resolve, relative, join, parse } from "path";
 import { WebSocketServer, WebSocket } from "ws";
@@ -119,6 +124,11 @@ interface VisionAnalyzeMessage {
   requestId?: string;
 }
 
+interface VisionCheckMessage {
+  type: "vision:check";
+  requestId?: string;
+}
+
 interface ConfigSetMessage {
   type: "config:set";
   key: string;
@@ -139,16 +149,26 @@ interface SourceFetchMessage {
   requestId?: string;
 }
 
+interface ScreenshotSaveMessage {
+  type: "screenshot:save";
+  dataUrl: string;
+  route: string;
+  timestamp: number;
+  requestId?: string;
+}
+
 type ClientMessage =
   | LintFileMessage
   | LintElementMessage
   | SubscribeFileMessage
   | CacheInvalidateMessage
   | VisionAnalyzeMessage
+  | VisionCheckMessage
   | ConfigSetMessage
   | RuleConfigSetMessage
   | CoverageRequestMessage
-  | SourceFetchMessage;
+  | SourceFetchMessage
+  | ScreenshotSaveMessage;
 
 interface LintResultMessage {
   type: "lint:result";
@@ -193,6 +213,13 @@ interface VisionProgressMessage {
   type: "vision:progress";
   route: string;
   phase: string;
+  requestId?: string;
+}
+
+interface VisionStatusMessage {
+  type: "vision:status";
+  available: boolean;
+  model?: string;
   requestId?: string;
 }
 
@@ -324,6 +351,19 @@ interface SourceErrorMessage {
   requestId?: string;
 }
 
+interface ScreenshotSavedMessage {
+  type: "screenshot:saved";
+  filename: string;
+  path: string;
+  requestId?: string;
+}
+
+interface ScreenshotErrorMessage {
+  type: "screenshot:error";
+  error: string;
+  requestId?: string;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
@@ -331,6 +371,7 @@ type ServerMessage =
   | WorkspaceInfoMessage
   | VisionResultMessage
   | VisionProgressMessage
+  | VisionStatusMessage
   | RulesMetadataMessage
   | ConfigUpdateMessage
   | RuleConfigResultMessage
@@ -346,7 +387,9 @@ type ServerMessage =
   | CoverageSetupCompleteMessage
   | CoverageSetupErrorMessage
   | SourceResultMessage
-  | SourceErrorMessage;
+  | SourceErrorMessage
+  | ScreenshotSavedMessage
+  | ScreenshotErrorMessage;
 
 function pickAppRoot(params: { cwd: string; workspaceRoot: string }): string {
   const { cwd, workspaceRoot } = params;
@@ -820,8 +863,17 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
     );
   } else if (message.type === "vision:analyze") {
     // Logged in handler for more detailed output
+  } else if (message.type === "vision:check") {
+    // Logged in handler
   } else if (message.type === "config:set") {
     // Logged in handler
+  } else if (message.type === "screenshot:save") {
+    const rid = (message as ScreenshotSaveMessage).requestId;
+    logInfo(
+      `${pc.dim("[ws]")} ${pc.bold("screenshot:save")} ${pc.dim(message.route)}${
+        rid ? ` ${pc.dim(`(req ${rid})`)}` : ""
+      }`
+    );
   }
 
   switch (message.type) {
@@ -1125,6 +1177,35 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       break;
     }
 
+    case "vision:check": {
+      const { requestId } = message;
+      logInfo(
+        `${pc.dim("[ws]")} ${pc.bold("vision:check")}${requestId ? ` ${pc.dim(`(req ${requestId})`)}` : ""}`
+      );
+
+      try {
+        const analyzer = getVisionAnalyzerInstance();
+        const model =
+          typeof (analyzer as any).getModel === "function"
+            ? (analyzer as any).getModel()
+            : undefined;
+
+        sendMessage(ws, {
+          type: "vision:status",
+          available: true,
+          model,
+          requestId,
+        });
+      } catch (error) {
+        sendMessage(ws, {
+          type: "vision:status",
+          available: false,
+          requestId,
+        });
+      }
+      break;
+    }
+
     case "config:set": {
       const { key, value } = message;
       handleConfigSet(key, value);
@@ -1203,6 +1284,100 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         logError(`${pc.dim("[ws]")} coverage:error ${errorMessage}`);
         sendMessage(ws, {
           type: "coverage:error",
+          error: errorMessage,
+          requestId,
+        });
+      }
+      break;
+    }
+
+    case "screenshot:save": {
+      const { dataUrl, route, timestamp, requestId } = message;
+
+      try {
+        // Validate the dataUrl is a valid base64 PNG data URL
+        if (!dataUrl || typeof dataUrl !== "string") {
+          sendMessage(ws, {
+            type: "screenshot:error",
+            error: "Invalid dataUrl: must be a non-empty string",
+            requestId,
+          });
+          break;
+        }
+
+        const dataUrlPattern = /^data:image\/png;base64,/;
+        if (!dataUrlPattern.test(dataUrl)) {
+          sendMessage(ws, {
+            type: "screenshot:error",
+            error: "Invalid dataUrl: must be a base64 PNG data URL (data:image/png;base64,...)",
+            requestId,
+          });
+          break;
+        }
+
+        // Extract base64 data
+        const base64Data = dataUrl.replace(dataUrlPattern, "");
+
+        // Sanitize route for filename (replace / with -, remove special chars)
+        const sanitizedRoute = route
+          .replace(/^\//, "") // Remove leading slash
+          .replace(/\//g, "-") // Replace slashes with dashes
+          .replace(/[^a-zA-Z0-9_-]/g, "_") // Replace special chars with underscore
+          || "root"; // Default to "root" for empty route
+
+        // Generate filename
+        const filename = `uilint-${timestamp}-${sanitizedRoute}.png`;
+
+        // Validate generated filename
+        if (!isValidScreenshotFilename(filename)) {
+          sendMessage(ws, {
+            type: "screenshot:error",
+            error: `Generated filename is invalid: ${filename}`,
+            requestId,
+          });
+          break;
+        }
+
+        // Create screenshots directory if needed
+        const screenshotsDir = join(serverAppRootForVision, ".uilint", "screenshots");
+        if (!existsSync(screenshotsDir)) {
+          mkdirSync(screenshotsDir, { recursive: true });
+        }
+
+        // Write the image file
+        const imagePath = join(screenshotsDir, filename);
+        const imageBuffer = Buffer.from(base64Data, "base64");
+        writeFileSync(imagePath, imageBuffer);
+
+        // Write JSON sidecar with metadata
+        const sidecarFilename = filename.replace(/\.png$/, ".json");
+        const sidecarPath = join(screenshotsDir, sidecarFilename);
+        const sidecarData = {
+          route,
+          timestamp,
+          filename,
+          savedAt: new Date().toISOString(),
+        };
+        writeFileSync(sidecarPath, JSON.stringify(sidecarData, null, 2));
+
+        logInfo(
+          `${pc.dim("[ws]")} screenshot:saved ${pc.dim(filename)} ${pc.dim(
+            `(${Math.round(imageBuffer.length / 1024)}kb)`
+          )}`
+        );
+
+        // Send success response
+        sendMessage(ws, {
+          type: "screenshot:saved",
+          filename,
+          path: imagePath,
+          requestId,
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logError(`${pc.dim("[ws]")} screenshot:error ${errorMessage}`);
+        sendMessage(ws, {
+          type: "screenshot:error",
           error: errorMessage,
           requestId,
         });
