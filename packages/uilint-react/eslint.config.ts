@@ -5,7 +5,16 @@ import tseslint from "typescript-eslint";
 import pluginReact from "eslint-plugin-react";
 import { defineConfig } from "eslint/config";
 
+// Configure React plugin settings
+pluginReact.configs.flat.recommended.settings = {
+  ...pluginReact.configs.flat.recommended.settings,
+  react: { version: "detect" },
+};
+
 export default defineConfig([
+  {
+    ignores: ["dist/**", "dist"],
+  },
   {
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
     plugins: { js },
@@ -43,6 +52,32 @@ export default defineConfig([
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      // Prefer semantic colors over hard-coded Tailwind colors
+      "uilint/prefer-tailwind": [
+        "warn",
+        {
+          preferSemanticColors: true,
+          // Allow gray for neutral UI elements
+          allowedHardCodedColors: ["gray"],
+        },
+      ],
+    },
+  },
+  // Disable UI-specific rules for overlay/devtool components
+  // These components are devtool overlays that:
+  // - Use inline styles for dynamic positioning
+  // - Don't need dark mode (always rendered on top of user's page)
+  // - Use precise pixel sizing for devtool UI
+  {
+    files: [
+      "src/consistency/highlights.tsx",
+      "src/ui/components/**/*.tsx",
+      "src/plugins/**/panels/**/*.tsx",
+    ],
+    rules: {
+      "uilint/prefer-tailwind": "off",
+      "uilint/consistent-dark-mode": "off",
+      "uilint/no-arbitrary-tailwind": "off",
     },
   },
 ]);

@@ -206,7 +206,9 @@ const recommendedConfig: Linter.Config = {
           "styleRatioThreshold": 0.3,
           "minElementsForAnalysis": 3,
           "allowedStyleProperties": [],
-          "ignoreComponents": []
+          "ignoreComponents": [],
+          "preferSemanticColors": true,
+          "allowedHardCodedColors": []
         }
       ]],
   },
@@ -362,7 +364,9 @@ const strictConfig: Linter.Config = {
           "styleRatioThreshold": 0.3,
           "minElementsForAnalysis": 3,
           "allowedStyleProperties": [],
-          "ignoreComponents": []
+          "ignoreComponents": [],
+          "preferSemanticColors": true,
+          "allowedHardCodedColors": []
         }
       ]],
   },

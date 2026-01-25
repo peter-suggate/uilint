@@ -305,8 +305,8 @@ describe("Migration Engine", () => {
     });
 
     it("returns empty array for rule without migrations", () => {
-      // consistent-spacing has no migrations defined
-      const migrations = getMigrationsForRule("consistent-spacing");
+      // prefer-tailwind has no migrations defined
+      const migrations = getMigrationsForRule("prefer-tailwind");
 
       expect(migrations).toEqual([]);
     });

@@ -9,7 +9,7 @@
 import { createRule, defineRuleMeta } from "../utils/create-rule.js";
 import type { TSESTree } from "@typescript-eslint/utils";
 
-type MessageIds = "preferTailwind";
+type MessageIds = "preferTailwind" | "preferSemanticColors";
 type Options = [
   {
     /** Minimum ratio of style-only elements before warnings trigger (0-1). Default: 0.3 */
@@ -20,6 +20,10 @@ type Options = [
     allowedStyleProperties?: string[];
     /** Component names to skip (e.g., ["motion.div", "animated.View"]). Default: [] */
     ignoreComponents?: string[];
+    /** Prefer semantic colors (bg-destructive) over hard-coded (bg-red-500). Default: false */
+    preferSemanticColors?: boolean;
+    /** Hard-coded color names to allow when preferSemanticColors is enabled. Default: [] */
+    allowedHardCodedColors?: string[];
   }?
 ];
 
@@ -42,6 +46,8 @@ export const meta = defineRuleMeta({
       minElementsForAnalysis: 3,
       allowedStyleProperties: [],
       ignoreComponents: [],
+      preferSemanticColors: true,
+      allowedHardCodedColors: [],
     },
   ],
   optionSchema: {
@@ -74,7 +80,24 @@ export const meta = defineRuleMeta({
         label: "Ignored components",
         type: "text",
         defaultValue: "",
-        description: "Comma-separated component names to skip (e.g., motion.div,animated.View)",
+        description:
+          "Comma-separated component names to skip (e.g., motion.div,animated.View)",
+      },
+      {
+        key: "preferSemanticColors",
+        label: "Prefer semantic colors",
+        type: "boolean",
+        defaultValue: true,
+        description:
+          "Warn against hard-coded colors (bg-red-500) in favor of semantic theme colors (bg-destructive)",
+      },
+      {
+        key: "allowedHardCodedColors",
+        label: "Allowed hard-coded colors",
+        type: "text",
+        defaultValue: "",
+        description:
+          "Comma-separated color names to allow when preferSemanticColors is enabled (e.g., gray,slate)",
       },
     ],
   },
@@ -123,9 +146,35 @@ but only when the file exceeds a configurable threshold ratio.
   styleRatioThreshold: 0.3,      // Warn when >30% of elements are style-only
   minElementsForAnalysis: 3,     // Need at least 3 styled elements to analyze
   allowedStyleProperties: ["transform", "animation"],  // Skip these properties
-  ignoreComponents: ["motion.div", "animated.View"]    // Skip animation libraries
+  ignoreComponents: ["motion.div", "animated.View"],   // Skip animation libraries
+  preferSemanticColors: true,    // Warn on hard-coded colors like bg-red-500
+  allowedHardCodedColors: ["gray", "slate"]  // Allow specific color palettes
 }]
 \`\`\`
+
+## Semantic Colors
+
+When \`preferSemanticColors\` is enabled, the rule warns against hard-coded Tailwind color classes
+in favor of semantic theme colors:
+
+### ❌ Hard-coded colors (when enabled)
+
+\`\`\`tsx
+<div className="bg-red-500 text-white">Error</div>
+<button className="hover:bg-blue-600">Click</button>
+\`\`\`
+
+### ✅ Semantic colors (preferred)
+
+\`\`\`tsx
+<div className="bg-destructive text-destructive-foreground">Error</div>
+<button className="hover:bg-primary">Click</button>
+\`\`\`
+
+Semantic colors like \`bg-background\`, \`text-foreground\`, \`bg-primary\`, \`bg-destructive\`,
+\`bg-muted\`, etc. work better with theming and dark mode.
+
+Colors that are always allowed: \`white\`, \`black\`, \`transparent\`, \`inherit\`, \`current\`.
 
 ## Notes
 
@@ -156,7 +205,9 @@ function getComponentName(node: TSESTree.JSXOpeningElement): string {
       if (current.property.type === "JSXIdentifier") {
         parts.unshift(current.property.name);
       }
-      current = current.object as TSESTree.JSXMemberExpression | TSESTree.JSXIdentifier;
+      current = current.object as
+        | TSESTree.JSXMemberExpression
+        | TSESTree.JSXIdentifier;
     }
 
     if (current.type === "JSXIdentifier") {
@@ -218,6 +269,117 @@ interface ElementInfo {
   styleProperties: string[];
 }
 
+/**
+ * Tailwind color names that should use semantic alternatives
+ * Excludes neutral colors that are often acceptable
+ */
+const HARD_CODED_COLOR_NAMES = [
+  "red",
+  "orange",
+  "amber",
+  "yellow",
+  "lime",
+  "green",
+  "emerald",
+  "teal",
+  "cyan",
+  "sky",
+  "blue",
+  "indigo",
+  "violet",
+  "purple",
+  "fuchsia",
+  "pink",
+  "rose",
+  "slate",
+  "gray",
+  "zinc",
+  "neutral",
+  "stone",
+];
+
+/**
+ * Colors that are always allowed (not theme-dependent)
+ */
+const ALWAYS_ALLOWED_COLORS = [
+  "white",
+  "black",
+  "transparent",
+  "inherit",
+  "current",
+];
+
+/**
+ * Regex to match hard-coded Tailwind color classes
+ * Matches patterns like: bg-red-500, text-blue-600/50, hover:bg-green-400, dark:text-slate-100
+ * Color utilities: bg, text, border, ring, outline, decoration, accent, fill, stroke,
+ *                  from, via, to (gradients), divide, placeholder, caret, shadow
+ */
+function createHardCodedColorRegex(colorNames: string[]): RegExp {
+  const colorPattern = colorNames.join("|");
+  // Match color utilities with color-shade pattern, optional opacity, with optional variant prefixes
+  return new RegExp(
+    `(?:^|\\s)(?:[a-z-]+:)*(?:bg|text|border|ring|outline|decoration|accent|fill|stroke|from|via|to|divide|placeholder|caret|shadow)-(${colorPattern})-\\d{1,3}(?:/\\d{1,3})?(?=\\s|$)`,
+    "g"
+  );
+}
+
+/**
+ * Extract className value from a JSX attribute
+ */
+function getClassNameValue(attr: TSESTree.JSXAttribute): string | null {
+  if (!attr.value) return null;
+
+  // className="..."
+  if (attr.value.type === "Literal" && typeof attr.value.value === "string") {
+    return attr.value.value;
+  }
+
+  // className={"..."}
+  if (
+    attr.value.type === "JSXExpressionContainer" &&
+    attr.value.expression.type === "Literal" &&
+    typeof attr.value.expression.value === "string"
+  ) {
+    return attr.value.expression.value;
+  }
+
+  // className={`...`}
+  if (
+    attr.value.type === "JSXExpressionContainer" &&
+    attr.value.expression.type === "TemplateLiteral"
+  ) {
+    // Extract static parts of template literal
+    return attr.value.expression.quasis.map((q) => q.value.raw).join(" ");
+  }
+
+  return null;
+}
+
+/**
+ * Check if a className string contains hard-coded color classes
+ */
+function findHardCodedColors(
+  className: string,
+  allowedColors: string[]
+): string[] {
+  const disallowedColorNames = HARD_CODED_COLOR_NAMES.filter(
+    (c) => !allowedColors.includes(c)
+  );
+
+  if (disallowedColorNames.length === 0) return [];
+
+  const regex = createHardCodedColorRegex(disallowedColorNames);
+  const matches: string[] = [];
+  let match;
+
+  while ((match = regex.exec(className)) !== null) {
+    matches.push(match[0].trim());
+  }
+
+  return matches;
+}
+
 export default createRule<Options, MessageIds>({
   name: "prefer-tailwind",
   meta: {
@@ -228,6 +390,8 @@ export default createRule<Options, MessageIds>({
     messages: {
       preferTailwind:
         "Prefer Tailwind className over inline style. This element uses style attribute without className.",
+      preferSemanticColors:
+        "Prefer semantic color classes (e.g., bg-destructive, text-primary) over hard-coded colors (e.g., bg-red-500).",
     },
     schema: [
       {
@@ -255,6 +419,17 @@ export default createRule<Options, MessageIds>({
             items: { type: "string" },
             description: "Component names to skip",
           },
+          preferSemanticColors: {
+            type: "boolean",
+            description:
+              "Warn against hard-coded colors in favor of semantic theme colors",
+          },
+          allowedHardCodedColors: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Hard-coded color names to allow when preferSemanticColors is enabled",
+          },
         },
         additionalProperties: false,
       },
@@ -266,6 +441,8 @@ export default createRule<Options, MessageIds>({
       minElementsForAnalysis: 3,
       allowedStyleProperties: [],
       ignoreComponents: [],
+      preferSemanticColors: false,
+      allowedHardCodedColors: [],
     },
   ],
   create(context) {
@@ -274,6 +451,8 @@ export default createRule<Options, MessageIds>({
     const minElementsForAnalysis = options.minElementsForAnalysis ?? 3;
     const allowedStyleProperties = options.allowedStyleProperties ?? [];
     const ignoreComponents = options.ignoreComponents ?? [];
+    const preferSemanticColors = options.preferSemanticColors ?? false;
+    const allowedHardCodedColors = options.allowedHardCodedColors ?? [];
 
     // Tracking state for file-level analysis
     const styledElements: ElementInfo[] = [];
@@ -321,13 +500,35 @@ export default createRule<Options, MessageIds>({
             }
             if (isClassNameAttribute(attr)) {
               hasClassName = true;
+
+              // Check for hard-coded colors if preferSemanticColors is enabled
+              if (preferSemanticColors) {
+                const classNameValue = getClassNameValue(attr);
+                if (classNameValue) {
+                  const hardCodedColors = findHardCodedColors(
+                    classNameValue,
+                    allowedHardCodedColors
+                  );
+                  if (hardCodedColors.length > 0) {
+                    context.report({
+                      node,
+                      messageId: "preferSemanticColors",
+                    });
+                  }
+                }
+              }
             }
           }
         }
 
         // Only track elements that have style OR className (or both)
         if (hasStyle || hasClassName) {
-          styledElements.push({ node, hasStyle, hasClassName, styleProperties });
+          styledElements.push({
+            node,
+            hasStyle,
+            hasClassName,
+            styleProperties,
+          });
         }
       },
 

@@ -80,7 +80,7 @@ describe("Update Plan", () => {
   describe("createUpdatePlan", () => {
     it("creates plan to copy new rule files", () => {
       const rule = createMockRuleUpdateInfo({
-        ruleId: "consistent-spacing",
+        ruleId: "prefer-tailwind",
         installedVersion: "1.0.0",
         availableVersion: "1.1.0",
         hasUpdate: true,
@@ -106,7 +106,7 @@ describe("Update Plan", () => {
       expect(plan.actions).toContainEqual({
         type: "copy_rule_files",
         packagePath: "/test/project",
-        ruleId: "consistent-spacing",
+        ruleId: "prefer-tailwind",
         version: "1.1.0",
       });
     });
@@ -151,7 +151,7 @@ describe("Update Plan", () => {
       };
 
       const rule = createMockRuleUpdateInfo({
-        ruleId: "consistent-spacing",
+        ruleId: "prefer-tailwind",
         installedVersion: "1.0.0",
         availableVersion: "1.1.0",
         hasUpdate: true,
@@ -177,7 +177,7 @@ describe("Update Plan", () => {
       expect(plan.actions).toContainEqual({
         type: "migrate_rule_options",
         configPath: "/test/project/eslint.config.mjs",
-        ruleId: "consistent-spacing",
+        ruleId: "prefer-tailwind",
         migrations: [mockMigration],
       });
     });

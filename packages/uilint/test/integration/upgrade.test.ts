@@ -43,7 +43,7 @@ describe("Upgrade Integration", () => {
         installedAt: new Date().toISOString(),
         uilintVersion: "0.2.0",
         rules: {
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "1.0.0",
             installedAt: new Date().toISOString(),
           },
@@ -56,7 +56,7 @@ describe("Upgrade Integration", () => {
 
       const read = readManifest(testDir);
       expect(read).not.toBeNull();
-      expect(read?.rules["consistent-spacing"]).toBeDefined();
+      expect(read?.rules["prefer-tailwind"]).toBeDefined();
     });
   });
 
@@ -67,7 +67,7 @@ describe("Upgrade Integration", () => {
         installedAt: "2024-01-01T00:00:00Z",
         uilintVersion: "0.1.0",
         rules: {
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "0.9.0", // Older than current 1.0.0
             installedAt: "2024-01-01T00:00:00Z",
           },
@@ -82,7 +82,7 @@ describe("Upgrade Integration", () => {
       const pkg = analysis.packages.find((p) => p.packagePath === testDir);
       expect(pkg).toBeDefined();
 
-      const rule = pkg?.rules.find((r) => r.ruleId === "consistent-spacing");
+      const rule = pkg?.rules.find((r) => r.ruleId === "prefer-tailwind");
       expect(rule?.hasUpdate).toBe(true);
       expect(rule?.installedVersion).toBe("0.9.0");
       expect(rule?.availableVersion).toBe("1.0.0");
@@ -96,7 +96,7 @@ describe("Upgrade Integration", () => {
         installedAt: "2024-01-01T00:00:00Z",
         uilintVersion: "0.1.0",
         rules: {
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "0.9.0",
             installedAt: "2024-01-01T00:00:00Z",
           },
@@ -128,7 +128,7 @@ describe("Upgrade Integration", () => {
 
       // Verify manifest was updated
       const updated = readManifest(testDir);
-      expect(updated?.rules["consistent-spacing"]?.version).toBe("1.0.0");
+      expect(updated?.rules["prefer-tailwind"]?.version).toBe("1.0.0");
     });
   });
 
@@ -139,7 +139,7 @@ describe("Upgrade Integration", () => {
         installedAt: "2024-01-01T00:00:00Z",
         uilintVersion: "0.1.0",
         rules: {
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "0.9.0",
             installedAt: "2024-01-01T00:00:00Z",
           },
@@ -162,7 +162,7 @@ describe("Upgrade Integration", () => {
 
       // Verify manifest was NOT updated
       const unchanged = readManifest(testDir);
-      expect(unchanged?.rules["consistent-spacing"]?.version).toBe("0.9.0");
+      expect(unchanged?.rules["prefer-tailwind"]?.version).toBe("0.9.0");
     });
   });
 
@@ -173,7 +173,7 @@ describe("Upgrade Integration", () => {
         installedAt: "2024-01-01T00:00:00Z",
         uilintVersion: "0.1.0",
         rules: {
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "0.9.0",
             installedAt: "2024-01-01T00:00:00Z",
           },
@@ -188,7 +188,7 @@ describe("Upgrade Integration", () => {
       const analysis = analyzeForUpdates(testDir);
       const choices: UpdateChoices = {
         packagePaths: [testDir],
-        ruleIds: ["consistent-spacing"], // Only update this rule
+        ruleIds: ["prefer-tailwind"], // Only update this rule
         confirmBreaking: false,
       };
 
@@ -197,9 +197,9 @@ describe("Upgrade Integration", () => {
 
       expect(result.success).toBe(true);
 
-      // Verify only consistent-spacing was updated
+      // Verify only prefer-tailwind was updated
       const updated = readManifest(testDir);
-      expect(updated?.rules["consistent-spacing"]?.version).toBe("1.0.0");
+      expect(updated?.rules["prefer-tailwind"]?.version).toBe("1.0.0");
       // no-arbitrary-tailwind should still be at old version
       expect(updated?.rules["no-arbitrary-tailwind"]?.version).toBe("0.9.0");
     });

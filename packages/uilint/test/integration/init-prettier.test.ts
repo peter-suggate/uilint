@@ -139,7 +139,7 @@ describe("Formattable file collection", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind", "consistent-spacing"],
+      eslintRuleIds: ["no-arbitrary-tailwind", "prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -157,7 +157,7 @@ describe("Formattable file collection", () => {
     expect(fixture.exists(`.uilint/rules/no-arbitrary-tailwind${ext}`)).toBe(
       true
     );
-    expect(fixture.exists(`.uilint/rules/consistent-spacing${ext}`)).toBe(true);
+    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(true);
 
     // These files should be included in formatting
     const ruleFile = fixture.readFile(
@@ -309,7 +309,7 @@ describe("Prettier graceful failure", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind", "consistent-spacing"],
+      eslintRuleIds: ["no-arbitrary-tailwind", "prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -328,7 +328,7 @@ describe("Prettier graceful failure", () => {
     expect(fixture.exists(`.uilint/rules/no-arbitrary-tailwind${ext}`)).toBe(
       true
     );
-    expect(fixture.exists(`.uilint/rules/consistent-spacing${ext}`)).toBe(true);
+    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(true);
   });
 });
 

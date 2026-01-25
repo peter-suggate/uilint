@@ -42,7 +42,7 @@ describe("Update Analyze", () => {
         rules: {
           // This rule exists in registry with version 1.0.0
           // When we bump the registry version, this test will detect it
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "0.9.0", // Older than current
             installedAt: "2024-01-01T00:00:00Z",
           },
@@ -52,11 +52,11 @@ describe("Update Analyze", () => {
 
       const result = analyzeForUpdates(testDir);
 
-      // Should find at least one update (consistent-spacing)
+      // Should find at least one update (prefer-tailwind)
       const pkg = result.packages.find((p) => p.packagePath === testDir);
       expect(pkg).toBeDefined();
 
-      const rule = pkg?.rules.find((r) => r.ruleId === "consistent-spacing");
+      const rule = pkg?.rules.find((r) => r.ruleId === "prefer-tailwind");
       expect(rule).toBeDefined();
       expect(rule?.hasUpdate).toBe(true);
       expect(rule?.installedVersion).toBe("0.9.0");
@@ -71,7 +71,7 @@ describe("Update Analyze", () => {
         installedAt: "2024-01-01T00:00:00Z",
         uilintVersion: "0.1.0",
         rules: {
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "1.0.0", // Same as registry
             installedAt: "2024-01-01T00:00:00Z",
           },
@@ -82,7 +82,7 @@ describe("Update Analyze", () => {
       const result = analyzeForUpdates(testDir);
 
       const pkg = result.packages.find((p) => p.packagePath === testDir);
-      const rule = pkg?.rules.find((r) => r.ruleId === "consistent-spacing");
+      const rule = pkg?.rules.find((r) => r.ruleId === "prefer-tailwind");
 
       expect(rule?.hasUpdate).toBe(false);
       expect(rule?.installedVersion).toBe("1.0.0");
@@ -109,7 +109,7 @@ describe("Update Analyze", () => {
             version: "1.0.0",
             installedAt: "2024-01-01T00:00:00Z",
           },
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "1.0.0",
             installedAt: "2024-01-01T00:00:00Z",
           },
@@ -134,7 +134,7 @@ describe("Update Analyze", () => {
         installedAt: "2024-01-01T00:00:00Z",
         uilintVersion: "0.1.0",
         rules: {
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "0.9.0",
             installedAt: "2024-01-01T00:00:00Z",
           },
@@ -145,7 +145,7 @@ describe("Update Analyze", () => {
       const result = analyzeForUpdates(testDir);
 
       const pkg = result.packages.find((p) => p.packagePath === testDir);
-      const rule = pkg?.rules.find((r) => r.ruleId === "consistent-spacing");
+      const rule = pkg?.rules.find((r) => r.ruleId === "prefer-tailwind");
 
       // hasBreakingChanges should be defined (currently no breaking migrations)
       expect(typeof rule?.hasBreakingChanges).toBe("boolean");
@@ -161,7 +161,7 @@ describe("Update Analyze", () => {
             version: "0.9.0", // Outdated
             installedAt: "2024-01-01T00:00:00Z",
           },
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "0.9.0", // Outdated
             installedAt: "2024-01-01T00:00:00Z",
           },
@@ -175,7 +175,7 @@ describe("Update Analyze", () => {
 
       const result = analyzeForUpdates(testDir);
 
-      // Should have 2 updates (no-arbitrary-tailwind and consistent-spacing)
+      // Should have 2 updates (no-arbitrary-tailwind and prefer-tailwind)
       expect(result.totalUpdates).toBe(2);
     });
   });

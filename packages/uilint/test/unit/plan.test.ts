@@ -639,7 +639,7 @@ describe("getMissingRules", () => {
         category: "static",
       },
       {
-        id: "consistent-spacing",
+        id: "prefer-tailwind",
         name: "Test2",
         description: "",
         defaultSeverity: "warn",
@@ -650,11 +650,11 @@ describe("getMissingRules", () => {
     const missing = getMissingRules(configured, selected);
 
     expect(missing).toHaveLength(1);
-    expect(missing[0].id).toBe("consistent-spacing");
+    expect(missing[0].id).toBe("prefer-tailwind");
   });
 
   it("returns empty array when all rules are configured", () => {
-    const configured = ["no-arbitrary-tailwind", "consistent-spacing"];
+    const configured = ["no-arbitrary-tailwind", "prefer-tailwind"];
     const selected: RuleMetadata[] = [
       {
         id: "no-arbitrary-tailwind",
@@ -664,7 +664,7 @@ describe("getMissingRules", () => {
         category: "static",
       },
       {
-        id: "consistent-spacing",
+        id: "prefer-tailwind",
         name: "Test2",
         description: "",
         defaultSeverity: "warn",

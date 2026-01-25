@@ -128,7 +128,7 @@ describe("ProjectSummary", () => {
           eslintConfigPath: "/test/workspace/packages/lib/eslint.config.mjs",
           eslintConfigFilename: "eslint.config.mjs",
           hasUilintRules: true,
-          configuredRuleIds: ["consistent-spacing"],
+          configuredRuleIds: ["prefer-tailwind"],
         },
       ],
     });

@@ -19,13 +19,7 @@ export function SearchInput({ value, onChange, placeholder = "Search issues, rul
   }, []);
 
   return (
-    <div style={{
-      display: "flex",
-      alignItems: "center",
-      padding: "12px 16px",
-      borderBottom: "1px solid #e5e7eb",
-      gap: 12,
-    }}>
+    <div className="flex items-center px-4 py-3 border-b border-gray-200 gap-3">
       <SearchIcon size={20} color="#9ca3af" />
       <input
         ref={inputRef}
@@ -33,25 +27,12 @@ export function SearchInput({ value, onChange, placeholder = "Search issues, rul
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{
-          flex: 1,
-          border: "none",
-          outline: "none",
-          fontSize: 16,
-          background: "transparent",
-          color: "#111827",
-        }}
+        className="flex-1 border-none outline-none text-base bg-transparent text-gray-900"
       />
       {value && (
         <button
           onClick={() => onChange("")}
-          style={{
-            border: "none",
-            background: "none",
-            cursor: "pointer",
-            padding: 4,
-            color: "#9ca3af",
-          }}
+          className="border-none bg-none cursor-pointer p-1 text-gray-400"
         >
           ✕
         </button>

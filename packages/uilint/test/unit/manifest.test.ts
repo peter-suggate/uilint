@@ -47,7 +47,7 @@ describe("Manifest System", () => {
         installedAt: "2024-01-01T00:00:00Z",
         uilintVersion: "0.1.0",
         rules: {
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "1.0.0",
             installedAt: "2024-01-01T00:00:00Z",
           },
@@ -128,7 +128,7 @@ describe("Manifest System", () => {
         installedAt: "2024-01-01T00:00:00Z",
         uilintVersion: "0.2.0",
         rules: {
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "1.0.0",
             installedAt: "2024-01-15T12:00:00Z",
           },
@@ -164,7 +164,7 @@ describe("Manifest System", () => {
         installedAt: "2024-01-01T00:00:00Z",
         uilintVersion: "0.1.0",
         rules: {
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "1.0.0",
             installedAt: "2024-01-01T00:00:00Z",
           },
@@ -172,12 +172,12 @@ describe("Manifest System", () => {
       };
       writeManifest(testDir, initial);
 
-      updateManifestRule(testDir, "consistent-spacing", "1.1.0", "0.2.0");
+      updateManifestRule(testDir, "prefer-tailwind", "1.1.0", "0.2.0");
 
       const result = readManifest(testDir);
-      expect(result?.rules["consistent-spacing"]?.version).toBe("1.1.0");
+      expect(result?.rules["prefer-tailwind"]?.version).toBe("1.1.0");
       // Should have updated installedAt timestamp
-      expect(result?.rules["consistent-spacing"]?.installedAt).not.toBe(
+      expect(result?.rules["prefer-tailwind"]?.installedAt).not.toBe(
         "2024-01-01T00:00:00Z"
       );
     });
@@ -188,7 +188,7 @@ describe("Manifest System", () => {
         installedAt: "2024-01-01T00:00:00Z",
         uilintVersion: "0.1.0",
         rules: {
-          "consistent-spacing": {
+          "prefer-tailwind": {
             version: "1.0.0",
             installedAt: "2024-01-01T00:00:00Z",
           },
@@ -199,7 +199,7 @@ describe("Manifest System", () => {
       updateManifestRule(testDir, "no-arbitrary-tailwind", "1.0.0", "0.2.0");
 
       const result = readManifest(testDir);
-      expect(result?.rules["consistent-spacing"]).toBeDefined();
+      expect(result?.rules["prefer-tailwind"]).toBeDefined();
       expect(result?.rules["no-arbitrary-tailwind"]).toBeDefined();
       expect(result?.rules["no-arbitrary-tailwind"]?.version).toBe("1.0.0");
     });
@@ -208,11 +208,11 @@ describe("Manifest System", () => {
       // No manifest exists
       expect(readManifest(testDir)).toBeNull();
 
-      updateManifestRule(testDir, "consistent-spacing", "1.0.0", "0.2.0");
+      updateManifestRule(testDir, "prefer-tailwind", "1.0.0", "0.2.0");
 
       const result = readManifest(testDir);
       expect(result).not.toBeNull();
-      expect(result?.rules["consistent-spacing"]?.version).toBe("1.0.0");
+      expect(result?.rules["prefer-tailwind"]?.version).toBe("1.0.0");
       expect(result?.uilintVersion).toBe("0.2.0");
     });
 

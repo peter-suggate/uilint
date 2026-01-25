@@ -24,34 +24,19 @@ function CategoryItem({ icon, label, count, active, onClick }: CategoryItemProps
   return (
     <button
       onClick={onClick}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        width: "100%",
-        padding: "8px 12px",
-        border: "none",
-        borderRadius: 8,
-        background: active ? "rgba(59, 130, 246, 0.1)" : "transparent",
-        color: active ? "#3b82f6" : "#6b7280",
-        cursor: "pointer",
-        fontSize: 13,
-        fontWeight: active ? 500 : 400,
-        textAlign: "left",
-      }}
+      className={`flex items-center gap-2 w-full px-3 py-2 border-none rounded-lg cursor-pointer text-[13px] text-left ${
+        active
+          ? "bg-blue-500/10 text-blue-500 font-medium"
+          : "bg-transparent text-gray-500 font-normal"
+      }`}
     >
       {icon}
-      <span style={{ flex: 1 }}>{label}</span>
+      <span className="flex-1">{label}</span>
       {count > 0 && (
         <span
-          style={{
-            fontSize: 11,
-            fontWeight: 500,
-            background: active ? "rgba(59, 130, 246, 0.2)" : "#f3f4f6",
-            color: active ? "#3b82f6" : "#9ca3af",
-            padding: "1px 6px",
-            borderRadius: 10,
-          }}
+          className={`text-[11px] font-medium px-1.5 py-px rounded-full ${
+            active ? "bg-blue-500/20 text-blue-500" : "bg-gray-100 text-gray-400"
+          }`}
         >
           {count}
         </span>
@@ -68,20 +53,9 @@ export function CategorySidebar({
   onCategoryChange,
 }: CategorySidebarProps) {
   return (
-    <div
-      style={{
-        width: 160,
-        borderRight: "1px solid rgba(0,0,0,0.08)",
-        padding: "8px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 2,
-        background: "rgba(255,255,255,0.3)",
-        flexShrink: 0,
-      }}
-    >
+    <div className="w-40 border-r border-black/[0.08] p-2 flex flex-col gap-0.5 bg-white/30 shrink-0">
       <CategoryItem
-        icon={<span style={{ fontSize: 14 }}>*</span>}
+        icon={<span className="text-sm">*</span>}
         label="All"
         count={commandCount + issueCount + ruleCount}
         active={activeCategory === "all"}

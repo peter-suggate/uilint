@@ -14,7 +14,7 @@ export default [
     rules: {
       // All static rules
       "uilint/no-arbitrary-tailwind": "warn",
-      "uilint/consistent-spacing": "warn",
+      "uilint/prefer-tailwind": "warn",
       "uilint/consistent-dark-mode": "warn",
       "uilint/no-direct-store-import": "warn",
       "uilint/prefer-zustand-state-management": "warn",
