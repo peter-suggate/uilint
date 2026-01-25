@@ -1,19 +1,27 @@
 /**
  * FloatingIcon - Draggable glassmorphic command bar trigger
  * macOS Spotlight-inspired design with keyboard shortcut hint
+ *
+ * Two-row layout:
+ * - Top row: grip handle + search area + toolbar action buttons
+ * - Bottom row: subtle hint text (fades after first interaction)
  */
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useComposedStore } from "../../core/store";
+import { pluginRegistry } from "../../core/plugin-system/registry";
+import { getPluginServices } from "../../core/store/composed-store";
 import { SearchIcon } from "../icons";
+import type { ToolbarAction } from "../../core/plugin-system/types";
 
 interface Position {
   x: number;
   y: number;
 }
 
-const PILL_WIDTH = 180;
+const PILL_WIDTH = 220;
 const PILL_HEIGHT = 36;
+const HINT_ROW_HEIGHT = 18;
 
 /** SSR-safe default position - centered horizontally at top */
 function getDefaultPosition(): Position {
@@ -29,11 +37,72 @@ function isMac(): boolean {
   return navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 }
 
+/**
+ * Individual toolbar action button component
+ */
+interface ToolbarActionButtonProps {
+  action: ToolbarAction;
+  state: unknown;
+  onExecute: () => void;
+}
+
+function ToolbarActionButton({ action, state, onExecute }: ToolbarActionButtonProps) {
+  const isEnabled = action.isEnabled ? action.isEnabled(state) : true;
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (isEnabled) {
+        onExecute();
+      }
+    },
+    [isEnabled, onExecute]
+  );
+
+  return (
+    <button
+      title={action.tooltip}
+      disabled={!isEnabled}
+      onClick={handleClick}
+      style={{
+        width: 28,
+        height: 28,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        border: "none",
+        borderRadius: 6,
+        background: "transparent",
+        cursor: isEnabled ? "pointer" : "not-allowed",
+        opacity: isEnabled ? 0.7 : 0.3,
+        transition: "opacity 0.15s, background 0.15s",
+        color: "#1a1a1a",
+        fontSize: 14,
+        padding: 0,
+      }}
+      onMouseOver={(e) => {
+        if (isEnabled) {
+          e.currentTarget.style.opacity = "1";
+          e.currentTarget.style.background = "rgba(0, 0, 0, 0.05)";
+        }
+      }}
+      onMouseOut={(e) => {
+        e.currentTarget.style.opacity = isEnabled ? "0.7" : "0.3";
+        e.currentTarget.style.background = "transparent";
+      }}
+    >
+      {action.icon}
+    </button>
+  );
+}
+
 export function FloatingIcon() {
   const openCommandPalette = useComposedStore((s) => s.openCommandPalette);
+  const isCommandPaletteOpen = useComposedStore((s) => s.commandPalette.open);
   const isConnected = useComposedStore((s) => s.wsConnected);
   const position = useComposedStore((s) => s.floatingIconPosition);
   const setPosition = useComposedStore((s) => s.setFloatingIconPosition);
+  const storeState = useComposedStore();
 
   // Get issue count from eslint plugin
   const issueCount = useComposedStore((s) => {
@@ -49,10 +118,29 @@ export function FloatingIcon() {
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
+  const [hasInteracted, setHasInteracted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Track first command palette interaction to hide hint
+  useEffect(() => {
+    if (isCommandPaletteOpen && !hasInteracted) {
+      setHasInteracted(true);
+    }
+  }, [isCommandPaletteOpen, hasInteracted]);
+
+  // Get toolbar actions from registered plugins
+  const toolbarActions = pluginRegistry.getAllToolbarActions();
+
+  // Filter to only visible actions
+  const visibleActions = toolbarActions.filter((action) => {
+    if (action.isVisible) {
+      return action.isVisible(storeState);
+    }
+    return true; // Default to visible if no isVisible defined
+  });
+
   const currentPosition = position ?? getDefaultPosition();
-  const modKey = isMac() ? "⌥" : "Alt+";
+  const modKey = isMac() ? "\u2325" : "Alt+"; // Option symbol for Mac
 
   const handleGripMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -78,7 +166,7 @@ export function FloatingIcon() {
       );
       const newY = Math.max(
         0,
-        Math.min(window.innerHeight - PILL_HEIGHT, e.clientY - dragOffset.y)
+        Math.min(window.innerHeight - PILL_HEIGHT - HINT_ROW_HEIGHT, e.clientY - dragOffset.y)
       );
 
       setPosition({ x: newX, y: newY });
@@ -107,7 +195,17 @@ export function FloatingIcon() {
     }
   }, [isDragging, openCommandPalette]);
 
+  const handleActionClick = useCallback((action: ToolbarAction) => {
+    const services = getPluginServices();
+    if (services) {
+      action.onClick(services);
+    }
+  }, []);
+
   const portalRoot = document.getElementById("uilint-portal") || document.body;
+
+  // Determine if hint should be shown
+  const showHint = !hasInteracted && !isHovered;
 
   return createPortal(
     <div
@@ -118,137 +216,203 @@ export function FloatingIcon() {
         position: "fixed",
         left: currentPosition.x,
         top: currentPosition.y,
-        height: PILL_HEIGHT,
         display: "flex",
-        alignItems: "center",
-        gap: 0,
+        flexDirection: "column",
+        alignItems: "stretch",
         zIndex: 99999,
         pointerEvents: "auto",
       }}
     >
-      {/* Grip handle */}
+      {/* Top row: grip + search + toolbar actions */}
       <div
-        onMouseDown={handleGripMouseDown}
         style={{
-          width: 20,
           height: PILL_HEIGHT,
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
-          cursor: isDragging ? "grabbing" : "grab",
-          borderRadius: "10px 0 0 10px",
-          background: "rgba(255, 255, 255, 0.7)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          borderTop: "1px solid rgba(255, 255, 255, 0.8)",
-          borderLeft: "1px solid rgba(255, 255, 255, 0.8)",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.5)",
-          boxShadow: isDragging
-            ? "0 8px 32px rgba(0, 0, 0, 0.2)"
-            : "0 4px 16px rgba(0, 0, 0, 0.1)",
-          transition: isDragging ? "none" : "box-shadow 0.2s",
+          gap: 0,
         }}
       >
-        <svg
-          width="6"
-          height="14"
-          viewBox="0 0 6 14"
-          fill="none"
-          style={{ opacity: isHovered ? 0.6 : 0.35 }}
+        {/* Grip handle */}
+        <div
+          onMouseDown={handleGripMouseDown}
+          style={{
+            width: 20,
+            height: PILL_HEIGHT,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: isDragging ? "grabbing" : "grab",
+            borderRadius: "10px 0 0 10px",
+            background: "rgba(255, 255, 255, 0.7)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            borderTop: "1px solid rgba(255, 255, 255, 0.8)",
+            borderLeft: "1px solid rgba(255, 255, 255, 0.8)",
+            borderBottom: "1px solid rgba(255, 255, 255, 0.5)",
+            boxShadow: isDragging
+              ? "0 8px 32px rgba(0, 0, 0, 0.2)"
+              : "0 4px 16px rgba(0, 0, 0, 0.1)",
+            transition: isDragging ? "none" : "box-shadow 0.2s",
+          }}
         >
-          <circle cx="1.5" cy="2" r="1.5" fill="currentColor" />
-          <circle cx="4.5" cy="2" r="1.5" fill="currentColor" />
-          <circle cx="1.5" cy="7" r="1.5" fill="currentColor" />
-          <circle cx="4.5" cy="7" r="1.5" fill="currentColor" />
-          <circle cx="1.5" cy="12" r="1.5" fill="currentColor" />
-          <circle cx="4.5" cy="12" r="1.5" fill="currentColor" />
-        </svg>
-      </div>
+          <svg
+            width="6"
+            height="14"
+            viewBox="0 0 6 14"
+            fill="none"
+            style={{ opacity: isHovered ? 0.6 : 0.35 }}
+          >
+            <circle cx="1.5" cy="2" r="1.5" fill="currentColor" />
+            <circle cx="4.5" cy="2" r="1.5" fill="currentColor" />
+            <circle cx="1.5" cy="7" r="1.5" fill="currentColor" />
+            <circle cx="4.5" cy="7" r="1.5" fill="currentColor" />
+            <circle cx="1.5" cy="12" r="1.5" fill="currentColor" />
+            <circle cx="4.5" cy="12" r="1.5" fill="currentColor" />
+          </svg>
+        </div>
 
-      {/* Main pill button */}
-      <button
-        onClick={handleClick}
-        style={{
-          height: PILL_HEIGHT,
-          padding: "0 14px 0 10px",
-          border: "none",
-          borderRadius: "0 10px 10px 0",
-          background: "rgba(255, 255, 255, 0.7)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          borderTop: "1px solid rgba(255, 255, 255, 0.8)",
-          borderRight: "1px solid rgba(255, 255, 255, 0.5)",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.5)",
-          boxShadow: isDragging
-            ? "0 8px 32px rgba(0, 0, 0, 0.2)"
-            : "0 4px 16px rgba(0, 0, 0, 0.1)",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          transition: isDragging ? "none" : "box-shadow 0.2s, background 0.2s",
-          color: "#1a1a1a",
-          fontFamily:
-            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-          fontSize: 13,
-          fontWeight: 400,
-        }}
-        onMouseOver={(e) => {
-          if (!isDragging) {
-            e.currentTarget.style.background = "rgba(255, 255, 255, 0.85)";
-          }
-        }}
-        onMouseOut={(e) => {
-          e.currentTarget.style.background = "rgba(255, 255, 255, 0.7)";
-        }}
-      >
-        <SearchIcon size={15} style={{ opacity: 0.5 }} />
+        {/* Main search button */}
+        <button
+          onClick={handleClick}
+          aria-label="Search"
+          style={{
+            height: PILL_HEIGHT,
+            padding: "0 10px",
+            border: "none",
+            borderRadius: 0,
+            background: "rgba(255, 255, 255, 0.7)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            borderTop: "1px solid rgba(255, 255, 255, 0.8)",
+            borderBottom: "1px solid rgba(255, 255, 255, 0.5)",
+            boxShadow: isDragging
+              ? "0 8px 32px rgba(0, 0, 0, 0.2)"
+              : "0 4px 16px rgba(0, 0, 0, 0.1)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            transition: isDragging ? "none" : "box-shadow 0.2s, background 0.2s",
+            color: "#1a1a1a",
+            fontFamily:
+              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            fontSize: 13,
+            fontWeight: 400,
+            flexShrink: 0,
+          }}
+          onMouseOver={(e) => {
+            if (!isDragging) {
+              e.currentTarget.style.background = "rgba(255, 255, 255, 0.85)";
+            }
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = "rgba(255, 255, 255, 0.7)";
+          }}
+        >
+          <SearchIcon size={15} style={{ opacity: 0.5 }} />
 
-        <span style={{ opacity: 0.7 }}>Search</span>
+          <span style={{ opacity: 0.7 }}>Search</span>
 
-        {/* Issue count - subtle inline */}
-        {issueCount > 0 && (
-          <span
+          {/* Issue count - subtle inline */}
+          {issueCount > 0 && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: "#ef4444",
+                opacity: 0.9,
+              }}
+            >
+              {issueCount > 99 ? "99+" : issueCount}
+            </span>
+          )}
+        </button>
+
+        {/* Toolbar actions */}
+        {visibleActions.length > 0 && (
+          <div
             style={{
-              fontSize: 11,
-              fontWeight: 500,
-              color: "#ef4444",
-              opacity: 0.9,
+              height: PILL_HEIGHT,
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              padding: "0 4px",
+              background: "rgba(255, 255, 255, 0.7)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              borderTop: "1px solid rgba(255, 255, 255, 0.8)",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.5)",
+              boxShadow: isDragging
+                ? "0 8px 32px rgba(0, 0, 0, 0.2)"
+                : "0 4px 16px rgba(0, 0, 0, 0.1)",
             }}
           >
-            {issueCount > 99 ? "99+" : issueCount}
-          </span>
+            {visibleActions.map((action) => (
+              <ToolbarActionButton
+                key={action.id}
+                action={action}
+                state={storeState}
+                onExecute={() => handleActionClick(action)}
+              />
+            ))}
+          </div>
         )}
 
-        {/* Keyboard shortcut */}
-        <span
+        {/* Right cap */}
+        <div
           style={{
-            marginLeft: "auto",
-            fontSize: 12,
-            fontWeight: 500,
-            opacity: 0.4,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {modKey}K
-        </span>
-      </button>
-
-      {/* Connection indicator - subtle dot */}
-      {!isConnected && (
-        <span
-          style={{
-            position: "absolute",
-            top: -3,
-            right: -3,
             width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background: "#f59e0b",
-            border: "2px solid white",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+            height: PILL_HEIGHT,
+            borderRadius: "0 10px 10px 0",
+            background: "rgba(255, 255, 255, 0.7)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            borderTop: "1px solid rgba(255, 255, 255, 0.8)",
+            borderRight: "1px solid rgba(255, 255, 255, 0.5)",
+            borderBottom: "1px solid rgba(255, 255, 255, 0.5)",
+            boxShadow: isDragging
+              ? "0 8px 32px rgba(0, 0, 0, 0.2)"
+              : "0 4px 16px rgba(0, 0, 0, 0.1)",
           }}
         />
+
+        {/* Connection indicator - subtle dot */}
+        {!isConnected && (
+          <span
+            style={{
+              position: "absolute",
+              top: -3,
+              right: -3,
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: "#f59e0b",
+              border: "2px solid white",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+            }}
+          />
+        )}
+      </div>
+
+      {/* Bottom row: hint text */}
+      {showHint && (
+        <div
+          style={{
+            height: HINT_ROW_HEIGHT,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingLeft: 20, // Offset for grip handle
+            fontFamily:
+              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            fontSize: 10,
+            color: "rgba(0, 0, 0, 0.4)",
+            letterSpacing: "-0.01em",
+            transition: "opacity 0.3s",
+          }}
+        >
+          {modKey}K for commands
+        </div>
       )}
     </div>,
     portalRoot

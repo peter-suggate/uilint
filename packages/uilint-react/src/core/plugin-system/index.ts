@@ -18,6 +18,7 @@ export type {
   IssueSeverity,
   RuleMeta,
   PluginMeta,
+  ToolbarAction,
 } from "./types";
 
 // Registry

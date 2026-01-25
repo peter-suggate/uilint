@@ -6,11 +6,98 @@
  * for vision-based analysis of UI issues.
  */
 
-import type { Plugin, PluginServices, IssueContribution } from "../../core/plugin-system/types";
+import React from "react";
+import type { Plugin, PluginServices, IssueContribution, ToolbarAction } from "../../core/plugin-system/types";
 import { visionCommands } from "./commands";
 import type { VisionSlice } from "./slice";
-import { createVisionSlice, defaultVisionState } from "./slice";
+import { createVisionSlice, defaultVisionState, createTriggerVisionAnalysis } from "./slice";
 import type { VisionIssue, VisionErrorInfo, VisionStage, ScreenshotCapture } from "./types";
+
+// Camera icon for full page capture
+const CameraIcon = React.createElement(
+  "svg",
+  {
+    width: "16",
+    height: "16",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2",
+  },
+  React.createElement("path", {
+    d: "M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z",
+  }),
+  React.createElement("circle", { cx: "12", cy: "13", r: "4" })
+);
+
+// Crop/region icon
+const CropIcon = React.createElement(
+  "svg",
+  {
+    width: "16",
+    height: "16",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2",
+  },
+  React.createElement("path", { d: "M6.13 1L6 16a2 2 0 0 0 2 2h15" }),
+  React.createElement("path", { d: "M1 6.13L16 6a2 2 0 0 1 2 2v15" })
+);
+
+/**
+ * Toolbar actions for the vision plugin
+ * These appear in the FloatingIcon when vision capability is available
+ */
+const visionToolbarActions: ToolbarAction[] = [
+  {
+    id: "vision:capture-full-page",
+    icon: CameraIcon,
+    tooltip: "Capture Full Page",
+    priority: 100,
+    isVisible: (state: unknown) => {
+      const s = state as { visionAvailable?: boolean };
+      return s.visionAvailable === true;
+    },
+    onClick: async (services: PluginServices) => {
+      const state = services.getState<{
+        setCaptureMode: (mode: "full" | "region") => void;
+        setRegionSelectionActive: (active: boolean) => void;
+        setSelectedRegion: (region: null) => void;
+        triggerVisionAnalysis: () => Promise<void>;
+      }>();
+
+      // Set to full page mode and trigger analysis
+      state.setCaptureMode("full");
+      state.setRegionSelectionActive(false);
+      state.setSelectedRegion(null);
+
+      await state.triggerVisionAnalysis();
+    },
+  },
+  {
+    id: "vision:capture-region",
+    icon: CropIcon,
+    tooltip: "Capture Region",
+    priority: 90,
+    isVisible: (state: unknown) => {
+      const s = state as { visionAvailable?: boolean };
+      return s.visionAvailable === true;
+    },
+    onClick: (services: PluginServices) => {
+      const state = services.getState<{
+        setCaptureMode: (mode: "full" | "region") => void;
+        setRegionSelectionActive: (active: boolean) => void;
+        setSelectedRegion: (region: null) => void;
+      }>();
+
+      // Enter region selection mode
+      state.setCaptureMode("region");
+      state.setRegionSelectionActive(true);
+      state.setSelectedRegion(null);
+    },
+  },
+];
 
 /**
  * Vision plugin definition
@@ -47,6 +134,11 @@ export const visionPlugin: Plugin<VisionSlice> = {
    * Commands contributed by this plugin
    */
   commands: visionCommands,
+
+  /**
+   * Toolbar actions contributed by this plugin (shown in FloatingIcon)
+   */
+  toolbarActions: visionToolbarActions,
 
   /**
    * Inspector panels contributed by this plugin
@@ -123,6 +215,10 @@ export const visionPlugin: Plugin<VisionSlice> = {
   initialize: (services: PluginServices) => {
     const { websocket } = services;
 
+    // Wire up the triggerVisionAnalysis function with services
+    const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
+    services.setState<Partial<VisionSlice>>({ triggerVisionAnalysis });
+
     // Subscribe to vision:result messages
     const unsubResult = websocket.on("vision:result", (message) => {
       const data = message as {
@@ -194,10 +290,36 @@ export const visionPlugin: Plugin<VisionSlice> = {
       state.setVisionProgressPhase(data.phase);
     });
 
+    // Subscribe to vision:status messages (response to vision:check)
+    const unsubStatus = websocket.on("vision:status", (message) => {
+      const data = message as { available: boolean; model?: string };
+      const state = services.getState<{
+        setVisionAvailable: (available: boolean) => void;
+      }>();
+      state.setVisionAvailable(data.available);
+    });
+
+    // Subscribe to WebSocket connection changes
+    const unsubConnection = websocket.onConnectionChange((connected) => {
+      const state = services.getState<{
+        setVisionAvailable: (available: boolean) => void;
+      }>();
+
+      if (connected) {
+        // Send vision:check message to query LLM availability
+        websocket.send({ type: "vision:check" });
+      } else {
+        // Set vision unavailable on disconnect
+        state.setVisionAvailable(false);
+      }
+    });
+
     // Return cleanup function
     return () => {
       unsubResult();
       unsubProgress();
+      unsubStatus();
+      unsubConnection();
     };
   },
 };

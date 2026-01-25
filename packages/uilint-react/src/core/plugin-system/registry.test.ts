@@ -15,6 +15,7 @@ import type {
   InspectorPanel,
   RuleUIContribution,
   RuleMeta,
+  ToolbarAction,
 } from "./types";
 
 // ============================================================================
@@ -98,6 +99,21 @@ function createMockInspectorPanel(
     id: "test-panel",
     title: "Test Panel",
     component: () => null,
+    ...overrides,
+  };
+}
+
+/**
+ * Create a mock toolbar action for testing
+ */
+function createMockToolbarAction(
+  overrides: Partial<ToolbarAction> = {}
+): ToolbarAction {
+  return {
+    id: "test-action",
+    icon: "camera",
+    tooltip: "Test Action",
+    onClick: vi.fn(),
     ...overrides,
   };
 }
@@ -1124,6 +1140,107 @@ describe("PluginRegistry", () => {
       await registry.initializeAll(services);
 
       expect(registry.getServices()).toBe(services);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // getAllToolbarActions() Tests
+  // --------------------------------------------------------------------------
+
+  describe("getAllToolbarActions()", () => {
+    it("returns empty array when no plugins have toolbar actions", () => {
+      const plugin = createMockPlugin({ id: "no-actions" });
+      registry.register(plugin);
+
+      const actions = registry.getAllToolbarActions();
+
+      expect(actions).toEqual([]);
+    });
+
+    it("aggregates actions from multiple plugins", () => {
+      const action1 = createMockToolbarAction({ id: "action-1" });
+      const action2 = createMockToolbarAction({ id: "action-2" });
+      const action3 = createMockToolbarAction({ id: "action-3" });
+
+      const plugin1 = createMockPlugin({
+        id: "p1",
+        toolbarActions: [action1, action2],
+      });
+      const plugin2 = createMockPlugin({
+        id: "p2",
+        toolbarActions: [action3],
+      });
+      const plugin3 = createMockPlugin({ id: "p3" }); // No toolbar actions
+
+      registry.register(plugin1);
+      registry.register(plugin2);
+      registry.register(plugin3);
+
+      const actions = registry.getAllToolbarActions();
+
+      expect(actions).toHaveLength(3);
+      expect(actions).toContain(action1);
+      expect(actions).toContain(action2);
+      expect(actions).toContain(action3);
+    });
+
+    it("sorts by priority (higher first)", () => {
+      const lowPriority = createMockToolbarAction({
+        id: "low",
+        priority: 10,
+      });
+      const highPriority = createMockToolbarAction({
+        id: "high",
+        priority: 100,
+      });
+      const mediumPriority = createMockToolbarAction({
+        id: "medium",
+        priority: 50,
+      });
+      const noPriority = createMockToolbarAction({ id: "none" }); // defaults to 0
+
+      const plugin = createMockPlugin({
+        id: "p1",
+        toolbarActions: [lowPriority, highPriority, mediumPriority, noPriority],
+      });
+
+      registry.register(plugin);
+
+      const actions = registry.getAllToolbarActions();
+
+      expect(actions[0].id).toBe("high");
+      expect(actions[1].id).toBe("medium");
+      expect(actions[2].id).toBe("low");
+      expect(actions[3].id).toBe("none");
+    });
+
+    it("includes actions with isVisible predicate", () => {
+      const visibleAction = createMockToolbarAction({
+        id: "visible",
+        isVisible: () => true,
+      });
+      const hiddenAction = createMockToolbarAction({
+        id: "hidden",
+        isVisible: () => false,
+      });
+      const noPredicateAction = createMockToolbarAction({
+        id: "no-predicate",
+      });
+
+      const plugin = createMockPlugin({
+        id: "p1",
+        toolbarActions: [visibleAction, hiddenAction, noPredicateAction],
+      });
+
+      registry.register(plugin);
+
+      const actions = registry.getAllToolbarActions();
+
+      // All actions should be returned - filtering by isVisible is done at render time
+      expect(actions).toHaveLength(3);
+      expect(actions).toContain(visibleAction);
+      expect(actions).toContain(hiddenAction);
+      expect(actions).toContain(noPredicateAction);
     });
   });
 });
