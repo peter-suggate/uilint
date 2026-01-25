@@ -1154,3 +1154,282 @@ describe("Vision Plugin - localStorage Settings", () => {
     });
   });
 });
+
+// ============================================================================
+// fetchPersistedScreenshots Tests
+// ============================================================================
+
+describe("Vision Plugin - fetchPersistedScreenshots", () => {
+  let originalFetch: typeof fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    vi.stubGlobal("window", {});
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn(),
+      setItem: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.unstubAllGlobals();
+  });
+
+  it("does nothing if already loading", async () => {
+    const set = vi.fn();
+    const mockState: VisionSlice = {
+      ...defaultVisionState,
+      loadingPersistedScreenshots: true,
+      persistedScreenshotsFetched: false,
+    } as VisionSlice;
+
+    const get = vi.fn(() => mockState);
+    const slice = createVisionSlice(set, get);
+
+    await slice.fetchPersistedScreenshots();
+
+    // Should not call set since already loading
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it("does nothing if already fetched", async () => {
+    const set = vi.fn();
+    const mockState: VisionSlice = {
+      ...defaultVisionState,
+      loadingPersistedScreenshots: false,
+      persistedScreenshotsFetched: true,
+    } as VisionSlice;
+
+    const get = vi.fn(() => mockState);
+    const slice = createVisionSlice(set, get);
+
+    await slice.fetchPersistedScreenshots();
+
+    // Should not call set since already fetched
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it("sets loading state and fetches screenshots", async () => {
+    const mockScreenshots = [
+      {
+        filename: "uilint-test-2024-01-15.png",
+        metadata: {
+          route: "/home",
+          timestamp: 1705334400000,
+          issues: [{ elementText: "Button", message: "Issue", category: "spacing", severity: "warning" }],
+        },
+      },
+    ];
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ screenshots: mockScreenshots }),
+    });
+
+    const setCalls: Array<Partial<VisionSlice>> = [];
+    const set = vi.fn((partial: Partial<VisionSlice>) => {
+      setCalls.push(partial);
+    });
+
+    let callCount = 0;
+    const get = vi.fn(() => {
+      // Simulate state changes
+      if (callCount === 0) {
+        callCount++;
+        return {
+          ...defaultVisionState,
+          loadingPersistedScreenshots: false,
+          persistedScreenshotsFetched: false,
+        } as VisionSlice;
+      }
+      // After loading starts
+      return {
+        ...defaultVisionState,
+        loadingPersistedScreenshots: true,
+        persistedScreenshotsFetched: false,
+        screenshotHistory: new Map(),
+        visionIssuesCache: new Map(),
+      } as VisionSlice;
+    });
+
+    const slice = createVisionSlice(set, get);
+
+    await slice.fetchPersistedScreenshots();
+
+    // Should have set loading to true first
+    expect(setCalls[0]).toEqual({ loadingPersistedScreenshots: true });
+
+    // Should have updated history and cache
+    const historyUpdate = setCalls.find((c) => c.screenshotHistory !== undefined);
+    expect(historyUpdate).toBeDefined();
+    expect(historyUpdate?.screenshotHistory?.size).toBe(1);
+
+    // Should have set loading to false and fetched to true at end
+    const finalUpdate = setCalls.find((c) => c.persistedScreenshotsFetched === true);
+    expect(finalUpdate).toBeDefined();
+    expect(finalUpdate?.loadingPersistedScreenshots).toBe(false);
+  });
+
+  it("handles fetch error gracefully", async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
+
+    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const setCalls: Array<Partial<VisionSlice>> = [];
+    const set = vi.fn((partial: Partial<VisionSlice>) => {
+      setCalls.push(partial);
+    });
+
+    const get = vi.fn(() => ({
+      ...defaultVisionState,
+      loadingPersistedScreenshots: false,
+      persistedScreenshotsFetched: false,
+    } as VisionSlice));
+
+    const slice = createVisionSlice(set, get);
+
+    await slice.fetchPersistedScreenshots();
+
+    // Should still mark as fetched to prevent retries
+    const finalUpdate = setCalls.find((c) => c.persistedScreenshotsFetched !== undefined);
+    expect(finalUpdate?.loadingPersistedScreenshots).toBe(false);
+    expect(finalUpdate?.persistedScreenshotsFetched).toBe(true);
+
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+
+  it("handles non-ok response gracefully", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      statusText: "Not Found",
+    });
+
+    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const setCalls: Array<Partial<VisionSlice>> = [];
+    const set = vi.fn((partial: Partial<VisionSlice>) => {
+      setCalls.push(partial);
+    });
+
+    const get = vi.fn(() => ({
+      ...defaultVisionState,
+      loadingPersistedScreenshots: false,
+      persistedScreenshotsFetched: false,
+    } as VisionSlice));
+
+    const slice = createVisionSlice(set, get);
+
+    await slice.fetchPersistedScreenshots();
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      "[Vision Plugin] Failed to fetch screenshots:",
+      "Not Found"
+    );
+
+    consoleSpy.mockRestore();
+  });
+
+  it("handles empty screenshots array", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ screenshots: [] }),
+    });
+
+    const setCalls: Array<Partial<VisionSlice>> = [];
+    const set = vi.fn((partial: Partial<VisionSlice>) => {
+      setCalls.push(partial);
+    });
+
+    const get = vi.fn(() => ({
+      ...defaultVisionState,
+      loadingPersistedScreenshots: false,
+      persistedScreenshotsFetched: false,
+    } as VisionSlice));
+
+    const slice = createVisionSlice(set, get);
+
+    await slice.fetchPersistedScreenshots();
+
+    // Should not update history when no screenshots
+    const historyUpdate = setCalls.find((c) => c.screenshotHistory !== undefined);
+    expect(historyUpdate).toBeUndefined();
+  });
+
+  it("does not overwrite existing screenshots with data URLs", async () => {
+    const mockScreenshots = [
+      {
+        filename: "existing-capture.png",
+        metadata: { route: "/test", timestamp: Date.now() },
+      },
+    ];
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ screenshots: mockScreenshots }),
+    });
+
+    const existingCapture: ScreenshotCapture = {
+      id: "capture_existing-capture",
+      route: "/test",
+      timestamp: Date.now(),
+      type: "full",
+      dataUrl: "data:image/png;base64,existingData", // Has dataUrl
+    };
+
+    const setCalls: Array<Partial<VisionSlice>> = [];
+    const set = vi.fn((partial: Partial<VisionSlice>) => {
+      setCalls.push(partial);
+    });
+
+    let callCount = 0;
+    const get = vi.fn(() => {
+      if (callCount === 0) {
+        callCount++;
+        return {
+          ...defaultVisionState,
+          loadingPersistedScreenshots: false,
+          persistedScreenshotsFetched: false,
+        } as VisionSlice;
+      }
+      return {
+        ...defaultVisionState,
+        loadingPersistedScreenshots: true,
+        persistedScreenshotsFetched: false,
+        screenshotHistory: new Map([["capture_existing-capture", existingCapture]]),
+        visionIssuesCache: new Map(),
+      } as VisionSlice;
+    });
+
+    const slice = createVisionSlice(set, get);
+
+    await slice.fetchPersistedScreenshots();
+
+    // Should not overwrite the existing capture
+    const historyUpdate = setCalls.find((c) => c.screenshotHistory !== undefined);
+    if (historyUpdate?.screenshotHistory) {
+      const capture = historyUpdate.screenshotHistory.get("capture_existing-capture");
+      expect(capture?.dataUrl).toBe("data:image/png;base64,existingData");
+    }
+  });
+});
+
+// ============================================================================
+// triggerVisionAnalysis Tests
+// ============================================================================
+
+describe("Vision Plugin - triggerVisionAnalysis", () => {
+  it("logs warning when called without integration", async () => {
+    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { state } = createMockSlice();
+
+    await state.triggerVisionAnalysis();
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      "[Vision Plugin] triggerVisionAnalysis called without integration"
+    );
+
+    consoleSpy.mockRestore();
+  });
+});

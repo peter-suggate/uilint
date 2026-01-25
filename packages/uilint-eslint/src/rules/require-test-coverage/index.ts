@@ -95,6 +95,8 @@ type Options = [
     relaxedThreshold?: number;
     /** Severity for chunk coverage. Default: "warn" */
     chunkSeverity?: SeverityLevel;
+    /** Minimum statements in file to require coverage. Default: 5 */
+    minStatements?: number;
   }
 ];
 
@@ -242,6 +244,14 @@ export const meta = defineRuleMeta({
         defaultValue: 50,
         description:
           "Threshold for components/handlers when focusNonReact is enabled",
+      },
+      {
+        key: "minStatements",
+        label: "Minimum statements for coverage",
+        type: "number",
+        defaultValue: 5,
+        description:
+          "Files with fewer statements are exempt from coverage requirements",
       },
     ],
   },
@@ -703,6 +713,7 @@ export default createRule<Options, MessageIds>({
       focusNonReact: false,
       relaxedThreshold: 50,
       chunkSeverity: "warn",
+      minStatements: 5,
     },
   ],
   create(context) {
@@ -736,6 +747,7 @@ export default createRule<Options, MessageIds>({
     const focusNonReact = options.focusNonReact ?? false;
     const relaxedThreshold = options.relaxedThreshold ?? 50;
     const chunkSeverity = options.chunkSeverity ?? "warn";
+    const minStatements = options.minStatements ?? 5;
 
     const filename = context.filename || context.getFilename();
     const projectRoot = findProjectRoot(dirname(filename));
@@ -803,6 +815,12 @@ export default createRule<Options, MessageIds>({
         if (!fileCoverage) {
           // File is not in coverage report - this is OK if coverage data exists
           // but this specific file wasn't covered (different from no coverage data at all)
+          return;
+        }
+
+        // Skip small files (fewer statements than minStatements threshold)
+        const statementCount = Object.keys(fileCoverage.s).length;
+        if (statementCount < minStatements) {
           return;
         }
 
