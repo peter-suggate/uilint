@@ -8,7 +8,7 @@ import type { PluginServices } from "../../core/plugin-system/types";
 import type { Issue } from "../../ui/types";
 import type { AvailableRule } from "./types";
 
-/** Scan status */
+/** Scan status - single source of truth for scanning state */
 export type ScanStatus = "idle" | "scanning" | "complete" | "error";
 
 /**
@@ -21,9 +21,7 @@ export interface ESLintSlice {
   scannedDataLocs: Set<string>;
   /** File paths that have been requested for linting (to avoid duplicates) */
   requestedFiles: Set<string>;
-  /** Whether live scanning is enabled */
-  liveScanEnabled: boolean;
-  /** Current scan status */
+  /** Current scan status - "scanning" means live scan is active */
   scanStatus: ScanStatus;
   /** Available rules from server */
   availableRules: AvailableRule[];
@@ -37,10 +35,10 @@ export interface ESLintSlice {
  * ESLint plugin actions
  */
 export interface ESLintActions {
-  /** Enable live scanning */
-  enableLiveScan: () => void;
-  /** Disable live scanning and clear results */
-  disableLiveScan: () => void;
+  /** Start live scanning */
+  startScanning: () => void;
+  /** Stop scanning and clear results */
+  stopScanning: () => void;
   /** Set issues for a dataLoc */
   setIssues: (dataLoc: string, issues: Issue[]) => void;
   /** Clear all issues */
@@ -63,14 +61,20 @@ export interface ESLintActions {
 export type ESLintPluginSlice = ESLintSlice & ESLintActions;
 
 /**
- * Initial state
+ * Helper to check if scanning is active
+ */
+export function isScanning(status: ScanStatus): boolean {
+  return status === "scanning";
+}
+
+/**
+ * Initial state - scanning by default
  */
 export const initialESLintState: ESLintSlice = {
   issues: new Map(),
   scannedDataLocs: new Set(),
   requestedFiles: new Set(),
-  liveScanEnabled: false,
-  scanStatus: "idle",
+  scanStatus: "scanning", // Start scanning by default
   availableRules: [],
   disabledRules: new Set(),
   workspaceRoot: null,
@@ -92,16 +96,12 @@ export function createESLintActions(
   setSlice: (partial: Partial<ESLintSlice>) => void
 ): ESLintActions {
   return {
-    enableLiveScan: () => {
-      setSlice({
-        liveScanEnabled: true,
-        scanStatus: "scanning",
-      });
+    startScanning: () => {
+      setSlice({ scanStatus: "scanning" });
     },
 
-    disableLiveScan: () => {
+    stopScanning: () => {
       setSlice({
-        liveScanEnabled: false,
         scanStatus: "idle",
         issues: new Map(),
         scannedDataLocs: new Set(),

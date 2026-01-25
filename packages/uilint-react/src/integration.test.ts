@@ -222,14 +222,17 @@ describe("Integration: Full ESLint Detection Flow", () => {
     services = createMockPluginServices({
       websocket: { isConnected: true },
       initialState: {
-        issues: new Map(),
-        scannedDataLocs: new Set(),
-        requestedFiles: new Set(),
-        liveScanEnabled: true,
-        scanStatus: "scanning",
-        availableRules: [],
-        disabledRules: new Set(),
-        workspaceRoot: null,
+        plugins: {
+          eslint: {
+            issues: new Map(),
+            scannedDataLocs: new Set(),
+            requestedFiles: new Set(),
+            scanStatus: "scanning",
+            availableRules: [],
+            disabledRules: new Set(),
+            workspaceRoot: null,
+          },
+        },
         appRoot: "/test/app",
         serverCwd: "/test",
       },
@@ -389,14 +392,17 @@ describe("Integration: Full ESLint Detection Flow", () => {
     services = createMockPluginServices({
       websocket: { isConnected: true },
       initialState: {
-        issues: new Map([
-          ["app/page.tsx:10:5", [{ id: "issue-1", message: "Test issue" }]],
-          ["app/page.tsx:20:3", [{ id: "issue-2", message: "Another issue" }]],
-        ]),
-        scannedDataLocs: new Set(),
-        requestedFiles: new Set(["app/page.tsx"]),
-        liveScanEnabled: true,
-        scanStatus: "scanning",
+        plugins: {
+          eslint: {
+            issues: new Map([
+              ["app/page.tsx:10:5", [{ id: "issue-1", message: "Test issue" }]],
+              ["app/page.tsx:20:3", [{ id: "issue-2", message: "Another issue" }]],
+            ]),
+            scannedDataLocs: new Set(),
+            requestedFiles: new Set(["app/page.tsx"]),
+            scanStatus: "scanning",
+          },
+        },
       },
     });
 

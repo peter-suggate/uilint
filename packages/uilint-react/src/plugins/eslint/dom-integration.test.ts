@@ -18,6 +18,28 @@ import type { MockPluginServices } from "../../__tests__/test-utils";
 import type { ScannedElementInfo } from "../../core/plugin-system/types";
 
 /**
+ * Helper to create ESLint plugin state wrapped in the expected structure
+ */
+function createESLintState(overrides?: {
+  scanStatus?: "idle" | "scanning" | "complete" | "error";
+  requestedFiles?: Set<string>;
+}) {
+  return {
+    plugins: {
+      eslint: {
+        issues: new Map(),
+        scannedDataLocs: new Set(),
+        requestedFiles: overrides?.requestedFiles ?? new Set(),
+        scanStatus: overrides?.scanStatus ?? "scanning",
+        availableRules: [],
+        disabledRules: new Set(),
+        workspaceRoot: null,
+      },
+    },
+  };
+}
+
+/**
  * Create a mock scanned element without relying on DOM APIs
  * (DOM APIs are not available in Node.js test environment)
  */
@@ -53,13 +75,7 @@ describe("ESLint Plugin DOM Integration", () => {
   beforeEach(() => {
     services = createMockPluginServices({
       websocket: { isConnected: true },
-      initialState: {
-        issues: new Map(),
-        scannedDataLocs: new Set(),
-        requestedFiles: new Set(),
-        liveScanEnabled: true,
-        scanStatus: "scanning",
-      },
+      initialState: createESLintState(),
     });
   });
 
@@ -160,13 +176,9 @@ describe("ESLint Plugin DOM Integration", () => {
       // Set up state with already-requested file
       services = createMockPluginServices({
         websocket: { isConnected: true },
-        initialState: {
-          issues: new Map(),
-          scannedDataLocs: new Set(),
-          requestedFiles: new Set(["app/page.tsx"]), // Already requested
-          liveScanEnabled: true,
-          scanStatus: "scanning",
-        },
+        initialState: createESLintState({
+          requestedFiles: new Set(["app/page.tsx"]),
+        }),
       });
 
       cleanup = eslintPlugin.initialize?.(services);
@@ -192,13 +204,9 @@ describe("ESLint Plugin DOM Integration", () => {
     it("sends requests for new files but not already-requested ones", async () => {
       services = createMockPluginServices({
         websocket: { isConnected: true },
-        initialState: {
-          issues: new Map(),
-          scannedDataLocs: new Set(),
-          requestedFiles: new Set(["app/page.tsx"]), // Already requested
-          liveScanEnabled: true,
-          scanStatus: "scanning",
-        },
+        initialState: createESLintState({
+          requestedFiles: new Set(["app/page.tsx"]),
+        }),
       });
 
       cleanup = eslintPlugin.initialize?.(services);
@@ -270,13 +278,7 @@ describe("ESLint Plugin DOM Integration", () => {
     it("does not send requests when WebSocket is not connected", async () => {
       services = createMockPluginServices({
         websocket: { isConnected: false },
-        initialState: {
-          issues: new Map(),
-          scannedDataLocs: new Set(),
-          requestedFiles: new Set(),
-          liveScanEnabled: true,
-          scanStatus: "scanning",
-        },
+        initialState: createESLintState(),
       });
 
       cleanup = eslintPlugin.initialize?.(services);
@@ -299,17 +301,11 @@ describe("ESLint Plugin DOM Integration", () => {
     });
   });
 
-  describe("live scan state handling", () => {
-    it("does not send requests when live scan is disabled", async () => {
+  describe("scan status handling", () => {
+    it("does not send requests when scan status is idle", async () => {
       services = createMockPluginServices({
         websocket: { isConnected: true },
-        initialState: {
-          issues: new Map(),
-          scannedDataLocs: new Set(),
-          requestedFiles: new Set(),
-          liveScanEnabled: false, // Disabled
-          scanStatus: "idle",
-        },
+        initialState: createESLintState({ scanStatus: "idle" }),
       });
 
       cleanup = eslintPlugin.initialize?.(services);
@@ -322,7 +318,7 @@ describe("ESLint Plugin DOM Integration", () => {
 
       await flushPromises();
 
-      // Should not send any lint:file requests when live scan is off
+      // Should not send any lint:file requests when scanning is not active
       const sendCalls = (services.websocket.send as ReturnType<typeof vi.fn>).mock.calls;
       const lintFileCalls = sendCalls.filter(
         (call) => call[0]?.type === "lint:file"

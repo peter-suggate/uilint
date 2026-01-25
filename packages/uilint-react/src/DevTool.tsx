@@ -12,6 +12,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { UILint } from "./ui";
 import { websocket } from "./core/services/websocket";
+import { domObserver } from "./core/services/dom-observer";
 import { initializePlugins } from "./core/store";
 import { pluginRegistry } from "./core/plugin-system/registry";
 import { eslintPlugin } from "./plugins/eslint";
@@ -46,6 +47,7 @@ function isBrowser(): boolean {
  */
 export function DevTool({ enabled = true }: DevToolProps) {
   const [isMounted, setIsMounted] = useState(false);
+  const [isReady, setIsReady] = useState(pluginsInitialized);
   const portalRootRef = useRef<HTMLElement | null>(null);
   const createdPortalRootRef = useRef(false);
 
@@ -95,33 +97,54 @@ export function DevTool({ enabled = true }: DevToolProps) {
   /**
    * Initialize plugins and connect to WebSocket server.
    * This registers the ESLint plugin and sets up message handlers.
+   * IMPORTANT: Must complete before rendering UILint to ensure WebSocket is wired up.
    */
   useEffect(() => {
     if (!isBrowser() || !enabled) return;
     if (!isMounted) return;
 
+    let unsubscribeConnection: (() => void) | null = null;
+
     async function init() {
       // Register and initialize plugins (only once)
       if (!pluginsInitialized) {
         pluginRegistry.register(eslintPlugin);
-        await initializePlugins({ websocket });
+        await initializePlugins({ websocket, domObserver });
         pluginsInitialized = true;
         console.log("[DevTool] Plugins initialized");
       }
 
-      // Connect to WebSocket server
+      // Mark as ready so UI can render
+      setIsReady(true);
+
+      // Connect to WebSocket server first
       websocket.connect();
+
+      // Start DOM observation only after WebSocket connects
+      // This ensures elements are detected when we can actually send lint requests
+      unsubscribeConnection = websocket.onConnectionChange((connected) => {
+        if (connected) {
+          console.log("[DevTool] WebSocket connected, starting DOM observer");
+          domObserver.start();
+        } else {
+          console.log("[DevTool] WebSocket disconnected, stopping DOM observer");
+          domObserver.stop();
+        }
+      });
     }
 
     init();
 
     return () => {
+      unsubscribeConnection?.();
       websocket.disconnect();
+      domObserver.stop();
     };
   }, [enabled, isMounted]);
 
-  // Don't render UI until mounted (prevents hydration mismatch)
-  if (!enabled || !isMounted) return null;
+  // Don't render UI until mounted AND plugins are initialized
+  // This ensures the store is created with the real WebSocket service
+  if (!enabled || !isMounted || !isReady) return null;
 
   return <UILint enabled={enabled} />;
 }

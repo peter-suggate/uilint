@@ -180,12 +180,22 @@ function handleElementsAdded(
   services: PluginServices,
   elements: ScannedElementInfo[]
 ): void {
-  // Get current state
-  const state = services.getState<ESLintPluginSlice>();
+  // Get current state - ESLint slice is at plugins.eslint
+  const fullState = services.getState<{ plugins: { eslint?: ESLintPluginSlice } }>();
+  const state = fullState.plugins?.eslint;
 
-  // Check if live scan is enabled
-  if (!state.liveScanEnabled) {
-    console.log("[ESLint Plugin] Live scan disabled, skipping lint requests");
+  console.log("[ESLint Plugin] handleElementsAdded called with", elements.length, "elements");
+  console.log("[ESLint Plugin] State check - scanStatus:", state?.scanStatus, "wsConnected:", services.websocket.isConnected);
+
+  // Check if state exists
+  if (!state) {
+    console.warn("[ESLint Plugin] ESLint slice not found in state");
+    return;
+  }
+
+  // Check if scanning is active
+  if (state.scanStatus !== "scanning") {
+    console.log("[ESLint Plugin] Scanning not active (status:", state.scanStatus, "), skipping lint requests");
     return;
   }
 
@@ -200,10 +210,11 @@ function handleElementsAdded(
   const filePaths = extractUniqueFilePaths(dataLocs);
 
   if (filePaths.size === 0) {
+    console.log("[ESLint Plugin] No file paths extracted from", elements.length, "elements");
     return;
   }
 
-  console.log("[ESLint Plugin] Detected", elements.length, "elements from", filePaths.size, "unique files");
+  console.log("[ESLint Plugin] Detected", elements.length, "elements from", filePaths.size, "unique files:", Array.from(filePaths).slice(0, 3));
 
   // Get already-requested files from state
   const requestedFiles = state.requestedFiles ?? new Set<string>();
@@ -232,7 +243,11 @@ function handleElementsAdded(
     for (const filePath of newFiles) {
       updatedRequestedFiles.add(filePath);
     }
+    // Update the eslint slice state - need to use the full path
     services.setState({ requestedFiles: updatedRequestedFiles });
+    console.log("[ESLint Plugin] Updated requestedFiles with", newFiles.length, "new files");
+  } else {
+    console.log("[ESLint Plugin] All files already requested, skipping");
   }
 }
 

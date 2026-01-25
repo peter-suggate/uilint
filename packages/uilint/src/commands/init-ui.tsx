@@ -126,7 +126,7 @@ function printInstallReport(
   if (failedActions.length > 0) {
     console.log(`\n${pc.bold("Actions failed:")}`);
     for (const a of failedActions) {
-      const action = a.action as Record<string, unknown>;
+      const action = a.action as unknown as Record<string, unknown>;
       const type = String(action.type || "unknown");
       const pathish =
         (typeof action.path === "string" && action.path) ||

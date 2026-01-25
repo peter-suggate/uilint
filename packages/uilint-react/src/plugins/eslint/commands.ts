@@ -5,29 +5,39 @@
  */
 
 import type { Command, PluginServices } from "../../core/plugin-system/types";
+import type { ScanStatus } from "./slice";
 
 /**
- * Toggle live ESLint scanning on/off
+ * Toggle ESLint scanning on/off
  */
-const toggleLiveScanCommand: Command = {
-  id: "eslint:toggle-live-scan",
-  title: "Toggle Live Scan",
-  keywords: ["eslint", "live", "scan", "toggle", "enable", "disable", "start", "stop"],
+const toggleScanCommand: Command = {
+  id: "eslint:toggle-scan",
+  title: "Toggle ESLint Scan",
+  keywords: ["eslint", "scan", "toggle", "enable", "disable", "start", "stop"],
   category: "eslint",
   subtitle: "Enable or disable real-time ESLint analysis",
-  icon: undefined, // Will be set dynamically based on state
-  execute: async (services: PluginServices) => {
+  icon: undefined,
+  execute: (services: PluginServices) => {
     const state = services.getState<{
-      liveScanEnabled: boolean;
-      enableLiveScan: (hideNodeModules: boolean) => Promise<void>;
-      disableLiveScan: () => void;
-      settings: { hideNodeModules: boolean };
+      plugins: {
+        eslint?: {
+          scanStatus: ScanStatus;
+          startScanning: () => void;
+          stopScanning: () => void;
+        };
+      };
     }>();
 
-    if (state.liveScanEnabled) {
-      state.disableLiveScan();
+    const eslint = state.plugins.eslint;
+    if (!eslint) {
+      console.warn("[ESLint Command] ESLint plugin slice not found");
+      return;
+    }
+
+    if (eslint.scanStatus === "scanning") {
+      eslint.stopScanning();
     } else {
-      await state.enableLiveScan(state.settings.hideNodeModules);
+      eslint.startScanning();
     }
 
     services.closeCommandPalette();
@@ -53,26 +63,23 @@ const openFixesInspectorCommand: Command = {
   },
   isAvailable: (state: unknown) => {
     const s = state as {
-      liveScanEnabled?: boolean;
-      elementIssuesCache?: Map<string, { issues: unknown[] }>;
+      plugins?: {
+        eslint?: {
+          scanStatus?: ScanStatus;
+          issues?: Map<string, unknown[]>;
+        };
+      };
     };
-    // Available when live scan is enabled and there are issues
-    if (!s.liveScanEnabled) return false;
-    if (!s.elementIssuesCache) return false;
-
-    let hasIssues = false;
-    s.elementIssuesCache.forEach((cached) => {
-      if (cached.issues && cached.issues.length > 0) {
-        hasIssues = true;
-      }
-    });
-
-    return hasIssues;
+    const eslint = s.plugins?.eslint;
+    // Available when scanning and there are issues
+    if (eslint?.scanStatus !== "scanning") return false;
+    if (!eslint?.issues) return false;
+    return eslint.issues.size > 0;
   },
 };
 
 /**
- * Start a fresh ESLint scan of the current page
+ * Start ESLint scan
  */
 const startScanCommand: Command = {
   id: "eslint:start-scan",
@@ -80,74 +87,96 @@ const startScanCommand: Command = {
   keywords: ["eslint", "scan", "start", "analyze", "lint", "check"],
   category: "eslint",
   subtitle: "Scan all elements on the current page",
-  execute: async (services: PluginServices) => {
+  execute: (services: PluginServices) => {
     const state = services.getState<{
-      liveScanEnabled: boolean;
-      enableLiveScan: (hideNodeModules: boolean) => Promise<void>;
-      settings: { hideNodeModules: boolean };
+      plugins: {
+        eslint?: {
+          scanStatus: ScanStatus;
+          startScanning: () => void;
+        };
+      };
     }>();
 
-    if (!state.liveScanEnabled) {
-      await state.enableLiveScan(state.settings.hideNodeModules);
+    const eslint = state.plugins.eslint;
+    if (!eslint) {
+      console.warn("[ESLint Command] ESLint plugin slice not found");
+      return;
+    }
+
+    if (eslint.scanStatus !== "scanning") {
+      eslint.startScanning();
     }
 
     services.closeCommandPalette();
   },
   isAvailable: (state: unknown) => {
-    const s = state as { wsConnected?: boolean; liveScanEnabled?: boolean };
-    return s.wsConnected === true && !s.liveScanEnabled;
+    const s = state as { wsConnected?: boolean; plugins?: { eslint?: { scanStatus?: ScanStatus } } };
+    return s.wsConnected === true && s.plugins?.eslint?.scanStatus !== "scanning";
   },
 };
 
 /**
- * Stop the current ESLint scan
+ * Stop ESLint scan
  */
 const stopScanCommand: Command = {
   id: "eslint:stop-scan",
   title: "Stop ESLint Scan",
   keywords: ["eslint", "scan", "stop", "disable", "off"],
   category: "eslint",
-  subtitle: "Stop live scanning and clear results",
+  subtitle: "Stop scanning and clear results",
   execute: (services: PluginServices) => {
     const state = services.getState<{
-      disableLiveScan: () => void;
+      plugins: {
+        eslint?: {
+          stopScanning: () => void;
+        };
+      };
     }>();
 
-    state.disableLiveScan();
+    const eslint = state.plugins.eslint;
+    if (!eslint) {
+      console.warn("[ESLint Command] ESLint plugin slice not found");
+      return;
+    }
+
+    eslint.stopScanning();
     services.closeCommandPalette();
   },
   isAvailable: (state: unknown) => {
-    const s = state as { liveScanEnabled?: boolean };
-    return s.liveScanEnabled === true;
+    const s = state as { plugins?: { eslint?: { scanStatus?: ScanStatus } } };
+    return s.plugins?.eslint?.scanStatus === "scanning";
   },
 };
 
 /**
- * Clear the ESLint cache and re-scan
+ * Clear ESLint results and re-scan
  */
-const clearCacheCommand: Command = {
-  id: "eslint:clear-cache",
-  title: "Clear ESLint Cache",
-  keywords: ["eslint", "cache", "clear", "refresh", "reset"],
+const clearAndRescanCommand: Command = {
+  id: "eslint:clear-rescan",
+  title: "Clear & Rescan",
+  keywords: ["eslint", "cache", "clear", "refresh", "reset", "rescan"],
   category: "eslint",
-  subtitle: "Clear cached results and re-scan",
-  execute: async (services: PluginServices) => {
+  subtitle: "Clear cached results and re-scan all files",
+  execute: (services: PluginServices) => {
     const state = services.getState<{
-      invalidateCache: () => void;
-      liveScanEnabled: boolean;
-      enableLiveScan: (hideNodeModules: boolean) => Promise<void>;
-      disableLiveScan: () => void;
-      settings: { hideNodeModules: boolean };
+      plugins: {
+        eslint?: {
+          scanStatus: ScanStatus;
+          clearIssues: () => void;
+          startScanning: () => void;
+        };
+      };
     }>();
 
-    // Invalidate server cache
-    state.invalidateCache();
-
-    // If live scan is enabled, restart it
-    if (state.liveScanEnabled) {
-      state.disableLiveScan();
-      await state.enableLiveScan(state.settings.hideNodeModules);
+    const eslint = state.plugins.eslint;
+    if (!eslint) {
+      console.warn("[ESLint Command] ESLint plugin slice not found");
+      return;
     }
+
+    // Clear issues and restart scanning
+    eslint.clearIssues();
+    eslint.startScanning();
 
     services.closeCommandPalette();
   },
@@ -161,9 +190,9 @@ const clearCacheCommand: Command = {
  * All ESLint commands exported for the plugin
  */
 export const eslintCommands: Command[] = [
-  toggleLiveScanCommand,
+  toggleScanCommand,
   startScanCommand,
   stopScanCommand,
   openFixesInspectorCommand,
-  clearCacheCommand,
+  clearAndRescanCommand,
 ];

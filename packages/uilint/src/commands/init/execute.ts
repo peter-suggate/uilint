@@ -917,12 +917,13 @@ function normalizePnpmWorkspaceUilintSpecs(
   const pkgJsonPath = join(packagePath, "package.json");
   if (!existsSync(pkgJsonPath)) return packages;
 
-  let pkg: {
+  type PkgJson = {
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
-  } | null = null;
+  };
+  let pkg: PkgJson | null = null;
   try {
-    pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8")) as typeof pkg;
+    pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8")) as PkgJson;
   } catch {
     return packages;
   }

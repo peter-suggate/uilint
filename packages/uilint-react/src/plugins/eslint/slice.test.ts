@@ -8,6 +8,7 @@ import {
   createESLintActions,
   filterByDisabledRules,
   initialESLintState,
+  isScanning,
   type ESLintSlice,
   type ESLintActions,
 } from "./slice";
@@ -66,12 +67,8 @@ describe("initialESLintState", () => {
     expect(initialESLintState.scannedDataLocs.size).toBe(0);
   });
 
-  it("has liveScanEnabled false", () => {
-    expect(initialESLintState.liveScanEnabled).toBe(false);
-  });
-
-  it("has scanStatus idle", () => {
-    expect(initialESLintState.scanStatus).toBe("idle");
+  it("has scanStatus scanning by default", () => {
+    expect(initialESLintState.scanStatus).toBe("scanning");
   });
 
   it("has empty availableRules", () => {
@@ -93,14 +90,31 @@ describe("initialESLintState", () => {
   });
 });
 
+describe("isScanning", () => {
+  it("returns true for scanning status", () => {
+    expect(isScanning("scanning")).toBe(true);
+  });
+
+  it("returns false for idle status", () => {
+    expect(isScanning("idle")).toBe(false);
+  });
+
+  it("returns false for complete status", () => {
+    expect(isScanning("complete")).toBe(false);
+  });
+
+  it("returns false for error status", () => {
+    expect(isScanning("error")).toBe(false);
+  });
+});
+
 describe("createESLintSlice", () => {
   it("returns initial state", () => {
     const services = createMockServices();
     const slice = createESLintSlice(services);
 
     expect(slice.issues.size).toBe(0);
-    expect(slice.liveScanEnabled).toBe(false);
-    expect(slice.scanStatus).toBe("idle");
+    expect(slice.scanStatus).toBe("scanning");
   });
 });
 
@@ -119,23 +133,22 @@ describe("createESLintActions", () => {
     actions = createESLintActions(services, () => slice, setSlice);
   });
 
-  describe("enableLiveScan", () => {
-    it("sets liveScanEnabled to true", () => {
-      actions.enableLiveScan();
+  describe("startScanning", () => {
+    it("sets scanStatus to scanning", () => {
+      slice.scanStatus = "idle";
+      actions.startScanning();
 
       expect(setSlice).toHaveBeenCalledWith({
-        liveScanEnabled: true,
         scanStatus: "scanning",
       });
     });
   });
 
-  describe("disableLiveScan", () => {
-    it("resets state", () => {
-      actions.disableLiveScan();
+  describe("stopScanning", () => {
+    it("resets state to idle", () => {
+      actions.stopScanning();
 
       expect(setSlice).toHaveBeenCalledWith({
-        liveScanEnabled: false,
         scanStatus: "idle",
         issues: expect.any(Map),
         scannedDataLocs: expect.any(Set),
