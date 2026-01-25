@@ -78,7 +78,8 @@ export const visionPlugin: Plugin<VisionSlice> = {
   /**
    * Get issues from the plugin's state for heatmap display
    */
-  getIssues: (state: VisionSlice): IssueContribution => {
+  getIssues: (state: unknown): IssueContribution => {
+    const visionState = state as VisionSlice;
     const issues = new Map<string, Array<{
       id: string;
       message: string;
@@ -89,7 +90,7 @@ export const visionPlugin: Plugin<VisionSlice> = {
     }>>();
 
     // Convert vision issues to plugin issues format
-    for (const [route, visionIssues] of state.visionIssuesCache) {
+    for (const [route, visionIssues] of visionState.visionIssuesCache) {
       for (const issue of visionIssues) {
         if (issue.dataLoc) {
           const existing = issues.get(issue.dataLoc) || [];

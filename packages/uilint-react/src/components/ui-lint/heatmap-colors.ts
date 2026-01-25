@@ -21,9 +21,6 @@ const HEATMAP_COLORS = {
   },
 };
 
-/** @deprecated Use HEATMAP_COLORS instead */
-const HEATMAP_BASE = HEATMAP_COLORS.warn;
-
 /** Minimum opacity for elements with issues */
 const MIN_OPACITY = 0.15;
 
@@ -55,26 +52,6 @@ export function calculateHeatmapOpacity(
 
   // Scale to opacity range
   return MIN_OPACITY + normalized * (MAX_OPACITY - MIN_OPACITY);
-}
-
-/**
- * Get CSS color string for heatmap overlay background
- * @deprecated Use getSeverityColor instead
- */
-export function getHeatmapColor(opacity: number): string {
-  const { l, c, h } = HEATMAP_BASE;
-  return `oklch(${l} ${c} ${h} / ${opacity.toFixed(3)})`;
-}
-
-/**
- * Get border color for heatmap (slightly more saturated and darker)
- * @deprecated Use getSeverityBorderColor instead
- */
-export function getHeatmapBorderColor(opacity: number): string {
-  const { l, c, h } = HEATMAP_BASE;
-  // Increase chroma and decrease lightness for border visibility
-  const borderOpacity = Math.min(opacity + 0.2, 0.8);
-  return `oklch(${l - 0.1} ${c + 0.05} ${h} / ${borderOpacity.toFixed(3)})`;
 }
 
 /**

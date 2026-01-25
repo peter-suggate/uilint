@@ -76,7 +76,8 @@ export class WebSocketServiceImpl implements WebSocketService {
    */
   connect(url?: string): void {
     // SSR guard - WebSocket is not available during server-side rendering
-    if (typeof WebSocket === "undefined") {
+    // Skip check if a custom createWebSocket factory was provided (e.g., in tests)
+    if (typeof WebSocket === "undefined" && !this.options.createWebSocket) {
       console.warn("[WebSocket] WebSocket is not available in this environment");
       return;
     }
@@ -190,12 +191,14 @@ export class WebSocketServiceImpl implements WebSocketService {
     if (!this.ws) return;
 
     this.ws.onopen = () => {
+      console.log(`[WebSocket] Connected to ${this.url}`);
       this.isConnected = true;
       this.reconnectAttempts = 0;
       this.notifyConnectionChange(true);
     };
 
-    this.ws.onclose = () => {
+    this.ws.onclose = (event) => {
+      console.log(`[WebSocket] Disconnected from ${this.url} (code: ${event?.code ?? 'unknown'}, reason: ${event?.reason || 'none'})`);
       this.isConnected = false;
       this.notifyConnectionChange(false);
 
@@ -212,6 +215,8 @@ export class WebSocketServiceImpl implements WebSocketService {
       try {
         const message = JSON.parse(event.data);
         const type = message.type as string | undefined;
+
+        console.log(`[WebSocket] Received message: ${type || 'unknown'}`, message);
 
         if (type) {
           this.dispatch(type, message);

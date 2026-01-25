@@ -126,7 +126,7 @@ function printInstallReport(
   if (failedActions.length > 0) {
     console.log(`\n${pc.bold("Actions failed:")}`);
     for (const a of failedActions) {
-      const action = a.action as Record<string, unknown>;
+      const action = a.action as unknown as Record<string, unknown>;
       const type = String(action.type || "unknown");
       const pathish =
         (typeof action.path === "string" && action.path) ||
@@ -252,15 +252,15 @@ export async function initUI(
   const { waitUntilExit } = render(
     <InstallApp
       projectPromise={projectPromise}
-      onComplete={async (selections, eslintRules, injectionPointConfig, uninstallSelections) => {
+      onComplete={async (selections, eslintRules, injectionPointConfig, removeSelections) => {
         // When user completes selection, proceed with installation
         const project = await projectPromise;
         const choices = selectionsToUserChoices(selections, project, eslintRules, injectionPointConfig);
 
         const hasInstalls = choices.items.length > 0;
-        const hasUninstalls = uninstallSelections && uninstallSelections.length > 0;
+        const hasRemovals = removeSelections && removeSelections.length > 0;
 
-        if (!hasInstalls && !hasUninstalls) {
+        if (!hasInstalls && !hasRemovals) {
           console.log("\nNo changes selected");
           process.exit(0);
         }
@@ -269,17 +269,17 @@ export async function initUI(
         const { createPlan } = await import("./init/plan.js");
         const plan = createPlan(project, choices, { force: options.force });
 
-        // Generate uninstall plan actions
-        if (hasUninstalls && uninstallSelections) {
-          for (const selection of uninstallSelections) {
+        // Generate removal plan actions
+        if (hasRemovals && removeSelections) {
+          for (const selection of removeSelections) {
             if (!selection.selected || selection.targets.length === 0) continue;
             const { installer, targets } = selection;
 
-            // Call planUninstall if the installer supports it
-            if (installer.planUninstall) {
-              const uninstallPlan = installer.planUninstall(targets, project);
-              // Prepend uninstall actions to the plan (uninstall first, then install)
-              plan.actions = [...uninstallPlan.actions, ...plan.actions];
+            // Call planRemove if the installer supports it
+            if (installer.planRemove) {
+              const removePlan = installer.planRemove(targets, project);
+              // Prepend removal actions to the plan (remove first, then install)
+              plan.actions = [...removePlan.actions, ...plan.actions];
             }
           }
         }

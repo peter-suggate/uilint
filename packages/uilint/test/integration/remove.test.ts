@@ -1,7 +1,7 @@
 /**
- * Integration tests for component uninstallation
+ * Integration tests for component removal
  *
- * These tests verify that the uninstall functionality correctly removes
+ * These tests verify that the remove functionality correctly removes
  * UILint components from various project configurations.
  */
 
@@ -74,22 +74,22 @@ async function installFirst(
 }
 
 /**
- * Helper to build uninstall plan from installer selections
+ * Helper to build removal plan from installer selections
  */
-function buildUninstallPlan(
-  uninstallSelections: InstallerSelection[],
+function buildRemovalPlan(
+  removeSelections: InstallerSelection[],
   project: ProjectState
 ): InstallAction[] {
   const actions: InstallAction[] = [];
 
-  for (const selection of uninstallSelections) {
+  for (const selection of removeSelections) {
     if (!selection.selected || selection.targets.length === 0) continue;
     const { installer, targets } = selection;
 
-    // Call planUninstall if the installer supports it
-    if (installer.planUninstall) {
-      const uninstallPlan = installer.planUninstall(targets, project);
-      actions.push(...uninstallPlan.actions);
+    // Call planRemove if the installer supports it
+    if (installer.planRemove) {
+      const removePlan = installer.planRemove(targets, project);
+      actions.push(...removePlan.actions);
     }
   }
 
@@ -97,10 +97,10 @@ function buildUninstallPlan(
 }
 
 // ============================================================================
-// ESLint Uninstallation Tests
+// ESLint Removalation Tests
 // ============================================================================
 
-describe("ESLint uninstallation", () => {
+describe("ESLint removal", () => {
   it("removes uilint rules from eslint.config.mjs", async () => {
     // First install ESLint rules
     const { fixture: f, state } = await installFirst("has-eslint-flat", [
@@ -118,11 +118,11 @@ describe("ESLint uninstallation", () => {
     const eslintInstaller = installers.find((i) => i.id === "eslint");
     expect(eslintInstaller).toBeDefined();
 
-    // Build uninstall selection
+    // Build remove selection
     const pkg = state.packages.find((p) => p.hasUilintRules);
     expect(pkg).toBeDefined();
 
-    const uninstallSelections: InstallerSelection[] = [
+    const removeSelections: InstallerSelection[] = [
       {
         installer: eslintInstaller!,
         targets: [
@@ -137,12 +137,12 @@ describe("ESLint uninstallation", () => {
       },
     ];
 
-    // Build and execute uninstall plan
-    const uninstallActions = buildUninstallPlan(uninstallSelections, state);
-    expect(uninstallActions.length).toBeGreaterThan(0);
+    // Build and execute remove plan
+    const removeActions = buildRemovalPlan(removeSelections, state);
+    expect(removeActions.length).toBeGreaterThan(0);
 
     const result = await execute(
-      { actions: uninstallActions, dependencies: [] },
+      { actions: removeActions, dependencies: [] },
       { dryRun: false, installDependencies: mockInstallDependencies }
     );
 
@@ -152,9 +152,9 @@ describe("ESLint uninstallation", () => {
     expect(fixture.exists(".uilint/rules")).toBe(false);
 
     // Verify ESLint config no longer has uilint rules
-    const configAfterUninstall = fixture.readFile("eslint.config.mjs");
-    expect(configAfterUninstall).not.toContain("uilint/no-arbitrary-tailwind");
-    expect(configAfterUninstall).not.toContain("uilint/consistent-spacing");
+    const configAfterRemoval = fixture.readFile("eslint.config.mjs");
+    expect(configAfterRemoval).not.toContain("uilint/no-arbitrary-tailwind");
+    expect(configAfterRemoval).not.toContain("uilint/consistent-spacing");
   });
 
   it("removes uilint from eslint.config.ts", async () => {
@@ -173,7 +173,7 @@ describe("ESLint uninstallation", () => {
     const eslintInstaller = installers.find((i) => i.id === "eslint");
     const pkg = state.packages.find((p) => p.hasUilintRules);
 
-    const uninstallSelections: InstallerSelection[] = [
+    const removeSelections: InstallerSelection[] = [
       {
         installer: eslintInstaller!,
         targets: [
@@ -188,17 +188,17 @@ describe("ESLint uninstallation", () => {
       },
     ];
 
-    const uninstallActions = buildUninstallPlan(uninstallSelections, state);
+    const removeActions = buildRemovalPlan(removeSelections, state);
     const result = await execute(
-      { actions: uninstallActions, dependencies: [] },
+      { actions: removeActions, dependencies: [] },
       { dryRun: false, installDependencies: mockInstallDependencies }
     );
 
     expect(result.success).toBe(true);
     expect(fixture.exists(".uilint/rules")).toBe(false);
 
-    const configAfterUninstall = fixture.readFile("eslint.config.ts");
-    expect(configAfterUninstall).not.toContain("uilint/");
+    const configAfterRemoval = fixture.readFile("eslint.config.ts");
+    expect(configAfterRemoval).not.toContain("uilint/");
   });
 
   it("dry run does not modify files", async () => {
@@ -211,12 +211,12 @@ describe("ESLint uninstallation", () => {
     const configBefore = fixture.readFile("eslint.config.mjs");
     const rulesExistBefore = fixture.exists(".uilint/rules");
 
-    // Get installers and build uninstall plan
+    // Get installers and build remove plan
     const installers = getAllInstallers();
     const eslintInstaller = installers.find((i) => i.id === "eslint");
     const pkg = state.packages.find((p) => p.hasUilintRules);
 
-    const uninstallSelections: InstallerSelection[] = [
+    const removeSelections: InstallerSelection[] = [
       {
         installer: eslintInstaller!,
         targets: [
@@ -231,11 +231,11 @@ describe("ESLint uninstallation", () => {
       },
     ];
 
-    const uninstallActions = buildUninstallPlan(uninstallSelections, state);
+    const removeActions = buildRemovalPlan(removeSelections, state);
 
     // Execute with dryRun: true
     const result = await execute(
-      { actions: uninstallActions, dependencies: [] },
+      { actions: removeActions, dependencies: [] },
       { dryRun: true, installDependencies: mockInstallDependencies }
     );
 
@@ -249,10 +249,10 @@ describe("ESLint uninstallation", () => {
 });
 
 // ============================================================================
-// Genstyleguide Uninstallation Tests
+// Genstyleguide Removalation Tests
 // ============================================================================
 
-describe("Genstyleguide uninstallation", () => {
+describe("Genstyleguide removal", () => {
   it("removes genstyleguide.md command file", async () => {
     // First install genstyleguide
     const { fixture: f, state } = await installFirst("has-eslint-flat", [
@@ -270,7 +270,7 @@ describe("Genstyleguide uninstallation", () => {
     );
     expect(genstyleguideInstaller).toBeDefined();
 
-    const uninstallSelections: InstallerSelection[] = [
+    const removeSelections: InstallerSelection[] = [
       {
         installer: genstyleguideInstaller!,
         targets: [
@@ -285,11 +285,11 @@ describe("Genstyleguide uninstallation", () => {
       },
     ];
 
-    const uninstallActions = buildUninstallPlan(uninstallSelections, state);
-    expect(uninstallActions.length).toBeGreaterThan(0);
+    const removeActions = buildRemovalPlan(removeSelections, state);
+    expect(removeActions.length).toBeGreaterThan(0);
 
     const result = await execute(
-      { actions: uninstallActions, dependencies: [] },
+      { actions: removeActions, dependencies: [] },
       { dryRun: false, installDependencies: mockInstallDependencies }
     );
 
@@ -299,10 +299,10 @@ describe("Genstyleguide uninstallation", () => {
 });
 
 // ============================================================================
-// Skill Uninstallation Tests
+// Skill Removalation Tests
 // ============================================================================
 
-describe("Skill uninstallation", () => {
+describe("Skill removal", () => {
   it("removes skill directory", async () => {
     // First install skill
     const { fixture: f, state } = await installFirst("has-eslint-flat", [
@@ -318,7 +318,7 @@ describe("Skill uninstallation", () => {
     const skillInstaller = installers.find((i) => i.id === "skill");
     expect(skillInstaller).toBeDefined();
 
-    const uninstallSelections: InstallerSelection[] = [
+    const removeSelections: InstallerSelection[] = [
       {
         installer: skillInstaller!,
         targets: [
@@ -333,11 +333,11 @@ describe("Skill uninstallation", () => {
       },
     ];
 
-    const uninstallActions = buildUninstallPlan(uninstallSelections, state);
-    expect(uninstallActions.length).toBeGreaterThan(0);
+    const removeActions = buildRemovalPlan(removeSelections, state);
+    expect(removeActions.length).toBeGreaterThan(0);
 
     const result = await execute(
-      { actions: uninstallActions, dependencies: [] },
+      { actions: removeActions, dependencies: [] },
       { dryRun: false, installDependencies: mockInstallDependencies }
     );
 
@@ -349,11 +349,11 @@ describe("Skill uninstallation", () => {
 });
 
 // ============================================================================
-// Combined Install + Uninstall Tests
+// Combined Install + Removal Tests
 // ============================================================================
 
-describe("Combined install and uninstall", () => {
-  it("uninstalls one component while installing another", async () => {
+describe("Combined install and remove", () => {
+  it("removes one component while installing another", async () => {
     // First install ESLint
     const { fixture: f, state: stateAfterInstall } = await installFirst(
       "has-eslint-flat",
@@ -365,7 +365,7 @@ describe("Combined install and uninstall", () => {
     expect(fixture.exists(".uilint/rules")).toBe(true);
 
     // Now build a plan that:
-    // 1. Uninstalls ESLint
+    // 1. Removals ESLint
     // 2. Installs genstyleguide
     const installers = getAllInstallers();
     const eslintInstaller = installers.find((i) => i.id === "eslint");
@@ -375,8 +375,8 @@ describe("Combined install and uninstall", () => {
 
     const pkg = stateAfterInstall.packages.find((p) => p.hasUilintRules);
 
-    // Build uninstall actions
-    const uninstallSelections: InstallerSelection[] = [
+    // Build remove actions
+    const removeSelections: InstallerSelection[] = [
       {
         installer: eslintInstaller!,
         targets: [
@@ -391,8 +391,8 @@ describe("Combined install and uninstall", () => {
       },
     ];
 
-    const uninstallActions = buildUninstallPlan(
-      uninstallSelections,
+    const removeActions = buildRemovalPlan(
+      removeSelections,
       stateAfterInstall
     );
 
@@ -403,9 +403,9 @@ describe("Combined install and uninstall", () => {
     const choices = await gatherChoices(stateAfterInstall, {}, prompter);
     const installPlan = createPlan(stateAfterInstall, choices);
 
-    // Combine: uninstall first, then install
+    // Combine: remove first, then install
     const combinedPlan = {
-      actions: [...uninstallActions, ...installPlan.actions],
+      actions: [...removeActions, ...installPlan.actions],
       dependencies: installPlan.dependencies,
     };
 
@@ -423,12 +423,12 @@ describe("Combined install and uninstall", () => {
     expect(fixture.exists(".cursor/commands/genstyleguide.md")).toBe(true);
   });
 
-  it("handles empty uninstall selection gracefully", async () => {
+  it("handles empty remove selection gracefully", async () => {
     fixture = useFixture("has-eslint-flat");
 
-    // Build empty uninstall plan
-    const uninstallActions = buildUninstallPlan([], await analyze(fixture.path));
-    expect(uninstallActions).toEqual([]);
+    // Build empty remove plan
+    const removeActions = buildRemovalPlan([], await analyze(fixture.path));
+    expect(removeActions).toEqual([]);
 
     const result = await execute(
       { actions: [], dependencies: [] },
@@ -443,7 +443,7 @@ describe("Combined install and uninstall", () => {
 // Fully Installed ESLint (no upgrade available) Tests
 // ============================================================================
 
-describe("Fully installed ESLint uninstallation", () => {
+describe("Fully installed ESLint removal", () => {
   it("detects ESLint as installed without upgrade when all rules configured", async () => {
     fixture = useFixture("has-eslint-with-uilint-all-rules");
     const state = await analyze(fixture.path);
@@ -462,7 +462,7 @@ describe("Fully installed ESLint uninstallation", () => {
     expect(target.canUpgrade).toBe(false);
   });
 
-  it("can uninstall fully-installed ESLint (no upgrade available)", async () => {
+  it("can remove fully-installed ESLint (no upgrade available)", async () => {
     fixture = useFixture("has-eslint-with-uilint-all-rules");
     const state = await analyze(fixture.path);
 
@@ -480,8 +480,8 @@ describe("Fully installed ESLint uninstallation", () => {
     const targets = eslintInstaller!.getTargets(state);
     expect(targets[0].canUpgrade).toBe(false);
 
-    // Build uninstall selection
-    const uninstallSelections: InstallerSelection[] = [
+    // Build remove selection
+    const removeSelections: InstallerSelection[] = [
       {
         installer: eslintInstaller!,
         targets: [
@@ -496,21 +496,21 @@ describe("Fully installed ESLint uninstallation", () => {
       },
     ];
 
-    // Build and execute uninstall plan
-    const uninstallActions = buildUninstallPlan(uninstallSelections, state);
-    expect(uninstallActions.length).toBeGreaterThan(0);
+    // Build and execute remove plan
+    const removeActions = buildRemovalPlan(removeSelections, state);
+    expect(removeActions.length).toBeGreaterThan(0);
 
     const result = await execute(
-      { actions: uninstallActions, dependencies: [] },
+      { actions: removeActions, dependencies: [] },
       { dryRun: false, installDependencies: mockInstallDependencies }
     );
 
     expect(result.success).toBe(true);
 
     // Verify ESLint config no longer has uilint rules
-    const configAfterUninstall = fixture.readFile("eslint.config.mjs");
-    expect(configAfterUninstall).not.toContain("uilint/no-arbitrary-tailwind");
-    expect(configAfterUninstall).not.toContain("uilint/semantic");
+    const configAfterRemoval = fixture.readFile("eslint.config.mjs");
+    expect(configAfterRemoval).not.toContain("uilint/no-arbitrary-tailwind");
+    expect(configAfterRemoval).not.toContain("uilint/semantic");
   });
 
   it("shows correct status for fully-installed vs upgradeable ESLint", async () => {
@@ -592,18 +592,18 @@ describe("Overlay installation detection", () => {
 // Error Handling Tests
 // ============================================================================
 
-describe("Uninstall error handling", () => {
+describe("Removal error handling", () => {
   it("succeeds when files are already removed", async () => {
     fixture = useFixture("has-eslint-flat");
     const state = await analyze(fixture.path);
 
-    // Build uninstall plan for non-existent installation
+    // Build remove plan for non-existent installation
     const installers = getAllInstallers();
     const genstyleguideInstaller = installers.find(
       (i) => i.id === "genstyleguide"
     );
 
-    const uninstallSelections: InstallerSelection[] = [
+    const removeSelections: InstallerSelection[] = [
       {
         installer: genstyleguideInstaller!,
         targets: [
@@ -618,11 +618,11 @@ describe("Uninstall error handling", () => {
       },
     ];
 
-    const uninstallActions = buildUninstallPlan(uninstallSelections, state);
+    const removeActions = buildRemovalPlan(removeSelections, state);
 
     // Should succeed even though file doesn't exist
     const result = await execute(
-      { actions: uninstallActions, dependencies: [] },
+      { actions: removeActions, dependencies: [] },
       { dryRun: false, installDependencies: mockInstallDependencies }
     );
 

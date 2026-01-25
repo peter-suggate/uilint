@@ -3,6 +3,8 @@
  */
 
 // Types
+// Note: WebSocketService, DOMObserverService, and ScannedElementInfo are
+// exported from ../services - don't re-export here to avoid ambiguity
 export type {
   Plugin,
   PluginServices,
@@ -11,9 +13,11 @@ export type {
   InspectorPanel,
   InspectorPanelProps,
   RuleUIContribution,
-  RuleDetailProps,
-  IssueInlineProps,
-  FixSuggestion,
+  PluginIssue,
+  IssueContribution,
+  IssueSeverity,
+  RuleMeta,
+  PluginMeta,
 } from "./types";
 
 // Registry

@@ -5,7 +5,7 @@
  * directories, reading files, and cleanup.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync, cpSync, rmSync, renameSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync, cpSync, rmSync, renameSync, realpathSync } from "fs";
 import { join, dirname } from "path";
 import { tmpdir } from "os";
 import { randomUUID } from "crypto";
@@ -70,11 +70,14 @@ export function useFixture(name: string): FixtureContext {
     renameSync(dotCursorPath, realCursorPath);
   }
 
+  // Resolve the real path to handle macOS symlinks (/var -> /private/var)
+  const realTempPath = realpathSync(tempPath);
+
   const context: FixtureContext = {
-    path: tempPath,
+    path: realTempPath,
 
     readFile(relativePath: string): string {
-      const fullPath = join(tempPath, relativePath);
+      const fullPath = join(realTempPath, relativePath);
       if (!existsSync(fullPath)) {
         throw new Error(`File not found: ${relativePath}`);
       }
@@ -82,16 +85,16 @@ export function useFixture(name: string): FixtureContext {
     },
 
     writeFile(relativePath: string, content: string): void {
-      const fullPath = join(tempPath, relativePath);
+      const fullPath = join(realTempPath, relativePath);
       writeFileSync(fullPath, content, "utf-8");
     },
 
     exists(relativePath: string): boolean {
-      return existsSync(join(tempPath, relativePath));
+      return existsSync(join(realTempPath, relativePath));
     },
 
     fileMode(relativePath: string): number {
-      const fullPath = join(tempPath, relativePath);
+      const fullPath = join(realTempPath, relativePath);
       if (!existsSync(fullPath)) {
         throw new Error(`File not found: ${relativePath}`);
       }
@@ -110,8 +113,8 @@ export function useFixture(name: string): FixtureContext {
     },
 
     cleanup(): void {
-      if (existsSync(tempPath)) {
-        rmSync(tempPath, { recursive: true, force: true });
+      if (existsSync(realTempPath)) {
+        rmSync(realTempPath, { recursive: true, force: true });
       }
     },
   };

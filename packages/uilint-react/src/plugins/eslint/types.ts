@@ -124,10 +124,7 @@ export interface SourceLocation {
   columnNumber?: number;
 }
 
-/**
- * Scan status for the auto-scan feature
- */
-export type ScanStatus = "idle" | "scanning" | "paused" | "complete";
+// Note: ScanStatus is defined in slice.ts. Use `import type { ScanStatus } from "./slice"`
 
 /**
  * Default auto-scan settings

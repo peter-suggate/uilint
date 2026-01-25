@@ -286,6 +286,9 @@ export {
   type CoverageStats,
   type JSXCoverageResult,
 } from "./rules/require-test-coverage/lib/jsx-coverage-analyzer.js";
+
+// Re-export oxc-resolver for custom rules that need import resolution
+export { ResolverFactory } from "oxc-resolver";
 `;
 
 const output =

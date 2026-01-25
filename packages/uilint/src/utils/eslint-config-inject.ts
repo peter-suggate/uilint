@@ -1437,11 +1437,11 @@ export async function installEslintPlugin(
   };
 }
 
-export interface UninstallEslintPluginOptions {
+export interface RemoveEslintPluginOptions {
   projectPath: string;
 }
 
-export interface UninstallEslintPluginResult {
+export interface RemoveEslintPluginResult {
   success: boolean;
   error?: string;
   modifiedFiles?: string[];
@@ -1450,14 +1450,14 @@ export interface UninstallEslintPluginResult {
 /**
  * Remove uilint-eslint rules from ESLint config
  *
- * This is a best-effort uninstall that:
+ * This is a best-effort removal that:
  * 1. Removes uilint rule imports
  * 2. Removes uilint config blocks from the flat config array
  * 3. Removes uilint-eslint package import
  */
-export async function uninstallEslintPlugin(
-  options: UninstallEslintPluginOptions
-): Promise<UninstallEslintPluginResult> {
+export async function removeEslintPlugin(
+  options: RemoveEslintPluginOptions
+): Promise<RemoveEslintPluginResult> {
   const { projectPath } = options;
 
   const configPath = findEslintConfigFile(projectPath);

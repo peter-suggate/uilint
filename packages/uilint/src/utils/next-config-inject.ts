@@ -260,11 +260,11 @@ export async function installJsxLocPlugin(
   return { configFile: configFilename, modified: false, modifiedFiles: [] };
 }
 
-export interface UninstallJsxLocPluginOptions {
+export interface RemoveJsxLocPluginOptions {
   projectPath: string;
 }
 
-export interface UninstallJsxLocPluginResult {
+export interface RemoveJsxLocPluginResult {
   success: boolean;
   error?: string;
   modifiedFiles?: string[];
@@ -273,13 +273,13 @@ export interface UninstallJsxLocPluginResult {
 /**
  * Remove jsx-loc-plugin from next.config
  *
- * This is a best-effort uninstall that:
+ * This is a best-effort removal that:
  * 1. Removes jsx-loc-plugin import
  * 2. Removes withJsxLoc wrapper
  */
-export async function uninstallJsxLocPlugin(
-  options: UninstallJsxLocPluginOptions
-): Promise<UninstallJsxLocPluginResult> {
+export async function removeJsxLocPlugin(
+  options: RemoveJsxLocPluginOptions
+): Promise<RemoveJsxLocPluginResult> {
   const { projectPath } = options;
 
   const configPath = findNextConfigFile(projectPath);

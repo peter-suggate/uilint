@@ -320,11 +320,11 @@ export async function installViteJsxLocPlugin(
   return { configFile: configFilename, modified: false, modifiedFiles: [] };
 }
 
-export interface UninstallViteJsxLocPluginOptions {
+export interface RemoveViteJsxLocPluginOptions {
   projectPath: string;
 }
 
-export interface UninstallViteJsxLocPluginResult {
+export interface RemoveViteJsxLocPluginResult {
   success: boolean;
   error?: string;
   modifiedFiles?: string[];
@@ -333,13 +333,13 @@ export interface UninstallViteJsxLocPluginResult {
 /**
  * Remove jsx-loc-plugin from vite.config
  *
- * This is a best-effort uninstall that:
+ * This is a best-effort removal that:
  * 1. Removes jsx-loc-plugin import
  * 2. Removes jsxLoc() from plugins array
  */
-export async function uninstallViteJsxLocPlugin(
-  options: UninstallViteJsxLocPluginOptions
-): Promise<UninstallViteJsxLocPluginResult> {
+export async function removeViteJsxLocPlugin(
+  options: RemoveViteJsxLocPluginOptions
+): Promise<RemoveViteJsxLocPluginResult> {
   const { projectPath } = options;
 
   const configPath = findViteConfigFile(projectPath);

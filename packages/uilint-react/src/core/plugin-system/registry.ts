@@ -296,6 +296,7 @@ export class PluginRegistry {
 
       // Check if plugin handles this rule category
       if (
+        ruleMeta.category &&
         plugin.ruleCategories &&
         plugin.ruleCategories.includes(ruleMeta.category)
       ) {
@@ -363,8 +364,8 @@ export class PluginRegistry {
       try {
         console.log(`[PluginRegistry] Disposing plugin: ${plugin.id}`);
 
-        if (plugin.dispose) {
-          plugin.dispose();
+        if (plugin.dispose && this.services) {
+          plugin.dispose(this.services);
         }
 
         registered.initialized = false;

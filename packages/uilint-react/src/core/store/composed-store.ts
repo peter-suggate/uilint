@@ -233,6 +233,7 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
   // Create the store
   const store = create<ComposedStore>()((set, get) => {
     // Create plugin services that wrap the store's getState/setState
+    // Note: Methods must be bound to the websocket instance to preserve `this` context
     services = {
       websocket: {
         get isConnected() {
@@ -241,13 +242,18 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
         get url() {
           return websocket.url;
         },
-        connect: websocket.connect,
-        disconnect: websocket.disconnect,
-        send: websocket.send,
-        on: websocket.on,
-        onConnectionChange: websocket.onConnectionChange,
+        connect: websocket.connect.bind(websocket),
+        disconnect: websocket.disconnect.bind(websocket),
+        send: websocket.send.bind(websocket),
+        on: websocket.on.bind(websocket),
+        onConnectionChange: websocket.onConnectionChange.bind(websocket),
       },
-      domObserver,
+      domObserver: {
+        start: domObserver.start.bind(domObserver),
+        stop: domObserver.stop.bind(domObserver),
+        onElementsAdded: domObserver.onElementsAdded.bind(domObserver),
+        onElementsRemoved: domObserver.onElementsRemoved.bind(domObserver),
+      },
       getState: <T = unknown>() => {
         const state = get();
         return state as unknown as T;
@@ -351,6 +357,12 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
   });
 
   // services is definitely assigned after store creation
+
+  // Subscribe to websocket connection changes to update store state
+  websocket.onConnectionChange((connected) => {
+    store.setState({ wsConnected: connected, wsUrl: websocket.url });
+  });
+
   return { store, services: services! };
 }
 
@@ -457,6 +469,45 @@ export function useComposedStore<T>(selector?: (state: ComposedStore) => T) {
 // ============================================================================
 
 /**
+ * Create scoped plugin services for a specific plugin.
+ * The getState/setState methods are scoped to the plugin's slice within plugins.{pluginId}.
+ *
+ * @param pluginId - The plugin ID
+ * @param baseServices - The base plugin services
+ * @param store - The composed store
+ * @returns Scoped plugin services
+ */
+function createScopedServicesForPlugin(
+  pluginId: string,
+  baseServices: PluginServices,
+  store: UseBoundStore<StoreApi<ComposedStore>>
+): PluginServices {
+  return {
+    ...baseServices,
+    getState: <T = unknown>() => {
+      // Return the full state with plugins.{pluginId} accessible
+      // This allows plugins to access their own state at plugins.{pluginId}
+      return store.getState() as unknown as T;
+    },
+    setState: <T = unknown>(partial: Partial<T>) => {
+      // Merge the partial update into the plugin's slice at plugins.{pluginId}
+      store.setState((state) => {
+        const existingSlice = state.plugins[pluginId as keyof PluginSliceMap] || {};
+        return {
+          plugins: {
+            ...state.plugins,
+            [pluginId]: {
+              ...existingSlice,
+              ...partial,
+            },
+          },
+        };
+      });
+    },
+  };
+}
+
+/**
  * Initialize all registered plugins and merge their slices into the store.
  * This should be called after the store is created and before rendering.
  *
@@ -477,16 +528,21 @@ export async function initializePlugins(
   // Use provided registry or default singleton
   const registry = options?.registry ?? pluginRegistry;
 
-  // Initialize all registered plugins
-  await registry.initializeAll(pluginServicesInstance);
-
   // Collect slices from plugins that have createSlice
   const plugins = registry.getPlugins();
 
+  // First, create slices for all plugins and register them
   for (const plugin of plugins) {
     if (plugin.createSlice && plugin.id) {
       try {
-        const slice = plugin.createSlice(pluginServicesInstance);
+        // Create scoped services for this plugin
+        const scopedServices = createScopedServicesForPlugin(
+          plugin.id,
+          pluginServicesInstance,
+          store
+        );
+
+        const slice = plugin.createSlice(scopedServices);
 
         // Register the slice in the store
         // We need to cast here since not all plugin IDs are in PluginSliceMap
@@ -510,6 +566,26 @@ export async function initializePlugins(
       } catch (error) {
         console.error(
           `[ComposedStore] Failed to create slice for plugin ${plugin.id}:`,
+          error
+        );
+      }
+    }
+  }
+
+  // Now initialize all plugins with their scoped services
+  // This must happen AFTER slices are registered so handlers can access state
+  for (const plugin of plugins) {
+    if (plugin.initialize && plugin.id) {
+      try {
+        const scopedServices = createScopedServicesForPlugin(
+          plugin.id,
+          pluginServicesInstance,
+          store
+        );
+        plugin.initialize(scopedServices);
+      } catch (error) {
+        console.error(
+          `[ComposedStore] Failed to initialize plugin ${plugin.id}:`,
           error
         );
       }

@@ -145,7 +145,7 @@ export const skillInstaller: Installer = {
     }
   },
 
-  planUninstall(
+  planRemove(
     targets: InstallTarget[],
     project: ProjectState
   ): {

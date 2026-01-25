@@ -574,7 +574,7 @@ export const eslintInstaller: Installer = {
     };
   },
 
-  planUninstall(
+  planRemove(
     targets: InstallTarget[],
     project: ProjectState
   ): {

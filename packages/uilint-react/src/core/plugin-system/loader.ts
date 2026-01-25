@@ -3,11 +3,15 @@ import { sortByDependencies } from "./registry";
 
 /**
  * Plugin manifest for dynamic loading
+ *
+ * Note: The load function returns Plugin without a type parameter because
+ * dynamic imports load plugins with various slice types. The registry
+ * handles type-safe access to plugin-specific state.
  */
 export interface PluginManifest {
   id: string;
   name: string;
-  /** Dynamic import function */
+  /** Dynamic import function - returns a module with a default Plugin export */
   load: () => Promise<{ default: Plugin }>;
   /** Whether plugin is enabled */
   enabled: boolean;

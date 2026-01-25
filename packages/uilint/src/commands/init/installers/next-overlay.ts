@@ -305,7 +305,7 @@ export const nextOverlayInstaller: Installer = {
     };
   },
 
-  planUninstall(
+  planRemove(
     targets: InstallTarget[],
     project: ProjectState
   ): {

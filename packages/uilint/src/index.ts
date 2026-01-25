@@ -180,6 +180,17 @@ program
     await initUI({ force: options.force });
   });
 
+// Remove command
+program
+  .command("remove")
+  .description("Remove UILint components from your project")
+  .option("--dry-run", "Preview changes without removing anything")
+  .option("-y, --yes", "Skip confirmation prompt")
+  .action(async (options) => {
+    const { removeUI } = await import("./commands/remove-ui.js");
+    await removeUI({ dryRun: options.dryRun, yes: options.yes });
+  });
+
 // Serve command - WebSocket server for UI overlay
 program
   .command("serve")

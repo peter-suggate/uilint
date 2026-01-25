@@ -308,10 +308,13 @@ export interface Plugin<TSlice = unknown> {
 
   /**
    * Get issues from the plugin's state for heatmap display
-   * @param state Current plugin state slice
+   * @param state Current plugin state slice (typed as unknown to allow variance)
    * @returns Issue contribution for heatmap aggregation
+   *
+   * Note: The state parameter is typed as unknown to allow plugins with specific
+   * slice types to be assigned to Plugin. Plugins should cast internally.
    */
-  getIssues?: (state: TSlice) => IssueContribution;
+  getIssues?(state: unknown): IssueContribution;
 
   /**
    * Initialize the plugin (called once on registration)

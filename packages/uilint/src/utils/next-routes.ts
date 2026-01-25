@@ -508,12 +508,12 @@ export async function installNextUILintRoutes(
   );
 }
 
-export interface UninstallNextRoutesOptions {
+export interface RemoveNextRoutesOptions {
   projectPath: string;
   appRoot: string;
 }
 
-export interface UninstallNextRoutesResult {
+export interface RemoveNextRoutesResult {
   success: boolean;
   error?: string;
 }
@@ -521,9 +521,9 @@ export interface UninstallNextRoutesResult {
 /**
  * Remove UILint API routes from Next.js app
  */
-export async function uninstallNextUILintRoutes(
-  options: UninstallNextRoutesOptions
-): Promise<UninstallNextRoutesResult> {
+export async function removeNextUILintRoutes(
+  options: RemoveNextRoutesOptions
+): Promise<RemoveNextRoutesResult> {
   const { projectPath, appRoot } = options;
   const { rm } = await import("fs/promises");
 

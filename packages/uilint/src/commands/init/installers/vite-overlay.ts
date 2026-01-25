@@ -137,7 +137,7 @@ export const viteOverlayInstaller: Installer = {
     };
   },
 
-  planUninstall(
+  planRemove(
     targets: InstallTarget[],
     project: ProjectState
   ): {
