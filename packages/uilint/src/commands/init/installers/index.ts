@@ -20,6 +20,9 @@ export { eslintInstaller } from "./eslint.js";
 export { nextOverlayInstaller } from "./next-overlay.js";
 export { viteOverlayInstaller } from "./vite-overlay.js";
 
+// Export AI hooks utilities
+export * from "./ai-hooks.js";
+
 // Auto-register all installers
 registerInstaller(genstyleguideInstaller);
 registerInstaller(skillInstaller);

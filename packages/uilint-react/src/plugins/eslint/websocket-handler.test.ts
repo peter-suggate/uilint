@@ -28,6 +28,9 @@ function createMockServices(initialState: Partial<ESLintPluginSlice> = {}) {
     disabledRules: new Set(),
     workspaceRoot: null,
     requestedFiles: new Set(),
+    ruleConfigs: new Map(),
+    ruleConfigUpdating: new Map(),
+    workspaceCapabilities: null,
     ...initialState,
   } as ESLintPluginSlice;
 
@@ -250,6 +253,67 @@ describe("handleWebSocketMessage - lint:result", () => {
 
     // Should generate dataLoc as filePath:line:column
     expect(state.issues.has("src/components/Button.tsx:15:8")).toBe(true);
+  });
+});
+
+describe("handleWebSocketMessage - workspace:capabilities", () => {
+  /**
+   * Tests that workspace capabilities (including hook availability) are
+   * stored correctly when received from the server. This enables the
+   * fix-prompt plugin to determine whether to show condensed or detailed prompts.
+   */
+  it("stores workspace capabilities with Claude hook enabled", () => {
+    const { services, state, setStateCalls } = createMockServices();
+
+    handleWebSocketMessage(services, {
+      type: "workspace:capabilities",
+      postToolUseHook: {
+        enabled: true,
+        provider: "claude",
+      },
+    });
+
+    expect(setStateCalls).toHaveLength(1);
+    expect(state.workspaceCapabilities).toEqual({
+      postToolUseHook: {
+        enabled: true,
+        provider: "claude",
+      },
+    });
+  });
+
+  it("stores workspace capabilities with hook disabled", () => {
+    const { services, state } = createMockServices();
+
+    handleWebSocketMessage(services, {
+      type: "workspace:capabilities",
+      postToolUseHook: {
+        enabled: false,
+        provider: null,
+      },
+    });
+
+    expect(state.workspaceCapabilities).toEqual({
+      postToolUseHook: {
+        enabled: false,
+        provider: null,
+      },
+    });
+  });
+
+  it("stores workspace capabilities with Cursor provider", () => {
+    const { services, state } = createMockServices();
+
+    handleWebSocketMessage(services, {
+      type: "workspace:capabilities",
+      postToolUseHook: {
+        enabled: true,
+        provider: "cursor",
+      },
+    });
+
+    expect(state.workspaceCapabilities?.postToolUseHook.provider).toBe("cursor");
+    expect(state.workspaceCapabilities?.postToolUseHook.enabled).toBe(true);
   });
 });
 
