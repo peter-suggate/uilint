@@ -155,7 +155,7 @@ describe("EslintInstaller", () => {
         packages: [
           createMockPackage({
             hasUilintRules: true,
-            configuredRuleIds: ["consistent-spacing"],
+            configuredRuleIds: ["prefer-tailwind"],
           }),
         ],
       });
@@ -183,7 +183,7 @@ describe("EslintInstaller", () => {
         packages: [
           createMockPackage({
             hasUilintRules: true,
-            configuredRuleIds: ["consistent-spacing"],
+            configuredRuleIds: ["prefer-tailwind"],
           }),
         ],
       });

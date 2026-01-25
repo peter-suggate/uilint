@@ -30,6 +30,9 @@
  * - Client -> Server: { type: 'coverage:request', requestId?: string }
  * - Server -> Client: { type: 'coverage:result', coverage: object, timestamp: number, requestId?: string }
  * - Server -> Client: { type: 'coverage:error', error: string, requestId?: string }
+ * - Client -> Server: { type: 'source:fetch', filePath: string, requestId?: string }
+ * - Server -> Client: { type: 'source:result', filePath: string, content: string, totalLines: number, relativePath: string, requestId?: string }
+ * - Server -> Client: { type: 'source:error', filePath: string, error: string, requestId?: string }
  */
 
 import { existsSync, statSync, readdirSync, readFileSync } from "fs";
@@ -130,6 +133,12 @@ interface RuleConfigSetMessage {
   requestId?: string;
 }
 
+interface SourceFetchMessage {
+  type: "source:fetch";
+  filePath: string;
+  requestId?: string;
+}
+
 type ClientMessage =
   | LintFileMessage
   | LintElementMessage
@@ -138,7 +147,8 @@ type ClientMessage =
   | VisionAnalyzeMessage
   | ConfigSetMessage
   | RuleConfigSetMessage
-  | CoverageRequestMessage;
+  | CoverageRequestMessage
+  | SourceFetchMessage;
 
 interface LintResultMessage {
   type: "lint:result";
@@ -298,6 +308,22 @@ interface CoverageSetupErrorMessage {
   error: string;
 }
 
+interface SourceResultMessage {
+  type: "source:result";
+  filePath: string;
+  content: string;
+  totalLines: number;
+  relativePath: string;
+  requestId?: string;
+}
+
+interface SourceErrorMessage {
+  type: "source:error";
+  filePath: string;
+  error: string;
+  requestId?: string;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
@@ -318,7 +344,9 @@ type ServerMessage =
   | CoverageSetupStartMessage
   | CoverageSetupProgressMessage
   | CoverageSetupCompleteMessage
-  | CoverageSetupErrorMessage;
+  | CoverageSetupErrorMessage
+  | SourceResultMessage
+  | SourceErrorMessage;
 
 function pickAppRoot(params: { cwd: string; workspaceRoot: string }): string {
   const { cwd, workspaceRoot } = params;
@@ -1106,6 +1134,44 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
     case "rule:config:set": {
       const { ruleId, severity, options, requestId } = message;
       handleRuleConfigSet(ws, ruleId, severity, options, requestId);
+      break;
+    }
+
+    case "source:fetch": {
+      const { filePath, requestId } = message;
+      const absolutePath = resolveRequestedFilePath(filePath);
+
+      if (!existsSync(absolutePath)) {
+        sendMessage(ws, {
+          type: "source:error",
+          filePath,
+          error: "File not found",
+          requestId,
+        });
+        break;
+      }
+
+      try {
+        const content = readFileSync(absolutePath, "utf-8");
+        const totalLines = content.split("\n").length;
+        const relativePath = normalizeDataLocFilePath(absolutePath, serverAppRootForVision);
+
+        sendMessage(ws, {
+          type: "source:result",
+          filePath,
+          content,
+          totalLines,
+          relativePath,
+          requestId,
+        });
+      } catch (error) {
+        sendMessage(ws, {
+          type: "source:error",
+          filePath,
+          error: error instanceof Error ? error.message : "Failed to read file",
+          requestId,
+        });
+      }
       break;
     }
 

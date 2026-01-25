@@ -54,7 +54,7 @@ async function installFirst(
   const prompter = mockPrompter({
     installItems: installItems as any,
     eslintPackagePaths: pkg ? [pkg.path] : [],
-    eslintRuleIds: ["no-arbitrary-tailwind", "consistent-spacing"],
+    eslintRuleIds: ["no-arbitrary-tailwind", "prefer-tailwind"],
   });
 
   const choices = await gatherChoices(state, {}, prompter);
@@ -154,7 +154,7 @@ describe("ESLint removal", () => {
     // Verify ESLint config no longer has uilint rules
     const configAfterRemoval = fixture.readFile("eslint.config.mjs");
     expect(configAfterRemoval).not.toContain("uilint/no-arbitrary-tailwind");
-    expect(configAfterRemoval).not.toContain("uilint/consistent-spacing");
+    expect(configAfterRemoval).not.toContain("uilint/prefer-tailwind");
   });
 
   it("removes uilint from eslint.config.ts", async () => {

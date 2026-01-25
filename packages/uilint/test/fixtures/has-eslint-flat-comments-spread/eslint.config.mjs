@@ -16,7 +16,7 @@ export default [
 
       // These are commented-out uilint rules and should NOT be treated as configured.
       // "uilint/no-arbitrary-tailwind": "warn",
-      // "uilint/consistent-spacing": ["warn", ...[{ "scale": [0, 1, 2] }]],
+      // "uilint/prefer-tailwind": ["warn", ...[{ "scale": [0, 1, 2] }]],
     },
     languageOptions: {
       parser: tseslint.parser,

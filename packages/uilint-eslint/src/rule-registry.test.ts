@@ -181,9 +181,9 @@ describe("ruleRegistry", () => {
 
 describe("getRuleMetadata", () => {
   it("should return rule by id", () => {
-    const rule = getRuleMetadata("consistent-spacing");
+    const rule = getRuleMetadata("no-arbitrary-tailwind");
     expect(rule).toBeDefined();
-    expect(rule?.id).toBe("consistent-spacing");
+    expect(rule?.id).toBe("no-arbitrary-tailwind");
   });
 
   it("should return undefined for unknown rule", () => {
@@ -196,8 +196,8 @@ describe("getAllRuleIds", () => {
   it("should return all rule IDs", () => {
     const ids = getAllRuleIds();
     expect(ids.length).toBe(ruleRegistry.length);
-    expect(ids).toContain("consistent-spacing");
     expect(ids).toContain("no-arbitrary-tailwind");
+    expect(ids).toContain("prefer-tailwind");
   });
 });
 

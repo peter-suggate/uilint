@@ -192,7 +192,7 @@ describe("ESLint execution - JavaScript projects", { timeout: 180000 }, () => {
       eslintPackagePaths: [pkg.path],
       eslintRuleIds: [
         "no-arbitrary-tailwind",
-        "consistent-spacing",
+        "prefer-tailwind",
         "no-secrets-in-code",
       ],
     });
@@ -207,7 +207,7 @@ describe("ESLint execution - JavaScript projects", { timeout: 180000 }, () => {
 
     // Verify all .js rule files were created
     expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.js")).toBe(true);
-    expect(fixture.exists(".uilint/rules/consistent-spacing.js")).toBe(true);
+    expect(fixture.exists(".uilint/rules/prefer-tailwind.js")).toBe(true);
     expect(fixture.exists(".uilint/rules/no-secrets-in-code.js")).toBe(true);
 
     // Install dependencies and run ESLint
@@ -482,7 +482,7 @@ describe("ESLint execution - all rules", { timeout: 300000 }, () => {
       eslintRuleIds: [
         "no-arbitrary-tailwind",           // single-file
         "no-mixed-component-libraries",    // directory-based in source, but bundled to .js
-        "consistent-spacing",              // single-file
+        "prefer-tailwind",              // single-file
       ],
     });
 
@@ -499,7 +499,7 @@ describe("ESLint execution - all rules", { timeout: 300000 }, () => {
 
     // All rules in JS projects use single .js files (directory-based rules are bundled)
     expect(configContent).toMatch(/no-arbitrary-tailwind\.js/);
-    expect(configContent).toMatch(/consistent-spacing\.js/);
+    expect(configContent).toMatch(/prefer-tailwind\.js/);
     expect(configContent).toMatch(/no-mixed-component-libraries\.js/);
 
     // Should NOT have /index.js paths in JS projects
@@ -519,7 +519,7 @@ describe("ESLint execution - all rules", { timeout: 300000 }, () => {
       eslintRuleIds: [
         "no-arbitrary-tailwind",           // single-file
         "no-mixed-component-libraries",    // directory-based
-        "consistent-spacing",              // single-file
+        "prefer-tailwind",              // single-file
       ],
     });
 
@@ -537,7 +537,7 @@ describe("ESLint execution - all rules", { timeout: 300000 }, () => {
     // In TS projects, imports don't include extensions (TypeScript resolver handles it)
     // Single-file rules use direct path without extension
     expect(configContent).toMatch(/rules\/no-arbitrary-tailwind[^\/]/);
-    expect(configContent).toMatch(/rules\/consistent-spacing[^\/]/);
+    expect(configContent).toMatch(/rules\/prefer-tailwind[^\/]/);
 
     // Directory-based rules use /index path (TypeScript needs explicit index reference)
     expect(configContent).toMatch(/rules\/no-mixed-component-libraries\/index[^\/]/);
