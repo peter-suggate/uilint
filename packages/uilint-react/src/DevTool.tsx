@@ -12,6 +12,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { UILint } from "./ui";
 import { websocket } from "./core/services/websocket";
+import { domObserver } from "./core/services/dom-observer";
 import { initializePlugins } from "./core/store";
 import { pluginRegistry } from "./core/plugin-system/registry";
 import { eslintPlugin } from "./plugins/eslint";
@@ -104,7 +105,7 @@ export function DevTool({ enabled = true }: DevToolProps) {
       // Register and initialize plugins (only once)
       if (!pluginsInitialized) {
         pluginRegistry.register(eslintPlugin);
-        await initializePlugins({ websocket });
+        await initializePlugins({ websocket, domObserver });
         pluginsInitialized = true;
         console.log("[DevTool] Plugins initialized");
       }
