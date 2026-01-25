@@ -328,6 +328,94 @@ export interface Plugin<TSlice = unknown> {
    * @param services Plugin services
    */
   dispose?: (services: PluginServices) => void | Promise<void>;
+
+  /**
+   * Get available rules from this plugin
+   * @param services Plugin services for accessing state
+   * @returns Array of rule definitions
+   */
+  getRules?: (services: PluginServices) => RuleDefinition[];
+
+  /**
+   * Set severity for a rule
+   * @param ruleId Rule ID to configure
+   * @param severity New severity level
+   * @param services Plugin services
+   */
+  setRuleSeverity?: (
+    ruleId: string,
+    severity: "error" | "warning" | "off",
+    services: PluginServices
+  ) => void;
+
+  /**
+   * Get configuration options for a rule
+   * @param ruleId Rule ID
+   * @param services Plugin services
+   * @returns Current rule configuration
+   */
+  getRuleConfig?: (
+    ruleId: string,
+    services: PluginServices
+  ) => Record<string, unknown>;
+
+  /**
+   * Set configuration options for a rule
+   * @param ruleId Rule ID
+   * @param config New configuration
+   * @param services Plugin services
+   */
+  setRuleConfig?: (
+    ruleId: string,
+    config: Record<string, unknown>,
+    services: PluginServices
+  ) => void;
+}
+
+// ============================================================================
+// Rule Definitions
+// ============================================================================
+
+/**
+ * Schema for a rule option (for dynamic forms)
+ */
+export interface RuleOptionSchema {
+  /** Option name */
+  name: string;
+  /** Option type */
+  type: "string" | "number" | "boolean" | "select" | "array";
+  /** Human-readable label */
+  label: string;
+  /** Default value */
+  defaultValue?: unknown;
+  /** Options for select type */
+  options?: Array<{ value: string; label: string }>;
+  /** Description for the option */
+  description?: string;
+}
+
+/**
+ * Complete rule definition from a plugin
+ */
+export interface RuleDefinition {
+  /** Rule ID (e.g., "uilint/semantic") */
+  id: string;
+  /** Human-readable name */
+  name: string;
+  /** Description of what the rule checks */
+  description: string;
+  /** Category (e.g., "style", "semantic", "accessibility") */
+  category: string;
+  /** Current severity level */
+  severity: "error" | "warning" | "off";
+  /** Whether this rule can auto-fix issues */
+  fixable: boolean;
+  /** Plugin ID that owns this rule */
+  pluginId: string;
+  /** Configuration options schema */
+  options?: RuleOptionSchema[];
+  /** Documentation URL or markdown */
+  docs?: string;
 }
 
 // ============================================================================

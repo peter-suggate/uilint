@@ -14,8 +14,11 @@ import { CommandPalette } from "./components/CommandPalette";
 import { InspectorSidebar } from "./components/Inspector";
 import { useKeyboardShortcuts } from "./hooks";
 
+// Track if we created the portal (for cleanup)
+let portalCreatedByUs = false;
+
 // Create portal container for overlays
-function ensurePortalContainer() {
+function ensurePortalContainer(): HTMLElement | undefined {
   if (typeof document === "undefined") return;
 
   let container = document.getElementById("uilint-portal");
@@ -24,8 +27,19 @@ function ensurePortalContainer() {
     container.id = "uilint-portal";
     container.style.cssText = "position: fixed; top: 0; left: 0; z-index: 99990; pointer-events: none;";
     document.body.appendChild(container);
+    portalCreatedByUs = true;
   }
   return container;
+}
+
+// Clean up portal if we created it
+function cleanupPortalContainer() {
+  if (!portalCreatedByUs) return;
+  const container = document.getElementById("uilint-portal");
+  if (container) {
+    container.remove();
+    portalCreatedByUs = false;
+  }
 }
 
 export interface UILintProps {
@@ -46,6 +60,9 @@ export function UILint({ enabled = true }: UILintProps) {
     if (enabled) {
       ensurePortalContainer();
     }
+    return () => {
+      cleanupPortalContainer();
+    };
   }, [enabled]);
 
   if (!enabled) {

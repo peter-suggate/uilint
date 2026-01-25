@@ -14,6 +14,7 @@ import type {
   InspectorPanel,
   RuleUIContribution,
   RuleMeta,
+  RuleDefinition,
 } from "./types";
 
 /**
@@ -261,6 +262,131 @@ export class PluginRegistry {
 
     // Sort by priority (higher priority first, default to 0)
     return panels.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+  }
+
+  /**
+   * Aggregate all rules from all registered plugins.
+   * Queries each plugin's getRules method if implemented.
+   *
+   * @returns Array of all rule definitions from all plugins
+   */
+  getAllRules(): RuleDefinition[] {
+    if (!this.services) {
+      console.warn("[PluginRegistry] Cannot get rules: services not initialized");
+      return [];
+    }
+
+    const rules: RuleDefinition[] = [];
+
+    for (const { plugin, initialized } of this.plugins.values()) {
+      if (!initialized) continue;
+
+      if (plugin.getRules) {
+        try {
+          const pluginRules = plugin.getRules(this.services);
+          rules.push(...pluginRules);
+        } catch (error) {
+          console.error(
+            `[PluginRegistry] Error getting rules from plugin "${plugin.id}":`,
+            error
+          );
+        }
+      }
+    }
+
+    return rules;
+  }
+
+  /**
+   * Set the severity for a specific rule.
+   * Finds the plugin that handles the rule and delegates to it.
+   *
+   * @param ruleId - The rule ID to configure
+   * @param severity - The new severity level
+   */
+  setRuleSeverity(ruleId: string, severity: "error" | "warning" | "off"): void {
+    if (!this.services) {
+      console.warn("[PluginRegistry] Cannot set rule severity: services not initialized");
+      return;
+    }
+
+    // Find the plugin that handles this rule
+    for (const { plugin, initialized } of this.plugins.values()) {
+      if (!initialized) continue;
+
+      // Check if plugin explicitly handles this rule
+      if (plugin.handlesRules) {
+        const handles = plugin.handlesRules({ id: ruleId });
+        if (handles && plugin.setRuleSeverity) {
+          plugin.setRuleSeverity(ruleId, severity, this.services);
+          return;
+        }
+      }
+
+      // Check if rule ID starts with plugin ID prefix
+      if (ruleId.startsWith(`${plugin.id}/`) && plugin.setRuleSeverity) {
+        plugin.setRuleSeverity(ruleId, severity, this.services);
+        return;
+      }
+    }
+
+    console.warn(`[PluginRegistry] No plugin found to handle rule: ${ruleId}`);
+  }
+
+  /**
+   * Get configuration options for a specific rule.
+   *
+   * @param ruleId - The rule ID to get config for
+   * @returns The rule configuration, or undefined if not found
+   */
+  getRuleConfig(ruleId: string): Record<string, unknown> | undefined {
+    if (!this.services) {
+      console.warn("[PluginRegistry] Cannot get rule config: services not initialized");
+      return undefined;
+    }
+
+    for (const { plugin, initialized } of this.plugins.values()) {
+      if (!initialized) continue;
+
+      if (plugin.handlesRules?.({ id: ruleId }) && plugin.getRuleConfig) {
+        return plugin.getRuleConfig(ruleId, this.services);
+      }
+
+      if (ruleId.startsWith(`${plugin.id}/`) && plugin.getRuleConfig) {
+        return plugin.getRuleConfig(ruleId, this.services);
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Set configuration options for a specific rule.
+   *
+   * @param ruleId - The rule ID to configure
+   * @param config - The configuration options to set
+   */
+  setRuleConfig(ruleId: string, config: Record<string, unknown>): void {
+    if (!this.services) {
+      console.warn("[PluginRegistry] Cannot set rule config: services not initialized");
+      return;
+    }
+
+    for (const { plugin, initialized } of this.plugins.values()) {
+      if (!initialized) continue;
+
+      if (plugin.handlesRules?.({ id: ruleId }) && plugin.setRuleConfig) {
+        plugin.setRuleConfig(ruleId, config, this.services);
+        return;
+      }
+
+      if (ruleId.startsWith(`${plugin.id}/`) && plugin.setRuleConfig) {
+        plugin.setRuleConfig(ruleId, config, this.services);
+        return;
+      }
+    }
+
+    console.warn(`[PluginRegistry] No plugin found to configure rule: ${ruleId}`);
   }
 
   /**
