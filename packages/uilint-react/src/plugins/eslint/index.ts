@@ -5,7 +5,7 @@
  * Extracts ESLint-related state and functionality from the main store.
  */
 
-import type { Plugin, PluginServices, RuleMeta } from "../../core/plugin-system/types";
+import type { Plugin, PluginServices, RuleMeta, ScannedElementInfo } from "../../core/plugin-system/types";
 import { eslintCommands } from "./commands";
 import {
   createESLintSlice,
@@ -15,6 +15,7 @@ import {
 } from "./slice";
 import type { AvailableRule, RuleConfig, ESLintIssue } from "./types";
 import { fromESLintIssue, type Issue } from "../../ui/types";
+import { extractUniqueFilePaths } from "./scanner";
 
 /** WebSocket message types handled by ESLint plugin */
 const ESLINT_WS_MESSAGE_TYPES = [
@@ -147,6 +148,14 @@ export const eslintPlugin: Plugin = {
 
     console.log("[ESLint Plugin] Subscribed to", ESLINT_WS_MESSAGE_TYPES.length, "message types");
 
+    // Subscribe to DOM observer for element detection
+    const unsubscribeDom = services.domObserver.onElementsAdded((elements: ScannedElementInfo[]) => {
+      handleElementsAdded(services, elements);
+    });
+    unsubscribers.push(unsubscribeDom);
+
+    console.log("[ESLint Plugin] Subscribed to DOM observer");
+
     // Return cleanup function
     return () => {
       console.log("[ESLint Plugin] Disposing...");
@@ -161,6 +170,71 @@ export const eslintPlugin: Plugin = {
     console.log("[ESLint Plugin] Disposed");
   },
 };
+
+/**
+ * Handle new elements detected by DOM observer
+ *
+ * Extracts unique file paths and sends lint:file requests for new files.
+ */
+function handleElementsAdded(
+  services: PluginServices,
+  elements: ScannedElementInfo[]
+): void {
+  // Get current state
+  const state = services.getState<ESLintPluginSlice>();
+
+  // Check if live scan is enabled
+  if (!state.liveScanEnabled) {
+    console.log("[ESLint Plugin] Live scan disabled, skipping lint requests");
+    return;
+  }
+
+  // Check if WebSocket is connected
+  if (!services.websocket.isConnected) {
+    console.log("[ESLint Plugin] WebSocket not connected, skipping lint requests");
+    return;
+  }
+
+  // Extract unique file paths from the detected elements
+  const dataLocs = elements.map((el) => el.dataLoc);
+  const filePaths = extractUniqueFilePaths(dataLocs);
+
+  if (filePaths.size === 0) {
+    return;
+  }
+
+  console.log("[ESLint Plugin] Detected", elements.length, "elements from", filePaths.size, "unique files");
+
+  // Get already-requested files from state
+  const requestedFiles = state.requestedFiles ?? new Set<string>();
+
+  // Send lint requests for new files only
+  const newFiles: string[] = [];
+  for (const filePath of filePaths) {
+    if (!requestedFiles.has(filePath)) {
+      newFiles.push(filePath);
+
+      // Send lint:file request
+      const requestId = `lint-${Date.now()}-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`;
+      services.websocket.send({
+        type: "lint:file",
+        filePath,
+        requestId,
+      });
+
+      console.log("[ESLint Plugin] Sent lint:file request for", filePath);
+    }
+  }
+
+  // Update state with newly requested files
+  if (newFiles.length > 0) {
+    const updatedRequestedFiles = new Set(requestedFiles);
+    for (const filePath of newFiles) {
+      updatedRequestedFiles.add(filePath);
+    }
+    services.setState({ requestedFiles: updatedRequestedFiles });
+  }
+}
 
 /**
  * WebSocket message handler types
@@ -280,7 +354,12 @@ function handleWebSocketMessage(
           newIssues.delete(dataLoc);
         }
       }
-      services.setState({ issues: newIssues });
+
+      // Also clear from requestedFiles so it can be re-requested
+      const newRequestedFiles = new Set(state.requestedFiles ?? new Set());
+      newRequestedFiles.delete(filePath);
+
+      services.setState({ issues: newIssues, requestedFiles: newRequestedFiles });
       break;
     }
 

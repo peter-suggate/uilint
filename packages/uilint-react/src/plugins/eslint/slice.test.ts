@@ -86,6 +86,11 @@ describe("initialESLintState", () => {
   it("has null workspaceRoot", () => {
     expect(initialESLintState.workspaceRoot).toBeNull();
   });
+
+  it("has empty requestedFiles Set", () => {
+    expect(initialESLintState.requestedFiles).toBeInstanceOf(Set);
+    expect(initialESLintState.requestedFiles.size).toBe(0);
+  });
 });
 
 describe("createESLintSlice", () => {
@@ -134,6 +139,7 @@ describe("createESLintActions", () => {
         scanStatus: "idle",
         issues: expect.any(Map),
         scannedDataLocs: expect.any(Set),
+        requestedFiles: expect.any(Set),
       });
     });
   });
@@ -180,6 +186,14 @@ describe("createESLintActions", () => {
 
       const call = setSlice.mock.calls[0][0] as Partial<ESLintSlice>;
       expect(call.scannedDataLocs?.size).toBe(0);
+    });
+
+    it("clears requestedFiles", () => {
+      slice.requestedFiles.add("test.tsx");
+      actions.clearIssues();
+
+      const call = setSlice.mock.calls[0][0] as Partial<ESLintSlice>;
+      expect(call.requestedFiles?.size).toBe(0);
     });
   });
 
@@ -229,6 +243,24 @@ describe("createESLintActions", () => {
 
       const call = setSlice.mock.calls[0][0] as Partial<ESLintSlice>;
       expect(call.scannedDataLocs?.has("test.tsx:10:5")).toBe(true);
+    });
+  });
+
+  describe("markFileRequested", () => {
+    it("adds filePath to requestedFiles", () => {
+      actions.markFileRequested("test.tsx");
+
+      const call = setSlice.mock.calls[0][0] as Partial<ESLintSlice>;
+      expect(call.requestedFiles?.has("test.tsx")).toBe(true);
+    });
+
+    it("preserves existing requested files", () => {
+      slice.requestedFiles.add("other.tsx");
+      actions.markFileRequested("test.tsx");
+
+      const call = setSlice.mock.calls[0][0] as Partial<ESLintSlice>;
+      expect(call.requestedFiles?.has("other.tsx")).toBe(true);
+      expect(call.requestedFiles?.has("test.tsx")).toBe(true);
     });
   });
 
