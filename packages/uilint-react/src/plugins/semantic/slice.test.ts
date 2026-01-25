@@ -4,10 +4,11 @@
  * Tests for slice state management, commands structure, and plugin exports.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createSemanticPluginSlice,
   initialSemanticPluginState,
+  subscribeToDuplicatesIndexingMessages,
   type SemanticPluginSlice,
 } from "./slice";
 import { semanticCommands } from "./commands";
@@ -776,5 +777,206 @@ describe("semanticPlugin", () => {
       expect(semanticPlugin.initialize).toBeDefined();
       expect(typeof semanticPlugin.initialize).toBe("function");
     });
+  });
+});
+
+// ============================================================================
+// subscribeToDuplicatesIndexingMessages Tests
+// ============================================================================
+
+describe("subscribeToDuplicatesIndexingMessages", () => {
+  /**
+   * Create a mock WebSocket service that tracks subscriptions
+   */
+  function createMockWebSocketService() {
+    const handlers = new Map<string, ((data: unknown) => void)[]>();
+
+    return {
+      isConnected: true,
+      url: "ws://test:9234",
+      connect: () => {},
+      disconnect: () => {},
+      send: () => {},
+      on: (event: string, handler: (data: unknown) => void) => {
+        if (!handlers.has(event)) {
+          handlers.set(event, []);
+        }
+        handlers.get(event)!.push(handler);
+        return () => {
+          const eventHandlers = handlers.get(event);
+          if (eventHandlers) {
+            const idx = eventHandlers.indexOf(handler);
+            if (idx >= 0) eventHandlers.splice(idx, 1);
+          }
+        };
+      },
+      onConnectionChange: () => () => {},
+      // Test helper to emit events
+      emit: (event: string, data: unknown) => {
+        const eventHandlers = handlers.get(event);
+        if (eventHandlers) {
+          eventHandlers.forEach((h) => h(data));
+        }
+      },
+      getHandlerCount: (event: string) => handlers.get(event)?.length ?? 0,
+    };
+  }
+
+  /**
+   * Create mock plugin services with the mock WebSocket
+   */
+  function createMockServices() {
+    const websocket = createMockWebSocketService();
+    return {
+      websocket,
+      domObserver: {
+        start: () => {},
+        stop: () => {},
+        onElementsAdded: () => () => {},
+        onElementsRemoved: () => () => {},
+      },
+      getState: () => ({}),
+      setState: () => {},
+    };
+  }
+
+  it("subscribes to all duplicates indexing message types", () => {
+    const services = createMockServices();
+    const { slice } = createMockSlice();
+
+    subscribeToDuplicatesIndexingMessages(services, slice);
+
+    // Check all expected events are subscribed
+    expect(services.websocket.getHandlerCount("duplicates:indexing:start")).toBe(1);
+    expect(services.websocket.getHandlerCount("duplicates:indexing:progress")).toBe(1);
+    expect(services.websocket.getHandlerCount("duplicates:indexing:complete")).toBe(1);
+    expect(services.websocket.getHandlerCount("duplicates:indexing:error")).toBe(1);
+  });
+
+  it("routes start message to handleDuplicatesIndexingStart", () => {
+    const services = createMockServices();
+    const { slice, getState } = createMockSlice();
+
+    subscribeToDuplicatesIndexingMessages(services, slice);
+
+    // Emit start event
+    services.websocket.emit("duplicates:indexing:start", {});
+
+    // Verify handler was called
+    expect(getState().duplicatesIndexStatus).toBe("indexing");
+    expect(getState().duplicatesIndexMessage).toBe("Starting index...");
+  });
+
+  it("routes progress message to handleDuplicatesIndexingProgress", () => {
+    const services = createMockServices();
+    const { slice, getState } = createMockSlice();
+
+    subscribeToDuplicatesIndexingMessages(services, slice);
+
+    // Emit progress event
+    services.websocket.emit("duplicates:indexing:progress", {
+      type: "duplicates:indexing:progress",
+      message: "Processing files...",
+      current: 50,
+      total: 100,
+    });
+
+    expect(getState().duplicatesIndexMessage).toBe("Processing files...");
+    expect(getState().duplicatesIndexProgress).toEqual({ current: 50, total: 100 });
+  });
+
+  it("routes complete message to handleDuplicatesIndexingComplete", () => {
+    const services = createMockServices();
+    const { slice, getState } = createMockSlice();
+
+    subscribeToDuplicatesIndexingMessages(services, slice);
+
+    // Emit complete event
+    services.websocket.emit("duplicates:indexing:complete", {
+      type: "duplicates:indexing:complete",
+      added: 10,
+      modified: 5,
+      deleted: 2,
+      totalChunks: 100,
+      duration: 500,
+    });
+
+    expect(getState().duplicatesIndexStatus).toBe("ready");
+    expect(getState().duplicatesIndexStats).toEqual({
+      totalChunks: 100,
+      added: 10,
+      modified: 5,
+      deleted: 2,
+      duration: 500,
+    });
+  });
+
+  it("routes error message to handleDuplicatesIndexingError", () => {
+    const services = createMockServices();
+    const { slice, getState } = createMockSlice();
+
+    subscribeToDuplicatesIndexingMessages(services, slice);
+
+    // Emit error event
+    services.websocket.emit("duplicates:indexing:error", {
+      type: "duplicates:indexing:error",
+      error: "Connection lost",
+    });
+
+    expect(getState().duplicatesIndexStatus).toBe("error");
+    expect(getState().duplicatesIndexError).toBe("Connection lost");
+  });
+
+  it("returns cleanup function that unsubscribes from all events", () => {
+    const services = createMockServices();
+    const { slice } = createMockSlice();
+
+    const cleanup = subscribeToDuplicatesIndexingMessages(services, slice);
+
+    // Verify subscriptions exist
+    expect(services.websocket.getHandlerCount("duplicates:indexing:start")).toBe(1);
+    expect(services.websocket.getHandlerCount("duplicates:indexing:progress")).toBe(1);
+    expect(services.websocket.getHandlerCount("duplicates:indexing:complete")).toBe(1);
+    expect(services.websocket.getHandlerCount("duplicates:indexing:error")).toBe(1);
+
+    // Call cleanup
+    cleanup();
+
+    // Verify all subscriptions are removed
+    expect(services.websocket.getHandlerCount("duplicates:indexing:start")).toBe(0);
+    expect(services.websocket.getHandlerCount("duplicates:indexing:progress")).toBe(0);
+    expect(services.websocket.getHandlerCount("duplicates:indexing:complete")).toBe(0);
+    expect(services.websocket.getHandlerCount("duplicates:indexing:error")).toBe(0);
+  });
+
+  it("multiple subscriptions work independently", () => {
+    const services = createMockServices();
+    const { slice: slice1, getState: getState1 } = createMockSlice();
+    const { slice: slice2, getState: getState2 } = createMockSlice();
+
+    const cleanup1 = subscribeToDuplicatesIndexingMessages(services, slice1);
+    const cleanup2 = subscribeToDuplicatesIndexingMessages(services, slice2);
+
+    // Both should receive start event
+    services.websocket.emit("duplicates:indexing:start", {});
+
+    expect(getState1().duplicatesIndexStatus).toBe("indexing");
+    expect(getState2().duplicatesIndexStatus).toBe("indexing");
+
+    // Cleanup first subscription
+    cleanup1();
+
+    // Only slice2 should receive the next event
+    services.websocket.emit("duplicates:indexing:error", {
+      type: "duplicates:indexing:error",
+      error: "Test error",
+    });
+
+    // slice1 should still be in indexing state (no error received)
+    expect(getState1().duplicatesIndexStatus).toBe("indexing");
+    // slice2 should have received the error
+    expect(getState2().duplicatesIndexStatus).toBe("error");
+
+    cleanup2();
   });
 });

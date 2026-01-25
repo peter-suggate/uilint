@@ -2,9 +2,11 @@
  * Unit tests for composed-store module
  *
  * Tests the Zustand store composition with plugin slices.
+ * @vitest-environment jsdom
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
 import {
   createComposedStoreFactory,
   createComposedStore,
@@ -14,6 +16,7 @@ import {
   hasPluginSlice,
   getPluginSlice,
   createScopedPluginServices,
+  useComposedStore,
 } from "./composed-store";
 import type { WebSocketService, DOMObserverService } from "../plugin-system/types";
 import type { PluginSliceMap } from "./composed-store";
@@ -588,5 +591,116 @@ describe("WebSocket state synchronization", () => {
     expect(services?.websocket.isConnected).toBe(true);
 
     resetStore();
+  });
+});
+
+describe("useComposedStore hook", () => {
+  beforeEach(() => {
+    resetStore();
+  });
+
+  afterEach(() => {
+    resetStore();
+  });
+
+  it("returns the full store state when called without selector", () => {
+    const { result } = renderHook(() => useComposedStore());
+
+    // Verify core state properties are present
+    expect(result.current.commandPalette).toBeDefined();
+    expect(result.current.inspector).toBeDefined();
+    expect(result.current.plugins).toBeDefined();
+    // floatingIconPosition can be null or a position object depending on prior state
+    expect("floatingIconPosition" in result.current).toBe(true);
+  });
+
+  it("returns selected state when called with selector", () => {
+    const { result } = renderHook(() =>
+      useComposedStore((state) => state.commandPalette.open)
+    );
+
+    expect(result.current).toBe(false);
+  });
+
+  it("creates store on first call if not exists", () => {
+    // Store should not exist yet
+    expect(getStoreApi()).toBeNull();
+
+    renderHook(() => useComposedStore());
+
+    // Store should now exist
+    expect(getStoreApi()).not.toBeNull();
+  });
+
+  it("re-renders when selected state changes", () => {
+    const { result } = renderHook(() =>
+      useComposedStore((state) => state.commandPalette.open)
+    );
+
+    expect(result.current).toBe(false);
+
+    // Update the store state
+    act(() => {
+      getStoreApi()?.getState().openCommandPalette();
+    });
+
+    expect(result.current).toBe(true);
+  });
+
+  it("selector receives correct inspector data after update", () => {
+    const { result } = renderHook(() =>
+      useComposedStore((state) => state.inspector)
+    );
+
+    expect(result.current.open).toBe(false);
+    expect(result.current.panelId).toBeNull();
+
+    act(() => {
+      getStoreApi()?.getState().openInspector("test-panel", { id: "123" });
+    });
+
+    expect(result.current.open).toBe(true);
+    expect(result.current.panelId).toBe("test-panel");
+    expect(result.current.data?.id).toBe("123");
+  });
+
+  it("multiple hooks share the same store instance", () => {
+    const { result: result1 } = renderHook(() =>
+      useComposedStore((state) => state.commandPalette.open)
+    );
+    const { result: result2 } = renderHook(() =>
+      useComposedStore((state) => state.commandPalette.open)
+    );
+
+    expect(result1.current).toBe(false);
+    expect(result2.current).toBe(false);
+
+    // Update via one hook should reflect in both
+    act(() => {
+      getStoreApi()?.getState().openCommandPalette();
+    });
+
+    expect(result1.current).toBe(true);
+    expect(result2.current).toBe(true);
+  });
+
+  it("tracks floating icon position changes", () => {
+    const { result } = renderHook(() =>
+      useComposedStore((state) => state.floatingIconPosition)
+    );
+
+    // Set position and verify it's tracked
+    act(() => {
+      getStoreApi()?.getState().setFloatingIconPosition({ x: 100, y: 200 });
+    });
+
+    expect(result.current).toEqual({ x: 100, y: 200 });
+
+    // Update position and verify change is tracked
+    act(() => {
+      getStoreApi()?.getState().setFloatingIconPosition({ x: 300, y: 400 });
+    });
+
+    expect(result.current).toEqual({ x: 300, y: 400 });
   });
 });

@@ -450,6 +450,7 @@ describe("captureScreenshot", () => {
 
   afterEach(() => {
     globalThis.document = originalDocument;
+    vi.restoreAllMocks();
   });
 
   it("returns a data URL from html-to-image", async () => {
@@ -459,6 +460,80 @@ describe("captureScreenshot", () => {
     const dataUrl = await captureScreenshot();
 
     expect(dataUrl).toBe("data:image/png;base64,mockPngData");
+  });
+
+  it("throws error with CORS hint when cross-origin error occurs", async () => {
+    const htmlToImage = await import("html-to-image");
+    vi.mocked(htmlToImage.toPng).mockRejectedValueOnce(
+      new Error("The canvas has been tainted by cross-origin data")
+    );
+
+    const dom = new JSDOM(`<!DOCTYPE html><html><body><div>Test</div></body></html>`);
+    globalThis.document = dom.window.document as unknown as Document;
+
+    await expect(captureScreenshot()).rejects.toThrow(/cross-origin images/);
+  });
+
+  it("throws error without CORS hint for non-CORS errors", async () => {
+    const htmlToImage = await import("html-to-image");
+    vi.mocked(htmlToImage.toPng).mockRejectedValueOnce(new Error("Canvas rendering failed"));
+
+    const dom = new JSDOM(`<!DOCTYPE html><html><body><div>Test</div></body></html>`);
+    globalThis.document = dom.window.document as unknown as Document;
+
+    await expect(captureScreenshot()).rejects.toThrow("Screenshot capture failed");
+    try {
+      await captureScreenshot();
+    } catch (e) {
+      expect((e as Error).message).not.toContain("cross-origin");
+    }
+  });
+
+  it("handles non-Error throws gracefully", async () => {
+    const htmlToImage = await import("html-to-image");
+    vi.mocked(htmlToImage.toPng).mockRejectedValueOnce("string error");
+
+    const dom = new JSDOM(`<!DOCTYPE html><html><body><div>Test</div></body></html>`);
+    globalThis.document = dom.window.document as unknown as Document;
+
+    await expect(captureScreenshot()).rejects.toThrow("Screenshot capture failed");
+  });
+
+  it("passes filter function to html-to-image", async () => {
+    const htmlToImage = await import("html-to-image");
+    let filterFn: ((node: Node) => boolean) | undefined;
+
+    vi.mocked(htmlToImage.toPng).mockImplementationOnce(async (_node, options) => {
+      filterFn = options?.filter;
+      return "data:image/png;base64,mockPngData";
+    });
+
+    const dom = new JSDOM(`<!DOCTYPE html><html><body><div>Test</div></body></html>`);
+    globalThis.document = dom.window.document as unknown as Document;
+
+    await captureScreenshot();
+
+    // Verify that a filter function is passed to html-to-image
+    expect(filterFn).toBeDefined();
+    expect(typeof filterFn).toBe("function");
+  });
+
+  it("uses pixelRatio 1 and cacheBust true for performance", async () => {
+    const htmlToImage = await import("html-to-image");
+    let capturedOptions: { pixelRatio?: number; cacheBust?: boolean } | undefined;
+
+    vi.mocked(htmlToImage.toPng).mockImplementationOnce(async (_node, options) => {
+      capturedOptions = options;
+      return "data:image/png;base64,mockPngData";
+    });
+
+    const dom = new JSDOM(`<!DOCTYPE html><html><body><div>Test</div></body></html>`);
+    globalThis.document = dom.window.document as unknown as Document;
+
+    await captureScreenshot();
+
+    expect(capturedOptions?.pixelRatio).toBe(1);
+    expect(capturedOptions?.cacheBust).toBe(true);
   });
 });
 
@@ -526,17 +601,113 @@ describe("captureScreenshotRegion", () => {
       }
     } as unknown as typeof Image;
 
-    try {
-      const dataUrl = await captureScreenshotRegion({
-        x: 100,
-        y: 100,
-        width: 200,
-        height: 150,
-      });
+    const dataUrl = await captureScreenshotRegion({
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 150,
+    });
 
-      expect(dataUrl).toBe("data:image/png;base64,croppedRegionData");
-    } finally {
-      globalThisWithImage.Image = originalImage;
+    expect(dataUrl).toBe("data:image/png;base64,croppedRegionData");
+    globalThisWithImage.Image = originalImage;
+  });
+
+  it("handles scroll offset correctly", async () => {
+    const dom = new JSDOM(`<!DOCTYPE html><html><body><div>Test</div></body></html>`);
+    globalThis.document = dom.window.document as unknown as Document;
+
+    // Mock window with scroll offset
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        scrollX: 50,
+        scrollY: 100,
+        pageXOffset: 50,
+        pageYOffset: 100,
+      },
+      writable: true,
+    });
+
+    const mockCanvas = {
+      width: 0,
+      height: 0,
+      getContext: () => ({
+        drawImage: vi.fn(),
+      }),
+      toDataURL: () => "data:image/png;base64,croppedData",
+    };
+    const originalCreateElement = globalThis.document.createElement.bind(globalThis.document);
+    globalThis.document.createElement = ((tagName: string) => {
+      if (tagName === "canvas") {
+        return mockCanvas as unknown as HTMLCanvasElement;
+      }
+      return originalCreateElement(tagName);
+    }) as typeof document.createElement;
+
+    const originalImage = globalThis.Image;
+    const globalThisWithImage = globalThis as typeof globalThis & {
+      Image: typeof Image;
+    };
+    globalThisWithImage.Image = class MockImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      src = "";
+
+      constructor() {
+        setTimeout(() => {
+          if (this.onload) this.onload();
+        }, 0);
+      }
+    } as unknown as typeof Image;
+
+    const dataUrl = await captureScreenshotRegion({
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 150,
+    });
+
+    expect(dataUrl).toBe("data:image/png;base64,croppedData");
+    globalThisWithImage.Image = originalImage;
+  });
+
+  it("throws error with CORS hint when cross-origin error occurs", async () => {
+    const htmlToImage = await import("html-to-image");
+    vi.mocked(htmlToImage.toPng).mockRejectedValueOnce(
+      new Error("Failed due to CORS policy")
+    );
+
+    const dom = new JSDOM(`<!DOCTYPE html><html><body><div>Test</div></body></html>`);
+    globalThis.document = dom.window.document as unknown as Document;
+
+    Object.defineProperty(globalThis, "window", {
+      value: { scrollX: 0, scrollY: 0, pageXOffset: 0, pageYOffset: 0 },
+      writable: true,
+    });
+
+    await expect(
+      captureScreenshotRegion({ x: 0, y: 0, width: 100, height: 100 })
+    ).rejects.toThrow(/cross-origin images/);
+  });
+
+  it("throws error without CORS hint for non-CORS errors", async () => {
+    const htmlToImage = await import("html-to-image");
+    vi.mocked(htmlToImage.toPng).mockRejectedValueOnce(new Error("Memory limit exceeded"));
+
+    const dom = new JSDOM(`<!DOCTYPE html><html><body><div>Test</div></body></html>`);
+    globalThis.document = dom.window.document as unknown as Document;
+
+    Object.defineProperty(globalThis, "window", {
+      value: { scrollX: 0, scrollY: 0, pageXOffset: 0, pageYOffset: 0 },
+      writable: true,
+    });
+
+    await expect(
+      captureScreenshotRegion({ x: 0, y: 0, width: 100, height: 100 })
+    ).rejects.toThrow("Screenshot capture failed");
+    try {
+      await captureScreenshotRegion({ x: 0, y: 0, width: 100, height: 100 });
+    } catch (e) {
+      expect((e as Error).message).not.toContain("cross-origin");
     }
   });
 });
