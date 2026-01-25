@@ -38,5 +38,7 @@ if [[ "$file_path" =~ \.(ts|tsx|js|jsx)$ ]]; then
   if [[ -n "$remaining" ]]; then
     # Output JSON so Claude sees the lint errors via additionalContext
     jq -n --arg issues "$remaining" '{"additionalContext": ("ESLint errors - fix these:\n" + $issues)}'
+    # Exit with error code to signal lint issues to the agent
+    exit 1
   fi
 fi

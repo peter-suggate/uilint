@@ -1,23 +1,32 @@
 /**
- * FloatingIcon - Draggable button that opens the command palette
- * Shows issue count badge and connection status
+ * FloatingIcon - Draggable glassmorphic command bar trigger
+ * macOS Spotlight-inspired design with keyboard shortcut hint
  */
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useComposedStore } from "../../core/store";
-import { UILintIcon } from "../icons";
+import { SearchIcon } from "../icons";
 
 interface Position {
   x: number;
   y: number;
 }
 
-/** SSR-safe default position - only accesses window on client */
+const PILL_WIDTH = 180;
+const PILL_HEIGHT = 36;
+
+/** SSR-safe default position - centered horizontally at top */
 function getDefaultPosition(): Position {
   if (typeof window === "undefined") {
     return { x: 0, y: 16 };
   }
-  return { x: window.innerWidth / 2 - 24, y: 16 };
+  return { x: window.innerWidth / 2 - PILL_WIDTH / 2, y: 16 };
+}
+
+/** Detect macOS for showing correct modifier key symbol */
+function isMac(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 }
 
 export function FloatingIcon() {
@@ -31,19 +40,23 @@ export function FloatingIcon() {
     const issues = s.plugins?.eslint?.issues;
     if (!issues) return 0;
     let count = 0;
-    issues.forEach((arr) => { count += arr.length; });
+    issues.forEach((arr) => {
+      count += arr.length;
+    });
     return count;
   });
 
   const [isDragging, setIsDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const currentPosition = position ?? getDefaultPosition();
+  const modKey = isMac() ? "⌥" : "Alt+";
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 0) return; // Left click only
-    const rect = buttonRef.current?.getBoundingClientRect();
+  const handleGripMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
     setDragOffset({
@@ -52,16 +65,26 @@ export function FloatingIcon() {
     });
     setIsDragging(true);
     e.preventDefault();
+    e.stopPropagation();
   }, []);
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging) return;
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging) return;
 
-    const newX = Math.max(0, Math.min(window.innerWidth - 48, e.clientX - dragOffset.x));
-    const newY = Math.max(0, Math.min(window.innerHeight - 48, e.clientY - dragOffset.y));
+      const newX = Math.max(
+        0,
+        Math.min(window.innerWidth - PILL_WIDTH, e.clientX - dragOffset.x)
+      );
+      const newY = Math.max(
+        0,
+        Math.min(window.innerHeight - PILL_HEIGHT, e.clientY - dragOffset.y)
+      );
 
-    setPosition({ x: newX, y: newY });
-  }, [isDragging, dragOffset, setPosition]);
+      setPosition({ x: newX, y: newY });
+    },
+    [isDragging, dragOffset, setPosition]
+  );
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -84,77 +107,150 @@ export function FloatingIcon() {
     }
   }, [isDragging, openCommandPalette]);
 
-  // Render into portal
   const portalRoot = document.getElementById("uilint-portal") || document.body;
 
   return createPortal(
-    <button
-      ref={buttonRef}
-      onClick={handleClick}
-      onMouseDown={handleMouseDown}
+    <div
+      ref={containerRef}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         position: "fixed",
         left: currentPosition.x,
         top: currentPosition.y,
-        width: 48,
-        height: 48,
-        borderRadius: "50%",
-        border: "none",
-        background: isConnected ? "#3b82f6" : "#6b7280",
-        color: "white",
-        cursor: isDragging ? "grabbing" : "grab",
+        height: PILL_HEIGHT,
         display: "flex",
         alignItems: "center",
-        justifyContent: "center",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        gap: 0,
         zIndex: 99999,
-        transition: isDragging ? "none" : "background 0.2s",
         pointerEvents: "auto",
       }}
-      title={`UILint: ${issueCount} issues${isConnected ? "" : " (disconnected)"}`}
     >
-      <UILintIcon size={24} />
+      {/* Grip handle */}
+      <div
+        onMouseDown={handleGripMouseDown}
+        style={{
+          width: 20,
+          height: PILL_HEIGHT,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: isDragging ? "grabbing" : "grab",
+          borderRadius: "10px 0 0 10px",
+          background: "rgba(255, 255, 255, 0.7)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          borderTop: "1px solid rgba(255, 255, 255, 0.8)",
+          borderLeft: "1px solid rgba(255, 255, 255, 0.8)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.5)",
+          boxShadow: isDragging
+            ? "0 8px 32px rgba(0, 0, 0, 0.2)"
+            : "0 4px 16px rgba(0, 0, 0, 0.1)",
+          transition: isDragging ? "none" : "box-shadow 0.2s",
+        }}
+      >
+        <svg
+          width="6"
+          height="14"
+          viewBox="0 0 6 14"
+          fill="none"
+          style={{ opacity: isHovered ? 0.6 : 0.35 }}
+        >
+          <circle cx="1.5" cy="2" r="1.5" fill="currentColor" />
+          <circle cx="4.5" cy="2" r="1.5" fill="currentColor" />
+          <circle cx="1.5" cy="7" r="1.5" fill="currentColor" />
+          <circle cx="4.5" cy="7" r="1.5" fill="currentColor" />
+          <circle cx="1.5" cy="12" r="1.5" fill="currentColor" />
+          <circle cx="4.5" cy="12" r="1.5" fill="currentColor" />
+        </svg>
+      </div>
 
-      {/* Issue count badge */}
-      {issueCount > 0 && (
+      {/* Main pill button */}
+      <button
+        onClick={handleClick}
+        style={{
+          height: PILL_HEIGHT,
+          padding: "0 14px 0 10px",
+          border: "none",
+          borderRadius: "0 10px 10px 0",
+          background: "rgba(255, 255, 255, 0.7)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          borderTop: "1px solid rgba(255, 255, 255, 0.8)",
+          borderRight: "1px solid rgba(255, 255, 255, 0.5)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.5)",
+          boxShadow: isDragging
+            ? "0 8px 32px rgba(0, 0, 0, 0.2)"
+            : "0 4px 16px rgba(0, 0, 0, 0.1)",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          transition: isDragging ? "none" : "box-shadow 0.2s, background 0.2s",
+          color: "#1a1a1a",
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          fontSize: 13,
+          fontWeight: 400,
+        }}
+        onMouseOver={(e) => {
+          if (!isDragging) {
+            e.currentTarget.style.background = "rgba(255, 255, 255, 0.85)";
+          }
+        }}
+        onMouseOut={(e) => {
+          e.currentTarget.style.background = "rgba(255, 255, 255, 0.7)";
+        }}
+      >
+        <SearchIcon size={15} style={{ opacity: 0.5 }} />
+
+        <span style={{ opacity: 0.7 }}>Search</span>
+
+        {/* Issue count - subtle inline */}
+        {issueCount > 0 && (
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 500,
+              color: "#ef4444",
+              opacity: 0.9,
+            }}
+          >
+            {issueCount > 99 ? "99+" : issueCount}
+          </span>
+        )}
+
+        {/* Keyboard shortcut */}
         <span
           style={{
-            position: "absolute",
-            top: -4,
-            right: -4,
-            minWidth: 20,
-            height: 20,
-            borderRadius: 10,
-            background: "#ef4444",
-            color: "white",
-            fontSize: 11,
-            fontWeight: 600,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "0 6px",
+            marginLeft: "auto",
+            fontSize: 12,
+            fontWeight: 500,
+            opacity: 0.4,
+            letterSpacing: "-0.02em",
           }}
         >
-          {issueCount > 99 ? "99+" : issueCount}
+          {modKey}K
         </span>
-      )}
+      </button>
 
-      {/* Connection indicator */}
+      {/* Connection indicator - subtle dot */}
       {!isConnected && (
         <span
           style={{
             position: "absolute",
-            bottom: -2,
-            right: -2,
-            width: 12,
-            height: 12,
+            top: -3,
+            right: -3,
+            width: 8,
+            height: 8,
             borderRadius: "50%",
             background: "#f59e0b",
             border: "2px solid white",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
           }}
         />
       )}
-    </button>,
+    </div>,
     portalRoot
   );
 }
