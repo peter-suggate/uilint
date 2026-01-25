@@ -18,24 +18,20 @@ import type { MockPluginServices } from "../../__tests__/test-utils";
 import type { ScannedElementInfo } from "../../core/plugin-system/types";
 
 /**
- * Helper to create ESLint plugin state wrapped in the expected structure
+ * Helper to create ESLint plugin state (scoped - services.getState() returns this directly)
  */
 function createESLintState(overrides?: {
   scanStatus?: "idle" | "scanning" | "complete" | "error";
   requestedFiles?: Set<string>;
 }) {
   return {
-    plugins: {
-      eslint: {
-        issues: new Map(),
-        scannedDataLocs: new Set(),
-        requestedFiles: overrides?.requestedFiles ?? new Set(),
-        scanStatus: overrides?.scanStatus ?? "scanning",
-        availableRules: [],
-        disabledRules: new Set(),
-        workspaceRoot: null,
-      },
-    },
+    issues: new Map(),
+    scannedDataLocs: new Set(),
+    requestedFiles: overrides?.requestedFiles ?? new Set(),
+    scanStatus: overrides?.scanStatus ?? "scanning",
+    availableRules: [],
+    disabledRules: new Set(),
+    workspaceRoot: null,
   };
 }
 

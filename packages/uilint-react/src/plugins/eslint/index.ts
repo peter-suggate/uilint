@@ -138,8 +138,8 @@ export const eslintPlugin: Plugin = {
    * Get available rules from this plugin
    */
   getRules: (services: PluginServices): RuleDefinition[] => {
-    const fullState = services.getState<{ plugins: { eslint?: ESLintPluginSlice } }>();
-    const state = fullState.plugins?.eslint;
+    // services.getState() returns the plugin's scoped slice directly
+    const state = services.getState<ESLintPluginSlice>();
 
     if (!state?.availableRules) {
       return [];
@@ -199,8 +199,8 @@ export const eslintPlugin: Plugin = {
    * Get configuration options for a rule
    */
   getRuleConfig: (ruleId: string, services: PluginServices): Record<string, unknown> => {
-    const fullState = services.getState<{ plugins: { eslint?: ESLintPluginSlice } }>();
-    const state = fullState.plugins?.eslint;
+    // services.getState() returns the plugin's scoped slice directly
+    const state = services.getState<ESLintPluginSlice>();
     const configs = state?.ruleConfigs ?? new Map<string, RuleConfig>();
     const config = configs.get(ruleId);
 
@@ -282,18 +282,11 @@ function handleElementsAdded(
   services: PluginServices,
   elements: ScannedElementInfo[]
 ): void {
-  // Get current state - ESLint slice is at plugins.eslint
-  const fullState = services.getState<{ plugins: { eslint?: ESLintPluginSlice } }>();
-  const state = fullState.plugins?.eslint;
+  // Get current state - services.getState() returns the plugin's scoped slice directly
+  const state = services.getState<ESLintPluginSlice>();
 
   console.log("[ESLint Plugin] handleElementsAdded called with", elements.length, "elements");
   console.log("[ESLint Plugin] State check - scanStatus:", state?.scanStatus, "wsConnected:", services.websocket.isConnected);
-
-  // Check if state exists
-  if (!state) {
-    console.warn("[ESLint Plugin] ESLint slice not found in state");
-    return;
-  }
 
   // Check if scanning is active
   if (state.scanStatus !== "scanning") {
@@ -442,14 +435,13 @@ function handleWebSocketMessage(
         byDataLoc.set(issue.dataLoc, [...existing, issue]);
       }
 
-      // Get current state and update issues for each dataLoc
+      // Get current state and batch all issue updates into a single setState call
       const state = services.getState<ESLintPluginSlice>();
+      const mergedIssues = new Map(state.issues);
       for (const [dataLoc, issues] of byDataLoc) {
-        // Merge with the main issues Map
-        const currentIssues = new Map(state.issues);
-        currentIssues.set(dataLoc, issues);
-        services.setState({ issues: currentIssues });
+        mergedIssues.set(dataLoc, issues);
       }
+      services.setState({ issues: mergedIssues });
       break;
     }
 
@@ -550,3 +542,6 @@ export default eslintPlugin;
 export * from "./types";
 export * from "./slice";
 export { eslintCommands } from "./commands";
+
+// Export for testing - allows direct testing of message handling logic
+export { handleWebSocketMessage as _handleWebSocketMessageForTesting };

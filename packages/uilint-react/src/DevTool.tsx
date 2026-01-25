@@ -127,7 +127,9 @@ export function DevTool({ enabled = true }: DevToolProps) {
           console.log("[DevTool] WebSocket connected, starting DOM observer");
           domObserver.start();
         } else {
-          console.log("[DevTool] WebSocket disconnected, stopping DOM observer");
+          console.log(
+            "[DevTool] WebSocket disconnected, stopping DOM observer"
+          );
           domObserver.stop();
         }
       });

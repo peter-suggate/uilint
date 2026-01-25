@@ -219,20 +219,17 @@ describe("Integration: Full ESLint Detection Flow", () => {
   let cleanup: (() => void) | undefined;
 
   beforeEach(() => {
+    // Note: services.getState() returns scoped plugin state directly (not wrapped in plugins.eslint)
     services = createMockPluginServices({
       websocket: { isConnected: true },
       initialState: {
-        plugins: {
-          eslint: {
-            issues: new Map(),
-            scannedDataLocs: new Set(),
-            requestedFiles: new Set(),
-            scanStatus: "scanning",
-            availableRules: [],
-            disabledRules: new Set(),
-            workspaceRoot: null,
-          },
-        },
+        issues: new Map(),
+        scannedDataLocs: new Set(),
+        requestedFiles: new Set(),
+        scanStatus: "scanning",
+        availableRules: [],
+        disabledRules: new Set(),
+        workspaceRoot: null,
         appRoot: "/test/app",
         serverCwd: "/test",
       },

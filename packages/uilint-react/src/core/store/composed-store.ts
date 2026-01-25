@@ -485,9 +485,11 @@ function createScopedServicesForPlugin(
   return {
     ...baseServices,
     getState: <T = unknown>() => {
-      // Return the full state with plugins.{pluginId} accessible
-      // This allows plugins to access their own state at plugins.{pluginId}
-      return store.getState() as unknown as T;
+      // Return the plugin's scoped slice, not the full store state
+      // This allows plugins to access their own state directly (e.g., state.issues)
+      const fullState = store.getState();
+      const pluginSlice = fullState.plugins[pluginId as keyof PluginSliceMap] || {};
+      return pluginSlice as unknown as T;
     },
     setState: <T = unknown>(partial: Partial<T>) => {
       // Merge the partial update into the plugin's slice at plugins.{pluginId}
