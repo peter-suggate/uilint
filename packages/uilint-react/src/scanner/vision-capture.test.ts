@@ -16,6 +16,9 @@ import {
   matchIssuesToManifest,
   generateTimestamp,
   getCurrentRoute,
+  buildVisionAnalysisPayload,
+  captureScreenshot,
+  captureScreenshotRegion,
   type ElementManifest,
   type VisionIssue,
 } from "./vision-capture.js";
@@ -363,5 +366,177 @@ describe("getCurrentRoute", () => {
     const route = getCurrentRoute();
 
     expect(route).toBe("/");
+  });
+});
+
+describe("buildVisionAnalysisPayload", () => {
+  it("builds payload with required fields", () => {
+    const manifest: ElementManifest[] = [
+      {
+        id: "btn-1",
+        text: "Submit",
+        dataLoc: "app/page.tsx:10:5",
+        rect: { x: 100, y: 200, width: 120, height: 40 },
+        tagName: "button",
+        role: "button",
+      },
+    ];
+
+    const payload = buildVisionAnalysisPayload({
+      manifest,
+      route: "/checkout",
+    });
+
+    expect(payload.type).toBe("vision:analyze");
+    expect(payload.route).toBe("/checkout");
+    expect(payload.manifest).toEqual(manifest);
+    expect(payload.timestamp).toBeTypeOf("number");
+    expect(payload.screenshot).toBeUndefined();
+    expect(payload.screenshotFile).toBeUndefined();
+  });
+
+  it("includes screenshotDataUrl when provided", () => {
+    const payload = buildVisionAnalysisPayload({
+      manifest: [],
+      route: "/",
+      screenshotDataUrl: "data:image/png;base64,abc123",
+    });
+
+    expect(payload.screenshot).toBe("data:image/png;base64,abc123");
+  });
+
+  it("includes screenshotFile when provided", () => {
+    const payload = buildVisionAnalysisPayload({
+      manifest: [],
+      route: "/dashboard",
+      screenshotFile: "uilint-dashboard-2024-01-15.png",
+    });
+
+    expect(payload.screenshotFile).toBe("uilint-dashboard-2024-01-15.png");
+  });
+
+  it("includes both screenshot and screenshotFile when both provided", () => {
+    const payload = buildVisionAnalysisPayload({
+      manifest: [],
+      route: "/settings",
+      screenshotDataUrl: "data:image/png;base64,xyz789",
+      screenshotFile: "uilint-settings-2024-01-15.png",
+    });
+
+    expect(payload.screenshot).toBe("data:image/png;base64,xyz789");
+    expect(payload.screenshotFile).toBe("uilint-settings-2024-01-15.png");
+  });
+
+  it("timestamp is close to current time", () => {
+    const before = Date.now();
+    const payload = buildVisionAnalysisPayload({
+      manifest: [],
+      route: "/",
+    });
+    const after = Date.now();
+
+    expect(payload.timestamp).toBeGreaterThanOrEqual(before);
+    expect(payload.timestamp).toBeLessThanOrEqual(after);
+  });
+});
+
+describe("captureScreenshot", () => {
+  // Note: captureScreenshot uses html-to-image which is mocked at the top
+  let originalDocument: typeof globalThis.document;
+
+  beforeEach(() => {
+    originalDocument = globalThis.document;
+  });
+
+  afterEach(() => {
+    globalThis.document = originalDocument;
+  });
+
+  it("returns a data URL from html-to-image", async () => {
+    const dom = new JSDOM(`<!DOCTYPE html><html><body><div>Test</div></body></html>`);
+    globalThis.document = dom.window.document as unknown as Document;
+
+    const dataUrl = await captureScreenshot();
+
+    expect(dataUrl).toBe("data:image/png;base64,mockPngData");
+  });
+});
+
+describe("captureScreenshotRegion", () => {
+  // Note: This relies on the html-to-image mock and canvas operations
+  let originalDocument: typeof globalThis.document;
+  let originalWindow: typeof globalThis.window;
+
+  beforeEach(() => {
+    originalDocument = globalThis.document;
+    originalWindow = globalThis.window;
+  });
+
+  afterEach(() => {
+    globalThis.document = originalDocument;
+    globalThis.window = originalWindow;
+  });
+
+  it("captures and crops a region of the page", async () => {
+    const dom = new JSDOM(`<!DOCTYPE html><html><body><div>Test</div></body></html>`);
+    globalThis.document = dom.window.document as unknown as Document;
+
+    // Mock window scroll properties
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        scrollX: 0,
+        scrollY: 0,
+        pageXOffset: 0,
+        pageYOffset: 0,
+      },
+      writable: true,
+    });
+
+    // Mock document.createElement to return a mock canvas
+    const mockCanvas = {
+      width: 0,
+      height: 0,
+      getContext: () => ({
+        drawImage: () => {},
+      }),
+      toDataURL: () => "data:image/png;base64,croppedRegionData",
+    };
+    const originalCreateElement = globalThis.document.createElement.bind(globalThis.document);
+    globalThis.document.createElement = ((tagName: string) => {
+      if (tagName === "canvas") {
+        return mockCanvas as unknown as HTMLCanvasElement;
+      }
+      return originalCreateElement(tagName);
+    }) as typeof document.createElement;
+
+    // Mock Image constructor
+    const originalImage = globalThis.Image;
+    const globalThisWithImage = globalThis as typeof globalThis & {
+      Image: typeof Image;
+    };
+    globalThisWithImage.Image = class MockImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      src = "";
+
+      constructor() {
+        setTimeout(() => {
+          if (this.onload) this.onload();
+        }, 0);
+      }
+    } as unknown as typeof Image;
+
+    try {
+      const dataUrl = await captureScreenshotRegion({
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 150,
+      });
+
+      expect(dataUrl).toBe("data:image/png;base64,croppedRegionData");
+    } finally {
+      globalThisWithImage.Image = originalImage;
+    }
   });
 });
