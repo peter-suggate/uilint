@@ -1,0 +1,11 @@
+{
+  "/example/file.ts": {
+    "path": "/example/file.ts",
+    "statementMap": {},
+    "fnMap": {},
+    "branchMap": {},
+    "s": {},
+    "f": {},
+    "b": {}
+  }
+}
