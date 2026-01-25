@@ -14,16 +14,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { pluginRegistry } from "./core/plugin-system/registry";
 import { eslintPlugin } from "./plugins/eslint";
 import {
-  createComposedStore,
   initializePlugins,
   resetStore,
   getPluginServices,
 } from "./core/store";
-import { websocket, createWebSocketService } from "./core/services/websocket";
-import {
-  domObserver,
-  createDOMObserverService,
-} from "./core/services/dom-observer";
+import { createWebSocketService } from "./core/services/websocket";
+import { createDOMObserverService } from "./core/services/dom-observer";
 
 describe("DevTool E2E: Service Wiring", () => {
   beforeEach(() => {

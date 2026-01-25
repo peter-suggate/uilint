@@ -5,5 +5,10 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     environment: "node",
     pool: "threads",
+    coverage: {
+      provider: "v8",
+      reporter: ["json", "text-summary"],
+      reportsDirectory: "./coverage",
+    },
   },
 });

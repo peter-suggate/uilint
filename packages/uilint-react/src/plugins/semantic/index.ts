@@ -7,11 +7,7 @@
 
 import type { Plugin } from "../../core/plugin-system/types";
 import { semanticCommands } from "./commands";
-import {
-  createSemanticPluginSlice,
-  subscribeToDuplicatesIndexingMessages,
-  type SemanticPluginSlice,
-} from "./slice";
+import { createSemanticPluginSlice, type SemanticPluginSlice } from "./slice";
 
 /**
  * Semantic analysis plugin

@@ -19,15 +19,10 @@ import type {
   ElementsRemovedHandler,
   ScannedElementInfo,
   Command,
-  InspectorPanel,
   Analyzer,
   PluginIssue,
 } from "../core/plugin-system/types";
-import type {
-  CoreSlice,
-  CommandPaletteState,
-  InspectorState,
-} from "../core/store/core-slice";
+import type { CoreSlice } from "../core/store/core-slice";
 
 // ============================================================================
 // Mock WebSocket Service
@@ -872,7 +867,7 @@ export function createTestStore(): UseBoundStore<StoreApi<TestStoreState>> {
 
     unregisterPluginSlice: (pluginId: string) => {
       set((state) => {
-        const { [pluginId]: removed, ...rest } = state.plugins;
+        const { [pluginId]: _removed, ...rest } = state.plugins;
         return { plugins: rest };
       });
     },

@@ -18,7 +18,7 @@ interface OverlayItemProps {
   onClick: () => void;
 }
 
-function OverlayItem({ dataLoc, rect, issues, isHovered, showDetails, onClick }: OverlayItemProps) {
+function OverlayItem({ rect, issues, isHovered, showDetails, onClick }: OverlayItemProps) {
   // Get highest severity for border color
   const severity = useMemo(() => {
     if (issues.some(i => i.severity === "error")) return "error";

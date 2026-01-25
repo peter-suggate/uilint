@@ -7,7 +7,6 @@
 
 import type { Linter } from "eslint";
 import noArbitraryTailwind from "./rules/no-arbitrary-tailwind.js";
-import consistentSpacing from "./rules/consistent-spacing.js";
 import consistentDarkMode from "./rules/consistent-dark-mode.js";
 import noDirectStoreImport from "./rules/no-direct-store-import.js";
 import preferZustandStateManagement from "./rules/prefer-zustand-state-management.js";
@@ -22,13 +21,13 @@ import noSecretsInCode from "./rules/no-secrets-in-code.js";
 import requireInputValidation from "./rules/require-input-validation.js";
 import noSemanticDuplicates from "./rules/no-semantic-duplicates.js";
 import requireTestCoverage from "./rules/require-test-coverage/index.js";
+import preferTailwind from "./rules/prefer-tailwind.js";
 
 /**
  * All available rules
  */
 const rules = {
   "no-arbitrary-tailwind": noArbitraryTailwind,
-  "consistent-spacing": consistentSpacing,
   "consistent-dark-mode": consistentDarkMode,
   "no-direct-store-import": noDirectStoreImport,
   "prefer-zustand-state-management": preferZustandStateManagement,
@@ -43,6 +42,7 @@ const rules = {
   "require-input-validation": requireInputValidation,
   "no-semantic-duplicates": noSemanticDuplicates,
   "require-test-coverage": requireTestCoverage,
+  "prefer-tailwind": preferTailwind,
 };
 
 // Package version (injected at build time or fallback)
@@ -93,23 +93,6 @@ const recommendedConfig: Linter.Config = {
   languageOptions: jsxLanguageOptions,
   rules: {
     "uilint/no-arbitrary-tailwind": "error",
-    "uilint/consistent-spacing": ["warn", ...[
-        {
-          "scale": [
-            0,
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            8,
-            10,
-            12,
-            16
-          ]
-        }
-      ]],
     "uilint/consistent-dark-mode": ["error", ...[
         {
           "warnOnMissingDarkMode": true
@@ -218,6 +201,14 @@ const recommendedConfig: Linter.Config = {
           "baseBranch": "main"
         }
       ]],
+    "uilint/prefer-tailwind": ["warn", ...[
+        {
+          "styleRatioThreshold": 0.3,
+          "minElementsForAnalysis": 3,
+          "allowedStyleProperties": [],
+          "ignoreComponents": []
+        }
+      ]],
   },
 };
 
@@ -239,23 +230,6 @@ const strictConfig: Linter.Config = {
   languageOptions: jsxLanguageOptions,
   rules: {
     "uilint/no-arbitrary-tailwind": "error",
-    "uilint/consistent-spacing": ["warn", ...[
-        {
-          "scale": [
-            0,
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            8,
-            10,
-            12,
-            16
-          ]
-        }
-      ]],
     "uilint/consistent-dark-mode": ["error", ...[
         {
           "warnOnMissingDarkMode": true
@@ -381,6 +355,14 @@ const strictConfig: Linter.Config = {
           ],
           "mode": "all",
           "baseBranch": "main"
+        }
+      ]],
+    "uilint/prefer-tailwind": ["warn", ...[
+        {
+          "styleRatioThreshold": 0.3,
+          "minElementsForAnalysis": 3,
+          "allowedStyleProperties": [],
+          "ignoreComponents": []
         }
       ]],
   },

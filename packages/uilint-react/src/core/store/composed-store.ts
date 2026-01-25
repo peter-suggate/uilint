@@ -18,7 +18,6 @@ import { create, type StoreApi, type UseBoundStore } from "zustand";
 import { createCoreSlice, type CoreSlice } from "./core-slice";
 import { pluginRegistry, type PluginRegistry } from "../plugin-system/registry";
 import type {
-  Plugin,
   PluginServices,
   WebSocketService,
   DOMObserverService,
@@ -318,7 +317,7 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
       unregisterPluginSlice: (pluginId: keyof PluginSliceMap) => {
         console.log(`[ComposedStore] Unregistering plugin slice: ${String(pluginId)}`);
         set((state) => {
-          const { [pluginId]: removed, ...rest } = state.plugins;
+          const { [pluginId]: _removed, ...rest } = state.plugins;
           return { plugins: rest };
         });
       },

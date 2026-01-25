@@ -11,7 +11,7 @@ import {
   loadVisionAutoScanSettings,
   saveVisionAutoScanSettings,
 } from "./slice";
-import type { VisionSlice, VisionSliceState } from "./slice";
+import type { VisionSlice } from "./slice";
 import { visionCommands } from "./commands";
 import { visionPlugin } from "./index";
 import { DEFAULT_VISION_AUTO_SCAN_SETTINGS } from "./types";
@@ -464,7 +464,7 @@ describe("Vision Plugin - State Actions", () => {
 
   describe("updateVisionIssuesCache", () => {
     it("adds issues to cache for route", () => {
-      const { state, set, get } = createMockSlice();
+      const { state, set, get: _get } = createMockSlice();
 
       const issues: VisionIssue[] = [
         {
@@ -484,7 +484,7 @@ describe("Vision Plugin - State Actions", () => {
 
   describe("addScreenshotToHistory", () => {
     it("adds screenshot and sets as selected", () => {
-      const { state, set, get } = createMockSlice();
+      const { state, set, get: _get } = createMockSlice();
 
       const capture: ScreenshotCapture = {
         id: "capture_456",
@@ -538,7 +538,7 @@ describe("Vision Plugin - State Actions", () => {
     });
 
     it("does nothing if screenshot does not exist", () => {
-      const { state, set, get } = createMockSlice();
+      const { state, set, get: _get } = createMockSlice();
 
       state.updateScreenshotInHistory("nonexistent_id", { issues: [] });
 

@@ -67,7 +67,7 @@ export const initialSemanticPluginState: SemanticPluginState = {
  */
 export function createSemanticPluginSlice(
   set: <T>(partial: Partial<T>) => void,
-  get: () => SemanticPluginState
+  _get: () => SemanticPluginState
 ): SemanticPluginSlice {
   return {
     // Initial state

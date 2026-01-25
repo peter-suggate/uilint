@@ -18,7 +18,7 @@ export function ElementDetail({ dataLoc, onSelectIssue }: ElementDetailProps) {
 
   if (issues.length === 0) {
     return (
-      <div style={{ padding: 16, textAlign: "center", color: "#6b7280" }}>
+      <div style={{ padding: 16, textAlign: "center", color: "var(--uilint-text-muted)" }}>
         No issues for this element
       </div>
     );
@@ -29,14 +29,14 @@ export function ElementDetail({ dataLoc, onSelectIssue }: ElementDetailProps) {
       <div style={{
         fontSize: 14,
         fontWeight: 600,
-        color: "#111827",
+        color: "var(--uilint-text-primary)",
         marginBottom: 12,
       }}>
         {issues.length} issue{issues.length !== 1 ? "s" : ""} at this location
       </div>
 
       <div style={{
-        background: "#f9fafb",
+        background: "var(--uilint-surface-elevated)",
         borderRadius: 8,
         overflow: "hidden",
       }}>
@@ -55,20 +55,20 @@ export function ElementDetail({ dataLoc, onSelectIssue }: ElementDetailProps) {
                 gap: 10,
                 padding: 12,
                 cursor: "pointer",
-                borderBottom: index < issues.length - 1 ? "1px solid #e5e7eb" : undefined,
+                borderBottom: index < issues.length - 1 ? "1px solid var(--uilint-border)" : undefined,
               }}
             >
               <SeverityIcon size={16} color={severityToColor(issue.severity)} />
               <div style={{ flex: 1 }}>
                 <div style={{
                   fontSize: 13,
-                  color: "#111827",
+                  color: "var(--uilint-text-primary)",
                 }}>
                   {issue.message}
                 </div>
                 <div style={{
                   fontSize: 11,
-                  color: "#6b7280",
+                  color: "var(--uilint-text-muted)",
                   marginTop: 2,
                 }}>
                   {issue.ruleId}
@@ -82,7 +82,7 @@ export function ElementDetail({ dataLoc, onSelectIssue }: ElementDetailProps) {
       <div style={{
         marginTop: 12,
         fontSize: 11,
-        color: "#9ca3af",
+        color: "var(--uilint-text-disabled)",
         wordBreak: "break-all",
       }}>
         {dataLoc}

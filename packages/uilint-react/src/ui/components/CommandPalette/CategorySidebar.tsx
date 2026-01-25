@@ -2,7 +2,7 @@
  * CategorySidebar - Left sidebar with category navigation
  */
 import React from "react";
-import { PlayIcon, RuleIcon, FileIcon, WarningIcon } from "../../icons";
+import { PlayIcon, RuleIcon, WarningIcon } from "../../icons";
 
 interface CategorySidebarProps {
   commandCount: number;

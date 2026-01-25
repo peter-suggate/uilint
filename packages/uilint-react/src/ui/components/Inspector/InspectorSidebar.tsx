@@ -71,7 +71,7 @@ export function InspectorSidebar() {
       content = services ? (
         <PanelComponent data={data} services={services} />
       ) : (
-        <div style={{ padding: 16, color: "#6b7280", textAlign: "center" }}>
+        <div style={{ padding: 16, color: "var(--uilint-text-muted)", textAlign: "center" }}>
           Loading...
         </div>
       );
@@ -88,7 +88,7 @@ export function InspectorSidebar() {
       );
     } else {
       content = (
-        <div style={{ padding: 16, color: "#6b7280", textAlign: "center" }}>
+        <div style={{ padding: 16, color: "var(--uilint-text-muted)", textAlign: "center" }}>
           Select an issue or element to inspect
         </div>
       );
@@ -203,14 +203,14 @@ export function InspectorSidebar() {
         alignItems: "center",
         justifyContent: "space-between",
         padding: "12px 16px",
-        borderBottom: "1px solid rgba(0,0,0,0.08)",
-        background: "rgba(255,255,255,0.5)",
+        borderBottom: "1px solid var(--uilint-border)",
+        background: "var(--uilint-surface-elevated)",
         cursor: isDraggable ? "move" : "default",
         userSelect: "none",
       }}
       onMouseDown={isDraggable ? handleDragStart : undefined}
     >
-      <span style={{ fontWeight: 600, color: "#111827" }}>
+      <span style={{ fontWeight: 600, color: "var(--uilint-text-primary)" }}>
         {title}
       </span>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -221,7 +221,7 @@ export function InspectorSidebar() {
             background: "none",
             cursor: "pointer",
             padding: 4,
-            color: "#6b7280",
+            color: "var(--uilint-text-muted)",
             borderRadius: 4,
           }}
           title={docked ? "Undock to floating window" : "Dock to side"}
@@ -235,7 +235,7 @@ export function InspectorSidebar() {
             background: "none",
             cursor: "pointer",
             padding: 4,
-            color: "#6b7280",
+            color: "var(--uilint-text-muted)",
             borderRadius: 4,
           }}
           title="Close"
@@ -246,9 +246,9 @@ export function InspectorSidebar() {
     </div>
   );
 
-  // Glass morphism styles
+  // Glass morphism styles - uses CSS variables for dark mode support
   const glassStyle: React.CSSProperties = {
-    background: "rgba(255, 255, 255, 0.9)",
+    background: "var(--uilint-glass)",
     backdropFilter: "blur(24px) saturate(180%)",
     WebkitBackdropFilter: "blur(24px) saturate(180%)",
   };
@@ -273,8 +273,8 @@ export function InspectorSidebar() {
             bottom: 0,
             width: width,
             ...glassStyle,
-            borderLeft: "1px solid rgba(0,0,0,0.1)",
-            boxShadow: "-8px 0 24px rgba(0,0,0,0.15)",
+            borderLeft: "1px solid var(--uilint-glass-border)",
+            boxShadow: "var(--uilint-shadow)",
             zIndex: 99997,
             display: "flex",
             flexDirection: "column",
@@ -307,9 +307,9 @@ export function InspectorSidebar() {
             width: floatingSize?.width ?? DEFAULT_FLOATING_WIDTH,
             height: floatingSize?.height ?? DEFAULT_FLOATING_HEIGHT,
             ...glassStyle,
-            border: "1px solid rgba(0,0,0,0.1)",
+            border: "1px solid var(--uilint-glass-border)",
             borderRadius: 12,
-            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
+            boxShadow: "var(--uilint-shadow)",
             zIndex: 99997,
             display: "flex",
             flexDirection: "column",

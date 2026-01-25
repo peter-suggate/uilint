@@ -6,7 +6,7 @@
  * slice-level unit tests, such as batching issues from multiple dataLocs.
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { _handleWebSocketMessageForTesting as handleWebSocketMessage } from "./index";
 import type { PluginServices } from "../../core/plugin-system/types";
 import type { ESLintPluginSlice } from "./slice";

@@ -14,53 +14,35 @@ export default defineConfig([
   },
   tseslint.configs.recommended,
   pluginReact.configs.flat.recommended,
+  // UILint recommended config - all 12 static rules with defaults
+  uilint.configs.recommended,
   {
     files: [
       "src/**/*.{js,jsx,ts,tsx}",
       "app/**/*.{js,jsx,ts,tsx}",
       "pages/**/*.{js,jsx,ts,tsx}",
     ],
-
-    plugins: { uilint: uilint },
-
     rules: {
       "react/react-in-jsx-scope": "off",
-      "uilint/no-arbitrary-tailwind": "off",
-      "uilint/consistent-dark-mode": [
+      // Allow deeper relative imports - src/ doesn't have @/ alias configured
+      "uilint/enforce-absolute-imports": ["warn", { maxRelativeDepth: 4 }],
+      // Internal store pattern is valid for this package
+      "uilint/no-direct-store-import": "off",
+      // Test coverage tracking - focus on non-React code (utilities/stores/hooks)
+      "uilint/require-test-coverage": [
         "warn",
-        ...[
-          {
-            warnOnMissingDarkMode: true,
-          },
-        ],
+        {
+          chunkCoverage: true,
+          focusNonReact: true,
+          chunkThreshold: 70, // Strict for utilities/stores/hooks
+          relaxedThreshold: 40, // Relaxed for components/handlers
+          ignorePatterns: ["**/*.d.ts", "**/index.ts", "**/__tests__/**"],
+        },
       ],
-      "uilint/no-direct-store-import": [
-        "warn",
-        ...[
-          {
-            storePattern: "use*Store",
-          },
-        ],
-      ],
-      "uilint/prefer-zustand-state-management": [
-        "warn",
-        ...[
-          {
-            maxStateHooks: 5,
-            countUseState: true,
-            countUseReducer: true,
-            countUseContext: true,
-          },
-        ],
-      ],
-      "uilint/no-mixed-component-libraries": [
-        "warn",
-        ...[
-          {
-            preferred: "shadcn",
-            libraries: ["shadcn", "mui"],
-          },
-        ],
+      // Allow underscore prefix for unused vars (destructuring patterns)
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
     },
   },

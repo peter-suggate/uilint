@@ -5,7 +5,7 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useComposedStore } from "../../core/store";
-import { UILintIcon, ConnectionIcon } from "../icons";
+import { UILintIcon } from "../icons";
 
 interface Position {
   x: number;

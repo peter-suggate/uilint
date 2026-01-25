@@ -200,7 +200,7 @@ const DEFAULT_COMMAND_PALETTE_STATE: CommandPaletteState = {
 };
 
 const DEFAULT_INSPECTOR_WIDTH = 400;
-const DEFAULT_WS_URL = "ws://localhost:9234";
+const _DEFAULT_WS_URL = "ws://localhost:9234";
 
 /**
  * Load initial inspector state from localStorage.

@@ -10,8 +10,6 @@ import {
   DEFAULT_WS_URL,
   MAX_RECONNECT_ATTEMPTS,
   RECONNECT_BASE_DELAY,
-  type MessageHandler,
-  type ConnectionHandler,
 } from "./websocket";
 
 /**
@@ -59,7 +57,7 @@ describe("WebSocketServiceImpl", () => {
   beforeEach(() => {
     mockWebSocket = new MockWebSocket();
     createWebSocketMock = vi.fn(() => mockWebSocket as unknown as WebSocket);
-    setTimeoutMock = vi.fn((fn, delay) => {
+    setTimeoutMock = vi.fn((fn, _delay) => {
       return setTimeout(fn, 0) as unknown as ReturnType<typeof setTimeout>;
     });
     clearTimeoutMock = vi.fn();

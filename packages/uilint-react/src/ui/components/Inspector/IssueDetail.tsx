@@ -29,13 +29,13 @@ export function IssueDetail({ issue }: IssueDetailProps) {
           <div style={{
             fontSize: 16,
             fontWeight: 600,
-            color: "#111827",
+            color: "var(--uilint-text-primary)",
           }}>
             {issue.message}
           </div>
           <div style={{
             fontSize: 12,
-            color: "#6b7280",
+            color: "var(--uilint-text-muted)",
             marginTop: 4,
           }}>
             {issue.severity.toUpperCase()}
@@ -45,7 +45,7 @@ export function IssueDetail({ issue }: IssueDetailProps) {
 
       {/* Details */}
       <div style={{
-        background: "#f9fafb",
+        background: "var(--uilint-surface-elevated)",
         borderRadius: 8,
         padding: 12,
       }}>
@@ -58,14 +58,15 @@ export function IssueDetail({ issue }: IssueDetailProps) {
       {/* Data Loc */}
       {issue.dataLoc && (
         <div style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
+          <div style={{ fontSize: 12, color: "var(--uilint-text-muted)", marginBottom: 4 }}>
             Data Location
           </div>
           <code style={{
             display: "block",
             padding: 8,
-            background: "#1f2937",
-            color: "#f9fafb",
+            background: "var(--uilint-background)",
+            color: "var(--uilint-text-primary)",
+            border: "1px solid var(--uilint-border)",
             borderRadius: 4,
             fontSize: 12,
             fontFamily: "monospace",
@@ -86,11 +87,11 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
       alignItems: "center",
       gap: 8,
       padding: "6px 0",
-      borderBottom: "1px solid #e5e7eb",
+      borderBottom: "1px solid var(--uilint-border)",
     }}>
       {icon}
-      <span style={{ fontSize: 12, color: "#6b7280", width: 50 }}>{label}</span>
-      <span style={{ fontSize: 13, color: "#111827", flex: 1, wordBreak: "break-word" }}>
+      <span style={{ fontSize: 12, color: "var(--uilint-text-muted)", width: 50 }}>{label}</span>
+      <span style={{ fontSize: 13, color: "var(--uilint-text-primary)", flex: 1, wordBreak: "break-word" }}>
         {value}
       </span>
     </div>

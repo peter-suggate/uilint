@@ -268,7 +268,7 @@ export const eslintPlugin: Plugin = {
   /**
    * Dispose the plugin
    */
-  dispose: (services: PluginServices) => {
+  dispose: (_services: PluginServices) => {
     console.log("[ESLint Plugin] Disposed");
   },
 };

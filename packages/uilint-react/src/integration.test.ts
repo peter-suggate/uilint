@@ -122,7 +122,9 @@ describe("Integration: Plugin → WebSocket → Store", () => {
     // The WebSocket service dispatches to handlers registered via .on()
     // Since the plugin registers handlers in initialize(), we need to
     // manually trigger the handler
-    const handlers = (websocket as any).handlers?.get("lint:result");
+    // Access internal handlers for testing - cast to access private property
+    type WebSocketWithHandlers = { handlers?: Map<string, Set<(data: unknown) => void>> };
+    const handlers = (websocket as unknown as WebSocketWithHandlers).handlers?.get("lint:result");
     if (handlers) {
       handlers.forEach((handler: (data: unknown) => void) => {
         handler(mockMessage);

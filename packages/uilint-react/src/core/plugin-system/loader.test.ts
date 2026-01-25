@@ -4,6 +4,7 @@ import {
   getPluginManifest,
   type PluginManifest,
 } from "./loader";
+import type { Plugin } from "./types";
 
 describe("loader", () => {
   describe("getPluginManifest", () => {
@@ -98,7 +99,7 @@ describe("loader", () => {
       const testManifest: PluginManifest = {
         id: "test-plugin",
         name: "Test Plugin",
-        load: () => Promise.resolve({ default: {} as any }),
+        load: () => Promise.resolve({ default: {} as Plugin }),
         enabled: true,
       };
 
@@ -112,7 +113,7 @@ describe("loader", () => {
       const disabledManifest: PluginManifest = {
         id: "disabled-plugin",
         name: "Disabled Plugin",
-        load: () => Promise.resolve({ default: {} as any }),
+        load: () => Promise.resolve({ default: {} as Plugin }),
         enabled: false,
       };
 

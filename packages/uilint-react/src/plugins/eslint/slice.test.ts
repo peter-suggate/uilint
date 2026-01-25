@@ -14,6 +14,7 @@ import {
 } from "./slice";
 import type { Issue } from "../../ui/types";
 import type { PluginServices } from "../../core/plugin-system/types";
+import type { AvailableRule } from "./types";
 
 // Mock services
 function createMockServices(): PluginServices {
@@ -229,8 +230,14 @@ describe("createESLintActions", () => {
 
   describe("setAvailableRules", () => {
     it("sets available rules", () => {
-      const rules = [{ id: "test-rule", meta: { docs: { description: "Test" } } }];
-      actions.setAvailableRules(rules as any);
+      const rules: AvailableRule[] = [{
+        id: "test-rule",
+        name: "Test Rule",
+        description: "Test description",
+        category: "static",
+        defaultSeverity: "warn",
+      }];
+      actions.setAvailableRules(rules);
 
       expect(setSlice).toHaveBeenCalledWith({ availableRules: rules });
     });
