@@ -263,9 +263,8 @@ export function InspectorSidebar() {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: width, opacity: 0 }}
           transition={{
-            type: "spring",
-            damping: 25,
-            stiffness: 300,
+            duration: 0.15,
+            ease: [0.25, 0.1, 0.25, 1], // cubic-bezier for smooth deceleration
           }}
           style={{
             position: "fixed",
