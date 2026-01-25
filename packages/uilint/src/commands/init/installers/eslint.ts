@@ -22,6 +22,12 @@ import type { RuleMeta, OptionFieldSchema } from "uilint-eslint";
 import * as prompts from "../../../utils/prompts.js";
 import { detectPackageManager } from "../../../utils/package-manager.js";
 import { toInstallSpecifier } from "../versioning.js";
+import {
+  type AIHookProvider,
+  isHookInstalled,
+  planClaudeHook,
+  planCursorHook,
+} from "./ai-hooks.js";
 
 // ============================================================================
 // Rule Options Configuration Helpers
@@ -196,6 +202,8 @@ export interface ConfiguredRule {
 export interface ESLintInstallerConfig extends InstallerConfig {
   /** Selected rules with their configurations */
   configuredRules: ConfiguredRule[];
+  /** Selected AI hooks to install (Claude, Cursor, or both) */
+  aiHooks: AIHookProvider[];
 }
 
 /**
@@ -472,7 +480,60 @@ export const eslintInstaller: Installer = {
       }
     }
 
-    return { configuredRules };
+    // Step: Ask about AI editor hooks
+    prompts.log("");
+    const claudeInstalled = isHookInstalled(project.projectPath, "claude");
+    const cursorInstalled = isHookInstalled(project.projectPath, "cursor");
+
+    // Build options for AI hooks
+    const hookOptions: Array<{ value: string; label: string; hint?: string }> = [];
+
+    if (!claudeInstalled) {
+      hookOptions.push({
+        value: "claude",
+        label: "Claude Code",
+        hint: "Auto-lint on file edit via .claude/hooks/post-edit.sh",
+      });
+    }
+
+    if (!cursorInstalled) {
+      hookOptions.push({
+        value: "cursor",
+        label: "Cursor",
+        hint: "Auto-lint on file edit via .cursor/hooks/post-edit.sh",
+      });
+    }
+
+    let aiHooks: AIHookProvider[] = [];
+
+    if (hookOptions.length > 0) {
+      hookOptions.push({
+        value: "none",
+        label: "None",
+        hint: "Skip AI editor integration",
+      });
+
+      const selectedHooks = await prompts.multiselect({
+        message: "Install AI editor hooks? " + prompts.pc.dim("(auto-lint on file edit)"),
+        options: hookOptions,
+        initialValues: [],
+        required: false,
+      });
+
+      aiHooks = selectedHooks.filter((h): h is AIHookProvider => h === "claude" || h === "cursor");
+
+      if (aiHooks.length > 0) {
+        prompts.log(
+          prompts.pc.dim(`  → Will install hooks for: ${aiHooks.join(", ")}`)
+        );
+      }
+    } else {
+      prompts.log(
+        prompts.pc.dim("  AI hooks already installed (Claude and Cursor)")
+      );
+    }
+
+    return { configuredRules, aiHooks };
   },
 
   plan(
@@ -539,6 +600,15 @@ export const eslintInstaller: Installer = {
       ifNotContains: ".uilint/.cache",
     });
 
+    // Add AI hooks if selected
+    const { aiHooks } = eslintConfig;
+    if (aiHooks?.includes("claude")) {
+      actions.push(...planClaudeHook(project.projectPath));
+    }
+    if (aiHooks?.includes("cursor")) {
+      actions.push(...planCursorHook(project.projectPath));
+    }
+
     return { actions, dependencies };
   },
 
@@ -568,9 +638,30 @@ export const eslintInstaller: Installer = {
       };
     }
 
+    // Show progress for AI hooks
+    const { aiHooks } = eslintConfig;
+    if (aiHooks?.includes("claude")) {
+      yield {
+        type: "progress",
+        message: "Installing Claude Code hook",
+        detail: "→ .claude/hooks/post-edit.sh",
+      };
+    }
+    if (aiHooks?.includes("cursor")) {
+      yield {
+        type: "progress",
+        message: "Installing Cursor hook",
+        detail: "→ .cursor/hooks/post-edit.sh",
+      };
+    }
+
+    const hookSuffix = aiHooks?.length
+      ? ` + ${aiHooks.length} AI hook(s)`
+      : "";
+
     yield {
       type: "complete",
-      message: `ESLint plugin installed in ${targets.length} package(s)`,
+      message: `ESLint plugin installed in ${targets.length} package(s)${hookSuffix}`,
     };
   },
 
