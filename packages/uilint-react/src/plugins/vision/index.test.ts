@@ -72,6 +72,18 @@ function createMockState(overrides: Partial<VisionSlice> = {}): VisionSlice {
   } as VisionSlice;
 }
 
+/**
+ * Create a mock composed store state with the vision slice nested under plugins.vision
+ * This matches the structure expected by toolbar action's isVisible function
+ */
+function createMockComposedState(visionOverrides: Partial<VisionSlice> = {}): { plugins: { vision: VisionSlice } } {
+  return {
+    plugins: {
+      vision: createMockState(visionOverrides),
+    },
+  };
+}
+
 // ============================================================================
 // Toolbar Actions Structure Tests
 // ============================================================================
@@ -151,26 +163,27 @@ describe("Vision Plugin - Toolbar Actions", () => {
     });
 
     it("isVisible returns false when visionAvailable is false", () => {
-      const state = createMockState({ visionAvailable: false });
+      const state = createMockComposedState({ visionAvailable: false });
       expect(captureFullPageAction.isVisible!(state)).toBe(false);
     });
 
     it("isVisible returns true when visionAvailable is true", () => {
-      const state = createMockState({ visionAvailable: true });
+      const state = createMockComposedState({ visionAvailable: true });
       expect(captureFullPageAction.isVisible!(state)).toBe(true);
     });
 
     it("onClick triggers full page analysis", async () => {
-      const mockState = createMockState({ visionAvailable: true });
+      const composedState = createMockComposedState({ visionAvailable: true });
+      const visionState = composedState.plugins.vision;
       const services = createMockServices();
-      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(composedState);
 
       await captureFullPageAction.onClick(services);
 
-      expect(mockState.setCaptureMode).toHaveBeenCalledWith("full");
-      expect(mockState.setRegionSelectionActive).toHaveBeenCalledWith(false);
-      expect(mockState.setSelectedRegion).toHaveBeenCalledWith(null);
-      expect(mockState.triggerVisionAnalysis).toHaveBeenCalled();
+      expect(visionState.setCaptureMode).toHaveBeenCalledWith("full");
+      expect(visionState.setRegionSelectionActive).toHaveBeenCalledWith(false);
+      expect(visionState.setSelectedRegion).toHaveBeenCalledWith(null);
+      expect(visionState.triggerVisionAnalysis).toHaveBeenCalled();
     });
   });
 
@@ -202,25 +215,26 @@ describe("Vision Plugin - Toolbar Actions", () => {
     });
 
     it("isVisible returns false when visionAvailable is false", () => {
-      const state = createMockState({ visionAvailable: false });
+      const state = createMockComposedState({ visionAvailable: false });
       expect(captureRegionAction.isVisible!(state)).toBe(false);
     });
 
     it("isVisible returns true when visionAvailable is true", () => {
-      const state = createMockState({ visionAvailable: true });
+      const state = createMockComposedState({ visionAvailable: true });
       expect(captureRegionAction.isVisible!(state)).toBe(true);
     });
 
     it("onClick sets regionSelectionActive to true", () => {
-      const mockState = createMockState({ visionAvailable: true });
+      const composedState = createMockComposedState({ visionAvailable: true });
+      const visionState = composedState.plugins.vision;
       const services = createMockServices();
-      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(mockState);
+      (services.getState as ReturnType<typeof vi.fn>).mockReturnValue(composedState);
 
       captureRegionAction.onClick(services);
 
-      expect(mockState.setCaptureMode).toHaveBeenCalledWith("region");
-      expect(mockState.setRegionSelectionActive).toHaveBeenCalledWith(true);
-      expect(mockState.setSelectedRegion).toHaveBeenCalledWith(null);
+      expect(visionState.setCaptureMode).toHaveBeenCalledWith("region");
+      expect(visionState.setRegionSelectionActive).toHaveBeenCalledWith(true);
+      expect(visionState.setSelectedRegion).toHaveBeenCalledWith(null);
     });
   });
 });

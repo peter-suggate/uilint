@@ -56,23 +56,31 @@ const visionToolbarActions: ToolbarAction[] = [
     tooltip: "Capture Full Page",
     priority: 100,
     isVisible: (state: unknown) => {
-      const s = state as { visionAvailable?: boolean };
-      return s.visionAvailable === true;
+      // Check for visionAvailable in the composed store's nested plugin state
+      const s = state as { plugins?: { vision?: { visionAvailable?: boolean } } };
+      return s.plugins?.vision?.visionAvailable === true;
     },
     onClick: async (services: PluginServices) => {
-      const state = services.getState<{
-        setCaptureMode: (mode: "full" | "region") => void;
-        setRegionSelectionActive: (active: boolean) => void;
-        setSelectedRegion: (region: null) => void;
-        triggerVisionAnalysis: () => Promise<void>;
+      // Get the full store state - actions are nested under plugins.vision
+      const fullState = services.getState<{
+        plugins: {
+          vision: {
+            setCaptureMode: (mode: "full" | "region") => void;
+            setRegionSelectionActive: (active: boolean) => void;
+            setSelectedRegion: (region: null) => void;
+            triggerVisionAnalysis: () => Promise<void>;
+          };
+        };
       }>();
 
-      // Set to full page mode and trigger analysis
-      state.setCaptureMode("full");
-      state.setRegionSelectionActive(false);
-      state.setSelectedRegion(null);
+      const visionState = fullState.plugins.vision;
 
-      await state.triggerVisionAnalysis();
+      // Set to full page mode and trigger analysis
+      visionState.setCaptureMode("full");
+      visionState.setRegionSelectionActive(false);
+      visionState.setSelectedRegion(null);
+
+      await visionState.triggerVisionAnalysis();
     },
   },
   {
@@ -81,20 +89,28 @@ const visionToolbarActions: ToolbarAction[] = [
     tooltip: "Capture Region",
     priority: 90,
     isVisible: (state: unknown) => {
-      const s = state as { visionAvailable?: boolean };
-      return s.visionAvailable === true;
+      // Check for visionAvailable in the composed store's nested plugin state
+      const s = state as { plugins?: { vision?: { visionAvailable?: boolean } } };
+      return s.plugins?.vision?.visionAvailable === true;
     },
     onClick: (services: PluginServices) => {
-      const state = services.getState<{
-        setCaptureMode: (mode: "full" | "region") => void;
-        setRegionSelectionActive: (active: boolean) => void;
-        setSelectedRegion: (region: null) => void;
+      // Get the full store state - actions are nested under plugins.vision
+      const fullState = services.getState<{
+        plugins: {
+          vision: {
+            setCaptureMode: (mode: "full" | "region") => void;
+            setRegionSelectionActive: (active: boolean) => void;
+            setSelectedRegion: (region: null) => void;
+          };
+        };
       }>();
 
+      const visionState = fullState.plugins.vision;
+
       // Enter region selection mode
-      state.setCaptureMode("region");
-      state.setRegionSelectionActive(true);
-      state.setSelectedRegion(null);
+      visionState.setCaptureMode("region");
+      visionState.setRegionSelectionActive(true);
+      visionState.setSelectedRegion(null);
     },
   },
 ];
@@ -121,13 +137,21 @@ export const visionPlugin: Plugin<VisionSlice> = {
   /**
    * Create the vision state slice
    */
-  createSlice: (_services: PluginServices) => {
-    // Create a minimal slice that will be integrated into the main store
-    // The actual state management is handled by the store integration
-    return createVisionSlice(
-      () => {},
-      () => defaultVisionState as VisionSlice
-    );
+  createSlice: (services: PluginServices) => {
+    // Create a local slice variable to track state during initialization
+    // This follows the same pattern as the ESLint plugin
+    let slice: VisionSlice;
+
+    const getSlice = () => slice;
+    const setSlice = <T>(partial: T | Partial<T>) => {
+      slice = { ...slice, ...(partial as Partial<VisionSlice>) };
+      services.setState(partial as Partial<VisionSlice>);
+    };
+
+    // Create the slice with the proper set/get functions
+    slice = createVisionSlice(setSlice, getSlice);
+
+    return slice;
   },
 
   /**
