@@ -16,6 +16,7 @@ import { domObserver } from "./core/services/dom-observer";
 import { initializePlugins } from "./core/store";
 import { pluginRegistry } from "./core/plugin-system/registry";
 import { eslintPlugin } from "./plugins/eslint";
+import { fixPromptPlugin } from "./plugins/fix-prompt";
 import { injectDevToolStyles } from "./styles/inject-styles";
 
 // Track if plugins have been initialized
@@ -109,6 +110,7 @@ export function DevTool({ enabled = true }: DevToolProps) {
       // Register and initialize plugins (only once)
       if (!pluginsInitialized) {
         pluginRegistry.register(eslintPlugin);
+        pluginRegistry.register(fixPromptPlugin);
         await initializePlugins({ websocket, domObserver });
         pluginsInitialized = true;
         console.log("[DevTool] Plugins initialized");
