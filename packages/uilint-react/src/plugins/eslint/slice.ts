@@ -12,6 +12,16 @@ import type { AvailableRule, RuleConfig } from "./types";
 export type ScanStatus = "idle" | "scanning" | "complete" | "error";
 
 /**
+ * Workspace capabilities from server
+ */
+export interface WorkspaceCapabilities {
+  postToolUseHook: {
+    enabled: boolean;
+    provider: "claude" | "cursor" | null;
+  };
+}
+
+/**
  * ESLint plugin state
  */
 export interface ESLintSlice {
@@ -33,6 +43,8 @@ export interface ESLintSlice {
   ruleConfigs: Map<string, RuleConfig>;
   /** Rules currently being updated */
   ruleConfigUpdating: Map<string, boolean>;
+  /** Workspace capabilities (hook availability, etc.) */
+  workspaceCapabilities: WorkspaceCapabilities | null;
 }
 
 /**
@@ -84,6 +96,7 @@ export const initialESLintState: ESLintSlice = {
   workspaceRoot: null,
   ruleConfigs: new Map(),
   ruleConfigUpdating: new Map(),
+  workspaceCapabilities: null,
 };
 
 /**

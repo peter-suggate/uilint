@@ -36,22 +36,31 @@ const FixPromptIcon = React.createElement(
 );
 
 /**
- * Collect all issues from the ESLint plugin state
+ * Collect all issues and capabilities from the ESLint plugin state
  */
-function collectAllIssues(services: PluginServices): { issues: Issue[]; workspaceRoot: string | null } {
+function collectAllIssues(services: PluginServices): {
+  issues: Issue[];
+  workspaceRoot: string | null;
+  hookAvailable: boolean;
+} {
   // Get the full state which includes plugin slices
   const state = services.getState<{
     plugins?: {
       eslint?: {
         issues: Map<string, Issue[]>;
         workspaceRoot: string | null;
+        workspaceCapabilities?: {
+          postToolUseHook?: {
+            enabled: boolean;
+          };
+        };
       };
     };
   }>();
 
   const eslintState = state.plugins?.eslint;
   if (!eslintState?.issues) {
-    return { issues: [], workspaceRoot: null };
+    return { issues: [], workspaceRoot: null, hookAvailable: false };
   }
 
   // Flatten all issues from all dataLocs
@@ -60,9 +69,13 @@ function collectAllIssues(services: PluginServices): { issues: Issue[]; workspac
     allIssues.push(...issues);
   }
 
+  // Check if post-tool-use hook is available
+  const hookAvailable = eslintState.workspaceCapabilities?.postToolUseHook?.enabled ?? false;
+
   return {
     issues: allIssues,
     workspaceRoot: eslintState.workspaceRoot,
+    hookAvailable,
   };
 }
 
@@ -94,7 +107,7 @@ const fixPromptToolbarAction: ToolbarAction = {
     return false;
   },
   onClick: (services: PluginServices) => {
-    const { issues, workspaceRoot } = collectAllIssues(services);
+    const { issues, workspaceRoot, hookAvailable } = collectAllIssues(services);
 
     // Open the inspector with the fix-prompt panel
     const state = services.getState<{
@@ -114,7 +127,7 @@ const fixPromptToolbarAction: ToolbarAction = {
         ...state.inspector,
         open: true,
         panelId: "fix-prompt",
-        data: { issues, workspaceRoot },
+        data: { issues, workspaceRoot, hookAvailable },
       },
     });
   },

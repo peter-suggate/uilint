@@ -200,6 +200,14 @@ interface WorkspaceInfoMessage {
   serverCwd: string;
 }
 
+interface WorkspaceCapabilitiesMessage {
+  type: "workspace:capabilities";
+  postToolUseHook: {
+    enabled: boolean;
+    provider: "claude" | "cursor" | null;
+  };
+}
+
 interface VisionResultMessage {
   type: "vision:result";
   route: string;
@@ -369,6 +377,7 @@ type ServerMessage =
   | LintProgressMessage
   | FileChangedMessage
   | WorkspaceInfoMessage
+  | WorkspaceCapabilitiesMessage
   | VisionResultMessage
   | VisionProgressMessage
   | VisionStatusMessage
@@ -410,6 +419,52 @@ function pickAppRoot(params: { cwd: string; workspaceRoot: string }): string {
 
   // Fallback: pick the first match deterministically.
   return matches[0]!.projectPath;
+}
+
+/**
+ * Detect if a post-tool-use hook is configured for Claude or Cursor.
+ * These hooks can automatically run ESLint when files are edited.
+ */
+function detectPostToolUseHook(projectRoot: string): {
+  enabled: boolean;
+  provider: "claude" | "cursor" | null;
+} {
+  // Check Claude settings.json for PostToolUse hooks
+  const claudeSettingsPath = join(projectRoot, ".claude", "settings.json");
+  if (existsSync(claudeSettingsPath)) {
+    try {
+      const content = readFileSync(claudeSettingsPath, "utf-8");
+      const settings = JSON.parse(content);
+      const hooks = settings.hooks?.PostToolUse;
+      if (Array.isArray(hooks)) {
+        // Check if any hook matches Edit or Write tools
+        const hasEditHook = hooks.some((h: { matcher?: string }) =>
+          h.matcher?.includes("Edit") || h.matcher?.includes("Write")
+        );
+        if (hasEditHook) {
+          return { enabled: true, provider: "claude" };
+        }
+      }
+    } catch {
+      // Ignore JSON parse errors
+    }
+  }
+
+  // Check Cursor hooks.json
+  const cursorHooksPath = join(projectRoot, ".cursor", "hooks.json");
+  if (existsSync(cursorHooksPath)) {
+    try {
+      const content = readFileSync(cursorHooksPath, "utf-8");
+      const hooks = JSON.parse(content);
+      if (hooks.hooks?.afterFileEdit?.length > 0) {
+        return { enabled: true, provider: "cursor" };
+      }
+    } catch {
+      // Ignore JSON parse errors
+    }
+  }
+
+  return { enabled: false, provider: null };
 }
 
 // Simple in-memory cache
@@ -1817,6 +1872,16 @@ export async function serve(options: ServeOptions): Promise<void> {
       workspaceRoot: wsRoot,
       serverCwd: cwd,
     });
+
+    // Send workspace capabilities (hook availability, etc.)
+    const hookInfo = detectPostToolUseHook(appRoot);
+    sendMessage(ws, {
+      type: "workspace:capabilities",
+      postToolUseHook: hookInfo,
+    });
+    if (hookInfo.enabled) {
+      logInfo(`${pc.dim("[ws]")} Post-tool-use hook detected: ${pc.bold(hookInfo.provider!)}`);
+    }
 
     // Read current rule configs from ESLint config file
     const eslintConfigPath = findEslintConfigFile(appRoot);

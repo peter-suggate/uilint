@@ -24,6 +24,7 @@ const ESLINT_WS_MESSAGE_TYPES = [
   "lint:progress",
   "file:changed",
   "workspace:info",
+  "workspace:capabilities",
   "rules:metadata",
   "rule:config:result",
   "rule:config:changed",
@@ -375,6 +376,14 @@ interface WorkspaceInfoMessage {
   serverCwd: string;
 }
 
+interface WorkspaceCapabilitiesMessage {
+  type: "workspace:capabilities";
+  postToolUseHook: {
+    enabled: boolean;
+    provider: "claude" | "cursor" | null;
+  };
+}
+
 interface RulesMetadataMessage {
   type: "rules:metadata";
   rules: AvailableRule[];
@@ -402,6 +411,7 @@ type WebSocketMessage =
   | LintProgressMessage
   | FileChangedMessage
   | WorkspaceInfoMessage
+  | WorkspaceCapabilitiesMessage
   | RulesMetadataMessage
   | RuleConfigResultMessage
   | RuleConfigChangedMessage;
@@ -476,6 +486,13 @@ function handleWebSocketMessage(
       const { appRoot, workspaceRoot, serverCwd } = message;
       console.log("[ESLint Plugin] Workspace info:", { appRoot, workspaceRoot, serverCwd });
       services.setState({ appRoot, workspaceRoot, serverCwd });
+      break;
+    }
+
+    case "workspace:capabilities": {
+      const { postToolUseHook } = message;
+      console.log("[ESLint Plugin] Workspace capabilities:", { postToolUseHook });
+      services.setState({ workspaceCapabilities: { postToolUseHook } });
       break;
     }
 

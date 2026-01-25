@@ -35,8 +35,15 @@ function groupIssuesByFile(issues: Issue[]): Map<string, Issue[]> {
 
 /**
  * Generate the fix prompt text
+ * @param issuesByFile Map of file paths to issues
+ * @param workspaceRoot Workspace root path for relative paths
+ * @param hookAvailable Whether post-tool-use hook is configured (enables condensed format)
  */
-function generateFixPrompt(issuesByFile: Map<string, Issue[]>, workspaceRoot: string | null): string {
+function generateFixPrompt(
+  issuesByFile: Map<string, Issue[]>,
+  workspaceRoot: string | null,
+  hookAvailable: boolean
+): string {
   const totalIssues = Array.from(issuesByFile.values()).reduce(
     (sum, issues) => sum + issues.length,
     0
@@ -58,45 +65,65 @@ function generateFixPrompt(issuesByFile: Map<string, Issue[]>, workspaceRoot: st
   // Instructions
   lines.push(`## Instructions`);
   lines.push(``);
-  lines.push(`1. Fix ALL of the lint issues listed below`);
+  lines.push(`1. Fix ALL of the lint issues in the files listed below`);
   lines.push(`2. Do NOT ignore or suppress any issues with eslint-disable comments`);
   lines.push(`3. Do NOT skip any issues - each one must be properly addressed`);
   lines.push(`4. Run the linter after fixing to verify all issues are resolved`);
   lines.push(`5. If an issue cannot be fixed without breaking functionality, explain why and propose an alternative solution`);
   lines.push(``);
 
-  // Files and issues
-  lines.push(`## Affected Files`);
-  lines.push(``);
-
-  for (const [filePath, issues] of issuesByFile) {
-    // Show relative path if we have workspace root
-    const displayPath = workspaceRoot && filePath.startsWith(workspaceRoot)
-      ? filePath.slice(workspaceRoot.length + 1)
-      : filePath;
-
-    lines.push(`### ${displayPath}`);
+  if (hookAvailable) {
+    // CONDENSED FORMAT: Only list affected files (hook will provide details on edit)
+    lines.push(`## Affected Files`);
+    lines.push(``);
+    lines.push(`The following files have lint issues. When you edit each file, you will receive the specific lint errors automatically.`);
     lines.push(``);
 
-    for (const issue of issues) {
-      const location = issue.column
-        ? `Line ${issue.line}, Column ${issue.column}`
-        : `Line ${issue.line}`;
-
-      const severity = issue.severity === "error" ? "ERROR" : "WARNING";
-      const ruleId = issue.ruleId ? ` (${issue.ruleId})` : "";
-
-      lines.push(`- **[${severity}]** ${location}${ruleId}`);
-      lines.push(`  ${issue.message}`);
+    for (const [filePath, issues] of issuesByFile) {
+      const displayPath = workspaceRoot && filePath.startsWith(workspaceRoot)
+        ? filePath.slice(workspaceRoot.length + 1)
+        : filePath;
+      lines.push(`- \`${displayPath}\` (${issues.length} issue${issues.length === 1 ? "" : "s"})`);
     }
 
     lines.push(``);
-  }
+    lines.push(`---`);
+    lines.push(``);
+    lines.push(`Open each file above and fix all reported lint issues. The linter will provide specific error details when you edit each file.`);
+  } else {
+    // DETAILED FORMAT: List all issues with locations and messages
+    lines.push(`## Affected Files`);
+    lines.push(``);
 
-  // Summary
-  lines.push(`---`);
-  lines.push(``);
-  lines.push(`Please fix all ${totalIssues} issues listed above. Do not use eslint-disable comments or any other method to suppress warnings. Each issue must be properly resolved.`);
+    for (const [filePath, issues] of issuesByFile) {
+      // Show relative path if we have workspace root
+      const displayPath = workspaceRoot && filePath.startsWith(workspaceRoot)
+        ? filePath.slice(workspaceRoot.length + 1)
+        : filePath;
+
+      lines.push(`### ${displayPath}`);
+      lines.push(``);
+
+      for (const issue of issues) {
+        const location = issue.column
+          ? `Line ${issue.line}, Column ${issue.column}`
+          : `Line ${issue.line}`;
+
+        const severity = issue.severity === "error" ? "ERROR" : "WARNING";
+        const ruleId = issue.ruleId ? ` (${issue.ruleId})` : "";
+
+        lines.push(`- **[${severity}]** ${location}${ruleId}`);
+        lines.push(`  ${issue.message}`);
+      }
+
+      lines.push(``);
+    }
+
+    // Summary
+    lines.push(`---`);
+    lines.push(``);
+    lines.push(`Please fix all ${totalIssues} issues listed above. Do not use eslint-disable comments or any other method to suppress warnings. Each issue must be properly resolved.`);
+  }
 
   return lines.join("\n");
 }
@@ -162,11 +189,12 @@ function CopyButton({ text, onCopy }: { text: string; onCopy: () => void }) {
 export function FixPromptPanel({ data }: InspectorPanelProps) {
   const issues = (data?.issues as Issue[]) || [];
   const workspaceRoot = (data?.workspaceRoot as string) || null;
+  const hookAvailable = (data?.hookAvailable as boolean) || false;
 
   const issuesByFile = useMemo(() => groupIssuesByFile(issues), [issues]);
   const promptText = useMemo(
-    () => generateFixPrompt(issuesByFile, workspaceRoot),
-    [issuesByFile, workspaceRoot]
+    () => generateFixPrompt(issuesByFile, workspaceRoot, hookAvailable),
+    [issuesByFile, workspaceRoot, hookAvailable]
   );
 
   const totalIssues = issues.length;
@@ -190,7 +218,9 @@ export function FixPromptPanel({ data }: InspectorPanelProps) {
                 : `${totalIssues} issue${totalIssues === 1 ? "" : "s"} in ${fileCount} file${fileCount === 1 ? "" : "s"}`}
             </div>
             <div style={{ fontSize: 12, color: "var(--uilint-text-muted)" }}>
-              Copy this prompt to Cursor or Claude Code
+              {hookAvailable
+                ? "Condensed format - hook will provide issue details"
+                : "Copy this prompt to Cursor or Claude Code"}
             </div>
           </div>
           {totalIssues > 0 && (
