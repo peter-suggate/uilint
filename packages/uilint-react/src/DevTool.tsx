@@ -104,7 +104,7 @@ export function DevTool({ enabled = true }: DevToolProps) {
       // Register and initialize plugins (only once)
       if (!pluginsInitialized) {
         pluginRegistry.register(eslintPlugin);
-        await initializePlugins();
+        await initializePlugins({ websocket });
         pluginsInitialized = true;
         console.log("[DevTool] Plugins initialized");
       }
