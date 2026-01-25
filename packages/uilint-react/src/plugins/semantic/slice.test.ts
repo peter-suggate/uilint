@@ -4,7 +4,7 @@
  * Tests for slice state management, commands structure, and plugin exports.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   createSemanticPluginSlice,
   initialSemanticPluginState,
