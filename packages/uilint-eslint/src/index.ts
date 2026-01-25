@@ -207,7 +207,7 @@ const recommendedConfig: Linter.Config = {
           "minElementsForAnalysis": 3,
           "allowedStyleProperties": [],
           "ignoreComponents": [],
-          "preferSemanticColors": false,
+          "preferSemanticColors": true,
           "allowedHardCodedColors": []
         }
       ]],
@@ -365,7 +365,7 @@ const strictConfig: Linter.Config = {
           "minElementsForAnalysis": 3,
           "allowedStyleProperties": [],
           "ignoreComponents": [],
-          "preferSemanticColors": false,
+          "preferSemanticColors": true,
           "allowedHardCodedColors": []
         }
       ]],
