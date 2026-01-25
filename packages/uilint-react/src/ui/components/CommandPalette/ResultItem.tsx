@@ -26,40 +26,21 @@ export function ResultItem({ issue, isSelected, onClick }: ResultItemProps) {
   return (
     <div
       onClick={onClick}
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        padding: "10px 16px",
-        cursor: "pointer",
-        background: isSelected ? "#f3f4f6" : "transparent",
-        gap: 12,
-        borderBottom: "1px solid #f3f4f6",
-      }}
+      className={`flex items-start px-4 py-2.5 cursor-pointer gap-3 border-b border-gray-100 ${
+        isSelected ? "bg-gray-100" : "bg-transparent"
+      }`}
     >
       <SeverityIcon size={16} color={severityColor} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontSize: 14,
-          color: "#111827",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-gray-900 overflow-hidden text-ellipsis whitespace-nowrap">
           {issue.message}
         </div>
-        <div style={{
-          fontSize: 12,
-          color: "#6b7280",
-          marginTop: 2,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-        }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
+          <span className="flex items-center gap-1">
             <FileIcon size={12} />
             {fileName}:{issue.line}
           </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span className="flex items-center gap-1">
             <RuleIcon size={12} />
             {issue.ruleId}
           </span>

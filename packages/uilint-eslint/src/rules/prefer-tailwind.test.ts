@@ -496,5 +496,259 @@ ruleTester.run("prefer-tailwind", rule, {
         { messageId: "preferTailwind" },
       ],
     },
+
+    // ============================================
+    // PREFER SEMANTIC COLORS
+    // ============================================
+    {
+      name: "hard-coded color classes trigger warning (bg-red-500)",
+      code: `
+        function Component() {
+          return (
+            <>
+              <div className="bg-red-500 p-4" />
+              <span className="text-blue-600" />
+              <p className="border-green-400" />
+            </>
+          );
+        }
+      `,
+      options: [{ preferSemanticColors: true }],
+      errors: [
+        { messageId: "preferSemanticColors" },
+        { messageId: "preferSemanticColors" },
+        { messageId: "preferSemanticColors" },
+      ],
+    },
+    {
+      name: "hard-coded color with opacity modifier",
+      code: `
+        function Component() {
+          return <div className="bg-red-500/50 text-blue-600/75" />;
+        }
+      `,
+      options: [{ preferSemanticColors: true }],
+      errors: [{ messageId: "preferSemanticColors" }],
+    },
+    {
+      name: "hard-coded colors in hover/focus states",
+      code: `
+        function Component() {
+          return <button className="hover:bg-red-500 focus:text-blue-600" />;
+        }
+      `,
+      options: [{ preferSemanticColors: true }],
+      errors: [{ messageId: "preferSemanticColors" }],
+    },
+    {
+      name: "hard-coded colors in dark mode variants",
+      code: `
+        function Component() {
+          return <div className="dark:bg-slate-800 dark:text-gray-100" />;
+        }
+      `,
+      options: [{ preferSemanticColors: true }],
+      errors: [{ messageId: "preferSemanticColors" }],
+    },
+    {
+      name: "ring and outline colors",
+      code: `
+        function Component() {
+          return <input className="ring-blue-500 outline-red-400" />;
+        }
+      `,
+      options: [{ preferSemanticColors: true }],
+      errors: [{ messageId: "preferSemanticColors" }],
+    },
+    {
+      name: "gradient colors",
+      code: `
+        function Component() {
+          return <div className="from-blue-500 via-purple-500 to-pink-500" />;
+        }
+      `,
+      options: [{ preferSemanticColors: true }],
+      errors: [{ messageId: "preferSemanticColors" }],
+    },
+    {
+      name: "decoration and accent colors",
+      code: `
+        function Component() {
+          return <div className="decoration-red-500 accent-blue-600" />;
+        }
+      `,
+      options: [{ preferSemanticColors: true }],
+      errors: [{ messageId: "preferSemanticColors" }],
+    },
   ],
+});
+
+// Separate test suite for preferSemanticColors valid cases
+ruleTester.run("prefer-tailwind (semantic colors - valid)", rule, {
+  valid: [
+    // ============================================
+    // SEMANTIC COLORS (preferred)
+    // ============================================
+    {
+      name: "semantic color classes are fine",
+      code: `
+        function Component() {
+          return (
+            <>
+              <div className="bg-background text-foreground" />
+              <span className="bg-destructive text-destructive-foreground" />
+              <p className="bg-primary text-primary-foreground" />
+            </>
+          );
+        }
+      `,
+      options: [{ preferSemanticColors: true }],
+    },
+    {
+      name: "shadcn semantic colors",
+      code: `
+        function Component() {
+          return (
+            <>
+              <div className="bg-card text-card-foreground" />
+              <div className="bg-popover text-popover-foreground" />
+              <div className="bg-muted text-muted-foreground" />
+              <div className="bg-accent text-accent-foreground" />
+              <div className="border-border" />
+              <div className="ring-ring" />
+            </>
+          );
+        }
+      `,
+      options: [{ preferSemanticColors: true }],
+    },
+    {
+      name: "custom semantic colors",
+      code: `
+        function Component() {
+          return (
+            <>
+              <div className="bg-warning text-warning-foreground" />
+              <div className="bg-success text-success-foreground" />
+              <div className="bg-info text-info-foreground" />
+              <div className="bg-danger text-danger-foreground" />
+            </>
+          );
+        }
+      `,
+      options: [{ preferSemanticColors: true }],
+    },
+
+    // ============================================
+    // NEUTRAL/STRUCTURAL COLORS (allowed by default)
+    // ============================================
+    {
+      name: "white/black/transparent are allowed",
+      code: `
+        function Component() {
+          return (
+            <>
+              <div className="bg-white text-black" />
+              <div className="bg-transparent" />
+              <div className="border-white/50" />
+            </>
+          );
+        }
+      `,
+      options: [{ preferSemanticColors: true }],
+    },
+    {
+      name: "inherit and current are allowed",
+      code: `
+        function Component() {
+          return (
+            <>
+              <div className="text-inherit bg-inherit" />
+              <div className="border-current" />
+            </>
+          );
+        }
+      `,
+      options: [{ preferSemanticColors: true }],
+    },
+
+    // ============================================
+    // NON-COLOR CLASSES
+    // ============================================
+    {
+      name: "non-color utility classes are fine",
+      code: `
+        function Component() {
+          return (
+            <>
+              <div className="p-4 m-2 flex items-center" />
+              <span className="text-lg font-bold" />
+              <p className="rounded-lg shadow-md" />
+            </>
+          );
+        }
+      `,
+      options: [{ preferSemanticColors: true }],
+    },
+
+    // ============================================
+    // OPTION DISABLED (default)
+    // ============================================
+    {
+      name: "hard-coded colors allowed when option disabled",
+      code: `
+        function Component() {
+          return (
+            <>
+              <div className="bg-red-500" />
+              <span className="text-blue-600" />
+            </>
+          );
+        }
+      `,
+      // preferSemanticColors defaults to false
+    },
+    {
+      name: "explicitly disabled option allows hard-coded colors",
+      code: `
+        function Component() {
+          return <div className="bg-red-500 text-blue-600" />;
+        }
+      `,
+      options: [{ preferSemanticColors: false }],
+    },
+
+    // ============================================
+    // ALLOWED HARD-CODED COLORS
+    // ============================================
+    {
+      name: "allowedHardCodedColors option whitelists specific colors",
+      code: `
+        function Component() {
+          return (
+            <>
+              <div className="bg-red-500" />
+              <span className="text-blue-600" />
+            </>
+          );
+        }
+      `,
+      options: [{ preferSemanticColors: true, allowedHardCodedColors: ["red", "blue"] }],
+    },
+    {
+      name: "allowed colors work with all shades",
+      code: `
+        function Component() {
+          return (
+            <>
+              <div className="bg-gray-50 text-gray-900" />
+              <div className="border-gray-200 ring-gray-300" />
+            </>
+          );
+        }
+      `,
+      options: [{ preferSemanticColors: true, allowedHardCodedColors: ["gray"] }],
+    },
+  ],
+  invalid: [],
 });
