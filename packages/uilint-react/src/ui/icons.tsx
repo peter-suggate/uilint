@@ -25,4 +25,7 @@ export {
   Play as PlayIcon,
   Square as StopIcon,
   RotateCcw as RefreshIcon,
+  // Inspector dock/float toggle
+  Maximize2 as MaximizeIcon,
+  PanelRight as DockIcon,
 } from "lucide-react";
