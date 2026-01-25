@@ -19,6 +19,8 @@ export interface ESLintSlice {
   issues: Map<string, Issue[]>;
   /** DataLocs that have been scanned */
   scannedDataLocs: Set<string>;
+  /** File paths that have been requested for linting (to avoid duplicates) */
+  requestedFiles: Set<string>;
   /** Whether live scanning is enabled */
   liveScanEnabled: boolean;
   /** Current scan status */
@@ -51,6 +53,8 @@ export interface ESLintActions {
   setWorkspaceRoot: (root: string | null) => void;
   /** Mark a dataLoc as scanned */
   markScanned: (dataLoc: string) => void;
+  /** Mark a file as requested for linting */
+  markFileRequested: (filePath: string) => void;
   /** Set scan status */
   setScanStatus: (status: ScanStatus) => void;
 }
@@ -64,6 +68,7 @@ export type ESLintPluginSlice = ESLintSlice & ESLintActions;
 export const initialESLintState: ESLintSlice = {
   issues: new Map(),
   scannedDataLocs: new Set(),
+  requestedFiles: new Set(),
   liveScanEnabled: false,
   scanStatus: "idle",
   availableRules: [],
@@ -100,6 +105,7 @@ export function createESLintActions(
         scanStatus: "idle",
         issues: new Map(),
         scannedDataLocs: new Set(),
+        requestedFiles: new Set(),
       });
     },
 
@@ -118,6 +124,7 @@ export function createESLintActions(
       setSlice({
         issues: new Map(),
         scannedDataLocs: new Set(),
+        requestedFiles: new Set(),
       });
     },
 
@@ -145,6 +152,13 @@ export function createESLintActions(
       const newScanned = new Set(current.scannedDataLocs);
       newScanned.add(dataLoc);
       setSlice({ scannedDataLocs: newScanned });
+    },
+
+    markFileRequested: (filePath: string) => {
+      const current = getSlice();
+      const newRequested = new Set(current.requestedFiles);
+      newRequested.add(filePath);
+      setSlice({ requestedFiles: newRequested });
     },
 
     setScanStatus: (status: ScanStatus) => {
