@@ -5,7 +5,7 @@
  * @vitest-environment jsdom
  */
 
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { visionPlugin } from "./index";
 import { defaultVisionState } from "./slice";
 import type { VisionSlice } from "./slice";
