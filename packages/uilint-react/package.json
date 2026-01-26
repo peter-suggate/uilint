@@ -39,9 +39,11 @@
     "dev": "vite build --watch",
     "test": "vitest run",
     "test:watch": "vitest --watch",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/",
+    "lint": "test -f coverage/coverage-final.json || vitest run --coverage; eslint src/",
     "lint:uilint": "npx uilint analyze --input-file src/components/ui-lint/toolbar/index.tsx --styleguide-path ./.uilint/styleguide.md",
+    "prepare": "vitest run --coverage",
     "prepublishOnly": "npm run build"
   },
   "engines": {
