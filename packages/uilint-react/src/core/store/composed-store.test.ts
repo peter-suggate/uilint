@@ -604,6 +604,7 @@ describe("useComposedStore hook", () => {
   });
 
   it("returns the full store state when called without selector", () => {
+    // eslint-disable-next-line uilint/zustand-use-selectors -- intentionally testing no-selector behavior
     const { result } = renderHook(() => useComposedStore());
 
     // Verify core state properties are present
@@ -626,6 +627,7 @@ describe("useComposedStore hook", () => {
     // Store should not exist yet
     expect(getStoreApi()).toBeNull();
 
+    // eslint-disable-next-line uilint/zustand-use-selectors -- intentionally testing store creation
     renderHook(() => useComposedStore());
 
     // Store should now exist

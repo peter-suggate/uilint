@@ -9,11 +9,9 @@ import {
   createComposedStore,
   resetStore,
 } from "../../core/store/composed-store";
-import {
-  pluginRegistry,
-  createPluginRegistry,
-} from "../../core/plugin-system/registry";
-import type { Plugin, ToolbarAction, PluginServices } from "../../core/plugin-system/types";
+import { pluginRegistry } from "../../core/plugin-system/registry";
+import type { Plugin, ToolbarAction } from "../../core/plugin-system/types";
+import type { PluginSliceMap } from "../../core/store/composed-store";
 
 // Mock createPortal to render inline for testing
 vi.mock("react-dom", async () => {
@@ -354,7 +352,7 @@ describe("FloatingIcon", () => {
         ruleConfigs: new Map(),
         issues: issuesMap,
         ruleConfigUpdating: new Map(),
-      } as any);
+      } as unknown as PluginSliceMap["eslint"]);
 
       render(<FloatingIcon />);
 
@@ -377,7 +375,7 @@ describe("FloatingIcon", () => {
         ruleConfigs: new Map(),
         issues: issuesMap,
         ruleConfigUpdating: new Map(),
-      } as any);
+      } as unknown as PluginSliceMap["eslint"]);
 
       render(<FloatingIcon />);
 

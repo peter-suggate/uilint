@@ -5,6 +5,7 @@
  * to fix all lint issues on the current page.
  */
 
+/* eslint-disable uilint/consistent-dark-mode -- theming handled via CSS custom properties */
 import React, { useMemo, useState, useCallback } from "react";
 import type { InspectorPanelProps } from "../../core/plugin-system/types";
 import type { Issue } from "../../ui/types";
@@ -148,19 +149,9 @@ function CopyButton({ text, onCopy }: { text: string; onCopy: () => void }) {
   return (
     <button
       onClick={handleCopy}
+      className="flex items-center gap-1.5 px-4 py-2 text-white border-none rounded-md cursor-pointer font-medium text-sm transition-colors"
       style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "8px 16px",
         background: copied ? "var(--uilint-success)" : "var(--uilint-primary)",
-        color: "white",
-        border: "none",
-        borderRadius: 6,
-        cursor: "pointer",
-        fontWeight: 500,
-        fontSize: 14,
-        transition: "background 0.2s",
       }}
     >
       {copied ? (
@@ -201,23 +192,29 @@ export function FixPromptPanel({ data }: InspectorPanelProps) {
   const fileCount = issuesByFile.size;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div className="flex flex-col h-full">
       {/* Header stats */}
       <div
+        className="p-4 border-b"
         style={{
-          padding: "16px",
-          borderBottom: "1px solid var(--uilint-border)",
+          borderColor: "var(--uilint-border)",
           background: "var(--uilint-surface)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="flex items-center justify-between">
           <div>
-            <div style={{ fontSize: 14, color: "var(--uilint-text-muted)", marginBottom: 4 }}>
+            <div
+              className="text-sm mb-1"
+              style={{ color: "var(--uilint-text-muted)" }}
+            >
               {totalIssues === 0
                 ? "No issues found"
                 : `${totalIssues} issue${totalIssues === 1 ? "" : "s"} in ${fileCount} file${fileCount === 1 ? "" : "s"}`}
             </div>
-            <div style={{ fontSize: 12, color: "var(--uilint-text-muted)" }}>
+            <div
+              className="text-xs"
+              style={{ color: "var(--uilint-text-muted)" }}
+            >
               {hookAvailable
                 ? "Condensed format - hook will provide issue details"
                 : "Copy this prompt to Cursor or Claude Code"}
@@ -230,25 +227,12 @@ export function FixPromptPanel({ data }: InspectorPanelProps) {
       </div>
 
       {/* Prompt preview */}
-      <div
-        style={{
-          flex: 1,
-          overflow: "auto",
-          padding: "16px",
-        }}
-      >
+      <div className="flex-1 overflow-auto p-4">
         <pre
+          className="m-0 p-4 rounded-lg text-sm leading-relaxed whitespace-pre-wrap break-words font-mono"
           style={{
-            margin: 0,
-            padding: "16px",
             background: "var(--uilint-code-bg, #1e1e1e)",
-            borderRadius: 8,
-            fontSize: 13,
-            lineHeight: 1.6,
             color: "var(--uilint-code-text, #d4d4d4)",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
           }}
         >
           {promptText}
@@ -257,11 +241,10 @@ export function FixPromptPanel({ data }: InspectorPanelProps) {
 
       {/* Footer with instructions */}
       <div
+        className="px-4 py-3 border-t text-xs"
         style={{
-          padding: "12px 16px",
-          borderTop: "1px solid var(--uilint-border)",
+          borderColor: "var(--uilint-border)",
           background: "var(--uilint-surface-elevated)",
-          fontSize: 12,
           color: "var(--uilint-text-muted)",
         }}
       >

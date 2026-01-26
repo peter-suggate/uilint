@@ -10,7 +10,7 @@ import React from "react";
 import type { Plugin, PluginServices, IssueContribution, ToolbarAction } from "../../core/plugin-system/types";
 import { visionCommands } from "./commands";
 import type { VisionSlice } from "./slice";
-import { createVisionSlice, defaultVisionState, createTriggerVisionAnalysis } from "./slice";
+import { createVisionSlice, createTriggerVisionAnalysis } from "./slice";
 import type { VisionIssue, VisionErrorInfo, VisionStage, ScreenshotCapture } from "./types";
 
 // Camera icon for full page capture

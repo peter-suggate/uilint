@@ -6,7 +6,7 @@
  * - Top row: grip handle + search area + toolbar action buttons
  * - Bottom row: subtle hint text (fades after first interaction)
  */
-import React, { useRef, useState, useCallback, useEffect } from "react";
+import React, { useRef, useCallback, useEffect, useReducer } from "react";
 import { createPortal } from "react-dom";
 import { useComposedStore } from "../../core/store";
 import { pluginRegistry } from "../../core/plugin-system/registry";
@@ -17,6 +17,45 @@ import type { ToolbarAction } from "../../core/plugin-system/types";
 interface Position {
   x: number;
   y: number;
+}
+
+/** Local UI state for the floating icon */
+interface FloatingIconState {
+  isDragging: boolean;
+  isHovered: boolean;
+  dragOffset: Position;
+  hasInteracted: boolean;
+}
+
+type FloatingIconAction =
+  | { type: "START_DRAG"; offset: Position }
+  | { type: "STOP_DRAG" }
+  | { type: "SET_HOVERED"; hovered: boolean }
+  | { type: "SET_INTERACTED" };
+
+const initialState: FloatingIconState = {
+  isDragging: false,
+  isHovered: false,
+  dragOffset: { x: 0, y: 0 },
+  hasInteracted: false,
+};
+
+function floatingIconReducer(
+  state: FloatingIconState,
+  action: FloatingIconAction
+): FloatingIconState {
+  switch (action.type) {
+    case "START_DRAG":
+      return { ...state, isDragging: true, dragOffset: action.offset };
+    case "STOP_DRAG":
+      return { ...state, isDragging: false };
+    case "SET_HOVERED":
+      return { ...state, isHovered: action.hovered };
+    case "SET_INTERACTED":
+      return { ...state, hasInteracted: true };
+    default:
+      return state;
+  }
 }
 
 const PILL_WIDTH = 220;
@@ -102,7 +141,9 @@ export function FloatingIcon() {
   const isConnected = useComposedStore((s) => s.wsConnected);
   const position = useComposedStore((s) => s.floatingIconPosition);
   const setPosition = useComposedStore((s) => s.setFloatingIconPosition);
-  const storeState = useComposedStore();
+
+  // Get plugins state for toolbar action visibility/enabled checks
+  const plugins = useComposedStore((s) => s.plugins);
 
   // Get issue count from eslint plugin
   const issueCount = useComposedStore((s) => {
@@ -115,26 +156,26 @@ export function FloatingIcon() {
     return count;
   });
 
-  const [isDragging, setIsDragging] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
-  const [hasInteracted, setHasInteracted] = useState(false);
+  // Consolidated local UI state using reducer
+  const [state, dispatch] = useReducer(floatingIconReducer, initialState);
+  const { isDragging, isHovered, dragOffset, hasInteracted } = state;
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Track first command palette interaction to hide hint
   useEffect(() => {
     if (isCommandPaletteOpen && !hasInteracted) {
-      setHasInteracted(true);
+      dispatch({ type: "SET_INTERACTED" });
     }
   }, [isCommandPaletteOpen, hasInteracted]);
 
   // Get toolbar actions from registered plugins
   const toolbarActions = pluginRegistry.getAllToolbarActions();
 
-  // Filter to only visible actions
+  // Filter to only visible actions - pass plugins state for visibility checks
   const visibleActions = toolbarActions.filter((action) => {
     if (action.isVisible) {
-      return action.isVisible(storeState);
+      return action.isVisible({ plugins });
     }
     return true; // Default to visible if no isVisible defined
   });
@@ -147,11 +188,10 @@ export function FloatingIcon() {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    setDragOffset({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+    dispatch({
+      type: "START_DRAG",
+      offset: { x: e.clientX - rect.left, y: e.clientY - rect.top },
     });
-    setIsDragging(true);
     e.preventDefault();
     e.stopPropagation();
   }, []);
@@ -175,7 +215,7 @@ export function FloatingIcon() {
   );
 
   const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
+    dispatch({ type: "STOP_DRAG" });
   }, []);
 
   useEffect(() => {
@@ -210,8 +250,8 @@ export function FloatingIcon() {
   return createPortal(
     <div
       ref={containerRef}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => dispatch({ type: "SET_HOVERED", hovered: true })}
+      onMouseLeave={() => dispatch({ type: "SET_HOVERED", hovered: false })}
       style={{
         position: "fixed",
         left: currentPosition.x,
@@ -351,7 +391,7 @@ export function FloatingIcon() {
               <ToolbarActionButton
                 key={action.id}
                 action={action}
-                state={storeState}
+                state={{ plugins }}
                 onExecute={() => handleActionClick(action)}
               />
             ))}
