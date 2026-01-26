@@ -1,8 +1,15 @@
 /**
- * SearchInput - Search bar for command palette
+ * SearchInput - Elegant search bar for command palette
+ *
+ * Features Spotlight/Raycast-inspired design:
+ * - Larger, more prominent input
+ * - Subtle focus animations
+ * - Animated clear button
+ * - macOS-style keyboard hint
  */
-import React, { useRef, useEffect } from "react";
-import { SearchIcon } from "../../icons";
+import React, { useRef, useEffect, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { SearchIcon, CloseIcon } from "../../icons";
 
 interface SearchInputProps {
   value: string;
@@ -10,33 +17,145 @@ interface SearchInputProps {
   placeholder?: string;
 }
 
-export function SearchInput({ value, onChange, placeholder = "Search issues, rules, files..." }: SearchInputProps) {
+export function SearchInput({
+  value,
+  onChange,
+  placeholder = "Search commands, issues, rules...",
+}: SearchInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isFocused, setIsFocused] = useState(false);
 
-  // Auto-focus on mount
+  // Auto-focus on mount with slight delay for animation
   useEffect(() => {
-    inputRef.current?.focus();
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
-    <div className="flex items-center px-4 py-3 border-b border-gray-200 gap-3">
-      <SearchIcon size={20} color="#9ca3af" />
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.1 }}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        padding: "14px 16px",
+        gap: 12,
+        borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
+        background: isFocused
+          ? "rgba(255, 255, 255, 0.6)"
+          : "rgba(255, 255, 255, 0.4)",
+        transition: "background 0.1s ease",
+      }}
+    >
+      {/* Search icon with subtle animation */}
+      <motion.div
+        animate={{
+          color: isFocused ? "#3b82f6" : "#9ca3af",
+        }}
+        transition={{ duration: 0.1 }}
+        style={{ display: "flex", alignItems: "center" }}
+      >
+        <SearchIcon size={20} />
+      </motion.div>
+
+      {/* Input */}
       <input
         ref={inputRef}
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         placeholder={placeholder}
-        className="flex-1 border-none outline-none text-base bg-transparent text-gray-900"
+        style={{
+          flex: 1,
+          border: "none",
+          outline: "none",
+          fontSize: 15,
+          fontWeight: 400,
+          background: "transparent",
+          color: "#111827",
+          caretColor: "#3b82f6",
+        }}
       />
-      {value && (
-        <button
-          onClick={() => onChange("")}
-          className="border-none bg-none cursor-pointer p-1 text-gray-400"
-        >
-          ✕
-        </button>
-      )}
-    </div>
+
+      {/* Clear button with enter/exit animation */}
+      <AnimatePresence mode="wait">
+        {value ? (
+          <motion.button
+            key="clear"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.1 }}
+            onClick={() => onChange("")}
+            style={{
+              border: "none",
+              background: "rgba(0, 0, 0, 0.05)",
+              borderRadius: 6,
+              cursor: "pointer",
+              padding: 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#6b7280",
+            }}
+            whileHover={{ background: "rgba(0, 0, 0, 0.1)" }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <CloseIcon size={14} />
+          </motion.button>
+        ) : (
+          <motion.div
+            key="hint"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.1 }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <Kbd>esc</Kbd>
+            <span style={{ fontSize: 11, color: "#9ca3af" }}>to close</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+/**
+ * Kbd - macOS-style keyboard hint
+ */
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: 20,
+        height: 18,
+        padding: "0 5px",
+        fontSize: 10,
+        fontWeight: 500,
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
+        color: "#6b7280",
+        background: "linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%)",
+        border: "1px solid rgba(0, 0, 0, 0.1)",
+        borderRadius: 4,
+        boxShadow: "0 1px 0 rgba(0, 0, 0, 0.08)",
+        textTransform: "lowercase",
+      }}
+    >
+      {children}
+    </span>
   );
 }
