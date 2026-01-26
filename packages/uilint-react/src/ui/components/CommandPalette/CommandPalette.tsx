@@ -1,8 +1,17 @@
 /**
- * CommandPalette - Main search interface
+ * CommandPalette - Elegant command interface inspired by Spotlight & Raycast
  *
- * Shows commands, rules, and issues with commands prioritized at the top.
- * Features glass morphism styling and smooth animations.
+ * Performance optimizations:
+ * - Shows summary card instead of all issues in initial state
+ * - Issues only rendered when searching
+ * - Staggered animations with delay caps for long lists
+ *
+ * Visual polish:
+ * - Spring physics for panel entrance
+ * - Staggered list item animations
+ * - Glass morphism with subtle gradients
+ * - Selection indicator with glow effect
+ * - macOS-style keyboard hints
  */
 import React, { useState, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
@@ -14,6 +23,8 @@ import { SearchInput } from "./SearchInput";
 import { ResultItem } from "./ResultItem";
 import { RuleItem } from "./RuleItem";
 import { FileHeader } from "./FileHeader";
+import { IssuesSummaryCard, TopIssuesPreview } from "./IssuesSummaryCard";
+import { AnimatedListItem, AnimatedSection, SelectionIndicator } from "./AnimatedListItem";
 import { CloseIcon, PlayIcon, StopIcon, RefreshIcon } from "../../icons";
 import type { Issue } from "../../types";
 import type { Command, RuleDefinition } from "../../../core/plugin-system/types";
@@ -23,99 +34,210 @@ import type { Command, RuleDefinition } from "../../../core/plugin-system/types"
  */
 type ResultType =
   | { kind: "command"; command: Command }
-  | { kind: "issue"; issue: Issue };
+  | { kind: "issue"; issue: Issue }
+  | { kind: "summary" };
+
+// Spring configuration for natural panel motion
+const panelSpring = {
+  type: "spring" as const,
+  stiffness: 380,
+  damping: 32,
+  mass: 0.8,
+};
 
 /**
- * Command result item component
+ * Command result item component with refined design
  */
 function CommandResultItem({
   command,
   isSelected,
   onClick,
+  index,
 }: {
   command: Command;
   isSelected: boolean;
   onClick: () => void;
+  index: number;
 }) {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        padding: "12px 16px",
-        cursor: "pointer",
-        background: isSelected ? "#f3f4f6" : "transparent",
-        borderBottom: "1px solid #f3f4f6",
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-      }}
-    >
-      {/* Icon */}
-      <div
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: 6,
-          background: "#3b82f6",
-          color: "white",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        {command.id.includes("start") ? (
-          <PlayIcon size={16} />
-        ) : command.id.includes("stop") ? (
-          <StopIcon size={16} />
-        ) : command.id.includes("clear") ? (
-          <RefreshIcon size={16} />
-        ) : (
-          <span style={{ fontSize: 14 }}>⚡</span>
-        )}
-      </div>
+  // Icon background colors based on command type
+  const getIconStyle = () => {
+    if (command.id.includes("start")) {
+      return { bg: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)", icon: <PlayIcon size={14} /> };
+    }
+    if (command.id.includes("stop")) {
+      return { bg: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)", icon: <StopIcon size={14} /> };
+    }
+    if (command.id.includes("clear")) {
+      return { bg: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)", icon: <RefreshIcon size={14} /> };
+    }
+    return { bg: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", icon: <span style={{ fontSize: 12 }}>⚡</span> };
+  };
 
-      {/* Content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
+  const iconStyle = getIconStyle();
+
+  return (
+    <AnimatedListItem index={index}>
+      <SelectionIndicator isSelected={isSelected} variant="command">
+        <motion.div
+          onClick={onClick}
+          whileHover={{ x: 2 }}
+          whileTap={{ scale: 0.99 }}
           style={{
-            fontWeight: 500,
-            color: "#111827",
-            marginBottom: 2,
+            padding: "10px 16px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
           }}
         >
-          {command.title}
-        </div>
-        {command.subtitle && (
-          <div
+          {/* Icon */}
+          <motion.div
+            animate={{ scale: isSelected ? 1.05 : 1 }}
+            transition={{ duration: 0.15 }}
             style={{
-              fontSize: 12,
-              color: "#6b7280",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              width: 30,
+              height: 30,
+              borderRadius: 8,
+              background: iconStyle.bg,
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              boxShadow: isSelected
+                ? "0 4px 12px rgba(59, 130, 246, 0.3)"
+                : "0 2px 4px rgba(0, 0, 0, 0.1)",
             }}
           >
-            {command.subtitle}
-          </div>
-        )}
-      </div>
+            {iconStyle.icon}
+          </motion.div>
 
-      {/* Category badge */}
-      <span
+          {/* Content */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontWeight: 500,
+                fontSize: 13,
+                color: "#111827",
+                marginBottom: 1,
+              }}
+            >
+              {command.title}
+            </div>
+            {command.subtitle && (
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "#6b7280",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {command.subtitle}
+              </div>
+            )}
+          </div>
+
+          {/* Category badge */}
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.03em",
+              background: isSelected
+                ? "rgba(59, 130, 246, 0.15)"
+                : "rgba(0, 0, 0, 0.04)",
+              color: isSelected ? "#2563eb" : "#6b7280",
+              padding: "3px 8px",
+              borderRadius: 6,
+              transition: "all 0.15s ease",
+            }}
+          >
+            {command.category}
+          </span>
+
+          {/* Keyboard hint when selected */}
+          {isSelected && (
+            <motion.div
+              initial={{ opacity: 0, x: 4 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.1 }}
+            >
+              <Kbd>↵</Kbd>
+            </motion.div>
+          )}
+        </motion.div>
+      </SelectionIndicator>
+    </AnimatedListItem>
+  );
+}
+
+/**
+ * Section header with refined styling
+ */
+function SectionHeader({ children, count }: { children: React.ReactNode; count?: number }) {
+  return (
+    <AnimatedSection delay={0.02}>
+      <div
         style={{
+          padding: "10px 16px 6px",
           fontSize: 10,
-          fontWeight: 500,
+          fontWeight: 600,
           textTransform: "uppercase",
-          background: "#dbeafe",
-          color: "#1d4ed8",
-          padding: "2px 6px",
-          borderRadius: 4,
+          letterSpacing: "0.08em",
+          color: "#9ca3af",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
         }}
       >
-        {command.category}
-      </span>
-    </div>
+        <span>{children}</span>
+        {count !== undefined && count > 0 && (
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 500,
+              background: "rgba(0, 0, 0, 0.04)",
+              padding: "2px 6px",
+              borderRadius: 10,
+            }}
+          >
+            {count}
+          </span>
+        )}
+      </div>
+    </AnimatedSection>
+  );
+}
+
+/**
+ * macOS-style keyboard hint
+ */
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: 18,
+        height: 18,
+        padding: "0 4px",
+        fontSize: 10,
+        fontWeight: 500,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
+        color: "#6b7280",
+        background: "linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%)",
+        border: "1px solid rgba(0, 0, 0, 0.1)",
+        borderRadius: 4,
+        boxShadow: "0 1px 0 rgba(0, 0, 0, 0.06)",
+      }}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -135,8 +257,6 @@ export function CommandPalette() {
   // Get available commands from registry
   const availableCommands = useMemo(() => {
     const allCommands = pluginRegistry.getAllCommands();
-
-    // Filter to only available commands
     return allCommands.filter((cmd) => {
       if (!cmd.isAvailable) return true;
       return cmd.isAvailable(storeState);
@@ -146,7 +266,6 @@ export function CommandPalette() {
   // Filter commands by query
   const filteredCommands = useMemo(() => {
     if (!query.trim()) return availableCommands;
-
     const lowerQuery = query.toLowerCase();
     return availableCommands.filter(
       (cmd) =>
@@ -157,10 +276,12 @@ export function CommandPalette() {
     );
   }, [availableCommands, query]);
 
-  // Filter issues by query
-  const filteredIssues = useMemo(() => {
-    if (!query.trim()) return allIssues.slice(0, 50);
+  // PERFORMANCE: Only show issues when searching
+  const isSearching = query.trim().length > 0;
 
+  // Filter issues by query - only compute when searching
+  const filteredIssues = useMemo(() => {
+    if (!isSearching) return [];
     const lowerQuery = query.toLowerCase();
     return allIssues
       .filter(
@@ -169,18 +290,17 @@ export function CommandPalette() {
           issue.ruleId.toLowerCase().includes(lowerQuery) ||
           issue.filePath.toLowerCase().includes(lowerQuery)
       )
-      .slice(0, 50);
-  }, [allIssues, query]);
+      .slice(0, 30); // Reduced limit for better performance
+  }, [allIssues, query, isSearching]);
 
   // Get all rules from the registry
   const allRules = useMemo(() => {
     return pluginRegistry.getAllRules();
   }, []);
 
-  // Filter rules by query
+  // Filter rules by query - only show when searching
   const filteredRules = useMemo(() => {
-    if (!query.trim()) return allRules;
-
+    if (!isSearching) return [];
     const lowerQuery = query.toLowerCase();
     return allRules.filter(
       (rule) =>
@@ -189,7 +309,7 @@ export function CommandPalette() {
         rule.description.toLowerCase().includes(lowerQuery) ||
         rule.category.toLowerCase().includes(lowerQuery)
     );
-  }, [allRules, query]);
+  }, [allRules, query, isSearching]);
 
   // Count issues per rule
   const issueCountByRule = useMemo(() => {
@@ -226,18 +346,35 @@ export function CommandPalette() {
     return groups;
   }, [filteredIssues]);
 
-  // Combined results: commands first, then issues (rules are handled separately)
+  // Combined results for keyboard navigation
+  // In initial state: commands + summary card + top issues
+  // When searching: commands + issues
   const allResults: ResultType[] = useMemo(() => {
     const commands: ResultType[] = filteredCommands.map((command) => ({
       kind: "command" as const,
       command,
     }));
+
+    if (!isSearching && allIssues.length > 0) {
+      // Initial state: add summary card and top issues
+      const topIssues = allIssues
+        .filter((i) => i.severity === "error" || i.severity === "warning")
+        .slice(0, 3);
+
+      return [
+        ...commands,
+        { kind: "summary" as const },
+        ...topIssues.map((issue) => ({ kind: "issue" as const, issue })),
+      ];
+    }
+
+    // When searching: commands + filtered issues
     const issues: ResultType[] = filteredIssues.map((issue) => ({
       kind: "issue" as const,
       issue,
     }));
     return [...commands, ...issues];
-  }, [filteredCommands, filteredIssues]);
+  }, [filteredCommands, filteredIssues, allIssues, isSearching]);
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback(
@@ -266,30 +403,29 @@ export function CommandPalette() {
   );
 
   // Handle executing a command
-  const handleExecuteCommand = useCallback(
-    async (command: Command) => {
-      const services = getPluginServices();
-      if (!services) {
-        console.error("[CommandPalette] Plugin services not available");
-        return;
-      }
-
-      try {
-        await command.execute(services);
-      } catch (error) {
-        console.error(`[CommandPalette] Error executing command "${command.id}":`, error);
-      }
-    },
-    []
-  );
+  const handleExecuteCommand = useCallback(async (command: Command) => {
+    const services = getPluginServices();
+    if (!services) {
+      console.error("[CommandPalette] Plugin services not available");
+      return;
+    }
+    try {
+      await command.execute(services);
+    } catch (error) {
+      console.error(`[CommandPalette] Error executing command "${command.id}":`, error);
+    }
+  }, []);
 
   // Handle selecting any result
   const handleSelectResult = useCallback(
     (result: ResultType) => {
       if (result.kind === "command") {
         handleExecuteCommand(result.command);
-      } else {
+      } else if (result.kind === "issue") {
         handleSelectIssue(result.issue);
+      } else if (result.kind === "summary") {
+        // Focus search input to encourage searching
+        setQuery("");
       }
     },
     [handleExecuteCommand, handleSelectIssue]
@@ -317,7 +453,18 @@ export function CommandPalette() {
     setSelectedIndex(0);
   }, [query]);
 
+  // Reset query when closing
+  React.useEffect(() => {
+    if (!isOpen) {
+      setQuery("");
+      setSelectedIndex(0);
+    }
+  }, [isOpen]);
+
   const portalRoot = document.getElementById("uilint-portal") || document.body;
+
+  // Calculate index for summary card and top issues
+  const summaryIndex = filteredCommands.length;
 
   return createPortal(
     <AnimatePresence>
@@ -326,16 +473,17 @@ export function CommandPalette() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
+          transition={{ duration: 0.12 }}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            backdropFilter: "blur(4px)",
+            background: "rgba(0, 0, 0, 0.35)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "center",
-            paddingTop: 100,
+            paddingTop: 80,
             zIndex: 99998,
             pointerEvents: "auto",
           }}
@@ -345,200 +493,214 @@ export function CommandPalette() {
           onKeyDown={handleKeyDown}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+            initial={{ opacity: 0, scale: 0.96, y: -20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.98, y: -5 }}
-            transition={{
-              duration: 0.2,
-              ease: [0.32, 0.72, 0, 1],
-            }}
+            exit={{ opacity: 0, scale: 0.98, y: -10 }}
+            transition={panelSpring}
             style={{
               width: "100%",
-              maxWidth: 640,
-              background: "rgba(255, 255, 255, 0.85)",
-              backdropFilter: "blur(24px) saturate(180%)",
-              WebkitBackdropFilter: "blur(24px) saturate(180%)",
-              borderRadius: 16,
-              boxShadow:
-                "0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.2) inset",
-              border: "1px solid rgba(255, 255, 255, 0.3)",
+              maxWidth: 580,
+              background: "rgba(255, 255, 255, 0.92)",
+              backdropFilter: "blur(40px) saturate(180%)",
+              WebkitBackdropFilter: "blur(40px) saturate(180%)",
+              borderRadius: 14,
+              boxShadow: `
+                0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+                0 1px 0 0 rgba(255, 255, 255, 0.4) inset,
+                0 24px 68px rgba(0, 0, 0, 0.2),
+                0 8px 20px rgba(0, 0, 0, 0.12)
+              `,
+              border: "1px solid rgba(0, 0, 0, 0.08)",
               overflow: "hidden",
             }}
           >
-            {/* Header */}
+            {/* Search */}
+            <SearchInput value={query} onChange={setQuery} />
+
+            {/* Results */}
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "12px 16px",
-                borderBottom: "1px solid rgba(0,0,0,0.08)",
-                background: "rgba(255,255,255,0.5)",
+                maxHeight: 380,
+                overflowY: "auto",
+                overflowX: "hidden",
               }}
             >
-              <span style={{ fontWeight: 600, color: "#111827" }}>
-                UILint
-                {allIssues.length > 0 && (
-                  <span style={{ fontWeight: 400, color: "#6b7280", marginLeft: 8 }}>
-                    {allIssues.length} issue{allIssues.length !== 1 ? "s" : ""}
-                  </span>
-                )}
-              </span>
-              <button
-                onClick={closeCommandPalette}
-                style={{
-                  border: "none",
-                  background: "none",
-                  cursor: "pointer",
-                  padding: 4,
-                  color: "#6b7280",
-                }}
-              >
-                <CloseIcon size={20} />
-              </button>
-            </div>
-
-        {/* Search */}
-        <SearchInput value={query} onChange={setQuery} />
-
-        {/* Results */}
-        <div
-          style={{
-            maxHeight: 400,
-            overflowY: "auto",
-          }}
-        >
-          {allResults.length === 0 ? (
-            <div
-              style={{
-                padding: 24,
-                textAlign: "center",
-                color: "#6b7280",
-              }}
-            >
-              {query ? "No results match your search" : "No commands or issues available"}
-            </div>
-          ) : (
-            <>
-              {/* Commands section */}
-              {filteredCommands.length > 0 && (
-                <>
-                  <div
+              <AnimatePresence mode="wait">
+                {allResults.length === 0 && filteredRules.length === 0 ? (
+                  <motion.div
+                    key="empty"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.15 }}
                     style={{
-                      padding: "8px 16px",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      textTransform: "uppercase",
+                      padding: "32px 24px",
+                      textAlign: "center",
                       color: "#9ca3af",
-                      background: "#f9fafb",
                     }}
                   >
-                    Commands
-                  </div>
-                  {filteredCommands.map((command, index) => (
-                    <CommandResultItem
-                      key={command.id}
-                      command={command}
-                      isSelected={index === selectedIndex}
-                      onClick={() => handleExecuteCommand(command)}
-                    />
-                  ))}
-                </>
-              )}
-
-              {/* Issues section - grouped by file */}
-              {issuesByFile.length > 0 && (
-                <>
-                  <div
-                    style={{
-                      padding: "8px 16px",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      textTransform: "uppercase",
-                      color: "#9ca3af",
-                      background: "#f9fafb",
-                    }}
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>
+                      {query ? "No results found" : "Start typing to search"}
+                    </div>
+                    <div style={{ fontSize: 12, marginTop: 4, color: "#d1d5db" }}>
+                      {query
+                        ? "Try different keywords"
+                        : "Search issues, rules, and commands"}
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="results"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.1 }}
                   >
-                    Issues
-                  </div>
-                  {issuesByFile.map((fileGroup) => {
-                    // Calculate the starting index for this file group
-                    let startIndex = filteredCommands.length;
-                    for (const fg of issuesByFile) {
-                      if (fg.filePath === fileGroup.filePath) break;
-                      startIndex += fg.issues.length;
-                    }
-
-                    return (
-                      <React.Fragment key={fileGroup.filePath}>
-                        <FileHeader
-                          fileName={fileGroup.fileName}
-                          directory={fileGroup.directory}
-                          count={fileGroup.issues.length}
-                        />
-                        {fileGroup.issues.map((issue, issueIndex) => (
-                          <ResultItem
-                            key={issue.id}
-                            issue={issue}
-                            isSelected={startIndex + issueIndex === selectedIndex}
-                            onClick={() => handleSelectIssue(issue)}
+                    {/* Commands section */}
+                    {filteredCommands.length > 0 && (
+                      <>
+                        <SectionHeader count={filteredCommands.length}>
+                          Commands
+                        </SectionHeader>
+                        {filteredCommands.map((command, index) => (
+                          <CommandResultItem
+                            key={command.id}
+                            command={command}
+                            isSelected={index === selectedIndex}
+                            onClick={() => handleExecuteCommand(command)}
+                            index={index}
                           />
                         ))}
-                      </React.Fragment>
-                    );
-                  })}
-                </>
-              )}
+                      </>
+                    )}
 
-              {/* Rules section */}
-              {filteredRules.length > 0 && (
-                <>
-                  <div
-                    style={{
-                      padding: "8px 16px",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      textTransform: "uppercase",
-                      color: "#9ca3af",
-                      background: "#f9fafb",
-                    }}
-                  >
-                    Rules
-                  </div>
-                  {filteredRules.map((rule, index) => (
-                    <RuleItem
-                      key={rule.id}
-                      rule={rule}
-                      issueCount={issueCountByRule.get(rule.id) ?? 0}
-                      isSelected={
-                        filteredCommands.length + filteredIssues.length + index === selectedIndex
-                      }
-                      onSeverityChange={handleRuleSeverityChange}
-                      onClick={() => handleSelectRule(rule)}
-                    />
-                  ))}
-                </>
-              )}
-            </>
-          )}
-        </div>
+                    {/* Initial state: Summary card + Top issues */}
+                    {!isSearching && allIssues.length > 0 && (
+                      <>
+                        <SectionHeader>Overview</SectionHeader>
+                        <IssuesSummaryCard
+                          issues={allIssues}
+                          isSelected={summaryIndex === selectedIndex}
+                          onClick={() => {
+                            // Focus on the search input
+                          }}
+                        />
+                        <TopIssuesPreview
+                          issues={allIssues}
+                          onSelectIssue={handleSelectIssue}
+                          startIndex={summaryIndex + 1}
+                          selectedIndex={selectedIndex}
+                        />
+                      </>
+                    )}
 
-            {/* Footer */}
-            <div
+                    {/* Search results: Issues grouped by file */}
+                    {isSearching && issuesByFile.length > 0 && (
+                      <>
+                        <SectionHeader count={filteredIssues.length}>
+                          Issues
+                        </SectionHeader>
+                        {issuesByFile.map((fileGroup, groupIndex) => {
+                          let startIndex = filteredCommands.length;
+                          for (let i = 0; i < groupIndex; i++) {
+                            startIndex += issuesByFile[i].issues.length;
+                          }
+
+                          return (
+                            <AnimatedListItem
+                              key={fileGroup.filePath}
+                              index={filteredCommands.length + groupIndex}
+                            >
+                              <FileHeader
+                                fileName={fileGroup.fileName}
+                                directory={fileGroup.directory}
+                                count={fileGroup.issues.length}
+                              />
+                              {fileGroup.issues.map((issue, issueIndex) => (
+                                <SelectionIndicator
+                                  key={issue.id}
+                                  isSelected={startIndex + issueIndex === selectedIndex}
+                                  variant="issue"
+                                >
+                                  <ResultItem
+                                    issue={issue}
+                                    isSelected={startIndex + issueIndex === selectedIndex}
+                                    onClick={() => handleSelectIssue(issue)}
+                                  />
+                                </SelectionIndicator>
+                              ))}
+                            </AnimatedListItem>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {/* Rules section - only when searching */}
+                    {isSearching && filteredRules.length > 0 && (
+                      <>
+                        <SectionHeader count={filteredRules.length}>
+                          Rules
+                        </SectionHeader>
+                        {filteredRules.map((rule, index) => (
+                          <AnimatedListItem
+                            key={rule.id}
+                            index={filteredCommands.length + filteredIssues.length + index}
+                          >
+                            <RuleItem
+                              rule={rule}
+                              issueCount={issueCountByRule.get(rule.id) ?? 0}
+                              isSelected={
+                                filteredCommands.length +
+                                  filteredIssues.length +
+                                  index ===
+                                selectedIndex
+                              }
+                              onSeverityChange={handleRuleSeverityChange}
+                              onClick={() => handleSelectRule(rule)}
+                            />
+                          </AnimatedListItem>
+                        ))}
+                      </>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Footer with keyboard hints */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2, delay: 0.1 }}
               style={{
                 padding: "8px 16px",
-                borderTop: "1px solid rgba(0,0,0,0.08)",
-                fontSize: 12,
+                borderTop: "1px solid rgba(0, 0, 0, 0.05)",
+                fontSize: 11,
                 color: "#9ca3af",
                 display: "flex",
+                alignItems: "center",
                 gap: 16,
-                background: "rgba(255,255,255,0.5)",
+                background: "rgba(249, 250, 251, 0.5)",
               }}
             >
-              <span>↑↓ Navigate</span>
-              <span>↵ Select</span>
-              <span>Esc Close</span>
-            </div>
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <Kbd>↑</Kbd>
+                <Kbd>↓</Kbd>
+                <span style={{ marginLeft: 2 }}>navigate</span>
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <Kbd>↵</Kbd>
+                <span style={{ marginLeft: 2 }}>select</span>
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <Kbd>esc</Kbd>
+                <span style={{ marginLeft: 2 }}>close</span>
+              </span>
+              <span style={{ marginLeft: "auto", fontSize: 10, color: "#d1d5db" }}>
+                ⌘K to toggle
+              </span>
+            </motion.div>
           </motion.div>
         </motion.div>
       )}
