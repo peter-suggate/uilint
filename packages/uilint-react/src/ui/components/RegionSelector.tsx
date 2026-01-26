@@ -7,7 +7,7 @@
  * for vision capture. Shows a live selection rectangle with dimensions.
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useReducer } from "react";
 import { createPortal } from "react-dom";
 
 export interface SelectedRegion {
@@ -29,6 +29,61 @@ export interface RegionSelectorProps {
 // Minimum selection size (selection must be larger than this)
 const MIN_SELECTION_SIZE = 10;
 
+/** Point coordinates */
+interface Point {
+  x: number;
+  y: number;
+}
+
+/** Local UI state for region selection */
+interface SelectionState {
+  isSelecting: boolean;
+  startPoint: Point | null;
+  currentPoint: Point | null;
+  mounted: boolean;
+}
+
+type SelectionAction =
+  | { type: "MOUNT" }
+  | { type: "START_SELECTION"; point: Point }
+  | { type: "UPDATE_SELECTION"; point: Point }
+  | { type: "COMPLETE_SELECTION" };
+
+const initialSelectionState: SelectionState = {
+  isSelecting: false,
+  startPoint: null,
+  currentPoint: null,
+  mounted: false,
+};
+
+function selectionReducer(
+  state: SelectionState,
+  action: SelectionAction
+): SelectionState {
+  switch (action.type) {
+    case "MOUNT":
+      return { ...state, mounted: true };
+    case "START_SELECTION":
+      return {
+        ...state,
+        isSelecting: true,
+        startPoint: action.point,
+        currentPoint: action.point,
+      };
+    case "UPDATE_SELECTION":
+      return { ...state, currentPoint: action.point };
+    case "COMPLETE_SELECTION":
+      return {
+        ...state,
+        isSelecting: false,
+        startPoint: null,
+        currentPoint: null,
+      };
+    default:
+      return state;
+  }
+}
+
 // Design tokens
 const TOKENS = {
   overlayBg: "rgba(0, 0, 0, 0.5)",
@@ -45,19 +100,13 @@ export function RegionSelector({
   onRegionSelected,
   onCancel,
 }: RegionSelectorProps) {
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(
-    null
-  );
-  const [currentPoint, setCurrentPoint] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
-  const [mounted, setMounted] = useState(false);
+  // Consolidated local UI state using reducer
+  const [state, dispatch] = useReducer(selectionReducer, initialSelectionState);
+  const { isSelecting, startPoint, currentPoint, mounted } = state;
 
   // Mount state for portal
   useEffect(() => {
-    setMounted(true);
+    dispatch({ type: "MOUNT" });
   }, []);
 
   // Calculate selection rectangle
@@ -77,9 +126,7 @@ export function RegionSelector({
     // Only start selection on left click
     if (e.button !== 0) return;
 
-    setIsSelecting(true);
-    setStartPoint({ x: e.clientX, y: e.clientY });
-    setCurrentPoint({ x: e.clientX, y: e.clientY });
+    dispatch({ type: "START_SELECTION", point: { x: e.clientX, y: e.clientY } });
   }, []);
 
   // Handle mouse move - update selection
@@ -87,7 +134,7 @@ export function RegionSelector({
     (e: React.MouseEvent) => {
       if (!isSelecting || !startPoint) return;
 
-      setCurrentPoint({ x: e.clientX, y: e.clientY });
+      dispatch({ type: "UPDATE_SELECTION", point: { x: e.clientX, y: e.clientY } });
     },
     [isSelecting, startPoint]
   );
@@ -106,9 +153,7 @@ export function RegionSelector({
     }
 
     // Reset state
-    setIsSelecting(false);
-    setStartPoint(null);
-    setCurrentPoint(null);
+    dispatch({ type: "COMPLETE_SELECTION" });
   }, [isSelecting, startPoint, getSelectionRect, onRegionSelected, onCancel]);
 
   // Handle escape key
