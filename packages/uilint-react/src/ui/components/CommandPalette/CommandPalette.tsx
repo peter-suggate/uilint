@@ -7,7 +7,7 @@
  * - Staggered animations with delay caps for long lists
  *
  * Visual polish:
- * - Spring physics for panel entrance
+ * - Crisp easing for panel entrance
  * - Staggered list item animations
  * - Glass morphism with subtle gradients
  * - Selection indicator with glow effect
@@ -37,12 +37,10 @@ type ResultType =
   | { kind: "issue"; issue: Issue }
   | { kind: "summary" };
 
-// Spring configuration for natural panel motion
-const panelSpring = {
-  type: "spring" as const,
-  stiffness: 380,
-  damping: 32,
-  mass: 0.8,
+// Crisp easing for panel motion
+const panelTransition = {
+  duration: 0.12,
+  ease: [0.32, 0.72, 0, 1],
 };
 
 /**
@@ -91,9 +89,7 @@ function CommandResultItem({
           }}
         >
           {/* Icon */}
-          <motion.div
-            animate={{ scale: isSelected ? 1.05 : 1 }}
-            transition={{ duration: 0.15 }}
+          <div
             style={{
               width: 30,
               height: 30,
@@ -110,7 +106,7 @@ function CommandResultItem({
             }}
           >
             {iconStyle.icon}
-          </motion.div>
+          </div>
 
           {/* Content */}
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -152,7 +148,7 @@ function CommandResultItem({
               color: isSelected ? "#2563eb" : "#6b7280",
               padding: "3px 8px",
               borderRadius: 6,
-              transition: "all 0.15s ease",
+              transition: "all 0.1s ease",
             }}
           >
             {command.category}
@@ -496,7 +492,7 @@ export function CommandPalette() {
             initial={{ opacity: 0, scale: 0.96, y: -20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -10 }}
-            transition={panelSpring}
+            transition={panelTransition}
             style={{
               width: "100%",
               maxWidth: 580,
@@ -529,10 +525,10 @@ export function CommandPalette() {
                 {allResults.length === 0 && filteredRules.length === 0 ? (
                   <motion.div
                     key="empty"
-                    initial={{ opacity: 0, y: 8 }}
+                    initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.15 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.1 }}
                     style={{
                       padding: "32px 24px",
                       textAlign: "center",
@@ -672,7 +668,7 @@ export function CommandPalette() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.2, delay: 0.1 }}
+              transition={{ duration: 0.1, delay: 0.05 }}
               style={{
                 padding: "8px 16px",
                 borderTop: "1px solid rgba(0, 0, 0, 0.05)",

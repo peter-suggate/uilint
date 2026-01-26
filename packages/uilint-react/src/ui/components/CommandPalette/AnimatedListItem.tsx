@@ -3,7 +3,7 @@
  *
  * Provides Spotlight/Raycast-style entry animations with:
  * - Staggered delays based on index
- * - Smooth spring physics
+ * - Crisp easing curves
  * - Subtle slide + fade effect
  */
 import React from "react";
@@ -20,20 +20,15 @@ interface AnimatedListItemProps {
   staggerDelay?: number;
 }
 
-// Spring configuration for natural motion
-const springConfig = {
-  type: "spring" as const,
-  stiffness: 400,
-  damping: 30,
-  mass: 0.8,
-};
+// Crisp easing curve
+const crispEase = [0.32, 0.72, 0, 1];
 
 export function AnimatedListItem({
   children,
   index,
   layoutId,
-  maxDelay = 0.15,
-  staggerDelay = 0.025,
+  maxDelay = 0.12,
+  staggerDelay = 0.02,
 }: AnimatedListItemProps) {
   // Calculate delay with cap for performance
   const delay = Math.min(index * staggerDelay, maxDelay);
@@ -41,13 +36,13 @@ export function AnimatedListItem({
   return (
     <motion.div
       layoutId={layoutId}
-      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -4, scale: 0.98 }}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
       transition={{
-        ...springConfig,
+        duration: 0.12,
+        ease: crispEase,
         delay,
-        opacity: { duration: 0.15, delay },
       }}
     >
       {children}
@@ -67,12 +62,12 @@ export function AnimatedSection({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, x: -12 }}
+      initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{
-        duration: 0.25,
+        duration: 0.12,
         delay,
-        ease: [0.25, 0.46, 0.45, 0.94],
+        ease: crispEase,
       }}
     >
       {children}
@@ -117,7 +112,7 @@ export function SelectionIndicator({
         background: isSelected ? styles.selected : styles.unselected,
         borderLeftColor: isSelected ? "#3b82f6" : "transparent",
       }}
-      transition={{ duration: 0.15, ease: "easeOut" }}
+      transition={{ duration: 0.1, ease: crispEase }}
       style={{
         borderLeft: "2px solid transparent",
         position: "relative",
@@ -130,7 +125,7 @@ export function SelectionIndicator({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
+          transition={{ duration: 0.1 }}
           style={{
             position: "absolute",
             inset: 0,

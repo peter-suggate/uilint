@@ -37,7 +37,7 @@ export function SearchInput({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.2, delay: 0.05 }}
+      transition={{ duration: 0.1 }}
       style={{
         display: "flex",
         alignItems: "center",
@@ -47,16 +47,15 @@ export function SearchInput({
         background: isFocused
           ? "rgba(255, 255, 255, 0.6)"
           : "rgba(255, 255, 255, 0.4)",
-        transition: "background 0.15s ease",
+        transition: "background 0.1s ease",
       }}
     >
       {/* Search icon with subtle animation */}
       <motion.div
         animate={{
-          scale: isFocused ? 1.05 : 1,
           color: isFocused ? "#3b82f6" : "#9ca3af",
         }}
-        transition={{ duration: 0.15 }}
+        transition={{ duration: 0.1 }}
         style={{ display: "flex", alignItems: "center" }}
       >
         <SearchIcon size={20} />
@@ -88,10 +87,10 @@ export function SearchInput({
         {value ? (
           <motion.button
             key="clear"
-            initial={{ opacity: 0, scale: 0.8, rotate: -90 }}
-            animate={{ opacity: 1, scale: 1, rotate: 0 }}
-            exit={{ opacity: 0, scale: 0.8, rotate: 90 }}
-            transition={{ duration: 0.15 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.1 }}
             onClick={() => onChange("")}
             style={{
               border: "none",
@@ -105,7 +104,7 @@ export function SearchInput({
               color: "#6b7280",
             }}
             whileHover={{ background: "rgba(0, 0, 0, 0.1)" }}
-            whileTap={{ scale: 0.9 }}
+            whileTap={{ scale: 0.95 }}
           >
             <CloseIcon size={14} />
           </motion.button>
@@ -115,7 +114,7 @@ export function SearchInput({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: 0.1 }}
             style={{
               display: "flex",
               alignItems: "center",

@@ -47,7 +47,7 @@ export function IssuesSummaryCard({ issues, isSelected, onClick }: IssuesSummary
       onClick={onClick}
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.12, ease: [0.32, 0.72, 0, 1] }}
       style={{
         margin: "8px 12px",
         padding: "14px 16px",
@@ -62,7 +62,7 @@ export function IssuesSummaryCard({ issues, isSelected, onClick }: IssuesSummary
         boxShadow: isSelected
           ? "0 0 0 3px rgba(59, 130, 246, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04)"
           : "0 1px 3px rgba(0, 0, 0, 0.04)",
-        transition: "all 0.2s ease",
+        transition: "all 0.1s ease",
       }}
     >
       {/* Header */}
@@ -103,7 +103,7 @@ export function IssuesSummaryCard({ issues, isSelected, onClick }: IssuesSummary
             color: "#9ca3af",
             opacity: isSelected ? 1 : 0.5,
             transform: isSelected ? "translateX(2px)" : "none",
-            transition: "all 0.15s ease",
+            transition: "all 0.1s ease",
           }}
         />
       </div>
@@ -267,12 +267,12 @@ function TopIssueItem({
   return (
     <motion.div
       onClick={onClick}
-      initial={{ opacity: 0, x: -8 }}
+      initial={{ opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{
-        duration: 0.2,
-        delay: index * 0.03,
-        ease: [0.25, 0.46, 0.45, 0.94],
+        duration: 0.1,
+        delay: index * 0.02,
+        ease: [0.32, 0.72, 0, 1],
       }}
       style={{
         display: "flex",
@@ -284,7 +284,7 @@ function TopIssueItem({
           ? "linear-gradient(90deg, rgba(59, 130, 246, 0.08) 0%, transparent 100%)"
           : "transparent",
         borderLeft: isSelected ? "2px solid #3b82f6" : "2px solid transparent",
-        transition: "all 0.15s ease",
+        transition: "all 0.1s ease",
       }}
     >
       <SeverityIcon size={14} color={severityColor} />
