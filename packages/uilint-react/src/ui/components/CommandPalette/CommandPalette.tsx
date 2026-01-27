@@ -27,6 +27,7 @@ import { IssuesSummaryCard, TopIssuesPreview } from "./IssuesSummaryCard";
 import { AnimatedListItem, AnimatedSection, SelectionIndicator } from "./AnimatedListItem";
 import { CloseIcon, PlayIcon, StopIcon, RefreshIcon } from "../../icons";
 import { GlassPanel, Kbd, CategoryBadge } from "../primitives";
+import { useScrollSelectedIntoView } from "./useScrollSelectedIntoView";
 import type { Issue } from "../../types";
 import type { Command, RuleDefinition } from "../../../core/plugin-system/types";
 
@@ -203,6 +204,7 @@ export function CommandPalette() {
 
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const itemRefs = useScrollSelectedIntoView(selectedIndex);
 
   const { allIssues } = useIssues();
 
@@ -513,13 +515,20 @@ export function CommandPalette() {
                           Commands
                         </SectionHeader>
                         {filteredCommands.map((command, index) => (
-                          <CommandResultItem
+                          <div
                             key={command.id}
-                            command={command}
-                            isSelected={index === selectedIndex}
-                            onClick={() => handleExecuteCommand(command)}
-                            index={index}
-                          />
+                            ref={(el) => {
+                              if (el) itemRefs.current.set(index, el);
+                              else itemRefs.current.delete(index);
+                            }}
+                          >
+                            <CommandResultItem
+                              command={command}
+                              isSelected={index === selectedIndex}
+                              onClick={() => handleExecuteCommand(command)}
+                              index={index}
+                            />
+                          </div>
                         ))}
                       </>
                     )}
@@ -528,13 +537,20 @@ export function CommandPalette() {
                     {!isSearching && allIssues.length > 0 && (
                       <>
                         <SectionHeader>Overview</SectionHeader>
-                        <IssuesSummaryCard
-                          issues={allIssues}
-                          isSelected={summaryIndex === selectedIndex}
-                          onClick={() => {
-                            // Focus on the search input
+                        <div
+                          ref={(el) => {
+                            if (el) itemRefs.current.set(summaryIndex, el);
+                            else itemRefs.current.delete(summaryIndex);
                           }}
-                        />
+                        >
+                          <IssuesSummaryCard
+                            issues={allIssues}
+                            isSelected={summaryIndex === selectedIndex}
+                            onClick={() => {
+                              // Focus on the search input
+                            }}
+                          />
+                        </div>
                         <TopIssuesPreview
                           issues={allIssues}
                           onSelectIssue={handleSelectIssue}
@@ -566,19 +582,29 @@ export function CommandPalette() {
                                 directory={fileGroup.directory}
                                 count={fileGroup.issues.length}
                               />
-                              {fileGroup.issues.map((issue, issueIndex) => (
-                                <SelectionIndicator
-                                  key={issue.id}
-                                  isSelected={startIndex + issueIndex === selectedIndex}
-                                  variant="issue"
-                                >
-                                  <ResultItem
-                                    issue={issue}
-                                    isSelected={startIndex + issueIndex === selectedIndex}
-                                    onClick={() => handleSelectIssue(issue)}
-                                  />
-                                </SelectionIndicator>
-                              ))}
+                              {fileGroup.issues.map((issue, issueIndex) => {
+                                const resultIndex = startIndex + issueIndex;
+                                return (
+                                  <div
+                                    key={issue.id}
+                                    ref={(el) => {
+                                      if (el) itemRefs.current.set(resultIndex, el);
+                                      else itemRefs.current.delete(resultIndex);
+                                    }}
+                                  >
+                                    <SelectionIndicator
+                                      isSelected={resultIndex === selectedIndex}
+                                      variant="issue"
+                                    >
+                                      <ResultItem
+                                        issue={issue}
+                                        isSelected={resultIndex === selectedIndex}
+                                        onClick={() => handleSelectIssue(issue)}
+                                      />
+                                    </SelectionIndicator>
+                                  </div>
+                                );
+                              })}
                             </AnimatedListItem>
                           );
                         })}
