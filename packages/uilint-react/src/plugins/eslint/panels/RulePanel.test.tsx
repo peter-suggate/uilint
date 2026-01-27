@@ -327,6 +327,109 @@ describe("RulePanel", () => {
   });
 });
 
+/**
+ * Bug #5: RulePanel uses hardcoded hex colors (e.g., #111827, #374151)
+ * instead of CSS variables (var(--uilint-text-primary), etc.).
+ * This means the panel doesn't match the overlay theme.
+ */
+describe("RulePanel - theming with CSS variables", () => {
+  beforeEach(() => {
+    resetStore();
+  });
+
+  afterEach(() => {
+    cleanup();
+    resetStore();
+  });
+
+  it("uses CSS variables for text colors instead of hardcoded hex values", () => {
+    const store = createComposedStore();
+    const testRule: AvailableRule = {
+      id: "theme-rule",
+      name: "Theme Test Rule",
+      description: "A rule for testing theming",
+      category: "static",
+      currentSeverity: "error",
+      docs: "https://example.com/docs",
+    };
+
+    store.getState().registerPluginSlice(
+      "eslint",
+      asPluginSlice<"eslint">({
+        availableRules: [testRule],
+        ruleConfigs: new Map(),
+        issues: new Map(),
+        ruleConfigUpdating: new Map(),
+      })
+    );
+
+    const { container } = render(<RulePanel data={{ ruleId: "theme-rule" }} />);
+
+    // Collect all style attributes in the rendered tree
+    const allElements = container.querySelectorAll("*");
+    const styleStrings: string[] = [];
+    allElements.forEach((el) => {
+      const style = el.getAttribute("style");
+      if (style) styleStrings.push(style);
+    });
+
+    // Should NOT use hardcoded hex color values for text
+    const usesHardcodedColors = styleStrings.some(
+      (s) => /color:\s*#[0-9a-fA-F]{6}/.test(s)
+    );
+    expect(usesHardcodedColors).toBe(false);
+
+    // Should use CSS variables for theming
+    const usesCSSVars = styleStrings.some((s) => s.includes("var(--uilint-"));
+    expect(usesCSSVars).toBe(true);
+  });
+
+  it("uses CSS variables for background colors", () => {
+    const store = createComposedStore();
+    const testRule: AvailableRule = {
+      id: "bg-rule",
+      name: "Background Test Rule",
+      description: "A rule for testing backgrounds",
+      category: "semantic",
+      currentSeverity: "warning",
+    };
+
+    store.getState().registerPluginSlice(
+      "eslint",
+      asPluginSlice<"eslint">({
+        availableRules: [testRule],
+        ruleConfigs: new Map(),
+        issues: new Map(),
+        ruleConfigUpdating: new Map(),
+      })
+    );
+
+    const { container } = render(<RulePanel data={{ ruleId: "bg-rule" }} />);
+
+    // Collect all style attributes
+    const allElements = container.querySelectorAll("*");
+    const styleStrings: string[] = [];
+    allElements.forEach((el) => {
+      const style = el.getAttribute("style");
+      if (style) styleStrings.push(style);
+    });
+
+    // Should NOT use hardcoded hex backgrounds for non-severity elements
+    // (severity buttons are allowed specific colors for semantic meaning)
+    const nonButtonElements = container.querySelectorAll("*:not(button)");
+    const nonButtonStyles: string[] = [];
+    nonButtonElements.forEach((el) => {
+      const style = el.getAttribute("style");
+      if (style) nonButtonStyles.push(style);
+    });
+
+    const usesHardcodedBg = nonButtonStyles.some(
+      (s) => /background:\s*#[0-9a-fA-F]{6}/.test(s)
+    );
+    expect(usesHardcodedBg).toBe(false);
+  });
+});
+
 describe("SeverityToggle button interactions", () => {
   beforeEach(() => {
     resetStore();
