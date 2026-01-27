@@ -10,11 +10,10 @@
  * This simulates what the browser DevTool does without needing an actual browser.
  */
 
-import { describe, it, expect, afterEach, beforeEach, beforeAll } from "vitest";
+import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { existsSync, writeFileSync, readFileSync, mkdirSync } from "fs";
-import { execSync } from "child_process";
+import { existsSync } from "fs";
 import { useFixture, type FixtureContext } from "../helpers/fixtures.js";
 import {
   startServer,
@@ -27,41 +26,6 @@ import {
 } from "../helpers/ws-test-client.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// Get path to uilint-eslint dist directory for linking
-const uilintEslintPath = join(__dirname, "..", "..", "..", "uilint-eslint");
-
-/**
- * Install dependencies in the fixture using npm
- * Links uilint-eslint from the monorepo instead of installing from npm
- */
-async function installDependenciesWithUilint(fixturePath: string): Promise<void> {
-  const pkgJsonPath = join(fixturePath, "package.json");
-  const pkgJson = JSON.parse(
-    existsSync(pkgJsonPath) ? readFileSync(pkgJsonPath, "utf-8") : "{}"
-  );
-
-  // Add required dependencies
-  pkgJson.dependencies = pkgJson.dependencies || {};
-  pkgJson.devDependencies = pkgJson.devDependencies || {};
-  pkgJson.devDependencies["uilint-eslint"] = `file:${uilintEslintPath}`;
-  pkgJson.devDependencies["typescript-eslint"] = "^8.0.0";
-  pkgJson.devDependencies["@typescript-eslint/utils"] = "^8.0.0";
-  pkgJson.devDependencies["eslint"] = "^9.0.0";
-  // Transitive dependencies that need explicit install with file: protocol
-  pkgJson.devDependencies["oxc-resolver"] = "^11.0.0";
-  pkgJson.devDependencies["@typescript-eslint/typescript-estree"] = "^8.0.0";
-  pkgJson.devDependencies["typescript"] = "^5.0.0";
-
-  writeFileSync(pkgJsonPath, JSON.stringify(pkgJson, null, 2));
-
-  // Install dependencies
-  execSync("npm install --legacy-peer-deps", {
-    cwd: fixturePath,
-    stdio: "pipe",
-    timeout: 120000,
-  });
-}
 
 // ============================================================================
 // Test Setup
@@ -284,95 +248,6 @@ export default [
     expect(result2.issues).toEqual(result1.issues);
   });
 });
-
-// ============================================================================
-// Tests with UILint ESLint rules
-// ============================================================================
-
-describe("WebSocket lint flow with UILint rules", { timeout: 180000 }, () => {
-  let fixture: FixtureContext | null = null;
-  let server: ServerProcess | null = null;
-  let client: WsTestClient | null = null;
-
-  beforeAll(() => {
-    // Ensure uilint-eslint is built
-    if (!existsSync(join(uilintEslintPath, "dist", "index.js"))) {
-      throw new Error(
-        "uilint-eslint must be built before running e2e tests. Run: pnpm build"
-      );
-    }
-  });
-
-  afterEach(async () => {
-    if (client) {
-      client.disconnect();
-      client = null;
-    }
-    if (server) {
-      await server.stop();
-      server = null;
-    }
-    if (fixture) {
-      fixture.cleanup();
-      fixture = null;
-    }
-  });
-
-  it("detects UILint ESLint rule violations via WebSocket", async () => {
-    fixture = useFixture("has-eslint-with-uilint");
-    const port = await findAvailablePort();
-
-    // Create src directory (fixture doesn't have one)
-    mkdirSync(join(fixture.path, "src"), { recursive: true });
-
-    // Create a file that violates the no-arbitrary-tailwind rule
-    fixture.writeFile(
-      "src/ArbitraryStyles.jsx",
-      `function ArbitraryStyles() {
-  return (
-    <div className="w-[137px] h-[42px] p-[13px] mt-[17px]">
-      <span className="text-[#3B82F6]">Arbitrary values</span>
-    </div>
-  );
-}
-
-export default ArbitraryStyles;
-`
-    );
-
-    // Install dependencies with all transitive deps properly resolved
-    await installDependenciesWithUilint(fixture.path);
-
-    server = await startServer({
-      cwd: fixture.path,
-      port,
-    });
-
-    client = await createTestClient(port);
-    await client.waitForWorkspaceInfo();
-
-    const result = await client.lintFile("src/ArbitraryStyles.jsx");
-
-    expect(result.type).toBe("lint:result");
-    expect(result.filePath).toBe("src/ArbitraryStyles.jsx");
-    expect(Array.isArray(result.issues)).toBe(true);
-
-    // Should have issues from the no-arbitrary-tailwind rule
-    const arbitraryIssues = result.issues.filter(
-      (issue) => issue.ruleId === "uilint/no-arbitrary-tailwind"
-    );
-
-    // The file has multiple arbitrary values, so we MUST have issues
-    expect(arbitraryIssues.length).toBeGreaterThan(0);
-
-    // Each issue should have the expected structure
-    for (const issue of arbitraryIssues) {
-      expect(issue.message).toContain("arbitrary");
-      expect(typeof issue.line).toBe("number");
-    }
-  });
-});
-
 // ============================================================================
 // Integration with real test-app (optional, for local testing)
 // ============================================================================

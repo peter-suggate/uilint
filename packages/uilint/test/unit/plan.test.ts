@@ -212,7 +212,7 @@ describe("createPlan - ESLint", () => {
       eslint: {
         packagePaths: [pkg.path],
         selectedRules: ruleRegistry.filter(
-          (r) => r.id === "no-arbitrary-tailwind"
+          (r) => r.id === "consistent-dark-mode"
         ),
       },
     });
@@ -228,13 +228,13 @@ describe("createPlan - ESLint", () => {
     // Should copy rule files (as .js since ESLint config is .mjs)
     const ruleFileAction = plan.actions.find(
       (a) =>
-        a.type === "create_file" && a.path.includes("no-arbitrary-tailwind.js")
+        a.type === "create_file" && a.path.includes("consistent-dark-mode.js")
     );
     expect(ruleFileAction).toBeDefined();
     if (ruleFileAction?.type === "create_file") {
       // .mjs ESLint config should produce .js rule files
       expect(ruleFileAction.path).toContain(
-        ".uilint/rules/no-arbitrary-tailwind.js"
+        ".uilint/rules/consistent-dark-mode.js"
       );
       expect(ruleFileAction.content).toContain("createRule");
     }
@@ -256,7 +256,7 @@ describe("createPlan - ESLint", () => {
     if (eslintAction?.type === "inject_eslint") {
       expect(eslintAction.packagePath).toBe(pkg.path);
       expect(eslintAction.rules).toHaveLength(1);
-      expect(eslintAction.rules[0].id).toBe("no-arbitrary-tailwind");
+      expect(eslintAction.rules[0].id).toBe("consistent-dark-mode");
     }
   });
 
@@ -320,7 +320,7 @@ describe("createPlan - ESLint", () => {
   it("marks hasExistingRules correctly for packages with uilint rules", () => {
     const pkg = createMockPackage({
       hasUilintRules: true,
-      configuredRuleIds: ["no-arbitrary-tailwind"],
+      configuredRuleIds: ["consistent-dark-mode"],
     });
     const state = createMockProjectState({ packages: [pkg] });
     const choices = createMockChoices({
@@ -350,7 +350,7 @@ describe("createPlan - ESLint", () => {
       eslint: {
         packagePaths: [pkg.path],
         selectedRules: ruleRegistry.filter(
-          (r) => r.id === "no-arbitrary-tailwind"
+          (r) => r.id === "consistent-dark-mode"
         ),
       },
     });
@@ -359,12 +359,12 @@ describe("createPlan - ESLint", () => {
 
     const ruleFileAction = plan.actions.find(
       (a) =>
-        a.type === "create_file" && a.path.includes("no-arbitrary-tailwind")
+        a.type === "create_file" && a.path.includes("consistent-dark-mode")
     );
     expect(ruleFileAction).toBeDefined();
     if (ruleFileAction?.type === "create_file") {
       expect(ruleFileAction.path).toContain(
-        ".uilint/rules/no-arbitrary-tailwind.js"
+        ".uilint/rules/consistent-dark-mode.js"
       );
     }
   });
@@ -382,7 +382,7 @@ describe("createPlan - ESLint", () => {
       eslint: {
         packagePaths: [pkg.path],
         selectedRules: ruleRegistry.filter(
-          (r) => r.id === "no-arbitrary-tailwind"
+          (r) => r.id === "consistent-dark-mode"
         ),
       },
     });
@@ -391,12 +391,12 @@ describe("createPlan - ESLint", () => {
 
     const ruleFileAction = plan.actions.find(
       (a) =>
-        a.type === "create_file" && a.path.includes("no-arbitrary-tailwind")
+        a.type === "create_file" && a.path.includes("consistent-dark-mode")
     );
     expect(ruleFileAction).toBeDefined();
     if (ruleFileAction?.type === "create_file") {
       expect(ruleFileAction.path).toContain(
-        ".uilint/rules/no-arbitrary-tailwind.ts"
+        ".uilint/rules/consistent-dark-mode.ts"
       );
     }
   });
@@ -539,7 +539,7 @@ describe("createPlan - ESLint", () => {
       eslint: {
         packagePaths: [pkg.path],
         selectedRules: ruleRegistry.filter(
-          (r) => r.id === "no-arbitrary-tailwind"
+          (r) => r.id === "consistent-dark-mode"
         ),
       },
     });
@@ -629,10 +629,10 @@ describe("createPlan - Next.js", () => {
 
 describe("getMissingRules", () => {
   it("returns rules not in configured list", () => {
-    const configured = ["no-arbitrary-tailwind"];
+    const configured = ["consistent-dark-mode"];
     const selected: RuleMetadata[] = [
       {
-        id: "no-arbitrary-tailwind",
+        id: "consistent-dark-mode",
         name: "Test",
         description: "",
         defaultSeverity: "error",
@@ -654,10 +654,10 @@ describe("getMissingRules", () => {
   });
 
   it("returns empty array when all rules are configured", () => {
-    const configured = ["no-arbitrary-tailwind", "prefer-tailwind"];
+    const configured = ["consistent-dark-mode", "prefer-tailwind"];
     const selected: RuleMetadata[] = [
       {
-        id: "no-arbitrary-tailwind",
+        id: "consistent-dark-mode",
         name: "Test",
         description: "",
         defaultSeverity: "error",
@@ -681,7 +681,7 @@ describe("getMissingRules", () => {
     const configured: string[] = [];
     const selected: RuleMetadata[] = [
       {
-        id: "no-arbitrary-tailwind",
+        id: "consistent-dark-mode",
         name: "Test",
         description: "",
         defaultSeverity: "error",

@@ -181,9 +181,9 @@ describe("ruleRegistry", () => {
 
 describe("getRuleMetadata", () => {
   it("should return rule by id", () => {
-    const rule = getRuleMetadata("no-arbitrary-tailwind");
+    const rule = getRuleMetadata("consistent-dark-mode");
     expect(rule).toBeDefined();
-    expect(rule?.id).toBe("no-arbitrary-tailwind");
+    expect(rule?.id).toBe("consistent-dark-mode");
   });
 
   it("should return undefined for unknown rule", () => {
@@ -196,7 +196,7 @@ describe("getAllRuleIds", () => {
   it("should return all rule IDs", () => {
     const ids = getAllRuleIds();
     expect(ids.length).toBe(ruleRegistry.length);
-    expect(ids).toContain("no-arbitrary-tailwind");
+    expect(ids).toContain("consistent-dark-mode");
     expect(ids).toContain("prefer-tailwind");
   });
 });

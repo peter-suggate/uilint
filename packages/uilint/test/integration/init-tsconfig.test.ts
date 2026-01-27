@@ -50,7 +50,7 @@ describe("tsconfig.json exclusion injection", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -93,7 +93,7 @@ describe("tsconfig.json exclusion injection", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -127,7 +127,7 @@ describe("tsconfig.json exclusion injection", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -161,7 +161,7 @@ describe("tsconfig.json exclusion injection", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -191,7 +191,7 @@ describe("tsconfig.json exclusion injection", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -234,7 +234,7 @@ describe("tsconfig.json exclusion injection", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: selectedPaths,
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);

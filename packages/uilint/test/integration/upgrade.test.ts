@@ -177,7 +177,7 @@ describe("Upgrade Integration", () => {
             version: "0.9.0",
             installedAt: "2024-01-01T00:00:00Z",
           },
-          "no-arbitrary-tailwind": {
+          "consistent-dark-mode": {
             version: "0.9.0",
             installedAt: "2024-01-01T00:00:00Z",
           },
@@ -200,8 +200,8 @@ describe("Upgrade Integration", () => {
       // Verify only prefer-tailwind was updated
       const updated = readManifest(testDir);
       expect(updated?.rules["prefer-tailwind"]?.version).toBe("1.0.0");
-      // no-arbitrary-tailwind should still be at old version
-      expect(updated?.rules["no-arbitrary-tailwind"]?.version).toBe("0.9.0");
+      // consistent-dark-mode should still be at old version
+      expect(updated?.rules["consistent-dark-mode"]?.version).toBe("0.9.0");
     });
   });
 });

@@ -6,7 +6,6 @@
  */
 
 import type { Linter } from "eslint";
-import noArbitraryTailwind from "./rules/no-arbitrary-tailwind.js";
 import consistentDarkMode from "./rules/consistent-dark-mode.js";
 import noDirectStoreImport from "./rules/no-direct-store-import.js";
 import preferZustandStateManagement from "./rules/prefer-zustand-state-management.js";
@@ -27,7 +26,6 @@ import preferTailwind from "./rules/prefer-tailwind.js";
  * All available rules
  */
 const rules = {
-  "no-arbitrary-tailwind": noArbitraryTailwind,
   "consistent-dark-mode": consistentDarkMode,
   "no-direct-store-import": noDirectStoreImport,
   "prefer-zustand-state-management": preferZustandStateManagement,
@@ -92,7 +90,6 @@ const recommendedConfig: Linter.Config = {
   },
   languageOptions: jsxLanguageOptions,
   rules: {
-    "uilint/no-arbitrary-tailwind": "error",
     "uilint/consistent-dark-mode": ["error", ...[
         {
           "warnOnMissingDarkMode": true
@@ -231,7 +228,6 @@ const strictConfig: Linter.Config = {
   },
   languageOptions: jsxLanguageOptions,
   rules: {
-    "uilint/no-arbitrary-tailwind": "error",
     "uilint/consistent-dark-mode": ["error", ...[
         {
           "warnOnMissingDarkMode": true

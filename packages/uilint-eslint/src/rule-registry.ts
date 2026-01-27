@@ -27,7 +27,6 @@ export {
 
 // Import colocated metadata from each rule file
 // Single-file rules
-import { meta as noArbitraryTailwind } from "./rules/no-arbitrary-tailwind.js";
 import { meta as consistentDarkMode } from "./rules/consistent-dark-mode.js";
 import { meta as noDirectStoreImport } from "./rules/no-direct-store-import.js";
 import { meta as preferZustandStateManagement } from "./rules/prefer-zustand-state-management.js";
@@ -59,7 +58,6 @@ import type { RuleMeta } from "./utils/create-rule.js";
  */
 export const ruleRegistry: RuleMeta[] = [
   // Existing rules
-  noArbitraryTailwind,
   consistentDarkMode,
   noDirectStoreImport,
   preferZustandStateManagement,

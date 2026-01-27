@@ -27,7 +27,6 @@ export default [
   {
     plugins: { uilint: uilint.plugin },
     rules: {
-      "uilint/no-arbitrary-tailwind": "error",
       "uilint/consistent-spacing": [
         "warn",
         { scale: [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16] },
@@ -48,7 +47,6 @@ export default [
 
 | Rule                           | Description                                             |
 | ------------------------------ | ------------------------------------------------------- |
-| `no-arbitrary-tailwind`        | Forbid arbitrary Tailwind values like `w-[123px]`       |
 | `consistent-spacing`           | Enforce spacing scale (no magic numbers in gap/padding) |
 | `no-direct-store-import`       | Forbid direct Zustand store imports (use hooks)         |
 | `no-mixed-component-libraries` | Forbid mixing shadcn and MUI components in same file    |
@@ -62,10 +60,6 @@ export default [
 The `semantic` rule reads `.uilint/styleguide.md` and uses Ollama to analyze your UI code for consistency violations.
 
 ## Configuration
-
-### `no-arbitrary-tailwind`
-
-No options. Reports any use of Tailwind arbitrary values like `w-[100px]`, `bg-[#fff]`, etc.
 
 ### `consistent-spacing`
 

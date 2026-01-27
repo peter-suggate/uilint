@@ -112,11 +112,11 @@ describe("Rule installation - utility dependencies", () => {
     const state = await analyze(fixture.path);
     const pkg = state.packages.find((p) => p.eslintConfigPath !== null)!;
 
-    // no-arbitrary-tailwind has no utility dependencies beyond create-rule
+    // prefer-tailwind has no utility dependencies beyond create-rule
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -127,9 +127,9 @@ describe("Rule installation - utility dependencies", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/prefer-tailwind.ts")).toBe(true);
 
-    const ruleContent = fixture.readFile(".uilint/rules/no-arbitrary-tailwind.ts");
+    const ruleContent = fixture.readFile(".uilint/rules/prefer-tailwind.ts");
 
     // Should import from uilint-eslint
     expect(ruleContent).toContain('from "uilint-eslint"');
@@ -151,7 +151,7 @@ describe("Rule installation - utility dependencies", () => {
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
       eslintRuleIds: [
-        "no-arbitrary-tailwind",        // Simple - single file
+        "prefer-tailwind",               // Simple - single file
         "require-test-coverage",         // Directory-based - colocated lib/
         "no-mixed-component-libraries",  // Directory-based - colocated lib/
       ],
@@ -167,7 +167,7 @@ describe("Rule installation - utility dependencies", () => {
     expect(result.success).toBe(true);
 
     // Simple rule should be a single file
-    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/prefer-tailwind.ts")).toBe(true);
 
     // Directory-based rules should be directories with index.ts and lib/
     expect(fixture.exists(".uilint/rules/require-test-coverage/index.ts")).toBe(true);
@@ -176,9 +176,9 @@ describe("Rule installation - utility dependencies", () => {
     expect(fixture.exists(".uilint/rules/no-mixed-component-libraries/lib")).toBe(true);
 
     // Simple rule should import from uilint-eslint
-    const arbitraryContent = fixture.readFile(".uilint/rules/no-arbitrary-tailwind.ts");
-    expect(arbitraryContent).toContain('from "uilint-eslint"');
-    expect(arbitraryContent).not.toContain('../utils/');
+    const tailwindContent = fixture.readFile(".uilint/rules/prefer-tailwind.ts");
+    expect(tailwindContent).toContain('from "uilint-eslint"');
+    expect(tailwindContent).not.toContain('../utils/');
 
     // Directory-based rules use colocated lib/ and import createRule from uilint-eslint
     const coverageContent = fixture.readFile(".uilint/rules/require-test-coverage/index.ts");

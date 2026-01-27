@@ -15,7 +15,7 @@ export default [
       ...next.configs.recommended.rules,
 
       // These are commented-out uilint rules and should NOT be treated as configured.
-      // "uilint/no-arbitrary-tailwind": "warn",
+      // "uilint/consistent-dark-mode": "warn",
       // "uilint/prefer-tailwind": ["warn", ...[{ "scale": [0, 1, 2] }]],
     },
     languageOptions: {

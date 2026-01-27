@@ -72,7 +72,7 @@ export interface RuleMigration {
  * making it easy to maintain and extend as new rules are added.
  */
 export interface RuleMeta {
-  /** Rule identifier (e.g., "no-arbitrary-tailwind") - must match filename */
+  /** Rule identifier (e.g., "consistent-dark-mode") - must match filename */
   id: string;
 
   /** Semantic version of the rule (e.g., "1.0.0") */

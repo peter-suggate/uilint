@@ -157,7 +157,7 @@ export interface ESLintIssue {
   column?: number;
   /** Issue description */
   message: string;
-  /** ESLint rule ID (e.g., "uilint/semantic", "uilint/no-arbitrary-tailwind") */
+  /** ESLint rule ID (e.g., "uilint/semantic", "uilint/consistent-dark-mode") */
   ruleId?: string;
   /** data-loc value to match to DOM element */
   dataLoc?: string;
