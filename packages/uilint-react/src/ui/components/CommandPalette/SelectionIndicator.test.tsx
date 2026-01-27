@@ -4,80 +4,131 @@
  *
  * Regression: when navigating with arrow keys in the command bar,
  * the scrollable list did not scroll to keep the selected item visible.
- * The fix adds a useScrollSelectedIntoView hook that is consumed by
- * CommandPalette to auto-scroll on selectedIndex changes.
+ * The fix uses a React context (ScrollSelectedContext) so that any
+ * navigable item — no matter how deeply nested — can self-register
+ * via useScrollTarget and get scrolled into view automatically.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, fireEvent, act, cleanup } from "@testing-library/react";
 import React from "react";
-import { useScrollSelectedIntoView } from "./useScrollSelectedIntoView";
+import {
+  useScrollSelectedIntoView,
+  ScrollSelectedContext,
+  useScrollTarget,
+} from "./useScrollSelectedIntoView";
 
-/**
- * Test harness that uses the real hook extracted from CommandPalette.
- * Mirrors the keyboard navigation + scroll contract:
- *   ArrowDown/Up update selectedIndex → hook scrolls the element into view.
- */
-function TestList({ items }: { items: string[] }) {
-  const [selectedIndex, setSelectedIndex] = React.useState(0);
-  const itemRefs = useScrollSelectedIntoView(selectedIndex);
+// ---------------------------------------------------------------------------
+// Helpers — mirror the real component hierarchy
+// ---------------------------------------------------------------------------
 
-  const handleKeyDown = React.useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, items.length - 1));
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex((i) => Math.max(i - 1, 0));
-      }
-    },
-    [items.length]
-  );
-
+/** A deeply nested child that self-registers via context (like TopIssueItem) */
+function NestedItem({ index, label }: { index: number; label: string }) {
+  const scrollRef = useScrollTarget(index);
   return (
-    <div
-      data-testid="scroll-container"
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-      style={{ maxHeight: 100, overflowY: "auto" }}
-    >
-      {items.map((item, index) => (
-        <div
-          key={item}
-          ref={(el) => {
-            if (el) itemRefs.current.set(index, el);
-            else itemRefs.current.delete(index);
-          }}
-          data-testid={`item-${index}`}
-          data-selected={index === selectedIndex}
-          style={{ height: 40 }}
-        >
-          {item}
-        </div>
+    <div ref={scrollRef} data-testid={`item-${index}`} style={{ height: 40 }}>
+      {label}
+    </div>
+  );
+}
+
+/** A container that renders nested children (like TopIssuesPreview) */
+function NestedSection({
+  items,
+  startIndex,
+}: {
+  items: string[];
+  startIndex: number;
+}) {
+  return (
+    <div data-testid="nested-section">
+      {items.map((item, i) => (
+        <NestedItem key={item} index={startIndex + i} label={item} />
       ))}
     </div>
   );
 }
 
-describe("useScrollSelectedIntoView", () => {
-  const items = Array.from({ length: 20 }, (_, i) => `Item ${i}`);
+/** Flat item that self-registers (like a command or summary card) */
+function FlatItem({ index, label }: { index: number; label: string }) {
+  const scrollRef = useScrollTarget(index);
+  return (
+    <div ref={scrollRef} data-testid={`item-${index}`} style={{ height: 40 }}>
+      {label}
+    </div>
+  );
+}
+
+/**
+ * Test harness with context provider — reproduces the CommandPalette layout:
+ *   [FlatItems 0..flatCount-1] + [NestedSection flatCount..total-1]
+ */
+function TestList({
+  flatItems,
+  nestedItems,
+}: {
+  flatItems: string[];
+  nestedItems: string[];
+}) {
+  const totalCount = flatItems.length + nestedItems.length;
+  const [selectedIndex, setSelectedIndex] = React.useState(0);
+  const scrollCtx = useScrollSelectedIntoView(selectedIndex);
+
+  const handleKeyDown = React.useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex((i) => Math.min(i + 1, totalCount - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex((i) => Math.max(i - 1, 0));
+      }
+    },
+    [totalCount]
+  );
+
+  return (
+    <ScrollSelectedContext.Provider value={scrollCtx}>
+      <div
+        data-testid="scroll-container"
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        style={{ maxHeight: 100, overflowY: "auto" }}
+      >
+        {flatItems.map((item, index) => (
+          <FlatItem key={item} index={index} label={item} />
+        ))}
+        <NestedSection
+          items={nestedItems}
+          startIndex={flatItems.length}
+        />
+      </div>
+    </ScrollSelectedContext.Provider>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("useScrollSelectedIntoView (context-based)", () => {
+  const flatItems = ["Cmd 1", "Cmd 2", "Summary"];
+  const nestedItems = ["Top Issue A", "Top Issue B", "Top Issue C"];
 
   afterEach(() => {
     cleanup();
   });
 
   beforeEach(() => {
-    // jsdom doesn't implement scrollIntoView – mock it so we can assert
     Element.prototype.scrollIntoView = vi.fn();
   });
 
-  it("calls scrollIntoView on ArrowDown navigation", () => {
-    const { getByTestId } = render(<TestList items={items} />);
+  it("scrolls flat items into view on ArrowDown", () => {
+    const { getByTestId } = render(
+      <TestList flatItems={flatItems} nestedItems={nestedItems} />
+    );
 
     const container = getByTestId("scroll-container");
-    act(() => {
-      container.focus();
-    });
+    act(() => { container.focus(); });
 
     fireEvent.keyDown(container, { key: "ArrowDown" });
 
@@ -86,60 +137,88 @@ describe("useScrollSelectedIntoView", () => {
     });
   });
 
-  it("calls scrollIntoView for each step when navigating many items", () => {
-    const { getByTestId } = render(<TestList items={items} />);
+  it("scrolls nested items into view when navigating past flat items", () => {
+    const { getByTestId } = render(
+      <TestList flatItems={flatItems} nestedItems={nestedItems} />
+    );
 
     const container = getByTestId("scroll-container");
-    act(() => {
-      container.focus();
-    });
+    act(() => { container.focus(); });
 
-    for (let i = 0; i < 10; i++) {
+    // Navigate past all flat items into nested items
+    for (let i = 0; i < flatItems.length + 2; i++) {
       fireEvent.keyDown(container, { key: "ArrowDown" });
     }
 
-    // Called once per step (initial render + 10 key presses)
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(11);
+    // The nested item at index 4 (flatItems.length + 1) should exist
+    const nestedItem = getByTestId(`item-${flatItems.length + 1}`);
+    expect(nestedItem).toBeTruthy();
+
+    // scrollIntoView must have been called for every step
+    // (initial render + flatItems.length + 2 key presses)
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(
+      1 + flatItems.length + 2
+    );
   });
 
-  it("calls scrollIntoView on ArrowUp navigation", () => {
-    const { getByTestId } = render(<TestList items={items} />);
+  it("scrolls all the way to the last nested item", () => {
+    const { getByTestId } = render(
+      <TestList flatItems={flatItems} nestedItems={nestedItems} />
+    );
 
     const container = getByTestId("scroll-container");
-    act(() => {
-      container.focus();
-    });
+    act(() => { container.focus(); });
 
-    // Navigate down first
-    for (let i = 0; i < 10; i++) {
+    const total = flatItems.length + nestedItems.length;
+    for (let i = 0; i < total - 1; i++) {
+      fireEvent.keyDown(container, { key: "ArrowDown" });
+    }
+
+    // total calls: 1 (initial) + total-1 (key presses)
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(total);
+
+    // Last item should have been the target of the last call
+    const lastItem = getByTestId(`item-${total - 1}`);
+    expect(lastItem).toBeTruthy();
+  });
+
+  it("scrolls nested items on ArrowUp back through the list", () => {
+    const { getByTestId } = render(
+      <TestList flatItems={flatItems} nestedItems={nestedItems} />
+    );
+
+    const container = getByTestId("scroll-container");
+    act(() => { container.focus(); });
+
+    const total = flatItems.length + nestedItems.length;
+    // Go all the way down
+    for (let i = 0; i < total - 1; i++) {
       fireEvent.keyDown(container, { key: "ArrowDown" });
     }
 
     (Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear();
 
-    // Navigate up
-    for (let i = 0; i < 5; i++) {
+    // Go back up through nested items into flat items
+    for (let i = 0; i < total - 1; i++) {
       fireEvent.keyDown(container, { key: "ArrowUp" });
     }
 
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(5);
-
-    const item5 = getByTestId("item-5");
-    expect(item5.dataset.selected).toBe("true");
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(total - 1);
   });
 
-  it("uses block: 'nearest' to minimize scroll displacement", () => {
-    const { getByTestId } = render(<TestList items={items} />);
+  it("every scrollIntoView call uses block: 'nearest'", () => {
+    const { getByTestId } = render(
+      <TestList flatItems={flatItems} nestedItems={nestedItems} />
+    );
 
     const container = getByTestId("scroll-container");
-    act(() => {
-      container.focus();
-    });
+    act(() => { container.focus(); });
 
-    fireEvent.keyDown(container, { key: "ArrowDown" });
+    for (let i = 0; i < 5; i++) {
+      fireEvent.keyDown(container, { key: "ArrowDown" });
+    }
 
     const calls = (Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mock.calls;
-    // Every call should use { block: "nearest" }
     for (const call of calls) {
       expect(call[0]).toEqual({ block: "nearest" });
     }

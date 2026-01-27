@@ -27,7 +27,7 @@ import { IssuesSummaryCard, TopIssuesPreview } from "./IssuesSummaryCard";
 import { AnimatedListItem, AnimatedSection, SelectionIndicator } from "./AnimatedListItem";
 import { CloseIcon, PlayIcon, StopIcon, RefreshIcon } from "../../icons";
 import { GlassPanel, Kbd, CategoryBadge } from "../primitives";
-import { useScrollSelectedIntoView } from "./useScrollSelectedIntoView";
+import { useScrollSelectedIntoView, ScrollSelectedContext } from "./useScrollSelectedIntoView";
 import type { Issue } from "../../types";
 import type { Command, RuleDefinition } from "../../../core/plugin-system/types";
 
@@ -77,7 +77,7 @@ function CommandResultItem({
 
   return (
     <AnimatedListItem index={index}>
-      <SelectionIndicator isSelected={isSelected} variant="command">
+      <SelectionIndicator isSelected={isSelected} variant="command" resultIndex={index}>
         <motion.div
           onClick={onClick}
           whileHover={{ x: 2 }}
@@ -204,7 +204,7 @@ export function CommandPalette() {
 
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const itemRefs = useScrollSelectedIntoView(selectedIndex);
+  const scrollCtx = useScrollSelectedIntoView(selectedIndex);
 
   const { allIssues } = useIssues();
 
@@ -501,6 +501,7 @@ export function CommandPalette() {
                     </div>
                   </motion.div>
                 ) : (
+                  <ScrollSelectedContext.Provider value={scrollCtx}>
                   <motion.div
                     key="results"
                     initial={{ opacity: 0 }}
@@ -515,20 +516,13 @@ export function CommandPalette() {
                           Commands
                         </SectionHeader>
                         {filteredCommands.map((command, index) => (
-                          <div
+                          <CommandResultItem
                             key={command.id}
-                            ref={(el) => {
-                              if (el) itemRefs.current.set(index, el);
-                              else itemRefs.current.delete(index);
-                            }}
-                          >
-                            <CommandResultItem
-                              command={command}
-                              isSelected={index === selectedIndex}
-                              onClick={() => handleExecuteCommand(command)}
-                              index={index}
-                            />
-                          </div>
+                            command={command}
+                            isSelected={index === selectedIndex}
+                            onClick={() => handleExecuteCommand(command)}
+                            index={index}
+                          />
                         ))}
                       </>
                     )}
@@ -537,20 +531,14 @@ export function CommandPalette() {
                     {!isSearching && allIssues.length > 0 && (
                       <>
                         <SectionHeader>Overview</SectionHeader>
-                        <div
-                          ref={(el) => {
-                            if (el) itemRefs.current.set(summaryIndex, el);
-                            else itemRefs.current.delete(summaryIndex);
+                        <IssuesSummaryCard
+                          issues={allIssues}
+                          isSelected={summaryIndex === selectedIndex}
+                          resultIndex={summaryIndex}
+                          onClick={() => {
+                            // Focus on the search input
                           }}
-                        >
-                          <IssuesSummaryCard
-                            issues={allIssues}
-                            isSelected={summaryIndex === selectedIndex}
-                            onClick={() => {
-                              // Focus on the search input
-                            }}
-                          />
-                        </div>
+                        />
                         <TopIssuesPreview
                           issues={allIssues}
                           onSelectIssue={handleSelectIssue}
@@ -582,29 +570,20 @@ export function CommandPalette() {
                                 directory={fileGroup.directory}
                                 count={fileGroup.issues.length}
                               />
-                              {fileGroup.issues.map((issue, issueIndex) => {
-                                const resultIndex = startIndex + issueIndex;
-                                return (
-                                  <div
-                                    key={issue.id}
-                                    ref={(el) => {
-                                      if (el) itemRefs.current.set(resultIndex, el);
-                                      else itemRefs.current.delete(resultIndex);
-                                    }}
-                                  >
-                                    <SelectionIndicator
-                                      isSelected={resultIndex === selectedIndex}
-                                      variant="issue"
-                                    >
-                                      <ResultItem
-                                        issue={issue}
-                                        isSelected={resultIndex === selectedIndex}
-                                        onClick={() => handleSelectIssue(issue)}
-                                      />
-                                    </SelectionIndicator>
-                                  </div>
-                                );
-                              })}
+                              {fileGroup.issues.map((issue, issueIndex) => (
+                                <SelectionIndicator
+                                  key={issue.id}
+                                  isSelected={startIndex + issueIndex === selectedIndex}
+                                  variant="issue"
+                                  resultIndex={startIndex + issueIndex}
+                                >
+                                  <ResultItem
+                                    issue={issue}
+                                    isSelected={startIndex + issueIndex === selectedIndex}
+                                    onClick={() => handleSelectIssue(issue)}
+                                  />
+                                </SelectionIndicator>
+                              ))}
                             </AnimatedListItem>
                           );
                         })}
@@ -639,6 +618,7 @@ export function CommandPalette() {
                       </>
                     )}
                   </motion.div>
+                  </ScrollSelectedContext.Provider>
                 )}
               </AnimatePresence>
             </div>
