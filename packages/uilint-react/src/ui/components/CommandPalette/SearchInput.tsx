@@ -10,6 +10,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { SearchIcon, CloseIcon } from "../../icons";
+import { Kbd, IconButton } from "../primitives";
 
 interface SearchInputProps {
   value: string;
@@ -53,7 +54,7 @@ export function SearchInput({
       {/* Search icon with subtle animation */}
       <motion.div
         animate={{
-          color: isFocused ? "#3b82f6" : "#9ca3af",
+          color: isFocused ? "var(--uilint-accent)" : "var(--uilint-text-disabled)",
         }}
         transition={{ duration: 0.1 }}
         style={{ display: "flex", alignItems: "center" }}
@@ -77,37 +78,30 @@ export function SearchInput({
           fontSize: 15,
           fontWeight: 400,
           background: "transparent",
-          color: "#111827",
-          caretColor: "#3b82f6",
+          color: "var(--uilint-text-primary)",
+          caretColor: "var(--uilint-accent)",
         }}
       />
 
       {/* Clear button with enter/exit animation */}
       <AnimatePresence mode="wait">
         {value ? (
-          <motion.button
+          <motion.div
             key="clear"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.1 }}
-            onClick={() => onChange("")}
-            style={{
-              border: "none",
-              background: "rgba(0, 0, 0, 0.05)",
-              borderRadius: 6,
-              cursor: "pointer",
-              padding: 4,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#6b7280",
-            }}
-            whileHover={{ background: "rgba(0, 0, 0, 0.1)" }}
-            whileTap={{ scale: 0.95 }}
           >
-            <CloseIcon size={14} />
-          </motion.button>
+            <IconButton
+              variant="ghost"
+              size="sm"
+              onClick={() => onChange("")}
+              disableMotion
+            >
+              <CloseIcon size={14} />
+            </IconButton>
+          </motion.div>
         ) : (
           <motion.div
             key="hint"
@@ -121,41 +115,11 @@ export function SearchInput({
               gap: 4,
             }}
           >
-            <Kbd>esc</Kbd>
-            <span style={{ fontSize: 11, color: "#9ca3af" }}>to close</span>
+            <Kbd animate={false}>esc</Kbd>
+            <span style={{ fontSize: 11, color: "var(--uilint-text-disabled)" }}>to close</span>
           </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
-  );
-}
-
-/**
- * Kbd - macOS-style keyboard hint
- */
-function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minWidth: 20,
-        height: 18,
-        padding: "0 5px",
-        fontSize: 10,
-        fontWeight: 500,
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
-        color: "#6b7280",
-        background: "linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%)",
-        border: "1px solid rgba(0, 0, 0, 0.1)",
-        borderRadius: 4,
-        boxShadow: "0 1px 0 rgba(0, 0, 0, 0.08)",
-        textTransform: "lowercase",
-      }}
-    >
-      {children}
-    </span>
   );
 }

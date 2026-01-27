@@ -4,7 +4,7 @@
 import React from "react";
 import { useIssues } from "../../hooks";
 import { WarningIcon, ErrorIcon, InfoIcon } from "../../icons";
-import { severityToColor } from "../../types";
+import { Badge, Card } from "../primitives";
 import type { Issue } from "../../types";
 
 interface ElementDetailProps {
@@ -35,11 +35,7 @@ export function ElementDetail({ dataLoc, onSelectIssue }: ElementDetailProps) {
         {issues.length} issue{issues.length !== 1 ? "s" : ""} at this location
       </div>
 
-      <div style={{
-        background: "var(--uilint-surface-elevated)",
-        borderRadius: 8,
-        overflow: "hidden",
-      }}>
+      <Card variant="elevated" style={{ overflow: "hidden" }}>
         {issues.map((issue, index) => {
           const SeverityIcon = issue.severity === "error" ? ErrorIcon
             : issue.severity === "warning" ? WarningIcon
@@ -58,7 +54,14 @@ export function ElementDetail({ dataLoc, onSelectIssue }: ElementDetailProps) {
                 borderBottom: index < issues.length - 1 ? "1px solid var(--uilint-border)" : undefined,
               }}
             >
-              <SeverityIcon size={16} color={severityToColor(issue.severity)} />
+              <Badge
+                variant={issue.severity === "error" ? "error" : issue.severity === "warning" ? "warning" : "info"}
+                size="sm"
+                disableAnimation
+                style={{ flexShrink: 0 }}
+              >
+                <SeverityIcon size={12} color="currentColor" />
+              </Badge>
               <div style={{ flex: 1 }}>
                 <div style={{
                   fontSize: 13,
@@ -77,7 +80,7 @@ export function ElementDetail({ dataLoc, onSelectIssue }: ElementDetailProps) {
             </div>
           );
         })}
-      </div>
+      </Card>
 
       <div style={{
         marginTop: 12,

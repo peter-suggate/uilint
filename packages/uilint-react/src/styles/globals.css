@@ -53,6 +53,8 @@
   --color-warning-bg: var(--uilint-warning-bg);
   --color-error: var(--uilint-error);
   --color-error-bg: var(--uilint-error-bg);
+  --color-info: var(--uilint-info);
+  --color-info-bg: var(--uilint-info-bg);
   --color-destructive: var(--uilint-error);
   --color-destructive-foreground: var(--uilint-accent-foreground);
 
@@ -61,12 +63,40 @@
 
   /* Glass effect - semi-transparent for glass morphism */
   --color-glass: var(--uilint-glass);
+  --color-glass-light: var(--uilint-glass-light);
+  --color-glass-medium: var(--uilint-glass-medium);
+  --color-glass-heavy: var(--uilint-glass-heavy);
   --color-glass-border: var(--uilint-glass-border);
+  --color-glass-highlight: var(--uilint-glass-highlight);
+
+  /* Card colors */
+  --color-card: var(--uilint-card-bg);
+  --color-card-elevated: var(--uilint-card-elevated-bg);
+  --color-card-glass: var(--uilint-card-glass-bg);
+
+  /* Input colors */
+  --color-input: var(--uilint-input-bg);
+  --color-input-border: var(--uilint-input-border);
 
   /* Radius */
-  --radius-lg: var(--uilint-radius);
-  --radius-md: calc(var(--uilint-radius) - 2px);
-  --radius-sm: calc(var(--uilint-radius) - 4px);
+  --radius-lg: var(--uilint-radius-lg);
+  --radius-md: var(--uilint-radius);
+  --radius-sm: var(--uilint-radius-sm);
+
+  /* Shadows */
+  --shadow-sm: var(--uilint-card-shadow);
+  --shadow-md: var(--uilint-shadow);
+  --shadow-lg: var(--uilint-shadow-lg);
+
+  /* Blur values for glass */
+  --blur-light: var(--uilint-glass-blur-light);
+  --blur-medium: var(--uilint-glass-blur-medium);
+  --blur-heavy: var(--uilint-glass-blur-heavy);
+
+  /* Transitions */
+  --transition-fast: var(--uilint-transition-fast);
+  --transition-normal: var(--uilint-transition-normal);
+  --transition-slow: var(--uilint-transition-slow);
 }
 
 /*
@@ -112,14 +142,101 @@
   --uilint-warning-bg: oklch(0.75 0.183 55.934 / 15%);
   --uilint-error: oklch(0.637 0.237 25.331);
   --uilint-error-bg: oklch(0.637 0.237 25.331 / 15%);
+  --uilint-info: oklch(0.623 0.214 259);
+  --uilint-info-bg: oklch(0.623 0.214 259 / 15%);
 
   /* Effects - amber tinted */
   --uilint-shadow: 0 4px 20px oklch(0.3 0.05 75 / 15%);
+  --uilint-shadow-lg: 0 8px 32px oklch(0.3 0.05 75 / 20%);
   --uilint-backdrop: oklch(0.985 0.015 75 / 92%);
 
   /* Glass morphism - semi-transparent for frosted glass effect */
   --uilint-glass: oklch(0.99 0.01 75 / 70%);
   --uilint-glass-border: oklch(1 0.02 75 / 25%);
+  --uilint-glass-highlight: oklch(1 0 0 / 40%);
+
+  /* Glass blur intensity variants */
+  --uilint-glass-blur-light: 8px;
+  --uilint-glass-blur-medium: 16px;
+  --uilint-glass-blur-heavy: 24px;
+
+  /* Glass background variants */
+  --uilint-glass-light: oklch(0.99 0.01 75 / 50%);
+  --uilint-glass-medium: oklch(0.99 0.01 75 / 70%);
+  --uilint-glass-heavy: oklch(0.99 0.01 75 / 85%);
+
+  /* Kbd (keyboard hint) styling */
+  --uilint-kbd-background: linear-gradient(180deg, oklch(1 0 0) 0%, oklch(0.96 0.01 75) 100%);
+  --uilint-kbd-border: oklch(0 0 0 / 10%);
+  --uilint-kbd-shadow: 0 1px 0 oklch(0 0 0 / 8%);
+  --uilint-kbd-text: oklch(0.45 0.03 75);
+
+  /* Badge styling */
+  --uilint-badge-radius: 6px;
+
+  /* Button styling */
+  --uilint-button-radius: 8px;
+  --uilint-button-shadow: 0 1px 2px oklch(0 0 0 / 5%);
+  --uilint-button-shadow-hover: 0 2px 4px oklch(0 0 0 / 10%);
+
+  /* Button variants - default (accent) */
+  --uilint-button-default-bg: var(--uilint-accent);
+  --uilint-button-default-text: var(--uilint-accent-foreground);
+  --uilint-button-default-border: transparent;
+
+  /* Button variants - secondary */
+  --uilint-button-secondary-bg: oklch(0.95 0.01 75);
+  --uilint-button-secondary-text: var(--uilint-text-primary);
+  --uilint-button-secondary-border: var(--uilint-border);
+
+  /* Button variants - ghost */
+  --uilint-button-ghost-bg: transparent;
+  --uilint-button-ghost-text: var(--uilint-text-secondary);
+  --uilint-button-ghost-border: transparent;
+
+  /* Button variants - destructive */
+  --uilint-button-destructive-bg: var(--uilint-error);
+  --uilint-button-destructive-text: oklch(1 0 0);
+  --uilint-button-destructive-border: transparent;
+
+  /* Button variants - outline */
+  --uilint-button-outline-bg: transparent;
+  --uilint-button-outline-text: var(--uilint-text-primary);
+  --uilint-button-outline-border: var(--uilint-border);
+
+  /* Button variants - glass */
+  --uilint-button-glass-bg: var(--uilint-glass-medium);
+  --uilint-button-glass-text: var(--uilint-text-primary);
+  --uilint-button-glass-border: var(--uilint-glass-border);
+
+  /* Input styling */
+  --uilint-input-bg: oklch(1 0 0 / 60%);
+  --uilint-input-border: var(--uilint-border);
+  --uilint-input-border-focus: var(--uilint-border-focus);
+  --uilint-input-placeholder: var(--uilint-text-muted);
+  --uilint-input-radius: 8px;
+  --uilint-input-ring: oklch(0.70 0.15 75 / 25%);
+
+  /* Card styling */
+  --uilint-card-bg: var(--uilint-surface);
+  --uilint-card-border: var(--uilint-border);
+  --uilint-card-radius: 12px;
+  --uilint-card-shadow: 0 1px 3px oklch(0 0 0 / 4%);
+  --uilint-card-shadow-hover: 0 4px 12px oklch(0 0 0 / 8%);
+
+  /* Card variants - elevated */
+  --uilint-card-elevated-bg: var(--uilint-surface-elevated);
+  --uilint-card-elevated-shadow: 0 4px 16px oklch(0 0 0 / 10%);
+
+  /* Card variants - glass */
+  --uilint-card-glass-bg: var(--uilint-glass-medium);
+  --uilint-card-glass-border: var(--uilint-glass-border);
+
+  /* Icon button styling */
+  --uilint-icon-button-size: 32px;
+  --uilint-icon-button-size-sm: 28px;
+  --uilint-icon-button-size-lg: 40px;
+  --uilint-icon-button-radius: 8px;
 
   /* Scrollbar - amber tinted */
   --uilint-scrollbar-track: oklch(0.92 0.02 75);
@@ -128,6 +245,13 @@
 
   /* Sizing */
   --uilint-radius: 12px;
+  --uilint-radius-sm: 8px;
+  --uilint-radius-lg: 16px;
+
+  /* Transitions */
+  --uilint-transition-fast: 0.1s ease;
+  --uilint-transition-normal: 0.15s ease;
+  --uilint-transition-slow: 0.25s ease;
 
   /* Color scheme for native elements */
   color-scheme: light;
@@ -177,14 +301,80 @@
   --uilint-warning-bg: oklch(0.75 0.183 55.934 / 20%);
   --uilint-error: oklch(0.637 0.237 25.331);
   --uilint-error-bg: oklch(0.637 0.237 25.331 / 20%);
+  --uilint-info: oklch(0.623 0.214 259);
+  --uilint-info-bg: oklch(0.623 0.214 259 / 20%);
 
   /* Effects - amber tinted */
   --uilint-shadow: 0 4px 20px oklch(0.1 0.03 75 / 40%);
+  --uilint-shadow-lg: 0 8px 32px oklch(0 0 0 / 50%);
   --uilint-backdrop: oklch(0.12 0.02 75 / 92%);
 
   /* Glass morphism - semi-transparent for frosted glass effect */
   --uilint-glass: oklch(0.18 0.02 75 / 70%);
   --uilint-glass-border: oklch(1 0.02 75 / 12%);
+  --uilint-glass-highlight: oklch(1 0 0 / 10%);
+
+  /* Glass background variants - dark */
+  --uilint-glass-light: oklch(0.20 0.02 75 / 50%);
+  --uilint-glass-medium: oklch(0.18 0.02 75 / 70%);
+  --uilint-glass-heavy: oklch(0.16 0.02 75 / 85%);
+
+  /* Kbd (keyboard hint) styling - dark */
+  --uilint-kbd-background: linear-gradient(180deg, oklch(0.28 0.02 75) 0%, oklch(0.22 0.02 75) 100%);
+  --uilint-kbd-border: oklch(1 0 0 / 10%);
+  --uilint-kbd-shadow: 0 1px 0 oklch(0 0 0 / 20%);
+  --uilint-kbd-text: oklch(0.75 0.03 75);
+
+  /* Button variants - default (accent) */
+  --uilint-button-default-bg: var(--uilint-accent);
+  --uilint-button-default-text: var(--uilint-accent-foreground);
+  --uilint-button-default-border: transparent;
+
+  /* Button variants - secondary - dark */
+  --uilint-button-secondary-bg: oklch(0.25 0.02 75);
+  --uilint-button-secondary-text: var(--uilint-text-primary);
+  --uilint-button-secondary-border: var(--uilint-border);
+
+  /* Button variants - ghost - dark */
+  --uilint-button-ghost-bg: transparent;
+  --uilint-button-ghost-text: var(--uilint-text-secondary);
+  --uilint-button-ghost-border: transparent;
+
+  /* Button variants - destructive */
+  --uilint-button-destructive-bg: var(--uilint-error);
+  --uilint-button-destructive-text: oklch(1 0 0);
+  --uilint-button-destructive-border: transparent;
+
+  /* Button variants - outline - dark */
+  --uilint-button-outline-bg: transparent;
+  --uilint-button-outline-text: var(--uilint-text-primary);
+  --uilint-button-outline-border: var(--uilint-border);
+
+  /* Button variants - glass - dark */
+  --uilint-button-glass-bg: var(--uilint-glass-medium);
+  --uilint-button-glass-text: var(--uilint-text-primary);
+  --uilint-button-glass-border: var(--uilint-glass-border);
+
+  /* Input styling - dark */
+  --uilint-input-bg: oklch(0.20 0.02 75 / 60%);
+  --uilint-input-border: var(--uilint-border);
+  --uilint-input-border-focus: var(--uilint-border-focus);
+  --uilint-input-placeholder: var(--uilint-text-muted);
+  --uilint-input-ring: oklch(0.75 0.15 75 / 25%);
+
+  /* Card styling - dark */
+  --uilint-card-bg: var(--uilint-surface);
+  --uilint-card-border: var(--uilint-border);
+  --uilint-card-shadow: 0 1px 3px oklch(0 0 0 / 20%);
+  --uilint-card-shadow-hover: 0 4px 12px oklch(0 0 0 / 30%);
+
+  /* Card variants - elevated - dark */
+  --uilint-card-elevated-bg: var(--uilint-surface-elevated);
+  --uilint-card-elevated-shadow: 0 4px 16px oklch(0 0 0 / 40%);
+
+  /* Card variants - glass - dark */
+  --uilint-card-glass-bg: var(--uilint-glass-medium);
+  --uilint-card-glass-border: var(--uilint-glass-border);
 
   /* Scrollbar - amber tinted */
   --uilint-scrollbar-track: oklch(0.22 0.02 75);

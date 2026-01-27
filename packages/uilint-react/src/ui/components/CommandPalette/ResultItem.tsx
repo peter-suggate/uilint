@@ -3,6 +3,7 @@
  */
 import React from "react";
 import { FileIcon, RuleIcon, WarningIcon, ErrorIcon, InfoIcon } from "../../icons";
+import { Badge } from "../primitives";
 import type { Issue } from "../../types";
 
 interface ResultItemProps {
@@ -16,9 +17,13 @@ export function ResultItem({ issue, isSelected, onClick }: ResultItemProps) {
     : issue.severity === "warning" ? WarningIcon
     : InfoIcon;
 
-  const severityColor = issue.severity === "error" ? "#ef4444"
-    : issue.severity === "warning" ? "#f59e0b"
-    : "#3b82f6";
+  const severityColor = issue.severity === "error" ? "var(--uilint-error)"
+    : issue.severity === "warning" ? "var(--uilint-warning)"
+    : "var(--uilint-info)";
+
+  const severityVariant = issue.severity === "error" ? "error"
+    : issue.severity === "warning" ? "warning"
+    : "info";
 
   // Extract filename from path
   const fileName = issue.filePath.split("/").pop() || issue.filePath;
@@ -26,24 +31,47 @@ export function ResultItem({ issue, isSelected, onClick }: ResultItemProps) {
   return (
     <div
       onClick={onClick}
-      className={`flex items-start px-4 py-2.5 cursor-pointer gap-3 border-b border-gray-100 ${
-        isSelected ? "bg-gray-100" : "bg-transparent"
-      }`}
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        padding: "10px 16px",
+        cursor: "pointer",
+        gap: 12,
+        borderBottom: "1px solid var(--uilint-border)",
+        background: isSelected ? "var(--uilint-surface-elevated)" : "transparent",
+        transition: "background 0.1s ease",
+      }}
     >
       <SeverityIcon size={16} color={severityColor} />
-      <div className="flex-1 min-w-0">
-        <div className="text-sm text-gray-900 overflow-hidden text-ellipsis whitespace-nowrap">
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 14,
+            color: "var(--uilint-text-primary)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {issue.message}
         </div>
-        <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
-          <span className="flex items-center gap-1">
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--uilint-text-muted)",
+            marginTop: 2,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <FileIcon size={12} />
             {fileName}:{issue.line}
           </span>
-          <span className="flex items-center gap-1">
-            <RuleIcon size={12} />
+          <Badge variant={severityVariant} size="sm" disableAnimation>
             {issue.ruleId}
-          </span>
+          </Badge>
         </div>
       </div>
     </div>

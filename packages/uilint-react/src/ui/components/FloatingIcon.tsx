@@ -12,6 +12,7 @@ import { useComposedStore } from "../../core/store";
 import { pluginRegistry } from "../../core/plugin-system/registry";
 import { getPluginServices } from "../../core/store/composed-store";
 import { SearchIcon } from "../icons";
+import { IconButton, getGlassStyles } from "./primitives";
 import type { ToolbarAction } from "../../core/plugin-system/types";
 
 interface Position {
@@ -62,6 +63,24 @@ const PILL_WIDTH = 220;
 const PILL_HEIGHT = 36;
 const HINT_ROW_HEIGHT = 18;
 
+/**
+ * Build base glass styles for pill segments using CSS variables
+ * Uses the getGlassStyles utility but customizes for the pill shape
+ */
+function getPillGlassStyles(
+  isDragging: boolean,
+  customStyle?: React.CSSProperties
+): React.CSSProperties {
+  const baseGlass = getGlassStyles("medium", isDragging ? "lg" : "md", false);
+  return {
+    ...baseGlass,
+    borderTop: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
+    borderBottom: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
+    transition: isDragging ? "none" : "box-shadow 0.2s",
+    ...customStyle,
+  };
+}
+
 /** SSR-safe default position - centered horizontally at top */
 function getDefaultPosition(): Position {
   if (typeof window === "undefined") {
@@ -78,6 +97,7 @@ function isMac(): boolean {
 
 /**
  * Individual toolbar action button component
+ * Uses IconButton primitive with ghost variant for consistent styling
  */
 interface ToolbarActionButtonProps {
   action: ToolbarAction;
@@ -99,39 +119,16 @@ function ToolbarActionButton({ action, state, onExecute }: ToolbarActionButtonPr
   );
 
   return (
-    <button
+    <IconButton
+      variant="ghost"
+      size="sm"
       title={action.tooltip}
       disabled={!isEnabled}
       onClick={handleClick}
-      style={{
-        width: 28,
-        height: 28,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "none",
-        borderRadius: 6,
-        background: "transparent",
-        cursor: isEnabled ? "pointer" : "not-allowed",
-        opacity: isEnabled ? 0.7 : 0.3,
-        transition: "opacity 0.15s, background 0.15s",
-        color: "#1a1a1a",
-        fontSize: 14,
-        padding: 0,
-      }}
-      onMouseOver={(e) => {
-        if (isEnabled) {
-          e.currentTarget.style.opacity = "1";
-          e.currentTarget.style.background = "rgba(0, 0, 0, 0.05)";
-        }
-      }}
-      onMouseOut={(e) => {
-        e.currentTarget.style.opacity = isEnabled ? "0.7" : "0.3";
-        e.currentTarget.style.background = "transparent";
-      }}
+      disableMotion
     >
       {action.icon}
-    </button>
+    </IconButton>
   );
 }
 
@@ -275,7 +272,7 @@ export function FloatingIcon() {
         {/* Grip handle */}
         <div
           onMouseDown={handleGripMouseDown}
-          style={{
+          style={getPillGlassStyles(isDragging, {
             width: 20,
             height: PILL_HEIGHT,
             display: "flex",
@@ -283,17 +280,8 @@ export function FloatingIcon() {
             justifyContent: "center",
             cursor: isDragging ? "grabbing" : "grab",
             borderRadius: "10px 0 0 10px",
-            background: "rgba(255, 255, 255, 0.7)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            borderTop: "1px solid rgba(255, 255, 255, 0.8)",
-            borderLeft: "1px solid rgba(255, 255, 255, 0.8)",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.5)",
-            boxShadow: isDragging
-              ? "0 8px 32px rgba(0, 0, 0, 0.2)"
-              : "0 4px 16px rgba(0, 0, 0, 0.1)",
-            transition: isDragging ? "none" : "box-shadow 0.2s",
-          }}
+            borderLeft: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
+          })}
         >
           <svg
             width="6"
@@ -315,38 +303,30 @@ export function FloatingIcon() {
         <button
           onClick={handleClick}
           aria-label="Search"
-          style={{
+          style={getPillGlassStyles(isDragging, {
             height: PILL_HEIGHT,
             padding: "0 10px",
             border: "none",
             borderRadius: 0,
-            background: "rgba(255, 255, 255, 0.7)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            borderTop: "1px solid rgba(255, 255, 255, 0.8)",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.5)",
-            boxShadow: isDragging
-              ? "0 8px 32px rgba(0, 0, 0, 0.2)"
-              : "0 4px 16px rgba(0, 0, 0, 0.1)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             gap: 8,
             transition: isDragging ? "none" : "box-shadow 0.2s, background 0.2s",
-            color: "#1a1a1a",
+            color: "var(--uilint-text-primary)",
             fontFamily:
               '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             fontSize: 13,
             fontWeight: 400,
             flexShrink: 0,
-          }}
+          })}
           onMouseOver={(e) => {
             if (!isDragging) {
-              e.currentTarget.style.background = "rgba(255, 255, 255, 0.85)";
+              e.currentTarget.style.background = "var(--uilint-glass-heavy, rgba(255, 255, 255, 0.85))";
             }
           }}
           onMouseOut={(e) => {
-            e.currentTarget.style.background = "rgba(255, 255, 255, 0.7)";
+            e.currentTarget.style.background = "var(--uilint-glass-medium, rgba(255, 255, 255, 0.7))";
           }}
         >
           <SearchIcon size={15} style={{ opacity: 0.5 }} />
@@ -359,7 +339,7 @@ export function FloatingIcon() {
               style={{
                 fontSize: 11,
                 fontWeight: 500,
-                color: "#ef4444",
+                color: "var(--uilint-error)",
                 opacity: 0.9,
               }}
             >
@@ -371,21 +351,13 @@ export function FloatingIcon() {
         {/* Toolbar actions */}
         {visibleActions.length > 0 && (
           <div
-            style={{
+            style={getPillGlassStyles(isDragging, {
               height: PILL_HEIGHT,
               display: "flex",
               alignItems: "center",
               gap: 2,
               padding: "0 4px",
-              background: "rgba(255, 255, 255, 0.7)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              borderTop: "1px solid rgba(255, 255, 255, 0.8)",
-              borderBottom: "1px solid rgba(255, 255, 255, 0.5)",
-              boxShadow: isDragging
-                ? "0 8px 32px rgba(0, 0, 0, 0.2)"
-                : "0 4px 16px rgba(0, 0, 0, 0.1)",
-            }}
+            })}
           >
             {visibleActions.map((action) => (
               <ToolbarActionButton
@@ -400,20 +372,12 @@ export function FloatingIcon() {
 
         {/* Right cap */}
         <div
-          style={{
+          style={getPillGlassStyles(isDragging, {
             width: 8,
             height: PILL_HEIGHT,
             borderRadius: "0 10px 10px 0",
-            background: "rgba(255, 255, 255, 0.7)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            borderTop: "1px solid rgba(255, 255, 255, 0.8)",
-            borderRight: "1px solid rgba(255, 255, 255, 0.5)",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.5)",
-            boxShadow: isDragging
-              ? "0 8px 32px rgba(0, 0, 0, 0.2)"
-              : "0 4px 16px rgba(0, 0, 0, 0.1)",
-          }}
+            borderRight: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
+          })}
         />
 
         {/* Connection indicator - subtle dot */}
@@ -426,9 +390,9 @@ export function FloatingIcon() {
               width: 8,
               height: 8,
               borderRadius: "50%",
-              background: "#f59e0b",
+              background: "var(--uilint-warning)",
               border: "2px solid white",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+              boxShadow: "var(--uilint-card-shadow, 0 1px 3px rgba(0,0,0,0.2))",
             }}
           />
         )}
@@ -446,7 +410,7 @@ export function FloatingIcon() {
             fontFamily:
               '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             fontSize: 10,
-            color: "rgba(0, 0, 0, 0.4)",
+            color: "var(--uilint-text-muted)",
             letterSpacing: "-0.01em",
             transition: "opacity 0.3s",
           }}

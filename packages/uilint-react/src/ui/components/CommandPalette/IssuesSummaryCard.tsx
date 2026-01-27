@@ -7,6 +7,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import { ErrorIcon, WarningIcon, InfoIcon, FileIcon, ChevronRightIcon } from "../../icons";
+import { StatBadge } from "../primitives";
 import type { Issue } from "../../types";
 
 interface IssuesSummaryCardProps {
@@ -51,17 +52,17 @@ export function IssuesSummaryCard({ issues, isSelected, onClick }: IssuesSummary
       style={{
         margin: "8px 12px",
         padding: "14px 16px",
-        borderRadius: 12,
+        borderRadius: "var(--uilint-card-radius, 12px)",
         cursor: "pointer",
         background: isSelected
-          ? "linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.06) 100%)"
-          : "linear-gradient(135deg, rgba(249, 250, 251, 0.8) 0%, rgba(243, 244, 246, 0.6) 100%)",
+          ? "var(--uilint-info-bg)"
+          : "var(--uilint-surface-elevated)",
         border: isSelected
-          ? "1px solid rgba(59, 130, 246, 0.2)"
-          : "1px solid rgba(0, 0, 0, 0.04)",
+          ? "1px solid var(--uilint-info)"
+          : "1px solid var(--uilint-border)",
         boxShadow: isSelected
-          ? "0 0 0 3px rgba(59, 130, 246, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04)"
-          : "0 1px 3px rgba(0, 0, 0, 0.04)",
+          ? "0 0 0 3px var(--uilint-info-bg), var(--uilint-card-shadow)"
+          : "var(--uilint-card-shadow)",
         transition: "all 0.1s ease",
       }}
     >
@@ -80,7 +81,7 @@ export function IssuesSummaryCard({ issues, isSelected, onClick }: IssuesSummary
               width: 28,
               height: 28,
               borderRadius: 8,
-              background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+              background: "linear-gradient(135deg, var(--uilint-accent) 0%, var(--uilint-info) 100%)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -89,10 +90,10 @@ export function IssuesSummaryCard({ issues, isSelected, onClick }: IssuesSummary
             <span style={{ fontSize: 14 }}>📋</span>
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--uilint-text-primary)" }}>
               All Issues
             </div>
-            <div style={{ fontSize: 11, color: "#6b7280" }}>
+            <div style={{ fontSize: 11, color: "var(--uilint-text-muted)" }}>
               Type to search across all issues
             </div>
           </div>
@@ -100,7 +101,7 @@ export function IssuesSummaryCard({ issues, isSelected, onClick }: IssuesSummary
         <ChevronRightIcon
           size={16}
           style={{
-            color: "#9ca3af",
+            color: "var(--uilint-text-disabled)",
             opacity: isSelected ? 1 : 0.5,
             transform: isSelected ? "translateX(2px)" : "none",
             transition: "all 0.1s ease",
@@ -118,11 +119,11 @@ export function IssuesSummaryCard({ issues, isSelected, onClick }: IssuesSummary
       >
         {/* Total */}
         <StatBadge
-          icon={null}
           label="Total"
           value={issues.length}
-          color="#6366f1"
-          bgColor="rgba(99, 102, 241, 0.08)"
+          variant="info"
+          size="sm"
+          disableAnimation
         />
 
         {/* Errors */}
@@ -131,8 +132,9 @@ export function IssuesSummaryCard({ issues, isSelected, onClick }: IssuesSummary
             icon={<ErrorIcon size={12} />}
             label="Errors"
             value={counts.errors}
-            color="#ef4444"
-            bgColor="rgba(239, 68, 68, 0.08)"
+            variant="error"
+            size="sm"
+            disableAnimation
           />
         )}
 
@@ -142,8 +144,9 @@ export function IssuesSummaryCard({ issues, isSelected, onClick }: IssuesSummary
             icon={<WarningIcon size={12} />}
             label="Warnings"
             value={counts.warnings}
-            color="#f59e0b"
-            bgColor="rgba(245, 158, 11, 0.08)"
+            variant="warning"
+            size="sm"
+            disableAnimation
           />
         )}
 
@@ -152,50 +155,12 @@ export function IssuesSummaryCard({ issues, isSelected, onClick }: IssuesSummary
           icon={<FileIcon size={12} />}
           label="Files"
           value={fileCount}
-          color="#10b981"
-          bgColor="rgba(16, 185, 129, 0.08)"
+          variant="success"
+          size="sm"
+          disableAnimation
         />
       </div>
     </motion.div>
-  );
-}
-
-function StatBadge({
-  icon,
-  label,
-  value,
-  color,
-  bgColor,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  color: string;
-  bgColor: string;
-}) {
-  return (
-    <div
-      style={{
-        padding: "8px 10px",
-        borderRadius: 8,
-        background: bgColor,
-        textAlign: "center",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 4,
-          marginBottom: 2,
-        }}
-      >
-        {icon && <span style={{ color, display: "flex" }}>{icon}</span>}
-        <span style={{ fontSize: 15, fontWeight: 700, color }}>{value}</span>
-      </div>
-      <div style={{ fontSize: 10, color: "#6b7280", fontWeight: 500 }}>{label}</div>
-    </div>
   );
 }
 
@@ -231,7 +196,7 @@ export function TopIssuesPreview({
           fontWeight: 600,
           textTransform: "uppercase",
           letterSpacing: "0.05em",
-          color: "#9ca3af",
+          color: "var(--uilint-text-disabled)",
         }}
       >
         Top Issues
@@ -261,7 +226,7 @@ function TopIssueItem({
   index: number;
 }) {
   const SeverityIcon = issue.severity === "error" ? ErrorIcon : WarningIcon;
-  const severityColor = issue.severity === "error" ? "#ef4444" : "#f59e0b";
+  const severityColor = issue.severity === "error" ? "var(--uilint-error)" : "var(--uilint-warning)";
   const fileName = issue.filePath.split("/").pop() || issue.filePath;
 
   return (
@@ -281,9 +246,9 @@ function TopIssueItem({
         padding: "8px 16px",
         cursor: "pointer",
         background: isSelected
-          ? "linear-gradient(90deg, rgba(59, 130, 246, 0.08) 0%, transparent 100%)"
+          ? "var(--uilint-info-bg)"
           : "transparent",
-        borderLeft: isSelected ? "2px solid #3b82f6" : "2px solid transparent",
+        borderLeft: isSelected ? "2px solid var(--uilint-accent)" : "2px solid transparent",
         transition: "all 0.1s ease",
       }}
     >
@@ -292,7 +257,7 @@ function TopIssueItem({
         <div
           style={{
             fontSize: 12,
-            color: "#374151",
+            color: "var(--uilint-text-secondary)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -300,7 +265,7 @@ function TopIssueItem({
         >
           {issue.message}
         </div>
-        <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 1 }}>
+        <div style={{ fontSize: 10, color: "var(--uilint-text-disabled)", marginTop: 1 }}>
           {fileName}:{issue.line}
         </div>
       </div>

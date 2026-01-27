@@ -26,6 +26,7 @@ import { FileHeader } from "./FileHeader";
 import { IssuesSummaryCard, TopIssuesPreview } from "./IssuesSummaryCard";
 import { AnimatedListItem, AnimatedSection, SelectionIndicator } from "./AnimatedListItem";
 import { CloseIcon, PlayIcon, StopIcon, RefreshIcon } from "../../icons";
+import { GlassPanel, Kbd, CategoryBadge } from "../primitives";
 import type { Issue } from "../../types";
 import type { Command, RuleDefinition } from "../../../core/plugin-system/types";
 
@@ -40,7 +41,7 @@ type ResultType =
 // Crisp easing for panel motion
 const panelTransition = {
   duration: 0.12,
-  ease: [0.32, 0.72, 0, 1],
+  ease: [0.32, 0.72, 0, 1] as const,
 };
 
 /**
@@ -114,7 +115,7 @@ function CommandResultItem({
               style={{
                 fontWeight: 500,
                 fontSize: 13,
-                color: "#111827",
+                color: "var(--uilint-text-primary)",
                 marginBottom: 1,
               }}
             >
@@ -124,7 +125,7 @@ function CommandResultItem({
               <div
                 style={{
                   fontSize: 11,
-                  color: "#6b7280",
+                  color: "var(--uilint-text-muted)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -136,23 +137,9 @@ function CommandResultItem({
           </div>
 
           {/* Category badge */}
-          <span
-            style={{
-              fontSize: 9,
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.03em",
-              background: isSelected
-                ? "rgba(59, 130, 246, 0.15)"
-                : "rgba(0, 0, 0, 0.04)",
-              color: isSelected ? "#2563eb" : "#6b7280",
-              padding: "3px 8px",
-              borderRadius: 6,
-              transition: "all 0.1s ease",
-            }}
-          >
+          <CategoryBadge isSelected={isSelected} disableAnimation>
             {command.category}
-          </span>
+          </CategoryBadge>
 
           {/* Keyboard hint when selected */}
           {isSelected && (
@@ -184,7 +171,7 @@ function SectionHeader({ children, count }: { children: React.ReactNode; count?:
           fontWeight: 600,
           textTransform: "uppercase",
           letterSpacing: "0.08em",
-          color: "#9ca3af",
+          color: "var(--uilint-text-disabled)",
           display: "flex",
           alignItems: "center",
           gap: 8,
@@ -196,7 +183,7 @@ function SectionHeader({ children, count }: { children: React.ReactNode; count?:
             style={{
               fontSize: 9,
               fontWeight: 500,
-              background: "rgba(0, 0, 0, 0.04)",
+              background: "var(--uilint-surface-elevated)",
               padding: "2px 6px",
               borderRadius: 10,
             }}
@@ -206,34 +193,6 @@ function SectionHeader({ children, count }: { children: React.ReactNode; count?:
         )}
       </div>
     </AnimatedSection>
-  );
-}
-
-/**
- * macOS-style keyboard hint
- */
-function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minWidth: 18,
-        height: 18,
-        padding: "0 4px",
-        fontSize: 10,
-        fontWeight: 500,
-        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
-        color: "#6b7280",
-        background: "linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%)",
-        border: "1px solid rgba(0, 0, 0, 0.1)",
-        borderRadius: 4,
-        boxShadow: "0 1px 0 rgba(0, 0, 0, 0.06)",
-      }}
-    >
-      {children}
-    </span>
   );
 }
 
@@ -493,23 +452,17 @@ export function CommandPalette() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -10 }}
             transition={panelTransition}
-            style={{
-              width: "100%",
-              maxWidth: 580,
-              background: "rgba(255, 255, 255, 0.92)",
-              backdropFilter: "blur(40px) saturate(180%)",
-              WebkitBackdropFilter: "blur(40px) saturate(180%)",
-              borderRadius: 14,
-              boxShadow: `
-                0 0 0 1px rgba(255, 255, 255, 0.2) inset,
-                0 1px 0 0 rgba(255, 255, 255, 0.4) inset,
-                0 24px 68px rgba(0, 0, 0, 0.2),
-                0 8px 20px rgba(0, 0, 0, 0.12)
-              `,
-              border: "1px solid rgba(0, 0, 0, 0.08)",
-              overflow: "hidden",
-            }}
           >
+            <GlassPanel
+              blur="heavy"
+              shadow="lg"
+              animate={false}
+              style={{
+                width: "100%",
+                maxWidth: 580,
+                borderRadius: 14,
+              }}
+            >
             {/* Search */}
             <SearchInput value={query} onChange={setQuery} />
 
@@ -532,14 +485,14 @@ export function CommandPalette() {
                     style={{
                       padding: "32px 24px",
                       textAlign: "center",
-                      color: "#9ca3af",
+                      color: "var(--uilint-text-disabled)",
                     }}
                   >
                     <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
                     <div style={{ fontSize: 13, fontWeight: 500 }}>
                       {query ? "No results found" : "Start typing to search"}
                     </div>
-                    <div style={{ fontSize: 12, marginTop: 4, color: "#d1d5db" }}>
+                    <div style={{ fontSize: 12, marginTop: 4, color: "var(--uilint-text-muted)" }}>
                       {query
                         ? "Try different keywords"
                         : "Search issues, rules, and commands"}
@@ -671,32 +624,33 @@ export function CommandPalette() {
               transition={{ duration: 0.1, delay: 0.05 }}
               style={{
                 padding: "8px 16px",
-                borderTop: "1px solid rgba(0, 0, 0, 0.05)",
+                borderTop: "1px solid var(--uilint-border)",
                 fontSize: 11,
-                color: "#9ca3af",
+                color: "var(--uilint-text-disabled)",
                 display: "flex",
                 alignItems: "center",
                 gap: 16,
-                background: "rgba(249, 250, 251, 0.5)",
+                background: "var(--uilint-surface-elevated)",
               }}
             >
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <Kbd>↑</Kbd>
-                <Kbd>↓</Kbd>
+                <Kbd animate={false}>↑</Kbd>
+                <Kbd animate={false}>↓</Kbd>
                 <span style={{ marginLeft: 2 }}>navigate</span>
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <Kbd>↵</Kbd>
+                <Kbd animate={false}>↵</Kbd>
                 <span style={{ marginLeft: 2 }}>select</span>
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <Kbd>esc</Kbd>
+                <Kbd animate={false}>esc</Kbd>
                 <span style={{ marginLeft: 2 }}>close</span>
               </span>
-              <span style={{ marginLeft: "auto", fontSize: 10, color: "#d1d5db" }}>
+              <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--uilint-text-muted)" }}>
                 ⌘K to toggle
               </span>
             </motion.div>
+          </GlassPanel>
           </motion.div>
         </motion.div>
       )}
