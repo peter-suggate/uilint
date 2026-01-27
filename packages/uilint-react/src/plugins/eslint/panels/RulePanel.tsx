@@ -1,5 +1,8 @@
 /**
  * RulePanel - Inspector panel for viewing and configuring ESLint rules
+ *
+ * Uses CSS variables from the design system for consistent theming
+ * with the devtools overlay.
  */
 import React, { useCallback } from "react";
 import type { InspectorPanelProps } from "../../../core/plugin-system/types";
@@ -40,8 +43,8 @@ function SeverityToggle({
             border: "none",
             borderRadius: 4,
             cursor: disabled ? "not-allowed" : "pointer",
-            background: value === opt.value ? opt.color : "#f3f4f6",
-            color: value === opt.value ? "white" : "#6b7280",
+            background: value === opt.value ? opt.color : "var(--uilint-surface-elevated)",
+            color: value === opt.value ? "white" : "var(--uilint-text-disabled)",
             opacity: disabled ? 0.5 : 1,
           }}
         >
@@ -95,7 +98,7 @@ export function RulePanel({ data }: InspectorPanelProps) {
 
   if (!ruleId) {
     return (
-      <div style={{ padding: 16, color: "#6b7280", textAlign: "center" }}>
+      <div style={{ padding: 16, color: "var(--uilint-text-muted)", textAlign: "center" }}>
         No rule selected
       </div>
     );
@@ -103,7 +106,7 @@ export function RulePanel({ data }: InspectorPanelProps) {
 
   if (!rule) {
     return (
-      <div style={{ padding: 16, color: "#6b7280", textAlign: "center" }}>
+      <div style={{ padding: 16, color: "var(--uilint-text-muted)", textAlign: "center" }}>
         Rule not found: {ruleId}
       </div>
     );
@@ -126,7 +129,7 @@ export function RulePanel({ data }: InspectorPanelProps) {
           style={{
             fontSize: 16,
             fontWeight: 600,
-            color: "#111827",
+            color: "var(--uilint-text-primary)",
             marginBottom: 4,
           }}
         >
@@ -135,7 +138,7 @@ export function RulePanel({ data }: InspectorPanelProps) {
         <div
           style={{
             fontSize: 12,
-            color: "#6b7280",
+            color: "var(--uilint-text-muted)",
             fontFamily: "monospace",
           }}
         >
@@ -147,7 +150,7 @@ export function RulePanel({ data }: InspectorPanelProps) {
       <div
         style={{
           fontSize: 14,
-          color: "#374151",
+          color: "var(--uilint-text-secondary)",
           marginBottom: 16,
           lineHeight: 1.5,
         }}
@@ -168,8 +171,12 @@ export function RulePanel({ data }: InspectorPanelProps) {
             fontSize: 11,
             fontWeight: 500,
             textTransform: "uppercase",
-            background: rule.category === "semantic" ? "#dbeafe" : "#f3f4f6",
-            color: rule.category === "semantic" ? "#1d4ed8" : "#6b7280",
+            background: rule.category === "semantic"
+              ? "rgba(59, 130, 246, 0.1)"
+              : "var(--uilint-surface-elevated)",
+            color: rule.category === "semantic"
+              ? "var(--uilint-accent)"
+              : "var(--uilint-text-muted)",
             padding: "2px 6px",
             borderRadius: 4,
           }}
@@ -181,7 +188,7 @@ export function RulePanel({ data }: InspectorPanelProps) {
             style={{
               fontSize: 11,
               fontWeight: 500,
-              background: "#fef2f2",
+              background: "rgba(239, 68, 68, 0.1)",
               color: "#dc2626",
               padding: "2px 6px",
               borderRadius: 4,
@@ -198,7 +205,7 @@ export function RulePanel({ data }: InspectorPanelProps) {
           style={{
             fontSize: 12,
             fontWeight: 500,
-            color: "#6b7280",
+            color: "var(--uilint-text-muted)",
             marginBottom: 8,
           }}
         >
@@ -210,7 +217,7 @@ export function RulePanel({ data }: InspectorPanelProps) {
           disabled={isUpdating}
         />
         {isUpdating && (
-          <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: "var(--uilint-text-muted)", marginTop: 4 }}>
             Updating...
           </div>
         )}
@@ -225,7 +232,7 @@ export function RulePanel({ data }: InspectorPanelProps) {
             rel="noopener noreferrer"
             style={{
               fontSize: 12,
-              color: "#3b82f6",
+              color: "var(--uilint-accent)",
               textDecoration: "none",
             }}
           >

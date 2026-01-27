@@ -37,6 +37,7 @@ import type { Command, RuleDefinition } from "../../../core/plugin-system/types"
 type ResultType =
   | { kind: "command"; command: Command }
   | { kind: "issue"; issue: Issue }
+  | { kind: "rule"; rule: RuleDefinition }
   | { kind: "summary" };
 
 // Crisp easing for panel motion
@@ -250,10 +251,13 @@ export function CommandPalette() {
       .slice(0, 30); // Reduced limit for better performance
   }, [allIssues, query, isSearching]);
 
-  // Get all rules from the registry
+  // Get all rules from the registry - reactive to plugin state changes
+  // We subscribe to plugin state so that when rules metadata arrives
+  // asynchronously via WebSocket, this recomputes.
+  const pluginState = useComposedStore((s) => s.plugins);
   const allRules = useMemo(() => {
     return pluginRegistry.getAllRules();
-  }, []);
+  }, [pluginState]);
 
   // Filter rules by query - only show when searching
   const filteredRules = useMemo(() => {
@@ -325,30 +329,17 @@ export function CommandPalette() {
       ];
     }
 
-    // When searching: commands + filtered issues
+    // When searching: commands + filtered issues + filtered rules
     const issues: ResultType[] = filteredIssues.map((issue) => ({
       kind: "issue" as const,
       issue,
     }));
-    return [...commands, ...issues];
-  }, [filteredCommands, filteredIssues, allIssues, isSearching]);
-
-  // Handle keyboard navigation
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, allResults.length - 1));
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex((i) => Math.max(i - 1, 0));
-      } else if (e.key === "Enter" && allResults[selectedIndex]) {
-        e.preventDefault();
-        handleSelectResult(allResults[selectedIndex]);
-      }
-    },
-    [allResults, selectedIndex]
-  );
+    const rules: ResultType[] = filteredRules.map((rule) => ({
+      kind: "rule" as const,
+      rule,
+    }));
+    return [...commands, ...issues, ...rules];
+  }, [filteredCommands, filteredIssues, filteredRules, allIssues, isSearching]);
 
   // Handle selecting an issue
   const handleSelectIssue = useCallback(
@@ -373,21 +364,6 @@ export function CommandPalette() {
     }
   }, []);
 
-  // Handle selecting any result
-  const handleSelectResult = useCallback(
-    (result: ResultType) => {
-      if (result.kind === "command") {
-        handleExecuteCommand(result.command);
-      } else if (result.kind === "issue") {
-        handleSelectIssue(result.issue);
-      } else if (result.kind === "summary") {
-        // Focus search input to encourage searching
-        setQuery("");
-      }
-    },
-    [handleExecuteCommand, handleSelectIssue]
-  );
-
   // Handle rule severity change
   const handleRuleSeverityChange = useCallback(
     (ruleId: string, severity: "error" | "warning" | "off") => {
@@ -397,12 +373,48 @@ export function CommandPalette() {
   );
 
   // Handle selecting a rule to view details
+  // Uses the rule's pluginId to derive the inspector panel ID generically
   const handleSelectRule = useCallback(
     (rule: RuleDefinition) => {
-      openInspector("eslint-rule", { ruleId: rule.id });
+      const panelId = `${rule.pluginId}-rule`;
+      openInspector(panelId, { ruleId: rule.id });
       closeCommandPalette();
     },
     [openInspector, closeCommandPalette]
+  );
+
+  // Handle selecting any result
+  const handleSelectResult = useCallback(
+    (result: ResultType) => {
+      if (result.kind === "command") {
+        handleExecuteCommand(result.command);
+      } else if (result.kind === "issue") {
+        handleSelectIssue(result.issue);
+      } else if (result.kind === "rule") {
+        handleSelectRule(result.rule);
+      } else if (result.kind === "summary") {
+        // Focus search input to encourage searching
+        setQuery("");
+      }
+    },
+    [handleExecuteCommand, handleSelectIssue, handleSelectRule]
+  );
+
+  // Handle keyboard navigation
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex((i) => Math.min(i + 1, allResults.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex((i) => Math.max(i - 1, 0));
+      } else if (e.key === "Enter" && allResults[selectedIndex]) {
+        e.preventDefault();
+        handleSelectResult(allResults[selectedIndex]);
+      }
+    },
+    [allResults, selectedIndex, handleSelectResult]
   );
 
   // Reset selection when query changes
