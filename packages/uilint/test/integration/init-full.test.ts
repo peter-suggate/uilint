@@ -61,7 +61,7 @@ describe("Full installation", () => {
     const prompter = mockPrompter({
       installItems: ["genstyleguide", "eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);

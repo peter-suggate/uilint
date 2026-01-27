@@ -61,7 +61,7 @@ function getUilintEslintPackageRoot(): string {
  * Represents a file for a rule (implementation or test)
  */
 export interface RuleFile {
-  /** Relative path within the rules directory (e.g., "no-arbitrary-tailwind.ts") */
+  /** Relative path within the rules directory (e.g., "consistent-dark-mode.ts") */
   relativePath: string;
   /** File content */
   content: string;
@@ -71,7 +71,7 @@ export interface RuleFile {
  * Represents a complete rule ready for installation
  */
 export interface RuleFiles {
-  /** Rule identifier (e.g., "no-arbitrary-tailwind") */
+  /** Rule identifier (e.g., "consistent-dark-mode") */
   ruleId: string;
   /** Implementation file (main entry point - index.ts for directory rules, or single file) */
   implementation: RuleFile;

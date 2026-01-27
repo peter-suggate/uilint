@@ -66,7 +66,7 @@ describe("ESLint installation - fresh config", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg!.path],
-      eslintRuleIds: ["no-arbitrary-tailwind", "prefer-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const options: InstallOptions = {};
@@ -83,9 +83,6 @@ describe("ESLint installation - fresh config", () => {
     expect(result.success).toBe(true);
 
     // Verify rules were copied to .uilint/rules/
-    expect(fixture.exists(`.uilint/rules/no-arbitrary-tailwind${ext}`)).toBe(
-      true
-    );
     expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(true);
 
     // Read updated config
@@ -93,15 +90,9 @@ describe("ESLint installation - fresh config", () => {
     expect(updatedConfig).toContain('from "uilint-eslint"');
     expect(updatedConfig).toMatch(
       new RegExp(
-        `from\\s+["']\\.\\/\\.uilint\\/rules\\/no-arbitrary-tailwind\\${ext}["']`
-      )
-    );
-    expect(updatedConfig).toMatch(
-      new RegExp(
         `from\\s+["']\\.\\/\\.uilint\\/rules\\/prefer-tailwind\\${ext}["']`
       )
     );
-    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     expect(updatedConfig).toContain("uilint/prefer-tailwind");
     expect(updatedConfig).toMatch(/plugins:\s*{\s*uilint:/);
   });
@@ -128,7 +119,7 @@ describe("ESLint installation - fresh config", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg!.path],
-      eslintRuleIds: ["no-arbitrary-tailwind", "prefer-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -144,9 +135,6 @@ describe("ESLint installation - fresh config", () => {
     expect(result.success).toBe(true);
 
     // Verify rules were copied to .uilint/rules/
-    expect(fixture.exists(`.uilint/rules/no-arbitrary-tailwind${ext}`)).toBe(
-      true
-    );
     expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(true);
 
     // Read updated config
@@ -155,15 +143,9 @@ describe("ESLint installation - fresh config", () => {
     // Note: TypeScript configs omit extension to avoid allowImportingTsExtensions requirement
     expect(updatedConfig).toMatch(
       new RegExp(
-        `from\\s+["']\\.\\/\\.uilint\\/rules\\/no-arbitrary-tailwind${importExt}["']`
-      )
-    );
-    expect(updatedConfig).toMatch(
-      new RegExp(
         `from\\s+["']\\.\\/\\.uilint\\/rules\\/prefer-tailwind${importExt}["']`
       )
     );
-    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     expect(updatedConfig).toContain("uilint/prefer-tailwind");
     expect(updatedConfig).toMatch(/plugins:\s*{\s*uilint:/);
   });
@@ -200,7 +182,6 @@ describe("ESLint installation - fresh config", () => {
 
     const initialConfig = fixture.readFile("eslint.config.mjs");
     expect(initialConfig).toContain("Keep this comment");
-    expect(initialConfig).toContain('"uilint/no-arbitrary-tailwind"');
 
     const state = await analyze(fixture.path);
     const pkg = state.packages.find((p) => p.eslintConfigPath !== null)!;
@@ -210,7 +191,7 @@ describe("ESLint installation - fresh config", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind", "prefer-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -223,18 +204,12 @@ describe("ESLint installation - fresh config", () => {
     expect(result.success).toBe(true);
 
     // Verify rules were copied
-    expect(fixture.exists(`.uilint/rules/no-arbitrary-tailwind${ext}`)).toBe(
-      true
-    );
     expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(true);
 
     const updatedConfig = fixture.readFile("eslint.config.mjs");
     // Preserve comments
     expect(updatedConfig).toContain("Keep this comment");
-    // And the commented-out rule remains commented (still present in file)
-    expect(updatedConfig).toContain('"uilint/no-arbitrary-tailwind": "warn"');
     // But we also add actual configured rules in an appended uilint block
-    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     expect(updatedConfig).toContain("uilint/prefer-tailwind");
     expect(updatedConfig).toContain('from "uilint-eslint"');
     expect(updatedConfig).toContain("./.uilint/rules/");
@@ -244,7 +219,7 @@ describe("ESLint installation - fresh config", () => {
     fixture = useFixture("has-eslint-flat-cjs-define-config");
 
     const initialConfig = fixture.readFile("eslint.config.cjs");
-    expect(initialConfig).not.toContain("uilint/no-arbitrary-tailwind");
+    expect(initialConfig).not.toContain("uilint/prefer-tailwind");
     expect(initialConfig).toContain("Keep this comment");
 
     const state = await analyze(fixture.path);
@@ -255,7 +230,7 @@ describe("ESLint installation - fresh config", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -268,7 +243,7 @@ describe("ESLint installation - fresh config", () => {
     expect(result.success).toBe(true);
 
     // Verify rules were copied
-    expect(fixture.exists(`.uilint/rules/no-arbitrary-tailwind${ext}`)).toBe(
+    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(
       true
     );
 
@@ -277,9 +252,9 @@ describe("ESLint installation - fresh config", () => {
       'const { createRule } = require("uilint-eslint")'
     );
     expect(updatedConfig).toContain(
-      `require("./.uilint/rules/no-arbitrary-tailwind${ext}")`
+      `require("./.uilint/rules/prefer-tailwind${ext}")`
     );
-    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
+    expect(updatedConfig).toContain("uilint/prefer-tailwind");
     expect(updatedConfig).toMatch(/plugins:\s*{\s*uilint:/);
     expect(updatedConfig).toContain("Keep this comment");
   });
@@ -289,7 +264,7 @@ describe("ESLint installation - fresh config", () => {
 
     const initialConfig = fixture.readFile("eslint.config.mjs");
     expect(initialConfig).toContain("export default defineConfig");
-    expect(initialConfig).not.toContain("uilint/no-arbitrary-tailwind");
+    expect(initialConfig).not.toContain("uilint/prefer-tailwind");
 
     const state = await analyze(fixture.path);
     const pkg = state.packages.find((p) => p.eslintConfigPath !== null);
@@ -300,7 +275,7 @@ describe("ESLint installation - fresh config", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg!.path],
-      eslintRuleIds: ["no-arbitrary-tailwind", "prefer-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -313,24 +288,15 @@ describe("ESLint installation - fresh config", () => {
     expect(result.success).toBe(true);
 
     // Verify rules were copied
-    expect(fixture.exists(`.uilint/rules/no-arbitrary-tailwind${ext}`)).toBe(
-      true
-    );
     expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(true);
 
     const updatedConfig = fixture.readFile("eslint.config.mjs");
     expect(updatedConfig).toContain('from "uilint-eslint"');
     expect(updatedConfig).toMatch(
       new RegExp(
-        `from\\s+["']\\.\\/\\.uilint\\/rules\\/no-arbitrary-tailwind\\${ext}["']`
-      )
-    );
-    expect(updatedConfig).toMatch(
-      new RegExp(
         `from\\s+["']\\.\\/\\.uilint\\/rules\\/prefer-tailwind\\${ext}["']`
       )
     );
-    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     expect(updatedConfig).toContain("uilint/prefer-tailwind");
     expect(updatedConfig).toMatch(/plugins:\s*{\s*uilint:/);
   });
@@ -345,7 +311,7 @@ describe("ESLint installation - fresh config", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"], // Only one rule
+      eslintRuleIds: ["prefer-tailwind"], // Only one rule
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -355,16 +321,15 @@ describe("ESLint installation - fresh config", () => {
     });
 
     // Verify only selected rule was copied
-    expect(fixture.exists(`.uilint/rules/no-arbitrary-tailwind${ext}`)).toBe(
+    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(
       true
     );
-    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(
+    expect(fixture.exists(`.uilint/rules/consistent-dark-mode${ext}`)).toBe(
       false
     );
 
     const updatedConfig = fixture.readFile("eslint.config.mjs");
-    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
-    expect(updatedConfig).not.toContain("uilint/prefer-tailwind");
+    expect(updatedConfig).toContain("uilint/prefer-tailwind");
     expect(updatedConfig).not.toContain("uilint/consistent-dark-mode");
   });
 });
@@ -382,7 +347,6 @@ describe("ESLint installation - existing uilint rules", () => {
 
     expect(pkg).toBeDefined();
     expect(pkg?.hasUilintRules).toBe(true);
-    expect(pkg?.configuredRuleIds).toContain("no-arbitrary-tailwind");
   });
 
   it("adds missing rules to existing config", async () => {
@@ -397,7 +361,6 @@ describe("ESLint installation - existing uilint rules", () => {
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
       eslintRuleIds: [
-        "no-arbitrary-tailwind",
         "prefer-tailwind",
         "consistent-dark-mode",
       ],
@@ -430,8 +393,6 @@ describe("ESLint installation - existing uilint rules", () => {
     }
 
     const updatedConfig = fixture.readFile("eslint.config.mjs");
-    // Should still have original rule (from old config)
-    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     // Should have new rules added
     expect(updatedConfig).toContain("uilint/prefer-tailwind");
     expect(updatedConfig).toContain("uilint/consistent-dark-mode");
@@ -472,9 +433,6 @@ describe("ESLint installation - existing uilint rules", () => {
     // Verify new rules were added to the existing config block
     expect(updatedConfig).toContain("uilint/prefer-tailwind");
     expect(updatedConfig).toContain("uilint/consistent-dark-mode");
-
-    // Verify the original rule is still there
-    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
   });
 });
 
@@ -517,7 +475,7 @@ describe("ESLint installation - monorepo", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [webPkg!.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -552,7 +510,7 @@ describe("ESLint installation - monorepo", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: selectedPaths,
-      eslintRuleIds: ["no-arbitrary-tailwind", "consistent-dark-mode"],
+      eslintRuleIds: ["prefer-tailwind", "consistent-dark-mode"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -570,7 +528,7 @@ describe("ESLint installation - monorepo", () => {
       // Check implementation files
       expect(
         fixture.exists(
-          `${pkgRelPath}/.uilint/rules/no-arbitrary-tailwind${ext}`
+          `${pkgRelPath}/.uilint/rules/prefer-tailwind${ext}`
         )
       ).toBe(true);
       expect(
@@ -735,7 +693,7 @@ describe("ESLint installation - gitignore", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -765,7 +723,7 @@ describe("ESLint installation - gitignore", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -797,7 +755,7 @@ describe("ESLint installation - dry run", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -827,7 +785,7 @@ describe("ESLint installation - dry run", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -929,7 +887,7 @@ describe("ESLint installation - JavaScript vs TypeScript file formats", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg!.path],
-      eslintRuleIds: ["no-arbitrary-tailwind", "prefer-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -942,22 +900,14 @@ describe("ESLint installation - JavaScript vs TypeScript file formats", () => {
     expect(result.success).toBe(true);
 
     // Verify .js files were copied (not .ts)
-    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.js")).toBe(true);
     expect(fixture.exists(".uilint/rules/prefer-tailwind.js")).toBe(true);
-    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(
-      false
-    );
     expect(fixture.exists(".uilint/rules/prefer-tailwind.ts")).toBe(false);
 
     // Verify config imports .js files
     const updatedConfig = fixture.readFile("eslint.config.mjs");
     expect(updatedConfig).toMatch(
-      /from\s+["']\.\/\.uilint\/rules\/no-arbitrary-tailwind\.js["']/
-    );
-    expect(updatedConfig).toMatch(
       /from\s+["']\.\/\.uilint\/rules\/prefer-tailwind\.js["']/
     );
-    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     expect(updatedConfig).toContain("uilint/prefer-tailwind");
   });
 
@@ -972,7 +922,7 @@ describe("ESLint installation - JavaScript vs TypeScript file formats", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg!.path],
-      eslintRuleIds: ["no-arbitrary-tailwind", "prefer-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -985,22 +935,14 @@ describe("ESLint installation - JavaScript vs TypeScript file formats", () => {
     expect(result.success).toBe(true);
 
     // Verify .ts files were copied (not .js)
-    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(true);
     expect(fixture.exists(".uilint/rules/prefer-tailwind.ts")).toBe(true);
-    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.js")).toBe(
-      false
-    );
     expect(fixture.exists(".uilint/rules/prefer-tailwind.js")).toBe(false);
 
     // Verify config imports without .ts extension (to avoid allowImportingTsExtensions requirement)
     const updatedConfig = fixture.readFile("eslint.config.ts");
     expect(updatedConfig).toMatch(
-      /from\s+["']\.\/\.uilint\/rules\/no-arbitrary-tailwind["']/
-    );
-    expect(updatedConfig).toMatch(
       /from\s+["']\.\/\.uilint\/rules\/prefer-tailwind["']/
     );
-    expect(updatedConfig).toContain("uilint/no-arbitrary-tailwind");
     expect(updatedConfig).toContain("uilint/prefer-tailwind");
   });
 });

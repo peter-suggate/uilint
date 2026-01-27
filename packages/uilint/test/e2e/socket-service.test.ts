@@ -230,74 +230,6 @@ describe("Socket Service - ESLint", { timeout: 60000 }, () => {
 });
 
 // ============================================================================
-// ESLint with UILint Rules
-// ============================================================================
-
-describe("Socket Service - ESLint with UILint rules", { timeout: 180000 }, () => {
-  let fixture: FixtureContext | null = null;
-  let server: ServerProcess | null = null;
-  let client: WsTestClient | null = null;
-
-  beforeAll(() => {
-    if (!existsSync(join(uilintEslintPath, "dist", "index.js"))) {
-      throw new Error("uilint-eslint must be built. Run: pnpm build");
-    }
-  });
-
-  afterEach(async () => {
-    if (client) {
-      client.disconnect();
-      client = null;
-    }
-    if (server) {
-      await server.stop();
-      server = null;
-    }
-    if (fixture) {
-      fixture.cleanup();
-      fixture = null;
-    }
-  });
-
-  it("detects uilint/no-arbitrary-tailwind violations", async () => {
-    fixture = useFixture("has-eslint-with-uilint");
-    const port = await findAvailablePort();
-
-    mkdirSync(join(fixture.path, "src"), { recursive: true });
-
-    // Create a file with arbitrary Tailwind values
-    fixture.writeFile(
-      "src/ArbitraryStyles.jsx",
-      `function ArbitraryStyles() {
-  return (
-    <div className="w-[137px] h-[42px] p-[13px]">
-      <span className="text-[#3B82F6]">Arbitrary</span>
-    </div>
-  );
-}
-export default ArbitraryStyles;
-`
-    );
-
-    await installDependenciesWithUilint(fixture.path);
-
-    server = await startServer({ cwd: fixture.path, port });
-    client = await createTestClient(port);
-    await client.waitForWorkspaceInfo();
-
-    const result = await client.lintFile("src/ArbitraryStyles.jsx");
-
-    expect(result.type).toBe("lint:result");
-    expect(Array.isArray(result.issues)).toBe(true);
-
-    const arbitraryIssues = result.issues.filter(
-      (issue) => issue.ruleId === "uilint/no-arbitrary-tailwind"
-    );
-    expect(arbitraryIssues.length).toBeGreaterThan(0);
-  });
-});
-
-// ============================================================================
 // Vision Integration Tests
 // ============================================================================
 
@@ -497,12 +429,12 @@ describe("Socket Service - Rule Configuration", { timeout: 180000 }, () => {
     await client.waitForWorkspaceInfo();
 
     const result = await client.setRuleConfig(
-      "uilint/no-arbitrary-tailwind",
+      "uilint/prefer-tailwind",
       "off"
     );
 
     expect(result.type).toBe("rule:config:result");
-    expect(result.ruleId).toBe("uilint/no-arbitrary-tailwind");
+    expect(result.ruleId).toBe("uilint/prefer-tailwind");
     // The result depends on whether the server can modify the eslint config
     // In test environments, this might fail due to file permissions or config format
     if (result.success) {

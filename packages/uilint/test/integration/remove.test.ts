@@ -54,7 +54,7 @@ async function installFirst(
   const prompter = mockPrompter({
     installItems: installItems as any,
     eslintPackagePaths: pkg ? [pkg.path] : [],
-    eslintRuleIds: ["no-arbitrary-tailwind", "prefer-tailwind"],
+    eslintRuleIds: ["prefer-tailwind"],
   });
 
   const choices = await gatherChoices(state, {}, prompter);
@@ -109,7 +109,7 @@ describe("ESLint removal", () => {
     fixture = f;
 
     // Verify installation happened
-    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.js")).toBe(true);
+    expect(fixture.exists(".uilint/rules/prefer-tailwind.js")).toBe(true);
     const configAfterInstall = fixture.readFile("eslint.config.mjs");
     expect(configAfterInstall).toContain("uilint");
 
@@ -153,7 +153,6 @@ describe("ESLint removal", () => {
 
     // Verify ESLint config no longer has uilint rules
     const configAfterRemoval = fixture.readFile("eslint.config.mjs");
-    expect(configAfterRemoval).not.toContain("uilint/no-arbitrary-tailwind");
     expect(configAfterRemoval).not.toContain("uilint/prefer-tailwind");
   });
 
@@ -164,7 +163,7 @@ describe("ESLint removal", () => {
     fixture = f;
 
     // Verify installation
-    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/prefer-tailwind.ts")).toBe(true);
     const configAfterInstall = fixture.readFile("eslint.config.ts");
     expect(configAfterInstall).toContain("uilint");
 
@@ -509,7 +508,6 @@ describe("Fully installed ESLint removal", () => {
 
     // Verify ESLint config no longer has uilint rules
     const configAfterRemoval = fixture.readFile("eslint.config.mjs");
-    expect(configAfterRemoval).not.toContain("uilint/no-arbitrary-tailwind");
     expect(configAfterRemoval).not.toContain("uilint/semantic");
   });
 

@@ -77,7 +77,6 @@ export default defineConfig([
     rules: {
       "uilint/prefer-tailwind": "off",
       "uilint/consistent-dark-mode": "off",
-      "uilint/no-arbitrary-tailwind": "off",
     },
   },
 ]);

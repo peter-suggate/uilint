@@ -46,7 +46,7 @@ describe("Execute with prettier options", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -73,7 +73,7 @@ describe("Execute with prettier options", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -88,7 +88,7 @@ describe("Execute with prettier options", () => {
 
     expect(result.success).toBe(true);
     // In dry-run, no files should be modified
-    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(
+    expect(fixture.exists(".uilint/rules/prefer-tailwind.ts")).toBe(
       false
     );
   });
@@ -103,7 +103,7 @@ describe("Execute with prettier options", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -118,7 +118,7 @@ describe("Execute with prettier options", () => {
 
     expect(result.success).toBe(true);
     // Verify files were created
-    expect(fixture.exists(`.uilint/rules/no-arbitrary-tailwind${ext}`)).toBe(
+    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(
       true
     );
   });
@@ -139,7 +139,7 @@ describe("Formattable file collection", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind", "prefer-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -154,14 +154,14 @@ describe("Formattable file collection", () => {
     expect(result.success).toBe(true);
 
     // Verify rule files were created with correct extension
-    expect(fixture.exists(`.uilint/rules/no-arbitrary-tailwind${ext}`)).toBe(
+    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(
       true
     );
     expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(true);
 
     // These files should be included in formatting
     const ruleFile = fixture.readFile(
-      `.uilint/rules/no-arbitrary-tailwind${ext}`
+      `.uilint/rules/prefer-tailwind${ext}`
     );
     expect(ruleFile).toContain("createRule");
   });
@@ -178,7 +178,7 @@ describe("Formattable file collection", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -207,7 +207,7 @@ describe("Formattable file collection", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [state.packages[0]!.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -241,7 +241,7 @@ describe("JavaScript projects", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -256,8 +256,8 @@ describe("JavaScript projects", () => {
     expect(result.success).toBe(true);
 
     // Verify .js file was created (not .ts)
-    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.js")).toBe(true);
-    expect(fixture.exists(".uilint/rules/no-arbitrary-tailwind.ts")).toBe(
+    expect(fixture.exists(".uilint/rules/prefer-tailwind.js")).toBe(true);
+    expect(fixture.exists(".uilint/rules/prefer-tailwind.ts")).toBe(
       false
     );
   });
@@ -278,7 +278,7 @@ describe("Prettier graceful failure", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -294,7 +294,7 @@ describe("Prettier graceful failure", () => {
 
     // Installation should succeed
     expect(result.success).toBe(true);
-    expect(fixture.exists(`.uilint/rules/no-arbitrary-tailwind${ext}`)).toBe(
+    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(
       true
     );
   });
@@ -309,7 +309,7 @@ describe("Prettier graceful failure", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind", "prefer-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -325,7 +325,7 @@ describe("Prettier graceful failure", () => {
     expect(result.success).toBe(true);
 
     // All files should still be created
-    expect(fixture.exists(`.uilint/rules/no-arbitrary-tailwind${ext}`)).toBe(
+    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(
       true
     );
     expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(true);
@@ -346,7 +346,7 @@ describe("Install summary with formatting", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -377,7 +377,7 @@ describe("Install summary with formatting", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-arbitrary-tailwind"],
+      eslintRuleIds: ["prefer-tailwind"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);

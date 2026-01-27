@@ -292,7 +292,7 @@ describe("Migration Engine", () => {
     it("returns migrations from rule registry", () => {
       // This test depends on actual rules having migrations
       // For rules without migrations, it should return empty array
-      const migrations = getMigrationsForRule("no-arbitrary-tailwind");
+      const migrations = getMigrationsForRule("consistent-dark-mode");
 
       // Currently no migrations defined, so should be empty
       expect(Array.isArray(migrations)).toBe(true);

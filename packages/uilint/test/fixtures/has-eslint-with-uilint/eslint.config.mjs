@@ -12,7 +12,7 @@ export default [
       parser: tseslint.parser,
     },
     rules: {
-      "uilint/no-arbitrary-tailwind": "error",
+      "uilint/consistent-dark-mode": "error",
     },
   },
 ];

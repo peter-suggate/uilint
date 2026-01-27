@@ -113,7 +113,7 @@ describe("Update Plan", () => {
 
     it("creates plan to update manifest", () => {
       const rule = createMockRuleUpdateInfo({
-        ruleId: "no-arbitrary-tailwind",
+        ruleId: "consistent-dark-mode",
         installedVersion: "1.0.0",
         availableVersion: "1.2.0",
         hasUpdate: true,
@@ -137,7 +137,7 @@ describe("Update Plan", () => {
       expect(plan.actions).toContainEqual({
         type: "update_manifest_version",
         packagePath: "/test/project",
-        ruleId: "no-arbitrary-tailwind",
+        ruleId: "consistent-dark-mode",
         version: "1.2.0",
       });
     });

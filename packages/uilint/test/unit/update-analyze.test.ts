@@ -105,10 +105,6 @@ describe("Update Analyze", () => {
         installedAt: "2024-01-01T00:00:00Z",
         uilintVersion: "0.1.0",
         rules: {
-          "no-arbitrary-tailwind": {
-            version: "1.0.0",
-            installedAt: "2024-01-01T00:00:00Z",
-          },
           "prefer-tailwind": {
             version: "1.0.0",
             installedAt: "2024-01-01T00:00:00Z",
@@ -157,10 +153,6 @@ describe("Update Analyze", () => {
         installedAt: "2024-01-01T00:00:00Z",
         uilintVersion: "0.1.0",
         rules: {
-          "no-arbitrary-tailwind": {
-            version: "0.9.0", // Outdated
-            installedAt: "2024-01-01T00:00:00Z",
-          },
           "prefer-tailwind": {
             version: "0.9.0", // Outdated
             installedAt: "2024-01-01T00:00:00Z",
@@ -175,8 +167,8 @@ describe("Update Analyze", () => {
 
       const result = analyzeForUpdates(testDir);
 
-      // Should have 2 updates (no-arbitrary-tailwind and prefer-tailwind)
-      expect(result.totalUpdates).toBe(2);
+      // Should have 1 update (prefer-tailwind)
+      expect(result.totalUpdates).toBe(1);
     });
   });
 });

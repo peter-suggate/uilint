@@ -10,7 +10,7 @@
  *   uilint config set rule <ruleId>:<severity> [optionsJson] - Set rule config
  *
  * Examples:
- *   uilint config set rule no-arbitrary-tailwind:warn
+ *   uilint config set rule consistent-dark-mode:warn
  *   uilint config set rule no-prop-drilling-depth:error '{"maxDepth":3}'
  *   uilint config set rule no-mixed-component-libraries:off
  */
@@ -260,7 +260,7 @@ async function handleSet(
             `Expected format: <ruleId>:<severity>\n` +
             `  severity: error, warn, or off\n\n` +
             `Examples:\n` +
-            `  uilint config set rule no-arbitrary-tailwind:warn\n` +
+            `  uilint config set rule consistent-dark-mode:warn\n` +
             `  uilint config set rule no-prop-drilling-depth:error '{"maxDepth":3}'`
         );
         process.exit(1);

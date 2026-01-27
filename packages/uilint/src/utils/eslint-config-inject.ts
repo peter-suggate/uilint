@@ -449,7 +449,7 @@ function addLocalRuleImportsAst(
       continue;
     }
 
-    // Generate a safe import name (e.g., noArbitraryTailwindRule)
+    // Generate a safe import name (e.g., ConsistentDarkModeRule)
     const importName = chooseUniqueIdentifier(
       `${rule.id
         .replace(/-([a-z])/g, (_: string, c: string) => c.toUpperCase())
@@ -799,7 +799,7 @@ function findCommonJsExportedConfigArrayStartIndex(
 
 /**
  * Extract configured uilint rule IDs from source.
- * Matches keys like: "uilint/no-arbitrary-tailwind": "error"
+ * Matches keys like: "uilint/consistent-dark-mode": "error"
  */
 function extractConfiguredUilintRuleIds(source: string): Set<string> {
   const ids = new Set<string>();
