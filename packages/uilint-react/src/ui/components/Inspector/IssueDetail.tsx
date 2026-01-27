@@ -8,8 +8,8 @@
  */
 import React from "react";
 import { WarningIcon, ErrorIcon, InfoIcon } from "../../icons";
-import { severityToColor } from "../../types";
 import { SourceViewer } from "./SourceViewer";
+import { Badge } from "../primitives";
 import type { Issue } from "../../types";
 
 interface IssueDetailProps {
@@ -41,13 +41,21 @@ export function IssueDetail({ issue }: IssueDetailProps) {
         gap: 16,
       }}
     >
-      {/* Header: Message + Rule */}
+      {/* Header: Severity Badge + Message + Rule */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-        <SeverityIcon
-          size={18}
-          color={severityToColor(issue.severity)}
-          style={{ marginTop: 2, flexShrink: 0 }}
-        />
+        <Badge
+          variant={issue.severity === "error" ? "error" : issue.severity === "warning" ? "warning" : "info"}
+          size="sm"
+          disableAnimation
+          style={{ flexShrink: 0, marginTop: 2 }}
+        >
+          <SeverityIcon
+            size={12}
+            color="currentColor"
+            style={{ marginRight: 4 }}
+          />
+          {issue.severity}
+        </Badge>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
@@ -59,17 +67,17 @@ export function IssueDetail({ issue }: IssueDetailProps) {
           >
             {issue.message}
           </div>
-          <div
+          <Badge
+            variant="outline"
+            size="sm"
+            disableAnimation
             style={{
-              fontSize: 12,
-              color: "var(--uilint-text-muted)",
-              marginTop: 4,
-              fontFamily:
-                "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
+              marginTop: 6,
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
             }}
           >
             {issue.ruleId}
-          </div>
+          </Badge>
         </div>
       </div>
 

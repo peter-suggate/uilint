@@ -16,6 +16,7 @@ import { IssueDetail } from "./IssueDetail";
 import { ElementDetail } from "./ElementDetail";
 import { ResizeHandle } from "./ResizeHandle";
 import { CloseIcon, MaximizeIcon, DockIcon } from "../../icons";
+import { IconButton, getGlassStyles } from "../primitives";
 import type { Issue } from "../../types";
 
 const MIN_WIDTH = 320;
@@ -214,44 +215,28 @@ export function InspectorSidebar() {
         {title}
       </span>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <button
+        <IconButton
+          variant="ghost"
+          size="sm"
           onClick={toggleInspectorDocked}
-          style={{
-            border: "none",
-            background: "none",
-            cursor: "pointer",
-            padding: 4,
-            color: "var(--uilint-text-muted)",
-            borderRadius: 4,
-          }}
           title={docked ? "Undock to floating window" : "Dock to side"}
         >
           {docked ? <MaximizeIcon size={16} /> : <DockIcon size={16} />}
-        </button>
-        <button
+        </IconButton>
+        <IconButton
+          variant="ghost"
+          size="sm"
           onClick={closeInspector}
-          style={{
-            border: "none",
-            background: "none",
-            cursor: "pointer",
-            padding: 4,
-            color: "var(--uilint-text-muted)",
-            borderRadius: 4,
-          }}
           title="Close"
         >
           <CloseIcon size={16} />
-        </button>
+        </IconButton>
       </div>
     </div>
   );
 
-  // Glass morphism styles - uses CSS variables for dark mode support
-  const glassStyle: React.CSSProperties = {
-    background: "var(--uilint-glass)",
-    backdropFilter: "blur(24px) saturate(180%)",
-    WebkitBackdropFilter: "blur(24px) saturate(180%)",
-  };
+  // Glass morphism styles - uses design system primitives
+  const glassStyle = getGlassStyles("heavy", "none", false);
 
   return createPortal(
     <AnimatePresence>
