@@ -274,6 +274,10 @@ program
 // Duplicates command group - semantic code duplicate detection
 program.addCommand(createDuplicatesCommand());
 
+// Socket command - CLI for interacting with socket server
+import { createSocketCommand } from "./commands/socket/index.js";
+program.addCommand(createSocketCommand());
+
 // Upgrade command - update installed rules
 program
   .command("upgrade")
