@@ -8,6 +8,7 @@
  */
 import React from "react";
 import { motion } from "motion/react";
+import { useScrollTarget } from "./useScrollSelectedIntoView";
 
 interface AnimatedListItemProps {
   children: React.ReactNode;
@@ -84,11 +85,15 @@ export function SelectionIndicator({
   isSelected,
   children,
   variant = "default",
+  resultIndex,
 }: {
   isSelected: boolean;
   children: React.ReactNode;
   variant?: "default" | "command" | "issue";
+  resultIndex?: number;
 }) {
+  // Always call the hook (Rules of Hooks) — uses -1 as no-op sentinel
+  const scrollRef = useScrollTarget(resultIndex ?? -1);
   const bgStyles = {
     default: {
       selected: "linear-gradient(90deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.04) 100%)",
@@ -108,6 +113,7 @@ export function SelectionIndicator({
 
   return (
     <motion.div
+      ref={resultIndex != null ? scrollRef : undefined}
       animate={{
         background: isSelected ? styles.selected : styles.unselected,
         borderLeftColor: isSelected ? "#3b82f6" : "transparent",

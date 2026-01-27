@@ -8,11 +8,13 @@ import React from "react";
 import { motion } from "motion/react";
 import { ErrorIcon, WarningIcon, InfoIcon, FileIcon, ChevronRightIcon } from "../../icons";
 import { StatBadge } from "../primitives";
+import { useScrollTarget } from "./useScrollSelectedIntoView";
 import type { Issue } from "../../types";
 
 interface IssuesSummaryCardProps {
   issues: Issue[];
   isSelected: boolean;
+  resultIndex?: number;
   onClick: () => void;
 }
 
@@ -22,7 +24,9 @@ interface SeverityCount {
   info: number;
 }
 
-export function IssuesSummaryCard({ issues, isSelected, onClick }: IssuesSummaryCardProps) {
+export function IssuesSummaryCard({ issues, isSelected, resultIndex, onClick }: IssuesSummaryCardProps) {
+  const scrollRef = useScrollTarget(resultIndex ?? -1);
+
   // Count issues by severity
   const counts: SeverityCount = React.useMemo(() => {
     return issues.reduce(
@@ -45,6 +49,7 @@ export function IssuesSummaryCard({ issues, isSelected, onClick }: IssuesSummary
 
   return (
     <motion.div
+      ref={resultIndex != null ? scrollRef : undefined}
       onClick={onClick}
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
@@ -206,6 +211,7 @@ export function TopIssuesPreview({
           key={issue.id}
           issue={issue}
           isSelected={startIndex + idx === selectedIndex}
+          resultIndex={startIndex + idx}
           onClick={() => onSelectIssue(issue)}
           index={idx}
         />
@@ -217,20 +223,24 @@ export function TopIssuesPreview({
 function TopIssueItem({
   issue,
   isSelected,
+  resultIndex,
   onClick,
   index,
 }: {
   issue: Issue;
   isSelected: boolean;
+  resultIndex: number;
   onClick: () => void;
   index: number;
 }) {
+  const scrollRef = useScrollTarget(resultIndex);
   const SeverityIcon = issue.severity === "error" ? ErrorIcon : WarningIcon;
   const severityColor = issue.severity === "error" ? "var(--uilint-error)" : "var(--uilint-warning)";
   const fileName = issue.filePath.split("/").pop() || issue.filePath;
 
   return (
     <motion.div
+      ref={scrollRef}
       onClick={onClick}
       initial={{ opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
