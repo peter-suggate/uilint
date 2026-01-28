@@ -86,10 +86,14 @@ jobs:
           mkdir -p .vercel
           echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
 
+          # Install and build LOCALLY (bypasses Vercel's flaky pnpm)
           pnpm install --no-frozen-lockfile
 
-          # Deploy and capture the full output
-          DEPLOY_OUTPUT=$(vercel deploy --prod --yes --token=$VERCEL_TOKEN 2>&1) || true
+          # Use vercel build to create .vercel/output
+          vercel build --prod --yes --token=$VERCEL_TOKEN
+
+          # Deploy the prebuilt output (skips install/build on Vercel)
+          DEPLOY_OUTPUT=$(vercel deploy --prebuilt --prod --yes --token=$VERCEL_TOKEN 2>&1) || true
           echo "$DEPLOY_OUTPUT"
 
           # Extract URL - Vercel outputs "Production: https://..." or just the URL
