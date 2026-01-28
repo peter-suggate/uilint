@@ -43,20 +43,24 @@ jobs:
       - name: Prepare test-app for deployment
         run: |
           cp -R apps/test-app-template .vercel-deploy
+
+          # Copy tarballs INTO the deploy directory so Vercel can access them
+          cp -R .preview-packages .vercel-deploy/.packages
+
           cd .vercel-deploy
 
-          # Replace workspace:* references with file: tarballs
+          # Replace workspace:* references with LOCAL file: tarballs
           node -e "
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json'));
-            const files = fs.readdirSync('../.preview-packages');
+            const files = fs.readdirSync('.packages');
 
             const replaceDeps = (deps) => {
               if (!deps) return;
               for (const name of Object.keys(deps)) {
                 if (deps[name].startsWith('workspace:')) {
                   const tgz = files.find(f => f.startsWith(name + '-') && f.endsWith('.tgz'));
-                  if (tgz) deps[name] = 'file:../.preview-packages/' + tgz;
+                  if (tgz) deps[name] = 'file:./.packages/' + tgz;
                 }
               }
             };
