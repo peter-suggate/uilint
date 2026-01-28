@@ -80,16 +80,22 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           npm install -g vercel@latest
-          cd .vercel-deploy
+
+          # Move deploy directory OUTSIDE monorepo to avoid workspace hoisting issues
+          mv .vercel-deploy /tmp/vercel-deploy
+          cd /tmp/vercel-deploy
 
           # Create .vercel directory with project configuration
           mkdir -p .vercel
           echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
 
-          # Install and build LOCALLY (bypasses Vercel's flaky pnpm)
+          # Install dependencies (now isolated from monorepo workspace)
           pnpm install --no-frozen-lockfile
 
-          # Use vercel build to create .vercel/output
+          # Build Next.js app
+          pnpm build
+
+          # Use vercel build to create .vercel/output structure
           vercel build --prod --yes --token=$VERCEL_TOKEN
 
           # Deploy the prebuilt output (skips install/build on Vercel)
