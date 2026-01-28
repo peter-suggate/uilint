@@ -65,12 +65,24 @@ jobs:
               }
             };
 
+            // Add uilint-react as a dependency (for devtools)
+            if (!pkg.dependencies) pkg.dependencies = {};
+            const uilintReactTgz = files.find(f => f.startsWith('uilint-react-') && f.endsWith('.tgz'));
+            if (uilintReactTgz) pkg.dependencies['uilint-react'] = 'file:./.packages/' + uilintReactTgz;
+
             replaceDeps(pkg.dependencies);
             replaceDeps(pkg.devDependencies);
             pkg.name = 'uilint-preview';
 
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
+
+      - name: Initialize UILint in test-app
+        run: |
+          cd .vercel-deploy
+
+          # Run uilint init in non-interactive mode to add React DevTool
+          node ../packages/uilint/dist/index.js init --react
 
       - name: Deploy to Vercel
         id: deploy
