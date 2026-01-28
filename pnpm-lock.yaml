@@ -145,6 +145,9 @@ importers:
       dotenv:
         specifier: ^17.2.3
         version: 17.2.3
+      glob:
+        specifier: ^11.0.0
+        version: 11.1.0
       ink:
         specifier: ^6.6.0
         version: 6.6.0(@types/react@19.2.8)(react@19.2.3)

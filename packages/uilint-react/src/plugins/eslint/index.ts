@@ -17,6 +17,13 @@ import type { AvailableRule, RuleConfig, ESLintIssue } from "./types";
 import { fromESLintIssue, type Issue } from "../../ui/types";
 import { extractUniqueFilePaths } from "./scanner";
 import { RulePanel } from "./panels";
+import {
+  isStaticMode,
+  initializeStaticMode,
+  configureStaticMode,
+  clearStaticMode,
+  getManifestMetadata,
+} from "./static-handler";
 
 /** WebSocket message types handled by ESLint plugin */
 const ESLINT_WS_MESSAGE_TYPES = [
@@ -238,6 +245,15 @@ export const eslintPlugin: Plugin = {
    */
   initialize: (services: PluginServices) => {
     console.log("[ESLint Plugin] Initializing...");
+
+    // Check if static mode is configured
+    if (isStaticMode()) {
+      console.log("[ESLint Plugin] Running in STATIC mode (manifest-based)");
+      return initializeStaticMode(services);
+    }
+
+    // WebSocket mode (default)
+    console.log("[ESLint Plugin] Running in WEBSOCKET mode");
 
     // Subscribe to WebSocket messages for lint results, rules metadata, etc.
     const unsubscribers: Array<() => void> = [];
@@ -559,6 +575,14 @@ export default eslintPlugin;
 export * from "./types";
 export * from "./slice";
 export { eslintCommands } from "./commands";
+
+// Static mode exports
+export {
+  configureStaticMode,
+  isStaticMode,
+  clearStaticMode,
+  getManifestMetadata,
+} from "./static-handler";
 
 // Export for testing - allows direct testing of message handling logic
 export { handleWebSocketMessage as _handleWebSocketMessageForTesting };

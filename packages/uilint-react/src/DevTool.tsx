@@ -15,10 +15,13 @@ import { websocket } from "./core/services/websocket";
 import { domObserver } from "./core/services/dom-observer";
 import { initializePlugins } from "./core/store";
 import { pluginRegistry } from "./core/plugin-system/registry";
-import { eslintPlugin } from "./plugins/eslint";
+import { eslintPlugin, configureStaticMode, clearStaticMode } from "./plugins/eslint";
 import { visionPlugin } from "./plugins/vision";
 import { fixPromptPlugin } from "./plugins/fix-prompt";
 import { injectDevToolStyles } from "./styles/inject-styles";
+
+/** DevTool operating mode */
+export type DevToolMode = "websocket" | "static";
 
 // Track if plugins have been initialized
 let pluginsInitialized = false;
@@ -32,7 +35,19 @@ import devtoolsCss from "./styles/globals.css?inline";
 const DEVTOOL_ROOT_CLASS = "uilint-devtool-root";
 
 export type DevToolProps = {
+  /** Enable/disable the devtool (default: true) */
   enabled?: boolean;
+  /**
+   * Operating mode:
+   * - "websocket": Connect to local uilint serve (default)
+   * - "static": Load issues from pre-built manifest
+   */
+  mode?: DevToolMode;
+  /**
+   * URL to the lint manifest (required for mode="static")
+   * Example: "/.uilint/manifest.json"
+   */
+  manifestUrl?: string;
 };
 
 /**
@@ -45,13 +60,22 @@ function isBrowser(): boolean {
 /**
  * Main devtool React root.
  *
- * Handles WebSocket connection and UI rendering.
+ * Handles WebSocket connection (or static manifest loading) and UI rendering.
  */
-export function DevTool({ enabled = true }: DevToolProps) {
+export function DevTool({
+  enabled = true,
+  mode = "websocket",
+  manifestUrl,
+}: DevToolProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [isReady, setIsReady] = useState(pluginsInitialized);
   const portalRootRef = useRef<HTMLElement | null>(null);
   const createdPortalRootRef = useRef(false);
+
+  // Validate props
+  if (mode === "static" && !manifestUrl) {
+    console.warn("[DevTool] Static mode requires manifestUrl prop");
+  }
 
   /**
    * Set mounted state after hydration
@@ -97,17 +121,27 @@ export function DevTool({ enabled = true }: DevToolProps) {
   }, [enabled]);
 
   /**
-   * Initialize plugins and connect to WebSocket server.
-   * This registers the ESLint plugin and sets up message handlers.
-   * IMPORTANT: Must complete before rendering UILint to ensure WebSocket is wired up.
+   * Initialize plugins and connect to data source.
+   * - WebSocket mode: Connect to local uilint serve
+   * - Static mode: Load pre-built manifest
    */
   useEffect(() => {
     if (!isBrowser() || !enabled) return;
     if (!isMounted) return;
 
     let unsubscribeConnection: (() => void) | null = null;
+    const isStaticMode = mode === "static" && manifestUrl;
 
     async function init() {
+      // Configure static mode BEFORE plugin initialization
+      if (isStaticMode) {
+        console.log("[DevTool] Configuring static mode with manifest:", manifestUrl);
+        configureStaticMode(manifestUrl);
+      } else {
+        // Ensure static mode is cleared if switching modes
+        clearStaticMode();
+      }
+
       // Register and initialize plugins (only once)
       if (!pluginsInitialized) {
         pluginRegistry.register(eslintPlugin);
@@ -115,38 +149,44 @@ export function DevTool({ enabled = true }: DevToolProps) {
         pluginRegistry.register(fixPromptPlugin);
         await initializePlugins({ websocket, domObserver });
         pluginsInitialized = true;
-        console.log("[DevTool] Plugins initialized");
+        console.log("[DevTool] Plugins initialized in", isStaticMode ? "static" : "websocket", "mode");
       }
 
       // Mark as ready so UI can render
       setIsReady(true);
 
-      // Connect to WebSocket server first
-      websocket.connect();
+      if (isStaticMode) {
+        // Static mode: Start DOM observer immediately (no WebSocket needed)
+        console.log("[DevTool] Static mode: starting DOM observer");
+        domObserver.start();
+      } else {
+        // WebSocket mode: Connect and wait for connection before starting observer
+        websocket.connect();
 
-      // Start DOM observation only after WebSocket connects
-      // This ensures elements are detected when we can actually send lint requests
-      unsubscribeConnection = websocket.onConnectionChange((connected) => {
-        if (connected) {
-          console.log("[DevTool] WebSocket connected, starting DOM observer");
-          domObserver.start();
-        } else {
-          console.log(
-            "[DevTool] WebSocket disconnected, stopping DOM observer"
-          );
-          domObserver.stop();
-        }
-      });
+        unsubscribeConnection = websocket.onConnectionChange((connected) => {
+          if (connected) {
+            console.log("[DevTool] WebSocket connected, starting DOM observer");
+            domObserver.start();
+          } else {
+            console.log(
+              "[DevTool] WebSocket disconnected, stopping DOM observer"
+            );
+            domObserver.stop();
+          }
+        });
+      }
     }
 
     init();
 
     return () => {
       unsubscribeConnection?.();
-      websocket.disconnect();
+      if (!isStaticMode) {
+        websocket.disconnect();
+      }
       domObserver.stop();
     };
-  }, [enabled, isMounted]);
+  }, [enabled, isMounted, mode, manifestUrl]);
 
   // Don't render UI until mounted AND plugins are initialized
   // This ensures the store is created with the real WebSocket service
