@@ -16,6 +16,7 @@ import type {
   RuleMeta,
   RuleDefinition,
   ToolbarAction,
+  ToolbarActionGroup,
 } from "./types";
 
 /**
@@ -282,6 +283,25 @@ export class PluginRegistry {
 
     // Sort by priority (higher priority first, default to 0)
     return actions.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+  }
+
+  /**
+   * Aggregate all toolbar action groups from all registered plugins.
+   * Groups are sorted by priority (higher priority first).
+   *
+   * @returns Array of all toolbar action groups, sorted by priority
+   */
+  getAllToolbarActionGroups(): ToolbarActionGroup[] {
+    const groups: ToolbarActionGroup[] = [];
+
+    for (const { plugin } of this.plugins.values()) {
+      if (plugin.toolbarActionGroups) {
+        groups.push(...plugin.toolbarActionGroups);
+      }
+    }
+
+    // Sort by priority (higher priority first, default to 0)
+    return groups.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
   }
 
   /**

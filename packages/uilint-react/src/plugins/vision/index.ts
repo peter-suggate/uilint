@@ -7,7 +7,7 @@
  */
 
 import React from "react";
-import type { Plugin, PluginServices, IssueContribution, ToolbarAction } from "../../core/plugin-system/types";
+import type { Plugin, PluginServices, IssueContribution, ToolbarAction, ToolbarActionGroup } from "../../core/plugin-system/types";
 import { visionCommands } from "./commands";
 import type { VisionSlice } from "./slice";
 import { createVisionSlice, createTriggerVisionAnalysis } from "./slice";
@@ -46,74 +46,82 @@ const CropIcon = React.createElement(
 );
 
 /**
- * Toolbar actions for the vision plugin
- * These appear in the FloatingIcon when vision capability is available
+ * Individual toolbar actions for the vision plugin (used inside the group dropdown)
  */
-const visionToolbarActions: ToolbarAction[] = [
-  {
-    id: "vision:capture-full-page",
-    icon: CameraIcon,
-    tooltip: "Capture Full Page",
-    priority: 100,
-    isVisible: (state: unknown) => {
-      // Check for visionAvailable in the composed store's nested plugin state
-      const s = state as { plugins?: { vision?: { visionAvailable?: boolean } } };
-      return s.plugins?.vision?.visionAvailable === true;
-    },
-    onClick: async (services: PluginServices) => {
-      // Get the full store state - actions are nested under plugins.vision
-      const fullState = services.getState<{
-        plugins: {
-          vision: {
-            setCaptureMode: (mode: "full" | "region") => void;
-            setRegionSelectionActive: (active: boolean) => void;
-            setSelectedRegion: (region: null) => void;
-            triggerVisionAnalysis: () => Promise<void>;
-          };
-        };
-      }>();
-
-      const visionState = fullState.plugins.vision;
-
-      // Set to full page mode and trigger analysis
-      visionState.setCaptureMode("full");
-      visionState.setRegionSelectionActive(false);
-      visionState.setSelectedRegion(null);
-
-      await visionState.triggerVisionAnalysis();
-    },
+const visionCaptureFullAction: ToolbarAction = {
+  id: "vision:capture-full-page",
+  icon: CameraIcon,
+  tooltip: "Capture Full Page",
+  shortcut: "\u2318\u21e7C",
+  priority: 100,
+  isVisible: (state: unknown) => {
+    const s = state as { plugins?: { vision?: { visionAvailable?: boolean } } };
+    return s.plugins?.vision?.visionAvailable === true;
   },
-  {
-    id: "vision:capture-region",
-    icon: CropIcon,
-    tooltip: "Capture Region",
-    priority: 90,
-    isVisible: (state: unknown) => {
-      // Check for visionAvailable in the composed store's nested plugin state
-      const s = state as { plugins?: { vision?: { visionAvailable?: boolean } } };
-      return s.plugins?.vision?.visionAvailable === true;
-    },
-    onClick: (services: PluginServices) => {
-      // Get the full store state - actions are nested under plugins.vision
-      const fullState = services.getState<{
-        plugins: {
-          vision: {
-            setCaptureMode: (mode: "full" | "region") => void;
-            setRegionSelectionActive: (active: boolean) => void;
-            setSelectedRegion: (region: null) => void;
-          };
+  onClick: async (services: PluginServices) => {
+    const fullState = services.getState<{
+      plugins: {
+        vision: {
+          setCaptureMode: (mode: "full" | "region") => void;
+          setRegionSelectionActive: (active: boolean) => void;
+          setSelectedRegion: (region: null) => void;
+          triggerVisionAnalysis: () => Promise<void>;
         };
-      }>();
+      };
+    }>();
 
-      const visionState = fullState.plugins.vision;
+    const visionState = fullState.plugins.vision;
+    visionState.setCaptureMode("full");
+    visionState.setRegionSelectionActive(false);
+    visionState.setSelectedRegion(null);
 
-      // Enter region selection mode
-      visionState.setCaptureMode("region");
-      visionState.setRegionSelectionActive(true);
-      visionState.setSelectedRegion(null);
-    },
+    await visionState.triggerVisionAnalysis();
   },
-];
+};
+
+const visionCaptureRegionAction: ToolbarAction = {
+  id: "vision:capture-region",
+  icon: CropIcon,
+  tooltip: "Capture Region",
+  shortcut: "\u2318\u21e7R",
+  priority: 90,
+  isVisible: (state: unknown) => {
+    const s = state as { plugins?: { vision?: { visionAvailable?: boolean } } };
+    return s.plugins?.vision?.visionAvailable === true;
+  },
+  onClick: (services: PluginServices) => {
+    const fullState = services.getState<{
+      plugins: {
+        vision: {
+          setCaptureMode: (mode: "full" | "region") => void;
+          setRegionSelectionActive: (active: boolean) => void;
+          setSelectedRegion: (region: null) => void;
+        };
+      };
+    }>();
+
+    const visionState = fullState.plugins.vision;
+    visionState.setCaptureMode("region");
+    visionState.setRegionSelectionActive(true);
+    visionState.setSelectedRegion(null);
+  },
+};
+
+/**
+ * Toolbar action group for the vision plugin
+ * Renders as a single dropdown button with capture options
+ */
+const visionToolbarActionGroup: ToolbarActionGroup = {
+  id: "vision:capture-group",
+  icon: CameraIcon,
+  tooltip: "Vision Capture",
+  priority: 100,
+  isVisible: (state: unknown) => {
+    const s = state as { plugins?: { vision?: { visionAvailable?: boolean } } };
+    return s.plugins?.vision?.visionAvailable === true;
+  },
+  actions: [visionCaptureFullAction, visionCaptureRegionAction],
+};
 
 /**
  * Vision plugin definition
@@ -160,9 +168,9 @@ export const visionPlugin: Plugin<VisionSlice> = {
   commands: visionCommands,
 
   /**
-   * Toolbar actions contributed by this plugin (shown in FloatingIcon)
+   * Toolbar action groups contributed by this plugin (shown as dropdown in FloatingIcon)
    */
-  toolbarActions: visionToolbarActions,
+  toolbarActionGroups: [visionToolbarActionGroup],
 
   /**
    * Inspector panels contributed by this plugin
