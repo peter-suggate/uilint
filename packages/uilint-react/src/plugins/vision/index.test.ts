@@ -9,7 +9,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { visionPlugin } from "./index";
 import { defaultVisionState } from "./slice";
 import type { VisionSlice } from "./slice";
-import type { PluginServices, ToolbarAction } from "../../core/plugin-system/types";
+import type { PluginServices, ToolbarAction, ToolbarActionGroup } from "../../core/plugin-system/types";
 
 // ============================================================================
 // Mock Helpers
@@ -89,27 +89,43 @@ function createMockComposedState(visionOverrides: Partial<VisionSlice> = {}): { 
 // ============================================================================
 
 describe("Vision Plugin - Toolbar Actions", () => {
-  describe("toolbarActions array", () => {
-    it("plugin has toolbarActions array", () => {
-      expect(visionPlugin.toolbarActions).toBeDefined();
-      expect(Array.isArray(visionPlugin.toolbarActions)).toBe(true);
+  // Helper to get the vision toolbar action group and its actions
+  function getVisionGroup(): ToolbarActionGroup {
+    expect(visionPlugin.toolbarActionGroups).toBeDefined();
+    expect(visionPlugin.toolbarActionGroups!.length).toBeGreaterThan(0);
+    return visionPlugin.toolbarActionGroups![0];
+  }
+
+  function getVisionActions(): ToolbarAction[] {
+    return getVisionGroup().actions;
+  }
+
+  describe("toolbarActionGroups", () => {
+    it("plugin has toolbarActionGroups array", () => {
+      expect(visionPlugin.toolbarActionGroups).toBeDefined();
+      expect(Array.isArray(visionPlugin.toolbarActionGroups)).toBe(true);
     });
 
-    it("toolbarActions contains capture-full-page and capture-region actions", () => {
-      const actions = visionPlugin.toolbarActions;
-      expect(actions).toBeDefined();
+    it("has one toolbar action group for vision capture", () => {
+      expect(visionPlugin.toolbarActionGroups!.length).toBe(1);
+      const group = getVisionGroup();
+      expect(group.id).toBe("vision:capture-group");
+      expect(group.tooltip).toBe("Vision Capture");
+    });
 
-      const actionIds = actions!.map((a) => a.id);
+    it("group contains capture-full-page and capture-region actions", () => {
+      const actions = getVisionActions();
+      const actionIds = actions.map((a) => a.id);
       expect(actionIds).toContain("vision:capture-full-page");
       expect(actionIds).toContain("vision:capture-region");
     });
 
-    it("toolbar actions have correct number of items", () => {
-      expect(visionPlugin.toolbarActions?.length).toBe(2);
+    it("group has correct number of actions", () => {
+      expect(getVisionActions().length).toBe(2);
     });
 
-    it("all toolbar actions have required fields", () => {
-      for (const action of visionPlugin.toolbarActions ?? []) {
+    it("all actions have required fields", () => {
+      for (const action of getVisionActions()) {
         expect(action.id).toBeDefined();
         expect(typeof action.id).toBe("string");
         expect(action.id.length).toBeGreaterThan(0);
@@ -128,10 +144,28 @@ describe("Vision Plugin - Toolbar Actions", () => {
       }
     });
 
-    it("each toolbar action has unique id", () => {
-      const ids = visionPlugin.toolbarActions!.map((a) => a.id);
+    it("all actions have shortcut labels", () => {
+      for (const action of getVisionActions()) {
+        expect(action.shortcut).toBeDefined();
+        expect(typeof action.shortcut).toBe("string");
+      }
+    });
+
+    it("each action has unique id", () => {
+      const ids = getVisionActions().map((a) => a.id);
       const uniqueIds = new Set(ids);
       expect(uniqueIds.size).toBe(ids.length);
+    });
+
+    it("group isVisible checks visionAvailable state", () => {
+      const group = getVisionGroup();
+      expect(group.isVisible).toBeDefined();
+
+      const availableState = createMockComposedState({ visionAvailable: true });
+      expect(group.isVisible!(availableState)).toBe(true);
+
+      const unavailableState = createMockComposedState({ visionAvailable: false });
+      expect(group.isVisible!(unavailableState)).toBe(false);
     });
   });
 
@@ -139,7 +173,7 @@ describe("Vision Plugin - Toolbar Actions", () => {
     let captureFullPageAction: ToolbarAction;
 
     beforeEach(() => {
-      captureFullPageAction = visionPlugin.toolbarActions!.find(
+      captureFullPageAction = getVisionActions().find(
         (a) => a.id === "vision:capture-full-page"
       )!;
     });
@@ -191,7 +225,7 @@ describe("Vision Plugin - Toolbar Actions", () => {
     let captureRegionAction: ToolbarAction;
 
     beforeEach(() => {
-      captureRegionAction = visionPlugin.toolbarActions!.find(
+      captureRegionAction = getVisionActions().find(
         (a) => a.id === "vision:capture-region"
       )!;
     });

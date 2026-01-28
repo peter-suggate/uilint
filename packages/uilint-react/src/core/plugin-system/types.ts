@@ -276,6 +276,37 @@ export interface ToolbarAction {
   onClick: (services: PluginServices) => void | Promise<void>;
 }
 
+/**
+ * A group of toolbar actions displayed as a single dropdown button
+ * The group renders as one button with a chevron; clicking opens a menu
+ * listing each child action with its label and shortcut.
+ */
+export interface ToolbarActionGroup {
+  /** Unique group identifier */
+  id: string;
+  /** Icon to display on the collapsed button */
+  icon: ReactNode;
+  /** Tooltip text shown on hover of the collapsed button */
+  tooltip: string;
+  /** Priority for ordering relative to other toolbar items (higher = first, default: 0) */
+  priority?: number;
+  /**
+   * Predicate to determine if the group is visible
+   * @param state Current application state
+   */
+  isVisible?: (state: unknown) => boolean;
+  /** The actions within this group */
+  actions: ToolbarAction[];
+}
+
+/** A toolbar item is either a single action or a grouped dropdown */
+export type ToolbarItem = ToolbarAction | ToolbarActionGroup;
+
+/** Type guard to check if a toolbar item is a group */
+export function isToolbarActionGroup(item: ToolbarItem): item is ToolbarActionGroup {
+  return "actions" in item && Array.isArray((item as ToolbarActionGroup).actions);
+}
+
 // ============================================================================
 // Complete Plugin Definition
 // ============================================================================
@@ -334,6 +365,9 @@ export interface Plugin<TSlice = unknown> {
 
   /** Toolbar actions contributed by this plugin (shown in floating icon) */
   toolbarActions?: ToolbarAction[];
+
+  /** Toolbar action groups contributed by this plugin (shown as dropdown buttons) */
+  toolbarActionGroups?: ToolbarActionGroup[];
 
   /** Per-rule UI contributions */
   ruleContributions?: RuleUIContribution[];

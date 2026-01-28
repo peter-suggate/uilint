@@ -83,9 +83,9 @@ describe("FloatingIcon", () => {
       createComposedStore();
       render(<FloatingIcon />);
 
-      // Should show the keyboard shortcut (either "K" for the main hint)
-      // The component shows either modKey (Alt+ or Option symbol) + K
-      expect(screen.getByText(/K/)).toBeDefined();
+      // Should show the keyboard shortcut hint and shortcut in search button
+      // The search button shows "⌘K" or "Ctrl+K", and the hint shows "K for commands"
+      expect(screen.getByText(/for commands/)).toBeDefined();
     });
   });
 
@@ -330,9 +330,8 @@ describe("FloatingIcon", () => {
       createComposedStore();
       render(<FloatingIcon />);
 
-      // No issue count badge should be visible
-      // The issue count would show a number like "3" or "99+"
-      expect(screen.queryByText(/^\d+\+?$/)).toBeNull();
+      // No issue count pill should be visible
+      expect(screen.queryByText(/issues?/)).toBeNull();
     });
 
     it("shows issue count when eslint plugin has issues", () => {
@@ -356,8 +355,8 @@ describe("FloatingIcon", () => {
 
       render(<FloatingIcon />);
 
-      // Should show "3" for 3 total issues
-      expect(screen.getByText("3")).toBeDefined();
+      // Should show "3 issues" for 3 total issues
+      expect(screen.getByText(/3 issues/)).toBeDefined();
     });
 
     it("shows 99+ when issue count exceeds 99", () => {
@@ -379,7 +378,7 @@ describe("FloatingIcon", () => {
 
       render(<FloatingIcon />);
 
-      expect(screen.getByText("99+")).toBeDefined();
+      expect(screen.getByText(/99\+ issues/)).toBeDefined();
     });
   });
 
