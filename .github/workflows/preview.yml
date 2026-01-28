@@ -79,7 +79,13 @@ jobs:
           cd .vercel-deploy
           pnpm install --no-frozen-lockfile
 
-          DEPLOYMENT_URL=$(vercel deploy --prod --yes --token=$VERCEL_TOKEN 2>&1 | grep -E '^https://' | tail -1)
+          # Deploy and capture the full output
+          DEPLOY_OUTPUT=$(vercel deploy --prod --yes --token=$VERCEL_TOKEN 2>&1)
+          echo "$DEPLOY_OUTPUT"
+
+          # Extract URL - Vercel outputs "Production: https://..." or just the URL
+          DEPLOYMENT_URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | tail -1)
+          echo "Extracted URL: $DEPLOYMENT_URL"
           echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
 
       - name: Comment on PR with preview link
