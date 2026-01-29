@@ -54,6 +54,10 @@ done
 # Update package name
 sed 's/"name": "[^"]*"/"name": "test-app"/' "$TEST_APP_DIR/package.json" > "$TEST_APP_DIR/package.json.tmp" && mv "$TEST_APP_DIR/package.json.tmp" "$TEST_APP_DIR/package.json"
 
+echo "📦 Building packages..."
+cd "$ROOT_DIR" && pnpm build:packages
+
+echo ""
 echo "📦 Installing dependencies..."
 cd "$ROOT_DIR" && pnpm install
 
