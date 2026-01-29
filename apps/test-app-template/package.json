@@ -7,7 +7,10 @@
   "scripts": {
     "dev": "next dev --turbo",
     "build": "next build --turbo",
+    "build:manifest": "mkdir -p public/.uilint && uilint build-manifest -o public/.uilint/manifest.json --pretty",
+    "build:static": "pnpm build:manifest && next build --turbo",
     "start": "next start",
+    "preview:static": "pnpm build:static && next start",
     "lint": "next lint",
     "test": "vitest",
     "test:watch": "vitest --watch",
@@ -43,6 +46,7 @@
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.53.0",
+    "uilint": "workspace:*",
     "vitest": "^4.0.16"
   }
 }
