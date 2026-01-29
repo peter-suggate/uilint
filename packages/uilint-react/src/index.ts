@@ -130,3 +130,27 @@ export {
 export { parseStyleGuide } from "uilint-core";
 export { generateStyleGuideFromStyles as generateStyleGuide } from "uilint-core";
 export { createEmptyStyleGuide, mergeStyleGuides } from "uilint-core";
+
+// =============================================================================
+// DevTool component (main entry point for apps)
+// =============================================================================
+export { DevTool } from "./DevTool";
+export type { DevToolProps, DevToolMode } from "./DevTool";
+
+// =============================================================================
+// Static mode (for production deployments)
+// =============================================================================
+export {
+  configureStaticMode,
+  isStaticMode,
+  clearStaticMode,
+  getManifestMetadata,
+} from "./plugins/eslint";
+
+export type {
+  LintManifest,
+  ManifestIssue,
+  ManifestFileEntry,
+  ManifestRuleMeta,
+  SourceSnippet,
+} from "./core/services/manifest-types";

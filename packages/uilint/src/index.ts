@@ -284,6 +284,10 @@ program
 // Duplicates command group - semantic code duplicate detection
 program.addCommand(createDuplicatesCommand());
 
+// Build manifest command - generate static lint manifest for production
+import { createManifestCommand } from "./commands/manifest/index.js";
+program.addCommand(createManifestCommand());
+
 // Socket command - CLI for interacting with socket server
 import { createSocketCommand } from "./commands/socket/index.js";
 program.addCommand(createSocketCommand());

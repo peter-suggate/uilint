@@ -18,8 +18,21 @@ declare global {
               | "bottom-left"
               | "bottom-right"
               | "top-left"
-              | "top-right";
+              | "top-right"
+              | "top-center"
+              | "bottom-center";
             theme?: "light" | "dark" | "system";
+            /**
+             * Operating mode:
+             * - "websocket": Connect to local uilint serve (default)
+             * - "static": Load issues from pre-built manifest
+             */
+            mode?: "websocket" | "static";
+            /**
+             * URL to the lint manifest (required for mode="static")
+             * Example: "/.uilint/manifest.json"
+             */
+            "manifest-url"?: string;
           },
           HTMLElement
         >;
