@@ -73,7 +73,8 @@ elif [ -f "$TEST_APP_DIR/src/app/providers.tsx" ]; then
 fi
 
 if [ -n "$PROVIDERS_FILE" ]; then
-    sed -i 's/<uilint-devtools \/>/<uilint-devtools mode="static" manifest-url="\/.uilint\/manifest.json" \/>/g' "$PROVIDERS_FILE"
+    # Use temp file for cross-platform compatibility (macOS sed -i differs from Linux)
+    sed 's/<uilint-devtools \/>/<uilint-devtools mode="static" manifest-url="\/.uilint\/manifest.json" \/>/g' "$PROVIDERS_FILE" > "$PROVIDERS_FILE.tmp" && mv "$PROVIDERS_FILE.tmp" "$PROVIDERS_FILE"
     echo "   ✓ Updated $PROVIDERS_FILE with static mode"
 else
     echo "   ⚠ Could not find providers.tsx - you may need to configure static mode manually"
