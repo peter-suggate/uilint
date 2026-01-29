@@ -1,6 +1,6 @@
 {
   "name": "uilint-monorepo",
-  "version": "0.2.71",
+  "version": "0.2.72",
   "private": true,
   "description": "AI-powered UI consistency checker for Next.js applications",
   "author": "Peter Suggate",
@@ -15,6 +15,7 @@
   "license": "MIT",
   "scripts": {
     "setup-test-app": "bash scripts/setup-test-app.sh",
+    "setup-vercel-preview": "bash scripts/setup-vercel-preview.sh",
     "dev": "pnpm --filter test-app dev",
     "build": "pnpm -r build",
     "build:packages": "pnpm --filter uilint-core build && pnpm --filter uilint-react build && pnpm --filter uilint build && pnpm --filter uilint-eslint build && pnpm --filter uilint-duplicates build && pnpm --filter jsx-loc-plugin build",

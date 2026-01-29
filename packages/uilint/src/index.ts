@@ -175,9 +175,19 @@ program
   .command("init")
   .description("Initialize UILint integration")
   .option("--force", "Overwrite existing configuration files")
+  .option("--react", "Install React DevTool (non-interactive)")
+  .option("--eslint", "Install ESLint rules (non-interactive)")
+  .option("--genstyleguide", "Generate styleguide (non-interactive)")
+  .option("--skill", "Install Claude skill (non-interactive)")
   .action(async (options) => {
     const { initUI } = await import("./commands/init-ui.js");
-    await initUI({ force: options.force });
+    await initUI({
+      force: options.force,
+      react: options.react,
+      eslint: options.eslint,
+      genstyleguide: options.genstyleguide,
+      skill: options.skill,
+    });
   });
 
 // Remove command

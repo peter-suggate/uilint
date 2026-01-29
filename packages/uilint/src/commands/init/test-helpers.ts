@@ -80,12 +80,16 @@ export async function gatherChoices(
       nextChoices = {
         projectPath: state.nextApps[0].projectPath,
         detection: state.nextApps[0].detection,
+        // In non-interactive mode, default to creating providers.tsx
+        createProviders: hasExplicitFlags,
       };
     } else {
       const selected = await prompter.selectNextApp(state.nextApps);
       nextChoices = {
         projectPath: selected.projectPath,
         detection: selected.detection,
+        // In non-interactive mode, default to creating providers.tsx
+        createProviders: hasExplicitFlags,
       };
     }
   }

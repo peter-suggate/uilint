@@ -6,6 +6,9 @@
  * 2. Feature selection (what to install)
  * 3. ESLint rule configuration (if ESLint selected)
  * 4. Completion summary
+ *
+ * Non-interactive mode:
+ * Use --react, --eslint, --genstyleguide, or --skill flags to skip prompts.
  */
 
 import React from "react";
@@ -13,6 +16,8 @@ import { render } from "ink";
 import { InstallApp, type InjectionPointConfig } from "./init/components/InstallApp.js";
 import { analyze } from "./init/analyze.js";
 import { execute } from "./init/execute.js";
+import { createPlan } from "./init/plan.js";
+import { gatherChoices, type Prompter } from "./init/test-helpers.js";
 import type {
   InstallOptions,
   ExecuteOptions,
@@ -32,6 +37,42 @@ import { runTestsWithCoverage, detectPackageManager } from "../utils/package-man
 
 // Import installers to trigger registration
 import "./init/installers/index.js";
+
+/**
+ * Auto-selecting prompter for non-interactive mode.
+ * Automatically selects the first option when choices are needed.
+ */
+const autoPrompter: Prompter = {
+  async selectInstallItems() {
+    // This shouldn't be called in non-interactive mode since flags determine items
+    return [];
+  },
+  async selectNextApp(apps) {
+    // Auto-select first app
+    return apps[0];
+  },
+  async selectViteApp(apps) {
+    // Auto-select first app
+    return apps[0];
+  },
+  async selectEslintPackages(packages) {
+    // Auto-select all packages with ESLint config
+    return packages.map((p) => p.path);
+  },
+  async selectEslintRules() {
+    // Use all available rules with defaults
+    return ruleRegistry;
+  },
+  async selectEslintRuleSeverity() {
+    return "defaults";
+  },
+  async confirmCustomizeRuleOptions() {
+    return false;
+  },
+  async configureRuleOptions() {
+    return undefined;
+  },
+};
 
 function limitList(items: string[], max: number): string[] {
   if (items.length <= max) return items;
@@ -227,6 +268,52 @@ function isInteractiveTerminal(): boolean {
 }
 
 /**
+ * Check if non-interactive flags are provided
+ */
+function hasNonInteractiveFlags(options: InstallOptions): boolean {
+  return Boolean(
+    options.react || options.eslint || options.genstyleguide || options.skill
+  );
+}
+
+/**
+ * Run init in non-interactive mode using CLI flags
+ */
+async function initNonInteractive(
+  options: InstallOptions,
+  executeOptions: ExecuteOptions = {}
+): Promise<void> {
+  const projectPath = process.cwd();
+
+  console.log(pc.blue("UILint init (non-interactive mode)"));
+  console.log(pc.dim("Analyzing project..."));
+
+  const project = await analyze(projectPath);
+
+  // Gather choices using flags (auto-prompter handles edge cases)
+  const choices = await gatherChoices(project, options, autoPrompter);
+
+  if (choices.items.length === 0) {
+    console.log("\nNo features selected. Use --react, --eslint, --genstyleguide, or --skill.");
+    process.exit(1);
+  }
+
+  console.log(pc.dim(`Installing: ${choices.items.join(", ")}`));
+
+  // Create and execute plan
+  const plan = createPlan(project, choices, { force: options.force });
+  const result = await execute(plan, {
+    ...executeOptions,
+    projectPath: project.projectPath,
+  });
+
+  // Display results
+  printInstallReport(result);
+
+  process.exit(result.success ? 0 : 1);
+}
+
+/**
  * Main init function with Ink UI
  *
  * @param options - CLI options
@@ -238,10 +325,16 @@ export async function initUI(
 ): Promise<void> {
   const projectPath = process.cwd();
 
+  // Non-interactive mode: use flags directly without TTY
+  if (hasNonInteractiveFlags(options)) {
+    await initNonInteractive(options, executeOptions);
+    return;
+  }
+
   // Check if terminal supports interactive mode
   if (!isInteractiveTerminal()) {
     console.error("\n✗ Interactive mode requires a TTY terminal.");
-    console.error("Run uilint init in an interactive terminal.\n");
+    console.error("Use --react, --eslint, --genstyleguide, or --skill for non-interactive mode.\n");
     process.exit(1);
   }
 
