@@ -1,6 +1,6 @@
 {
   "name": "uilint-core",
-  "version": "0.2.72",
+  "version": "0.2.73",
   "description": "Core library for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
