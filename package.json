@@ -15,6 +15,7 @@
   "license": "MIT",
   "scripts": {
     "setup-test-app": "bash scripts/setup-test-app.sh",
+    "setup-static-preview": "bash scripts/setup-static-preview.sh",
     "setup-vercel-preview": "bash scripts/setup-vercel-preview.sh",
     "dev": "pnpm --filter test-app dev",
     "build": "pnpm -r build",
