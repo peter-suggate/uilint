@@ -37,3 +37,11 @@ coverage/
 
 # Generated test app (from template)
 apps/test-app/
+
+# UILint cache
+.uilint/.cache
+
+# Vercel preview deployment artifacts
+.preview-packages/
+.vercel-deploy/
+.vercel/

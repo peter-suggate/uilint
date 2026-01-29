@@ -1,0 +1,63 @@
+name: Preview Deployment
+
+on:
+  workflow_run:
+    workflows: ["Publish"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  preview:
+    # Only run if publish succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Prepare test-app
+        run: |
+          # Copy template to deploy directory
+          cp -R apps/test-app-template .vercel-deploy
+          cd .vercel-deploy
+
+          # Install dependencies
+          pnpm install
+
+          # Initialize UILint using the just-published npm version
+          npx uilint@latest init --react
+
+      - name: Deploy to Vercel
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npm install -g vercel@latest
+          cd .vercel-deploy
+
+          # Create .vercel config
+          mkdir -p .vercel
+          echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
+
+          # Build and deploy
+          pnpm build
+          vercel build --prod --yes --token=$VERCEL_TOKEN
+          DEPLOY_OUTPUT=$(vercel deploy --prebuilt --prod --yes --token=$VERCEL_TOKEN 2>&1)
+          echo "$DEPLOY_OUTPUT"
+
+          DEPLOYMENT_URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | tail -1)
+          echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+
+      - name: Log deployment URL
+        run: |
+          echo "Preview deployed to: ${{ steps.deploy.outputs.url }}"
