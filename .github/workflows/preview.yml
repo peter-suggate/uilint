@@ -33,7 +33,8 @@ jobs:
           pnpm install
 
           # Initialize UILint using the just-published npm version
-          npx uilint@latest init --react
+          # Note: --eslint is required to install the ESLint rules that generate lint issues
+          npx uilint@latest init --react --eslint
 
           # Configure static mode for production deployment
           # Update the providers file to use static mode with manifest URL
