@@ -61,10 +61,10 @@ echo ""
 echo "📦 Installing dependencies..."
 cd "$ROOT_DIR" && pnpm install
 
-# Step 2: Run uilint init --react (non-interactive)
+# Step 2: Run uilint init --react --eslint (non-interactive)
 echo ""
-echo "🔧 Running uilint init --react..."
-cd "$TEST_APP_DIR" && node "$UILINT_CLI" init --react
+echo "🔧 Running uilint init --react --eslint..."
+cd "$TEST_APP_DIR" && node "$UILINT_CLI" init --react --eslint
 
 # Step 3: Configure static mode in providers.tsx
 echo ""
