@@ -35,6 +35,21 @@ jobs:
           # Initialize UILint using the just-published npm version
           npx uilint@latest init --react
 
+          # Configure static mode for production deployment
+          # Update the providers file to use static mode with manifest URL
+          if [ -f "app/providers.tsx" ]; then
+            sed -i 's/<uilint-devtools \/>/<uilint-devtools mode="static" manifest-url="\/.uilint\/manifest.json" \/>/g' app/providers.tsx
+            echo "Configured static mode in app/providers.tsx"
+          elif [ -f "src/app/providers.tsx" ]; then
+            sed -i 's/<uilint-devtools \/>/<uilint-devtools mode="static" manifest-url="\/.uilint\/manifest.json" \/>/g' src/app/providers.tsx
+            echo "Configured static mode in src/app/providers.tsx"
+          fi
+
+          # Generate the lint manifest for static mode
+          mkdir -p public/.uilint
+          npx uilint@latest build-manifest -o public/.uilint/manifest.json --pretty
+          echo "Generated lint manifest at public/.uilint/manifest.json"
+
       - name: Deploy to Vercel
         id: deploy
         env:

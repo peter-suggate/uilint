@@ -2,7 +2,7 @@
 
 import React from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { DevTool } from "./DevTool";
+import { DevTool, type DevToolMode } from "./DevTool";
 import { injectDevToolStyles } from "./styles/inject-styles";
 
 // Inlined CSS (compiled by Tailwind/PostCSS during Vite build)
@@ -99,7 +99,7 @@ export function defineUILintDevtoolsElement() {
 
   class UILintDevtoolsElement extends HTMLElement {
     static get observedAttributes() {
-      return ["enabled", "position", "theme"];
+      return ["enabled", "position", "theme", "mode", "manifest-url"];
     }
 
     private rootEl: HTMLDivElement | null = null;
@@ -190,6 +190,16 @@ export function defineUILintDevtoolsElement() {
       }
     }
 
+    private getMode(): DevToolMode {
+      const raw = this.getAttribute("mode");
+      if (raw === "static") return "static";
+      return "websocket";
+    }
+
+    private getManifestUrl(): string | undefined {
+      return this.getAttribute("manifest-url") ?? undefined;
+    }
+
     /**
      * Sync theme from attribute or auto-detect from host app
      */
@@ -240,7 +250,13 @@ export function defineUILintDevtoolsElement() {
 
     private render() {
       if (!this.reactRoot) return;
-      this.reactRoot.render(<DevTool enabled={this.getEnabled()} />);
+      this.reactRoot.render(
+        <DevTool
+          enabled={this.getEnabled()}
+          mode={this.getMode()}
+          manifestUrl={this.getManifestUrl()}
+        />
+      );
     }
   }
 
