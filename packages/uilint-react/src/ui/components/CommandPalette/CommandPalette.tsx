@@ -1,35 +1,40 @@
 /**
  * CommandPalette - Elegant command interface inspired by Spotlight & Raycast
  *
- * Performance optimizations:
- * - Shows summary card instead of all issues in initial state
- * - Issues only rendered when searching
- * - Staggered animations with delay caps for long lists
+ * Features:
+ * - Plugin-based category system for browsable content
+ * - Finder-style sidebar for category navigation
+ * - Hero search input with glassmorphic styling
+ * - Priority-based lazy loading for fast performance
+ * - Keyboard navigation between sidebar and results
  *
- * Visual polish:
- * - Crisp easing for panel entrance
- * - Staggered list item animations
- * - Glass morphism with subtle gradients
- * - Selection indicator with glow effect
- * - macOS-style keyboard hints
+ * Visual design:
+ * - Minimal colors, visual hierarchy through opacity/weight
+ * - Glassmorphic container with backdrop blur
+ * - Staggered animations with crisp easing
+ * - shadcn class conventions
  */
-import React, { useState, useMemo, useCallback } from "react";
+
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
-import { useIssues } from "../../hooks";
+import { categoryRegistry } from "../../../core/plugin-system/category-registry";
+import { useIssues, useCategoryRegistry } from "../../hooks";
 import { SearchInput } from "./SearchInput";
 import { ResultItem } from "./ResultItem";
 import { RuleItem } from "./RuleItem";
 import { FileHeader } from "./FileHeader";
 import { IssuesSummaryCard, TopIssuesPreview } from "./IssuesSummaryCard";
 import { AnimatedListItem, AnimatedSection, SelectionIndicator } from "./AnimatedListItem";
-import { CloseIcon, PlayIcon, StopIcon, RefreshIcon } from "../../icons";
+import { CategorySidebar } from "./CategorySidebar";
+import { PlayIcon, StopIcon, RefreshIcon } from "../../icons";
 import { GlassPanel, Kbd, CategoryBadge } from "../primitives";
 import { useScrollSelectedIntoView, ScrollSelectedContext } from "./useScrollSelectedIntoView";
+import { cn } from "../../../lib/utils";
 import type { Issue } from "../../types";
-import type { Command, RuleDefinition } from "../../../core/plugin-system/types";
+import type { Command, RuleDefinition, CategoryItem } from "../../../core/plugin-system/types";
 
 /**
  * Unified result item type for the command palette
@@ -38,6 +43,7 @@ type ResultType =
   | { kind: "command"; command: Command }
   | { kind: "issue"; issue: Issue }
   | { kind: "rule"; rule: RuleDefinition }
+  | { kind: "category-item"; item: CategoryItem }
   | { kind: "summary" };
 
 // Crisp easing for panel motion
@@ -161,6 +167,101 @@ function CommandResultItem({
 }
 
 /**
+ * Category item result component
+ */
+function CategoryItemResult({
+  item,
+  isSelected,
+  onClick,
+  index,
+}: {
+  item: CategoryItem;
+  isSelected: boolean;
+  onClick: () => void;
+  index: number;
+}) {
+  return (
+    <AnimatedListItem index={index}>
+      <SelectionIndicator isSelected={isSelected} variant="issue" resultIndex={index}>
+        <motion.div
+          onClick={onClick}
+          whileHover={{ x: 2 }}
+          whileTap={{ scale: 0.99 }}
+          style={{
+            padding: "10px 16px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          {/* Icon if present */}
+          {item.icon && (
+            <div
+              style={{
+                width: 24,
+                height: 24,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                color: "var(--uilint-text-muted)",
+              }}
+            >
+              {item.icon}
+            </div>
+          )}
+
+          {/* Content */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontWeight: 500,
+                fontSize: 13,
+                color: "var(--uilint-text-primary)",
+                marginBottom: 1,
+              }}
+            >
+              {item.title}
+            </div>
+            {item.subtitle && (
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--uilint-text-muted)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {item.subtitle}
+              </div>
+            )}
+          </div>
+
+          {/* Shortcut hint */}
+          {item.shortcut && (
+            <Kbd animate={false}>{item.shortcut}</Kbd>
+          )}
+
+          {/* Enter hint when selected */}
+          {isSelected && !item.shortcut && (
+            <motion.div
+              initial={{ opacity: 0, x: 4 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.1 }}
+            >
+              <Kbd>↵</Kbd>
+            </motion.div>
+          )}
+        </motion.div>
+      </SelectionIndicator>
+    </AnimatedListItem>
+  );
+}
+
+/**
  * Section header with refined styling
  */
 function SectionHeader({ children, count }: { children: React.ReactNode; count?: number }) {
@@ -200,7 +301,11 @@ function SectionHeader({ children, count }: { children: React.ReactNode; count?:
 
 export function CommandPalette() {
   const isOpen = useComposedStore((s) => s.commandPalette.open);
+  const selectedCategoryId = useComposedStore((s) => s.commandPalette.selectedCategoryId);
+  const sidebarFocused = useComposedStore((s) => s.commandPalette.sidebarFocused);
   const closeCommandPalette = useComposedStore((s) => s.closeCommandPalette);
+  const setSelectedCategory = useComposedStore((s) => s.setSelectedCategory);
+  const setSidebarFocused = useComposedStore((s) => s.setSidebarFocused);
   const openInspector = useComposedStore((s) => s.openInspector);
 
   const [query, setQuery] = useState("");
@@ -208,9 +313,17 @@ export function CommandPalette() {
   const scrollCtx = useScrollSelectedIntoView(selectedIndex);
 
   const { allIssues } = useIssues();
+  const { categoryTree, loadItems, getCachedItems, searchItems } = useCategoryRegistry();
 
   // Get current state for command availability checks
   const storeState = useComposedStore((s) => s);
+
+  // Load category items when category changes
+  useEffect(() => {
+    if (selectedCategoryId && isOpen) {
+      loadItems(selectedCategoryId);
+    }
+  }, [selectedCategoryId, isOpen, loadItems]);
 
   // Get available commands from registry
   const availableCommands = useMemo(() => {
@@ -234,8 +347,14 @@ export function CommandPalette() {
     );
   }, [availableCommands, query]);
 
-  // PERFORMANCE: Only show issues when searching
+  // PERFORMANCE: Only show issues when searching or when category is issues-related
   const isSearching = query.trim().length > 0;
+
+  // Get category items when a category is selected
+  const categoryItems = useMemo(() => {
+    if (!selectedCategoryId) return [];
+    return getCachedItems(selectedCategoryId);
+  }, [selectedCategoryId, getCachedItems]);
 
   // Filter issues by query - only compute when searching
   const filteredIssues = useMemo(() => {
@@ -252,8 +371,6 @@ export function CommandPalette() {
   }, [allIssues, query, isSearching]);
 
   // Get all rules from the registry - reactive to plugin state changes
-  // We subscribe to plugin state so that when rules metadata arrives
-  // asynchronously via WebSocket, this recomputes.
   const pluginState = useComposedStore((s) => s.plugins);
   const allRules = useMemo(() => {
     return pluginRegistry.getAllRules();
@@ -308,9 +425,15 @@ export function CommandPalette() {
   }, [filteredIssues]);
 
   // Combined results for keyboard navigation
-  // In initial state: commands + summary card + top issues
-  // When searching: commands + issues
   const allResults: ResultType[] = useMemo(() => {
+    // When a specific category is selected, show category items
+    if (selectedCategoryId && !isSearching) {
+      return categoryItems.map((item) => ({
+        kind: "category-item" as const,
+        item,
+      }));
+    }
+
     const commands: ResultType[] = filteredCommands.map((command) => ({
       kind: "command" as const,
       command,
@@ -339,7 +462,7 @@ export function CommandPalette() {
       rule,
     }));
     return [...commands, ...issues, ...rules];
-  }, [filteredCommands, filteredIssues, filteredRules, allIssues, isSearching]);
+  }, [filteredCommands, filteredIssues, filteredRules, allIssues, isSearching, selectedCategoryId, categoryItems]);
 
   // Handle selecting an issue
   const handleSelectIssue = useCallback(
@@ -364,6 +487,23 @@ export function CommandPalette() {
     }
   }, []);
 
+  // Handle executing a category item
+  const handleExecuteCategoryItem = useCallback(async (item: CategoryItem) => {
+    if (!item.execute) return;
+
+    const services = getPluginServices();
+    if (!services) {
+      console.error("[CommandPalette] Plugin services not available");
+      return;
+    }
+    try {
+      await item.execute(services);
+      closeCommandPalette();
+    } catch (error) {
+      console.error(`[CommandPalette] Error executing category item "${item.id}":`, error);
+    }
+  }, [closeCommandPalette]);
+
   // Handle rule severity change
   const handleRuleSeverityChange = useCallback(
     (ruleId: string, severity: "error" | "warning" | "off") => {
@@ -373,7 +513,6 @@ export function CommandPalette() {
   );
 
   // Handle selecting a rule to view details
-  // Uses the rule's pluginId to derive the inspector panel ID generically
   const handleSelectRule = useCallback(
     (rule: RuleDefinition) => {
       const panelId = `${rule.pluginId}-rule`;
@@ -392,17 +531,39 @@ export function CommandPalette() {
         handleSelectIssue(result.issue);
       } else if (result.kind === "rule") {
         handleSelectRule(result.rule);
+      } else if (result.kind === "category-item") {
+        handleExecuteCategoryItem(result.item);
       } else if (result.kind === "summary") {
         // Focus search input to encourage searching
         setQuery("");
       }
     },
-    [handleExecuteCommand, handleSelectIssue, handleSelectRule]
+    [handleExecuteCommand, handleSelectIssue, handleSelectRule, handleExecuteCategoryItem]
   );
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Tab to switch between sidebar and results
+      if (e.key === "Tab") {
+        e.preventDefault();
+        setSidebarFocused(!sidebarFocused);
+        return;
+      }
+
+      // Left/Right arrows to switch focus
+      if (e.key === "ArrowLeft" && !sidebarFocused) {
+        e.preventDefault();
+        setSidebarFocused(true);
+        return;
+      }
+      if (e.key === "ArrowRight" && sidebarFocused) {
+        e.preventDefault();
+        setSidebarFocused(false);
+        return;
+      }
+
+      // Up/Down for navigation
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setSelectedIndex((i) => Math.min(i + 1, allResults.length - 1));
@@ -414,16 +575,16 @@ export function CommandPalette() {
         handleSelectResult(allResults[selectedIndex]);
       }
     },
-    [allResults, selectedIndex, handleSelectResult]
+    [allResults, selectedIndex, handleSelectResult, sidebarFocused, setSidebarFocused]
   );
 
   // Reset selection when query changes
-  React.useEffect(() => {
+  useEffect(() => {
     setSelectedIndex(0);
   }, [query]);
 
-  // Reset query when closing
-  React.useEffect(() => {
+  // Reset query and category when closing
+  useEffect(() => {
     if (!isOpen) {
       setQuery("");
       setSelectedIndex(0);
@@ -473,202 +634,239 @@ export function CommandPalette() {
               animate={false}
               style={{
                 width: "100%",
-                maxWidth: 580,
-                borderRadius: 14,
+                maxWidth: 680,
+                borderRadius: 16,
+                overflow: "hidden",
               }}
             >
-            {/* Search */}
-            <SearchInput value={query} onChange={setQuery} />
+              {/* Hero Search Input */}
+              <SearchInput value={query} onChange={setQuery} size="large" />
 
-            {/* Results */}
-            <div
-              style={{
-                maxHeight: 380,
-                overflowY: "auto",
-                overflowX: "hidden",
-              }}
-            >
-              <AnimatePresence mode="wait">
-                {allResults.length === 0 && filteredRules.length === 0 ? (
-                  <motion.div
-                    key="empty"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.1 }}
-                    style={{
-                      padding: "32px 24px",
-                      textAlign: "center",
-                      color: "var(--uilint-text-disabled)",
-                    }}
-                  >
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>
-                      {query ? "No results found" : "Start typing to search"}
-                    </div>
-                    <div style={{ fontSize: 12, marginTop: 4, color: "var(--uilint-text-muted)" }}>
-                      {query
-                        ? "Try different keywords"
-                        : "Search issues, rules, and commands"}
-                    </div>
-                  </motion.div>
-                ) : (
-                  <ScrollSelectedContext.Provider value={scrollCtx}>
-                  <motion.div
-                    key="results"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.1 }}
-                  >
-                    {/* Commands section */}
-                    {filteredCommands.length > 0 && (
-                      <>
-                        <SectionHeader count={filteredCommands.length}>
-                          Commands
-                        </SectionHeader>
-                        {filteredCommands.map((command, index) => (
-                          <CommandResultItem
-                            key={command.id}
-                            command={command}
-                            isSelected={index === selectedIndex}
-                            onClick={() => handleExecuteCommand(command)}
-                            index={index}
-                          />
-                        ))}
-                      </>
-                    )}
+              {/* Content Area: Sidebar + Results */}
+              <div
+                style={{
+                  display: "flex",
+                  maxHeight: 420,
+                }}
+              >
+                {/* Category Sidebar */}
+                <CategorySidebar
+                  categories={categoryTree}
+                  selectedId={selectedCategoryId}
+                  onSelect={setSelectedCategory}
+                  isFocused={sidebarFocused}
+                />
 
-                    {/* Initial state: Summary card + Top issues */}
-                    {!isSearching && allIssues.length > 0 && (
-                      <>
-                        <SectionHeader>Overview</SectionHeader>
-                        <IssuesSummaryCard
-                          issues={allIssues}
-                          isSelected={summaryIndex === selectedIndex}
-                          resultIndex={summaryIndex}
-                          onClick={() => {
-                            // Focus on the search input
-                          }}
-                        />
-                        <TopIssuesPreview
-                          issues={allIssues}
-                          onSelectIssue={handleSelectIssue}
-                          startIndex={summaryIndex + 1}
-                          selectedIndex={selectedIndex}
-                        />
-                      </>
-                    )}
-
-                    {/* Search results: Issues grouped by file */}
-                    {isSearching && issuesByFile.length > 0 && (
-                      <>
-                        <SectionHeader count={filteredIssues.length}>
-                          Issues
-                        </SectionHeader>
-                        {issuesByFile.map((fileGroup, groupIndex) => {
-                          let startIndex = filteredCommands.length;
-                          for (let i = 0; i < groupIndex; i++) {
-                            startIndex += issuesByFile[i].issues.length;
-                          }
-
-                          return (
-                            <AnimatedListItem
-                              key={fileGroup.filePath}
-                              index={filteredCommands.length + groupIndex}
-                            >
-                              <FileHeader
-                                fileName={fileGroup.fileName}
-                                directory={fileGroup.directory}
-                                count={fileGroup.issues.length}
-                              />
-                              {fileGroup.issues.map((issue, issueIndex) => (
-                                <SelectionIndicator
-                                  key={issue.id}
-                                  isSelected={startIndex + issueIndex === selectedIndex}
-                                  variant="issue"
-                                  resultIndex={startIndex + issueIndex}
-                                >
-                                  <ResultItem
-                                    issue={issue}
-                                    isSelected={startIndex + issueIndex === selectedIndex}
-                                    onClick={() => handleSelectIssue(issue)}
-                                  />
-                                </SelectionIndicator>
+                {/* Results Pane */}
+                <div
+                  style={{
+                    flex: 1,
+                    overflowY: "auto",
+                    overflowX: "hidden",
+                  }}
+                >
+                  <AnimatePresence mode="wait">
+                    {allResults.length === 0 && filteredRules.length === 0 ? (
+                      <motion.div
+                        key="empty"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.1 }}
+                        style={{
+                          padding: "32px 24px",
+                          textAlign: "center",
+                          color: "var(--uilint-text-disabled)",
+                        }}
+                      >
+                        <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>
+                          {query ? "No results found" : "Start typing to search"}
+                        </div>
+                        <div style={{ fontSize: 12, marginTop: 4, color: "var(--uilint-text-muted)" }}>
+                          {query
+                            ? "Try different keywords"
+                            : "Search issues, rules, and commands"}
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <ScrollSelectedContext.Provider value={scrollCtx}>
+                        <motion.div
+                          key="results"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.1 }}
+                        >
+                          {/* Category items when a specific category is selected */}
+                          {selectedCategoryId && !isSearching && categoryItems.length > 0 && (
+                            <>
+                              {categoryItems.map((item, index) => (
+                                <CategoryItemResult
+                                  key={item.id}
+                                  item={item}
+                                  isSelected={index === selectedIndex}
+                                  onClick={() => handleExecuteCategoryItem(item)}
+                                  index={index}
+                                />
                               ))}
-                            </AnimatedListItem>
-                          );
-                        })}
-                      </>
-                    )}
+                            </>
+                          )}
 
-                    {/* Rules section - only when searching */}
-                    {isSearching && filteredRules.length > 0 && (
-                      <>
-                        <SectionHeader count={filteredRules.length}>
-                          Rules
-                        </SectionHeader>
-                        {filteredRules.map((rule, index) => (
-                          <AnimatedListItem
-                            key={rule.id}
-                            index={filteredCommands.length + filteredIssues.length + index}
-                          >
-                            <RuleItem
-                              rule={rule}
-                              issueCount={issueCountByRule.get(rule.id) ?? 0}
-                              isSelected={
-                                filteredCommands.length +
-                                  filteredIssues.length +
-                                  index ===
-                                selectedIndex
-                              }
-                              onSeverityChange={handleRuleSeverityChange}
-                              onClick={() => handleSelectRule(rule)}
-                            />
-                          </AnimatedListItem>
-                        ))}
-                      </>
-                    )}
-                  </motion.div>
-                  </ScrollSelectedContext.Provider>
-                )}
-              </AnimatePresence>
-            </div>
+                          {/* Commands section - show when "All" is selected or searching */}
+                          {(!selectedCategoryId || isSearching) && filteredCommands.length > 0 && (
+                            <>
+                              <SectionHeader count={filteredCommands.length}>
+                                Commands
+                              </SectionHeader>
+                              {filteredCommands.map((command, index) => (
+                                <CommandResultItem
+                                  key={command.id}
+                                  command={command}
+                                  isSelected={index === selectedIndex}
+                                  onClick={() => handleExecuteCommand(command)}
+                                  index={index}
+                                />
+                              ))}
+                            </>
+                          )}
 
-            {/* Footer with keyboard hints */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.1, delay: 0.05 }}
-              style={{
-                padding: "8px 16px",
-                borderTop: "1px solid var(--uilint-border)",
-                fontSize: 11,
-                color: "var(--uilint-text-disabled)",
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-                background: "var(--uilint-surface-elevated)",
-              }}
-            >
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <Kbd animate={false}>↑</Kbd>
-                <Kbd animate={false}>↓</Kbd>
-                <span style={{ marginLeft: 2 }}>navigate</span>
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <Kbd animate={false}>↵</Kbd>
-                <span style={{ marginLeft: 2 }}>select</span>
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <Kbd animate={false}>esc</Kbd>
-                <span style={{ marginLeft: 2 }}>close</span>
-              </span>
-              <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--uilint-text-muted)" }}>
-                ⌘K to toggle
-              </span>
-            </motion.div>
-          </GlassPanel>
+                          {/* Initial state: Summary card + Top issues */}
+                          {!isSearching && !selectedCategoryId && allIssues.length > 0 && (
+                            <>
+                              <SectionHeader>Overview</SectionHeader>
+                              <IssuesSummaryCard
+                                issues={allIssues}
+                                isSelected={summaryIndex === selectedIndex}
+                                resultIndex={summaryIndex}
+                                onClick={() => {
+                                  // Focus on the search input
+                                }}
+                              />
+                              <TopIssuesPreview
+                                issues={allIssues}
+                                onSelectIssue={handleSelectIssue}
+                                startIndex={summaryIndex + 1}
+                                selectedIndex={selectedIndex}
+                              />
+                            </>
+                          )}
+
+                          {/* Search results: Issues grouped by file */}
+                          {isSearching && issuesByFile.length > 0 && (
+                            <>
+                              <SectionHeader count={filteredIssues.length}>
+                                Issues
+                              </SectionHeader>
+                              {issuesByFile.map((fileGroup, groupIndex) => {
+                                let startIndex = filteredCommands.length;
+                                for (let i = 0; i < groupIndex; i++) {
+                                  startIndex += issuesByFile[i].issues.length;
+                                }
+
+                                return (
+                                  <AnimatedListItem
+                                    key={fileGroup.filePath}
+                                    index={filteredCommands.length + groupIndex}
+                                  >
+                                    <FileHeader
+                                      fileName={fileGroup.fileName}
+                                      directory={fileGroup.directory}
+                                      count={fileGroup.issues.length}
+                                    />
+                                    {fileGroup.issues.map((issue, issueIndex) => (
+                                      <SelectionIndicator
+                                        key={issue.id}
+                                        isSelected={startIndex + issueIndex === selectedIndex}
+                                        variant="issue"
+                                        resultIndex={startIndex + issueIndex}
+                                      >
+                                        <ResultItem
+                                          issue={issue}
+                                          isSelected={startIndex + issueIndex === selectedIndex}
+                                          onClick={() => handleSelectIssue(issue)}
+                                        />
+                                      </SelectionIndicator>
+                                    ))}
+                                  </AnimatedListItem>
+                                );
+                              })}
+                            </>
+                          )}
+
+                          {/* Rules section - only when searching */}
+                          {isSearching && filteredRules.length > 0 && (
+                            <>
+                              <SectionHeader count={filteredRules.length}>
+                                Rules
+                              </SectionHeader>
+                              {filteredRules.map((rule, index) => (
+                                <AnimatedListItem
+                                  key={rule.id}
+                                  index={filteredCommands.length + filteredIssues.length + index}
+                                >
+                                  <RuleItem
+                                    rule={rule}
+                                    issueCount={issueCountByRule.get(rule.id) ?? 0}
+                                    isSelected={
+                                      filteredCommands.length +
+                                        filteredIssues.length +
+                                        index ===
+                                      selectedIndex
+                                    }
+                                    onSeverityChange={handleRuleSeverityChange}
+                                    onClick={() => handleSelectRule(rule)}
+                                  />
+                                </AnimatedListItem>
+                              ))}
+                            </>
+                          )}
+                        </motion.div>
+                      </ScrollSelectedContext.Provider>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              {/* Footer with keyboard hints */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.1, delay: 0.05 }}
+                style={{
+                  padding: "8px 16px",
+                  borderTop: "1px solid var(--uilint-border)",
+                  fontSize: 11,
+                  color: "var(--uilint-text-disabled)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 16,
+                  background: "var(--uilint-surface-elevated)",
+                }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <Kbd animate={false}>↑</Kbd>
+                  <Kbd animate={false}>↓</Kbd>
+                  <span style={{ marginLeft: 2 }}>navigate</span>
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <Kbd animate={false}>←</Kbd>
+                  <Kbd animate={false}>→</Kbd>
+                  <span style={{ marginLeft: 2 }}>sidebar</span>
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <Kbd animate={false}>↵</Kbd>
+                  <span style={{ marginLeft: 2 }}>select</span>
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <Kbd animate={false}>esc</Kbd>
+                  <span style={{ marginLeft: 2 }}>close</span>
+                </span>
+                <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--uilint-text-muted)" }}>
+                  ⌘K to toggle
+                </span>
+              </motion.div>
+            </GlassPanel>
           </motion.div>
         </motion.div>
       )}
