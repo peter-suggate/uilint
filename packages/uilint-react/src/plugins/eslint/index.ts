@@ -586,22 +586,25 @@ function handleWebSocketMessage(
 /**
  * Create category providers for the ESLint plugin.
  *
- * Provides two categories:
- * - Issues: Current lint issues grouped by rule
- * - Rules: Available ESLint rules with severity controls
+ * Uses a dynamic provider that generates a category for each rule that has issues.
+ * Each rule category shows its individual issues when selected.
  */
 function createESLintCategoryProviders(): CategoryProvider[] {
   return [
-    // Issues category - shows current issues grouped by rule
+    // Dynamic provider that generates a category for each rule with issues
     {
-      id: "eslint:issues",
-      label: "Issues",
+      id: "eslint:dynamic-rules",
+      label: "ESLint", // This won't be shown directly
       priority: 1,
-      getItems: (services: PluginServices): CategoryItem[] => {
+      isDynamic: true,
+      parentId: "eslint",
+
+      // Generate sub-categories for each rule that has issues
+      getSubCategories: (services: PluginServices): CategoryProvider[] => {
         const state = services.getState<ESLintPluginSlice>();
         if (!state?.issues) return [];
 
-        // Flatten all issues and group by rule
+        // Group issues by rule
         const issuesByRule = new Map<string, Issue[]>();
         for (const issues of state.issues.values()) {
           for (const issue of issues) {
@@ -610,101 +613,64 @@ function createESLintCategoryProviders(): CategoryProvider[] {
           }
         }
 
-        // Convert to category items - one per rule with issue count
-        const items: CategoryItem[] = [];
-        for (const [ruleId, issues] of issuesByRule) {
-          const errorCount = issues.filter((i) => i.severity === "error").length;
-          const warningCount = issues.filter((i) => i.severity === "warning").length;
+        // Create a category provider for each rule with issues
+        const ruleProviders: CategoryProvider[] = [];
+        for (const [ruleId, ruleIssues] of issuesByRule) {
+          const errorCount = ruleIssues.filter((i) => i.severity === "error").length;
+          const totalCount = ruleIssues.length;
 
-          items.push({
-            id: `eslint:issue:${ruleId}`,
-            title: ruleId,
-            subtitle: `${errorCount} errors, ${warningCount} warnings`,
+          // Extract short rule name (e.g., "no-unused-vars" from "@typescript-eslint/no-unused-vars")
+          const shortName = ruleId.includes("/") ? ruleId.split("/").pop()! : ruleId;
+
+          ruleProviders.push({
+            id: `eslint:rule:${ruleId}`,
+            label: shortName,
             priority: errorCount > 0 ? 0 : 1,
-            metadata: { ruleId, errorCount, warningCount, total: issues.length },
-            execute: (svc) => {
-              // Open inspector with rule details
-              svc.openInspector("eslint-rule", { ruleId });
-              svc.closeCommandPalette();
+            parentId: "eslint",
+
+            // Return the issues for this rule
+            getItems: (): CategoryItem[] => {
+              return ruleIssues.map((issue): CategoryItem => ({
+                id: `eslint:issue:${issue.id}`,
+                title: issue.message,
+                subtitle: `${issue.filePath}:${issue.line}`,
+                priority: issue.severity === "error" ? 0 : 1,
+                metadata: {
+                  issueId: issue.id,
+                  ruleId: issue.ruleId,
+                  severity: issue.severity,
+                  filePath: issue.filePath,
+                  line: issue.line,
+                },
+                execute: (svc) => {
+                  svc.openInspector("issue", { issue });
+                  svc.closeCommandPalette();
+                },
+              }));
             },
+
+            getItemCount: () => totalCount,
+
+            searchKeys: ["title", "subtitle"],
           });
         }
 
         // Sort by severity (errors first) then by count
-        items.sort((a, b) => {
-          const aErrors = (a.metadata?.errorCount as number) ?? 0;
-          const bErrors = (b.metadata?.errorCount as number) ?? 0;
-          if (aErrors !== bErrors) return bErrors - aErrors;
-
-          const aTotal = (a.metadata?.total as number) ?? 0;
-          const bTotal = (b.metadata?.total as number) ?? 0;
-          return bTotal - aTotal;
+        ruleProviders.sort((a, b) => {
+          // Priority 0 = errors, 1 = warnings
+          if (a.priority !== b.priority) return a.priority - b.priority;
+          // Then by count (need to call getItemCount)
+          const aCount = a.getItemCount?.(services) ?? 0;
+          const bCount = b.getItemCount?.(services) ?? 0;
+          return (bCount as number) - (aCount as number);
         });
 
-        return items;
+        return ruleProviders;
       },
-      getItemCount: (services: PluginServices): number => {
-        const state = services.getState<ESLintPluginSlice>();
-        if (!state?.issues) return 0;
 
-        // Count unique rules with issues
-        const rules = new Set<string>();
-        for (const issues of state.issues.values()) {
-          for (const issue of issues) {
-            rules.add(issue.ruleId);
-          }
-        }
-        return rules.size;
-      },
-      searchKeys: ["title", "subtitle"],
-    },
-
-    // Rules category - shows available rules
-    {
-      id: "eslint:rules",
-      label: "Rules",
-      priority: 2,
-      getItems: (services: PluginServices): CategoryItem[] => {
-        const state = services.getState<ESLintPluginSlice>();
-        if (!state?.availableRules) return [];
-
-        const configs = state.ruleConfigs ?? new Map<string, RuleConfig>();
-
-        return state.availableRules.map((rule: AvailableRule): CategoryItem => {
-          const config = configs.get(rule.id);
-          const severity = config?.severity ?? rule.currentSeverity ?? rule.defaultSeverity;
-
-          return {
-            id: `eslint:rule:${rule.id}`,
-            title: rule.name || rule.id,
-            subtitle: rule.description || `${severity} severity`,
-            priority: severity === "error" ? 0 : severity === "warn" ? 1 : 2,
-            metadata: { ruleId: rule.id, severity, category: rule.category },
-            execute: (svc) => {
-              // Open inspector with rule details
-              svc.openInspector("eslint-rule", { ruleId: rule.id });
-              svc.closeCommandPalette();
-            },
-          };
-        });
-      },
-      getItemCount: (services: PluginServices): number => {
-        const state = services.getState<ESLintPluginSlice>();
-        return state?.availableRules?.length ?? 0;
-      },
-      searchKeys: ["title", "subtitle"],
-      filterPredicate: (item, query) => {
-        const lowerQuery = query.toLowerCase();
-        const ruleId = (item.metadata?.ruleId as string) ?? "";
-        const category = (item.metadata?.category as string) ?? "";
-
-        return (
-          item.title.toLowerCase().includes(lowerQuery) ||
-          (item.subtitle?.toLowerCase().includes(lowerQuery) ?? false) ||
-          ruleId.toLowerCase().includes(lowerQuery) ||
-          category.toLowerCase().includes(lowerQuery)
-        );
-      },
+      // This provider itself doesn't have items - it's just a container
+      getItems: () => [],
+      getItemCount: () => 0,
     },
   ];
 }

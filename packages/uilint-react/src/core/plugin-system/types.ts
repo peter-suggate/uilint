@@ -115,6 +115,18 @@ export interface CategoryProvider {
   /** Parent plugin ID for nesting in sidebar */
   parentId?: string;
   /**
+   * Whether this is a dynamic category that generates sub-categories.
+   * If true, getSubCategories will be called to get child categories.
+   */
+  isDynamic?: boolean;
+  /**
+   * Get dynamic sub-categories for this category.
+   * Called when isDynamic is true to generate child categories based on current state.
+   * Each sub-category will appear in the sidebar under this category's parent.
+   * @param services Plugin services for accessing state
+   */
+  getSubCategories?: (services: PluginServices) => CategoryProvider[];
+  /**
    * Get items for this category.
    * Can be sync or async for lazy loading.
    * @param services Plugin services for accessing state
@@ -167,6 +179,12 @@ export interface Command {
    * @returns true if the command should be shown
    */
   isAvailable?: (state: unknown) => boolean;
+  /**
+   * Hide this command from the "All" category in command palette.
+   * When true, command only appears when its category is selected or when searching.
+   * Use this for plugin-specific commands that should be accessed via sidebar.
+   */
+  hideFromAllCategory?: boolean;
   /**
    * Execute the command
    * @param services Plugin services for accessing core functionality
