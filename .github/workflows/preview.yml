@@ -36,6 +36,9 @@ jobs:
           # Note: --eslint is required to install the ESLint rules that generate lint issues
           npx uilint@latest init --react --eslint
 
+          # Re-install to ensure uilint-react is installed after init modified package.json
+          pnpm install
+
           # Configure static mode for production deployment
           # Update the providers file to use static mode with manifest URL
           if [ -f "app/providers.tsx" ]; then
