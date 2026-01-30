@@ -55,6 +55,7 @@ export const meta = defineRuleMeta({
       setupHint: "Run: uilint genstyleguide",
     },
   ],
+  npmDependencies: ["xxhash-wasm"],
   defaultOptions: [{ model: "qwen3-coder:30b", styleguidePath: ".uilint/styleguide.md" }],
   optionSchema: {
     fields: [

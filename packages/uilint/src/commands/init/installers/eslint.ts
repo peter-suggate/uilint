@@ -567,18 +567,31 @@ export const eslintInstaller: Installer = {
         path: rulesDir,
       });
 
+      // Collect npm dependencies from all selected rules
+      const ruleNpmDeps = new Set<string>();
+      for (const cr of configuredRules) {
+        if (cr.rule.npmDependencies) {
+          for (const dep of cr.rule.npmDependencies) {
+            ruleNpmDeps.add(dep);
+          }
+        }
+      }
+
       // Install dependencies using the package manager for this specific target
+      const packages = [
+        toInstallSpecifier("uilint-eslint", {
+          preferWorkspaceProtocol: project.packageManager === "pnpm",
+          workspaceRoot: project.workspaceRoot,
+          targetProjectPath: target.path,
+        }),
+        "typescript-eslint",
+        ...ruleNpmDeps,
+      ];
+
       dependencies.push({
         packagePath: target.path,
         packageManager: detectPackageManager(target.path),
-        packages: [
-          toInstallSpecifier("uilint-eslint", {
-            preferWorkspaceProtocol: project.packageManager === "pnpm",
-            workspaceRoot: project.workspaceRoot,
-            targetProjectPath: target.path,
-          }),
-          "typescript-eslint",
-        ],
+        packages,
       });
 
       // Inject ESLint rules

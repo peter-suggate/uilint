@@ -102,6 +102,14 @@ export interface RuleMeta {
   /** External requirements the rule needs */
   requirements?: RuleRequirement[];
 
+  /**
+   * NPM packages that must be installed for this rule to work.
+   * These will be added to the target project's dependencies during installation.
+   *
+   * Example: ["xxhash-wasm"] for rules using the xxhash library
+   */
+  npmDependencies?: string[];
+
   /** Instructions to show after installation */
   postInstallInstructions?: string;
 

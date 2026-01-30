@@ -17,6 +17,7 @@ export const visionCommands: Command[] = [
     category: "Vision",
     subtitle: "Capture and analyze the entire visible page",
     icon: "camera",
+    hideFromAllCategory: true,
     execute: async (services: PluginServices) => {
       const state = services.getState<{
         captureMode: "full" | "region";
@@ -43,6 +44,7 @@ export const visionCommands: Command[] = [
     category: "Vision",
     subtitle: "Select a region of the page to capture and analyze",
     icon: "crop",
+    hideFromAllCategory: true,
     execute: (services: PluginServices) => {
       const state = services.getState<{
         setCaptureMode: (mode: "full" | "region") => void;
@@ -68,6 +70,7 @@ export const visionCommands: Command[] = [
     category: "Vision",
     subtitle: "Clear all vision analysis results and screenshot history",
     icon: "trash",
+    hideFromAllCategory: true,
     execute: (services: PluginServices) => {
       const state = services.getState<{
         clearVisionResults: () => void;
@@ -84,6 +87,7 @@ export const visionCommands: Command[] = [
     category: "Vision",
     subtitle: "Show or hide the vision analysis results panel",
     icon: "panel",
+    hideFromAllCategory: true,
     execute: (services: PluginServices) => {
       const state = services.getState<{
         showResultsPanel: boolean;
@@ -108,6 +112,7 @@ export const visionCommands: Command[] = [
     category: "Vision",
     subtitle: "View captured screenshots and their analysis results",
     icon: "image",
+    hideFromAllCategory: true,
     isAvailable: (state) => {
       const s = state as { screenshotHistory: Map<string, unknown> };
       return s.screenshotHistory && s.screenshotHistory.size > 0;
@@ -130,6 +135,7 @@ export const visionCommands: Command[] = [
     keywords: ["vision", "auto", "analyze", "automatic", "route", "change"],
     category: "Vision",
     subtitle: "Automatically analyze pages on route change",
+    hideFromAllCategory: true,
     isAvailable: (state) => {
       const s = state as {
         autoScanSettings: { vision: { onRouteChange: boolean } };
@@ -156,6 +162,7 @@ export const visionCommands: Command[] = [
     keywords: ["vision", "auto", "analyze", "automatic", "route", "change", "disable"],
     category: "Vision",
     subtitle: "Stop automatic analysis on route change",
+    hideFromAllCategory: true,
     isAvailable: (state) => {
       const s = state as {
         autoScanSettings: { vision: { onRouteChange: boolean } };

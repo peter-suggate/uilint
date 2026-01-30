@@ -557,6 +557,58 @@ describe("createPlan - ESLint", () => {
     );
     expect(coverageAction).toBeUndefined();
   });
+
+  it("includes npmDependencies from selected rules in dependencies", () => {
+    const pkg = createMockPackage();
+    const state = createMockProjectState({ packages: [pkg] });
+
+    // Use the semantic rule which declares npmDependencies: ["xxhash-wasm"]
+    const semanticRule = ruleRegistry.find((r) => r.id === "semantic");
+    expect(semanticRule).toBeDefined();
+    expect(semanticRule?.npmDependencies).toContain("xxhash-wasm");
+
+    const choices = createMockChoices({
+      items: ["eslint"],
+      eslint: {
+        packagePaths: [pkg.path],
+        selectedRules: [semanticRule!],
+      },
+    });
+
+    const plan = createPlan(state, choices);
+
+    // Should include npmDependencies from the rule
+    const deps = plan.dependencies.find((d) => d.packagePath === pkg.path);
+    expect(deps).toBeDefined();
+    expect(deps?.packages).toContain("xxhash-wasm");
+  });
+
+  it("does not add extra dependencies when rules have no npmDependencies", () => {
+    const pkg = createMockPackage();
+    const state = createMockProjectState({ packages: [pkg] });
+
+    // Use a real rule without npmDependencies
+    const choices = createMockChoices({
+      items: ["eslint"],
+      eslint: {
+        packagePaths: [pkg.path],
+        selectedRules: ruleRegistry.filter(
+          (r) => r.id === "consistent-dark-mode"
+        ),
+      },
+    });
+
+    const plan = createPlan(state, choices);
+
+    const deps = plan.dependencies.find((d) => d.packagePath === pkg.path);
+    expect(deps).toBeDefined();
+
+    // Should only have the base dependencies, not any npm dependencies from rules
+    // Base dependencies are: uilint-eslint (with version) and typescript-eslint
+    expect(deps?.packages).toHaveLength(2);
+    expect(deps?.packages).toContainEqual(expect.stringContaining("uilint-eslint"));
+    expect(deps?.packages).toContain("typescript-eslint");
+  });
 });
 
 // ============================================================================

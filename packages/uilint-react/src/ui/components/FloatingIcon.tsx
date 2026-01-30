@@ -2,11 +2,10 @@
  * FloatingIcon - Draggable glassmorphic toolbar with separated pills
  *
  * Layout:
- * [ ≡ grip | 🔍 Search (⌘K) ]   [ 3 issues ]   [ 📷 ▾ ]
+ * [ ≡ grip | 🔍 Search (⌘K) [3] ]   [ 📷 ▾ ]
  *
- * Three distinct elements:
- * - Search pill (primary): grip handle + search button
- * - Issues pill (detached): rounded issue count badge
+ * Elements:
+ * - Search pill (primary): grip handle + search button with issue count badge
  * - Vision pill (detached): dropdown with capture options + shortcuts
  */
 import React, { useRef, useCallback, useEffect, useReducer, useState } from "react";
@@ -280,7 +279,6 @@ function ActionGroupDropdown({ group, state, onActionClick }: ActionGroupDropdow
 export function FloatingIcon() {
   const openCommandPalette = useComposedStore((s) => s.openCommandPalette);
   const isCommandPaletteOpen = useComposedStore((s) => s.commandPalette.open);
-  const isConnected = useComposedStore((s) => s.wsConnected);
   const position = useComposedStore((s) => s.floatingIconPosition);
   const setPosition = useComposedStore((s) => s.setFloatingIconPosition);
 
@@ -443,7 +441,6 @@ export function FloatingIcon() {
   const pillHeight = isMobile ? 44 : PILL_HEIGHT;
 
   const hasIssues = issueCount > 0;
-  const hasGroups = visibleGroups.length > 0;
 
   return createPortal(
     <div
@@ -461,7 +458,7 @@ export function FloatingIcon() {
         pointerEvents: "auto",
       }}
     >
-      {/* Top row: search pill + issues pill + vision dropdown pill */}
+      {/* Top row: search pill (with issue badge) + vision dropdown pill */}
       <div
         style={{
           height: pillHeight,
@@ -557,67 +554,33 @@ export function FloatingIcon() {
             )}
           </button>
 
-          {/* Connection indicator */}
-          {!isConnected && (
+          {/* Issue count badge */}
+          {hasIssues && (
             <span
               style={{
                 position: "absolute",
-                top: -3,
-                right: -3,
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: "var(--uilint-warning)",
-                border: "2px solid white",
-                boxShadow: "var(--uilint-card-shadow, 0 1px 3px rgba(0,0,0,0.2))",
+                top: -4,
+                right: -4,
+                minWidth: 18,
+                height: 18,
+                padding: "0 5px",
+                borderRadius: 9,
+                background: "var(--uilint-glass-heavy, rgba(255, 255, 255, 0.9))",
+                border: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
+                boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 10,
+                fontWeight: 600,
+                color: "var(--uilint-error)",
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
               }}
-            />
+            >
+              {issueCount > 99 ? "99+" : issueCount}
+            </span>
           )}
         </div>
-
-        {/* ========== ISSUES PILL (detached) ========== */}
-        {hasIssues && (
-          <button
-            onClick={handleClick}
-            style={getPillGlassStyles(isDragging, {
-              height: pillHeight,
-              padding: isMobile ? "0 12px" : "0 14px",
-              border: "none",
-              borderRadius: pillHeight / 2,
-              borderLeft: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
-              borderRight: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-              fontSize: 12,
-              fontWeight: 600,
-              color: "var(--uilint-error)",
-              transition: "box-shadow 0.2s, background 0.2s",
-            })}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = "var(--uilint-glass-heavy, rgba(255, 255, 255, 0.85))";
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = "var(--uilint-glass-medium, rgba(255, 255, 255, 0.7))";
-            }}
-          >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: "var(--uilint-error)",
-                flexShrink: 0,
-              }}
-            />
-            <span>
-              {issueCount > 99 ? "99+" : issueCount}
-              {!isMobile && ` ${issueCount === 1 ? "issue" : "issues"}`}
-            </span>
-          </button>
-        )}
 
         {/* ========== VISION DROPDOWN PILLS (detached) ========== */}
         {visibleGroups.map((group) => (

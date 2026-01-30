@@ -339,15 +339,20 @@ export function CommandPalette() {
 
   // Filter commands by query
   const filteredCommands = useMemo(() => {
-    if (!query.trim()) return availableCommands;
-    const lowerQuery = query.toLowerCase();
-    return availableCommands.filter(
-      (cmd) =>
-        cmd.title.toLowerCase().includes(lowerQuery) ||
-        cmd.keywords.some((kw) => kw.toLowerCase().includes(lowerQuery)) ||
-        cmd.category.toLowerCase().includes(lowerQuery) ||
-        (cmd.subtitle && cmd.subtitle.toLowerCase().includes(lowerQuery))
-    );
+    // When searching, include all commands (even hidden ones can be found via search)
+    if (query.trim()) {
+      const lowerQuery = query.toLowerCase();
+      return availableCommands.filter(
+        (cmd) =>
+          cmd.title.toLowerCase().includes(lowerQuery) ||
+          cmd.keywords.some((kw) => kw.toLowerCase().includes(lowerQuery)) ||
+          cmd.category.toLowerCase().includes(lowerQuery) ||
+          (cmd.subtitle && cmd.subtitle.toLowerCase().includes(lowerQuery))
+      );
+    }
+    // When not searching, filter out commands hidden from "All" category
+    // These commands are accessible via their category in the sidebar
+    return availableCommands.filter((cmd) => !cmd.hideFromAllCategory);
   }, [availableCommands, query]);
 
   // PERFORMANCE: Only show issues when searching or when category is issues-related
@@ -842,47 +847,6 @@ export function CommandPalette() {
                   </AnimatePresence>
                 </div>
               </div>
-
-              {/* Footer with keyboard hints - hidden on mobile */}
-              {!isMobile && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.1, delay: 0.05 }}
-                  style={{
-                    padding: "8px 16px",
-                    borderTop: "1px solid var(--uilint-border)",
-                    fontSize: 11,
-                    color: "var(--uilint-text-disabled)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 16,
-                    background: "var(--uilint-surface-elevated)",
-                  }}
-                >
-                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <Kbd animate={false}>↑</Kbd>
-                    <Kbd animate={false}>↓</Kbd>
-                    <span style={{ marginLeft: 2 }}>navigate</span>
-                  </span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <Kbd animate={false}>←</Kbd>
-                    <Kbd animate={false}>→</Kbd>
-                    <span style={{ marginLeft: 2 }}>sidebar</span>
-                  </span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <Kbd animate={false}>↵</Kbd>
-                    <span style={{ marginLeft: 2 }}>select</span>
-                  </span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <Kbd animate={false}>esc</Kbd>
-                    <span style={{ marginLeft: 2 }}>close</span>
-                  </span>
-                  <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--uilint-text-muted)" }}>
-                    ⌘K to toggle
-                  </span>
-                </motion.div>
-              )}
             </GlassPanel>
           </motion.div>
         </motion.div>

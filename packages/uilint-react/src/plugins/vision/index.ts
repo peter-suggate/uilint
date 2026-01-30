@@ -7,7 +7,7 @@
  */
 
 import React from "react";
-import type { Plugin, PluginServices, IssueContribution, ToolbarAction, ToolbarActionGroup } from "../../core/plugin-system/types";
+import type { Plugin, PluginServices, IssueContribution, ToolbarAction, ToolbarActionGroup, CategoryProvider, CategoryItem } from "../../core/plugin-system/types";
 import { visionCommands } from "./commands";
 import type { VisionSlice } from "./slice";
 import { createVisionSlice, createTriggerVisionAnalysis } from "./slice";
@@ -124,6 +124,56 @@ const visionToolbarActionGroup: ToolbarActionGroup = {
 };
 
 /**
+ * Create category providers for the vision plugin.
+ * Provides a "Vision" category in the sidebar that shows vision commands.
+ */
+function createVisionCategoryProviders(): CategoryProvider[] {
+  return [
+    {
+      id: "vision:commands",
+      label: "Vision",
+      priority: 2, // Lower priority than ESLint issues
+      parentId: "vision",
+
+      getItems: (services: PluginServices): CategoryItem[] => {
+        const state = services.getState<{
+          plugins?: { vision?: { visionAvailable?: boolean } };
+        }>();
+
+        // Filter commands based on availability
+        return visionCommands
+          .filter((cmd) => !cmd.isAvailable || cmd.isAvailable(state))
+          .map((cmd): CategoryItem => ({
+            id: cmd.id,
+            title: cmd.title,
+            subtitle: cmd.subtitle,
+            priority: 1,
+            metadata: {
+              category: cmd.category,
+              keywords: cmd.keywords,
+            },
+            execute: (svc) => {
+              cmd.execute(svc);
+            },
+          }));
+      },
+
+      getItemCount: (services: PluginServices): number => {
+        const state = services.getState<{
+          plugins?: { vision?: { visionAvailable?: boolean } };
+        }>();
+
+        return visionCommands.filter(
+          (cmd) => !cmd.isAvailable || cmd.isAvailable(state)
+        ).length;
+      },
+
+      searchKeys: ["title", "subtitle"],
+    },
+  ];
+}
+
+/**
  * Vision plugin definition
  */
 export const visionPlugin: Plugin<VisionSlice> = {
@@ -166,6 +216,11 @@ export const visionPlugin: Plugin<VisionSlice> = {
    * Commands contributed by this plugin
    */
   commands: visionCommands,
+
+  /**
+   * Category providers for command palette sidebar
+   */
+  categoryProviders: createVisionCategoryProviders(),
 
   /**
    * Toolbar action groups contributed by this plugin (shown as dropdown in FloatingIcon)
