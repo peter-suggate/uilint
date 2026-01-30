@@ -20,9 +20,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
-import { categoryRegistry } from "../../../core/plugin-system/category-registry";
 import { useIssues, useCategoryRegistry, useIsMobile } from "../../hooks";
-import { BottomSheet } from "../bottom-sheet";
 import { SearchInput } from "./SearchInput";
 import { MobileCategoryTabs } from "./MobileCategoryTabs";
 import { ResultItem } from "./ResultItem";
@@ -32,9 +30,8 @@ import { IssuesSummaryCard, TopIssuesPreview } from "./IssuesSummaryCard";
 import { AnimatedListItem, AnimatedSection, SelectionIndicator } from "./AnimatedListItem";
 import { CategorySidebar } from "./CategorySidebar";
 import { PlayIcon, StopIcon, RefreshIcon } from "../../icons";
-import { GlassPanel, Kbd, CategoryBadge } from "../primitives";
+import { GlassPanel, Kbd } from "../primitives";
 import { useScrollSelectedIntoView, ScrollSelectedContext } from "./useScrollSelectedIntoView";
-import { cn } from "../../../lib/utils";
 import type { Issue } from "../../types";
 import type { Command, RuleDefinition, CategoryItem } from "../../../core/plugin-system/types";
 
@@ -68,100 +65,105 @@ function CommandResultItem({
   onClick: () => void;
   index: number;
 }) {
-  // Icon background colors based on command type
+  const { isMobile } = useIsMobile();
+
+  // Only show icons for action commands (start, stop, clear)
   const getIconStyle = () => {
     if (command.id.includes("start")) {
-      return { bg: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)", icon: <PlayIcon size={14} /> };
+      return { bg: "#22c55e", icon: <PlayIcon size={14} /> };
     }
     if (command.id.includes("stop")) {
-      return { bg: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)", icon: <StopIcon size={14} /> };
+      return { bg: "#ef4444", icon: <StopIcon size={14} /> };
     }
     if (command.id.includes("clear")) {
-      return { bg: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)", icon: <RefreshIcon size={14} /> };
+      return { bg: "#f59e0b", icon: <RefreshIcon size={14} /> };
     }
-    return { bg: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", icon: <span style={{ fontSize: 12 }}>⚡</span> };
+    return null; // No icon for other commands
   };
 
   const iconStyle = getIconStyle();
+
+  const content = (
+    <div
+      onClick={onClick}
+      style={{
+        padding: isMobile ? "14px 16px" : "10px 16px",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+      }}
+    >
+      {/* Icon - only for action commands */}
+      {iconStyle && (
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 6,
+            background: iconStyle.bg,
+            color: "white",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          {iconStyle.icon}
+        </div>
+      )}
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontWeight: 500,
+            fontSize: isMobile ? 16 : 13,
+            color: "var(--uilint-text-primary)",
+            marginBottom: command.subtitle ? 2 : 0,
+          }}
+        >
+          {command.title}
+        </div>
+        {command.subtitle && (
+          <div
+            style={{
+              fontSize: isMobile ? 13 : 11,
+              color: "var(--uilint-text-muted)",
+              lineHeight: 1.3,
+            }}
+          >
+            {command.subtitle}
+          </div>
+        )}
+      </div>
+
+      {/* Keyboard hint when selected - desktop only */}
+      {!isMobile && isSelected && (
+        <Kbd>↵</Kbd>
+      )}
+    </div>
+  );
+
+  // On mobile, skip motion wrapper
+  if (isMobile) {
+    return (
+      <AnimatedListItem index={index}>
+        <SelectionIndicator isSelected={isSelected} variant="command" resultIndex={index}>
+          {content}
+        </SelectionIndicator>
+      </AnimatedListItem>
+    );
+  }
 
   return (
     <AnimatedListItem index={index}>
       <SelectionIndicator isSelected={isSelected} variant="command" resultIndex={index}>
         <motion.div
-          onClick={onClick}
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.99 }}
-          style={{
-            padding: "10px 16px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-          }}
         >
-          {/* Icon */}
-          <div
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              background: iconStyle.bg,
-              color: "white",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              boxShadow: isSelected
-                ? "0 4px 12px rgba(59, 130, 246, 0.3)"
-                : "0 2px 4px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            {iconStyle.icon}
-          </div>
-
-          {/* Content */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontWeight: 500,
-                fontSize: 13,
-                color: "var(--uilint-text-primary)",
-                marginBottom: 1,
-              }}
-            >
-              {command.title}
-            </div>
-            {command.subtitle && (
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--uilint-text-muted)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {command.subtitle}
-              </div>
-            )}
-          </div>
-
-          {/* Category badge */}
-          <CategoryBadge isSelected={isSelected} disableAnimation>
-            {command.category}
-          </CategoryBadge>
-
-          {/* Keyboard hint when selected */}
-          {isSelected && (
-            <motion.div
-              initial={{ opacity: 0, x: 4 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.1 }}
-            >
-              <Kbd>↵</Kbd>
-            </motion.div>
-          )}
+          {content}
         </motion.div>
       </SelectionIndicator>
     </AnimatedListItem>
@@ -182,81 +184,73 @@ function CategoryItemResult({
   onClick: () => void;
   index: number;
 }) {
+  const { isMobile } = useIsMobile();
+
+  const content = (
+    <div
+      onClick={onClick}
+      style={{
+        padding: isMobile ? "14px 16px" : "10px 16px",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+      }}
+    >
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontWeight: 500,
+            fontSize: isMobile ? 16 : 13,
+            color: "var(--uilint-text-primary)",
+            marginBottom: item.subtitle ? 2 : 0,
+          }}
+        >
+          {item.title}
+        </div>
+        {item.subtitle && (
+          <div
+            style={{
+              fontSize: isMobile ? 13 : 11,
+              color: "var(--uilint-text-muted)",
+              lineHeight: 1.3,
+            }}
+          >
+            {item.subtitle}
+          </div>
+        )}
+      </div>
+
+      {/* Keyboard hints - desktop only */}
+      {!isMobile && item.shortcut && (
+        <Kbd animate={false}>{item.shortcut}</Kbd>
+      )}
+      {!isMobile && isSelected && !item.shortcut && (
+        <Kbd>↵</Kbd>
+      )}
+    </div>
+  );
+
+  // On mobile, skip motion wrapper
+  if (isMobile) {
+    return (
+      <AnimatedListItem index={index}>
+        <SelectionIndicator isSelected={isSelected} variant="issue" resultIndex={index}>
+          {content}
+        </SelectionIndicator>
+      </AnimatedListItem>
+    );
+  }
+
   return (
     <AnimatedListItem index={index}>
       <SelectionIndicator isSelected={isSelected} variant="issue" resultIndex={index}>
         <motion.div
-          onClick={onClick}
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.99 }}
-          style={{
-            padding: "10px 16px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-          }}
         >
-          {/* Icon if present */}
-          {item.icon && (
-            <div
-              style={{
-                width: 24,
-                height: 24,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                color: "var(--uilint-text-muted)",
-              }}
-            >
-              {item.icon}
-            </div>
-          )}
-
-          {/* Content */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontWeight: 500,
-                fontSize: 13,
-                color: "var(--uilint-text-primary)",
-                marginBottom: 1,
-              }}
-            >
-              {item.title}
-            </div>
-            {item.subtitle && (
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--uilint-text-muted)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {item.subtitle}
-              </div>
-            )}
-          </div>
-
-          {/* Shortcut hint */}
-          {item.shortcut && (
-            <Kbd animate={false}>{item.shortcut}</Kbd>
-          )}
-
-          {/* Enter hint when selected */}
-          {isSelected && !item.shortcut && (
-            <motion.div
-              initial={{ opacity: 0, x: 4 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.1 }}
-            >
-              <Kbd>↵</Kbd>
-            </motion.div>
-          )}
+          {content}
         </motion.div>
       </SelectionIndicator>
     </AnimatedListItem>
@@ -615,13 +609,13 @@ export function CommandPalette() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0, 0, 0, 0.35)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
+            background: isMobile ? "var(--uilint-surface)" : "rgba(0, 0, 0, 0.35)",
+            backdropFilter: isMobile ? "none" : "blur(8px)",
+            WebkitBackdropFilter: isMobile ? "none" : "blur(8px)",
             display: "flex",
-            alignItems: "flex-start",
+            alignItems: isMobile ? "stretch" : "flex-start",
             justifyContent: "center",
-            paddingTop: isMobile ? 20 : 80,
+            paddingTop: isMobile ? 0 : 80,
             zIndex: 99998,
             pointerEvents: "auto",
           }}
@@ -631,31 +625,78 @@ export function CommandPalette() {
           onKeyDown={handleKeyDown}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: -20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.98, y: -10 }}
-            transition={panelTransition}
+            initial={isMobile ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -20 }}
+            animate={isMobile ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+            exit={isMobile ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: -10 }}
+            transition={isMobile ? { duration: 0.15 } : panelTransition}
+            style={isMobile ? { display: "flex", flexDirection: "column", width: "100%", height: "100%" } : undefined}
           >
             <GlassPanel
-              blur="heavy"
-              shadow="lg"
+              blur={isMobile ? "light" : "heavy"}
+              shadow={isMobile ? undefined : "lg"}
               animate={false}
               style={{
                 width: "100%",
                 maxWidth: isMobile ? "100%" : 680,
+                height: isMobile ? "100%" : "auto",
                 borderRadius: isMobile ? 0 : 16,
                 overflow: "hidden",
+                display: isMobile ? "flex" : "block",
+                flexDirection: isMobile ? "column" : undefined,
+                paddingTop: isMobile ? "env(safe-area-inset-top, 0px)" : undefined,
+                paddingBottom: isMobile ? "env(safe-area-inset-bottom, 0px)" : undefined,
               }}
             >
+              {/* Mobile Header with Close Button */}
+              {isMobile && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "12px 16px 8px",
+                    borderBottom: "1px solid var(--uilint-border)",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: "var(--uilint-text-primary)",
+                    }}
+                  >
+                    Search
+                  </span>
+                  <button
+                    onClick={closeCommandPalette}
+                    style={{
+                      padding: "8px 16px",
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: "var(--uilint-accent)",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      borderRadius: 8,
+                    }}
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
+
               {/* Hero Search Input */}
-              <SearchInput value={query} onChange={setQuery} size="large" />
+              <SearchInput value={query} onChange={setQuery} size={isMobile ? "default" : "large"} />
 
               {/* Content Area: Sidebar + Results */}
               <div
                 style={{
                   display: "flex",
                   flexDirection: isSmallScreen ? "column" : "row",
-                  maxHeight: 420,
+                  maxHeight: isMobile ? "none" : 420,
+                  flex: isMobile ? 1 : undefined,
+                  minHeight: 0,
+                  overflow: "hidden",
                 }}
               >
                 {/* Category Sidebar - hidden on small screens */}
@@ -683,16 +724,18 @@ export function CommandPalette() {
                     flex: 1,
                     overflowY: "auto",
                     overflowX: "hidden",
+                    minHeight: 0,
+                    WebkitOverflowScrolling: "touch",
                   }}
                 >
-                  <AnimatePresence mode="wait">
+                  <AnimatePresence mode={isMobile ? "sync" : "wait"}>
                     {allResults.length === 0 && filteredRules.length === 0 ? (
                       <motion.div
                         key="empty"
-                        initial={{ opacity: 0, y: 6 }}
+                        initial={isMobile ? false : { opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.1 }}
+                        exit={isMobile ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                        transition={{ duration: isMobile ? 0.05 : 0.1 }}
                         style={{
                           padding: "32px 24px",
                           textAlign: "center",
@@ -713,10 +756,10 @@ export function CommandPalette() {
                       <ScrollSelectedContext.Provider value={scrollCtx}>
                         <motion.div
                           key="results"
-                          initial={{ opacity: 0 }}
+                          initial={isMobile ? false : { opacity: 0 }}
                           animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.1 }}
+                          exit={isMobile ? undefined : { opacity: 0 }}
+                          transition={{ duration: isMobile ? 0 : 0.1 }}
                         >
                           {/* Category items when a specific category is selected */}
                           {selectedCategoryId && !isSearching && categoryItems.length > 0 && (

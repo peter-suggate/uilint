@@ -5,10 +5,12 @@
  * - Staggered delays based on index
  * - Crisp easing curves
  * - Subtle slide + fade effect
+ * - Simplified animations on mobile to prevent flickering
  */
 import React from "react";
 import { motion } from "motion/react";
 import { useScrollTarget } from "./useScrollSelectedIntoView";
+import { useIsMobile } from "../../hooks";
 
 interface AnimatedListItemProps {
   children: React.ReactNode;
@@ -22,7 +24,7 @@ interface AnimatedListItemProps {
 }
 
 // Crisp easing curve
-const crispEase = [0.32, 0.72, 0, 1];
+const crispEase = [0.32, 0.72, 0, 1] as const;
 
 export function AnimatedListItem({
   children,
@@ -31,6 +33,13 @@ export function AnimatedListItem({
   maxDelay = 0.12,
   staggerDelay = 0.02,
 }: AnimatedListItemProps) {
+  const { isMobile } = useIsMobile();
+
+  // On mobile, skip staggered animations to prevent flickering
+  if (isMobile) {
+    return <div>{children}</div>;
+  }
+
   // Calculate delay with cap for performance
   const delay = Math.min(index * staggerDelay, maxDelay);
 
@@ -61,6 +70,13 @@ export function AnimatedSection({
   children: React.ReactNode;
   delay?: number;
 }) {
+  const { isMobile } = useIsMobile();
+
+  // On mobile, skip animations to prevent flickering
+  if (isMobile) {
+    return <div>{children}</div>;
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, x: -8 }}
@@ -92,6 +108,7 @@ export function SelectionIndicator({
   variant?: "default" | "command" | "issue";
   resultIndex?: number;
 }) {
+  const { isMobile } = useIsMobile();
   // Always call the hook (Rules of Hooks) — uses -1 as no-op sentinel
   const scrollRef = useScrollTarget(resultIndex ?? -1);
   const bgStyles = {
@@ -110,6 +127,22 @@ export function SelectionIndicator({
   };
 
   const styles = bgStyles[variant];
+
+  // On mobile, use simple CSS-based selection without animations
+  if (isMobile) {
+    return (
+      <div
+        ref={resultIndex != null ? scrollRef : undefined}
+        style={{
+          borderLeft: isSelected ? "2px solid #3b82f6" : "2px solid transparent",
+          background: isSelected ? styles.selected : styles.unselected,
+          position: "relative",
+        }}
+      >
+        {children}
+      </div>
+    );
+  }
 
   return (
     <motion.div
