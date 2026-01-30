@@ -7,10 +7,7 @@
   "scripts": {
     "dev": "next dev --turbo",
     "build": "next build --turbo",
-    "build:manifest": "mkdir -p public/.uilint && uilint build-manifest -o public/.uilint/manifest.json --pretty",
-    "build:static": "pnpm build:manifest && next build --turbo",
     "start": "next start",
-    "preview:static": "pnpm build:static && next start",
     "lint": "next lint",
     "test": "vitest",
     "test:watch": "vitest --watch",
@@ -41,12 +38,10 @@
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.23",
     "jsdom": "^27.4.0",
-    "jsx-loc-plugin": "workspace:*",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.53.0",
-    "uilint": "workspace:*",
     "vitest": "^4.0.16"
   }
 }

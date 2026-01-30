@@ -29,11 +29,6 @@ jobs:
           cp -R apps/test-app-template .vercel-deploy
           cd .vercel-deploy
 
-          # Replace workspace references with latest npm versions
-          # This is needed because the copied directory is outside the pnpm workspace
-          sed -i 's/"jsx-loc-plugin": "workspace:\*"/"jsx-loc-plugin": "latest"/g' package.json
-          sed -i 's/"uilint": "workspace:\*"/"uilint": "latest"/g' package.json
-
           # Install dependencies
           pnpm install
 
