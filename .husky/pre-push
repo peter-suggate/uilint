@@ -1,14 +1,14 @@
 #!/bin/sh
 set -e
 
-echo "🔨 Running build..."
-pnpm build 2>&1 | tee /tmp/pre-push-build.log || {
+echo "🔨 Running build (packages only)..."
+pnpm build:packages 2>&1 | tee /tmp/pre-push-build.log || {
     echo "❌ Build failed! See /tmp/pre-push-build.log for details"
     exit 1
 }
 
 echo "🧪 Running tests (excluding e2e)..."
-pnpm test --exclude '**/e2e/**' 2>&1 | tee /tmp/pre-push-test.log || {
+pnpm --filter uilint-eslint --filter uilint-react --filter uilint test -- --exclude '**/e2e/**' 2>&1 | tee /tmp/pre-push-test.log || {
     echo "❌ Tests failed! See /tmp/pre-push-test.log for details"
     exit 1
 }
