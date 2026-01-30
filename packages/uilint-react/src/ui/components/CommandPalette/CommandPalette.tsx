@@ -336,15 +336,20 @@ export function CommandPalette() {
 
   // Filter commands by query
   const filteredCommands = useMemo(() => {
-    if (!query.trim()) return availableCommands;
-    const lowerQuery = query.toLowerCase();
-    return availableCommands.filter(
-      (cmd) =>
-        cmd.title.toLowerCase().includes(lowerQuery) ||
-        cmd.keywords.some((kw) => kw.toLowerCase().includes(lowerQuery)) ||
-        cmd.category.toLowerCase().includes(lowerQuery) ||
-        (cmd.subtitle && cmd.subtitle.toLowerCase().includes(lowerQuery))
-    );
+    // When searching, include all commands (even hidden ones can be found via search)
+    if (query.trim()) {
+      const lowerQuery = query.toLowerCase();
+      return availableCommands.filter(
+        (cmd) =>
+          cmd.title.toLowerCase().includes(lowerQuery) ||
+          cmd.keywords.some((kw) => kw.toLowerCase().includes(lowerQuery)) ||
+          cmd.category.toLowerCase().includes(lowerQuery) ||
+          (cmd.subtitle && cmd.subtitle.toLowerCase().includes(lowerQuery))
+      );
+    }
+    // When not searching, filter out commands hidden from "All" category
+    // These commands are accessible via their category in the sidebar
+    return availableCommands.filter((cmd) => !cmd.hideFromAllCategory);
   }, [availableCommands, query]);
 
   // PERFORMANCE: Only show issues when searching or when category is issues-related

@@ -180,6 +180,12 @@ export interface Command {
    */
   isAvailable?: (state: unknown) => boolean;
   /**
+   * Hide this command from the "All" category in command palette.
+   * When true, command only appears when its category is selected or when searching.
+   * Use this for plugin-specific commands that should be accessed via sidebar.
+   */
+  hideFromAllCategory?: boolean;
+  /**
    * Execute the command
    * @param services Plugin services for accessing core functionality
    * @returns Optional promise for async commands
