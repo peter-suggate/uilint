@@ -60,6 +60,86 @@ export interface PluginServices {
 }
 
 // ============================================================================
+// Category Provider Contributions
+// ============================================================================
+
+/**
+ * Loading state for a category provider.
+ */
+export type CategoryLoadingState = "idle" | "loading" | "loaded" | "error";
+
+/**
+ * Priority levels for lazy loading categories.
+ * Lower numbers load first.
+ */
+export type CategoryPriority = 0 | 1 | 2 | 3;
+
+/**
+ * An item within a category that can be displayed and executed.
+ */
+export interface CategoryItem {
+  /** Unique item identifier */
+  id: string;
+  /** Display title */
+  title: string;
+  /** Optional subtitle for additional context */
+  subtitle?: string;
+  /** Optional icon (React component or emoji string) */
+  icon?: ReactNode;
+  /** Priority within category (lower = higher priority, default: 1) */
+  priority?: CategoryPriority;
+  /** Additional metadata for filtering/grouping */
+  metadata?: Record<string, unknown>;
+  /**
+   * Execute when item is selected
+   * @param services Plugin services for accessing core functionality
+   */
+  execute?: (services: PluginServices) => void | Promise<void>;
+  /** Optional keyboard shortcut hint */
+  shortcut?: string;
+}
+
+/**
+ * A category provider that contributes items to the command palette sidebar.
+ * Plugins register category providers to expose browsable content.
+ */
+export interface CategoryProvider {
+  /** Unique category identifier (e.g., "eslint:issues") */
+  id: string;
+  /** Display label (e.g., "Issues") */
+  label: string;
+  /** Optional icon (React component or emoji string) */
+  icon?: ReactNode;
+  /** Load priority (0 = immediate, 1 = high, 2 = medium, 3 = low/idle) */
+  priority: CategoryPriority;
+  /** Parent plugin ID for nesting in sidebar */
+  parentId?: string;
+  /**
+   * Get items for this category.
+   * Can be sync or async for lazy loading.
+   * @param services Plugin services for accessing state
+   */
+  getItems: (services: PluginServices) => CategoryItem[] | Promise<CategoryItem[]>;
+  /**
+   * Get the count of items without loading them.
+   * Used for sidebar badges.
+   * @param services Plugin services for accessing state
+   */
+  getItemCount?: (services: PluginServices) => number | Promise<number>;
+  /**
+   * Custom fields to search within items.
+   * Defaults to ["title", "subtitle"].
+   */
+  searchKeys?: string[];
+  /**
+   * Custom filter predicate for searching.
+   * @param item The item to test
+   * @param query The search query
+   */
+  filterPredicate?: (item: CategoryItem, query: string) => boolean;
+}
+
+// ============================================================================
 // Command Bar Contributions
 // ============================================================================
 
@@ -356,6 +436,9 @@ export interface Plugin<TSlice = unknown> {
 
   /** Commands contributed by this plugin */
   commands?: Command[];
+
+  /** Category providers for command palette sidebar browsing */
+  categoryProviders?: CategoryProvider[];
 
   /** Inspector panels contributed by this plugin */
   inspectorPanels?: InspectorPanel[];

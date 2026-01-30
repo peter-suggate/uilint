@@ -5,7 +5,15 @@
  * Extracts ESLint-related state and functionality from the main store.
  */
 
-import type { Plugin, PluginServices, RuleMeta, ScannedElementInfo, RuleDefinition } from "../../core/plugin-system/types";
+import type {
+  Plugin,
+  PluginServices,
+  RuleMeta,
+  ScannedElementInfo,
+  RuleDefinition,
+  CategoryProvider,
+  CategoryItem,
+} from "../../core/plugin-system/types";
 import { eslintCommands } from "./commands";
 import {
   createESLintSlice,
@@ -14,7 +22,8 @@ import {
   type ESLintSlice,
 } from "./slice";
 import type { AvailableRule, RuleConfig, ESLintIssue } from "./types";
-import { fromESLintIssue, type Issue } from "../../ui/types";
+import { fromESLintIssue } from "../../ui/types";
+import type { Issue } from "../../ui/types";
 import { extractUniqueFilePaths } from "./scanner";
 import { RulePanel } from "./panels";
 import {
@@ -85,6 +94,11 @@ export const eslintPlugin: Plugin = {
    * Commands contributed by this plugin
    */
   commands: eslintCommands,
+
+  /**
+   * Category providers for command palette sidebar browsing
+   */
+  categoryProviders: createESLintCategoryProviders(),
 
   /**
    * Inspector panels contributed by this plugin
@@ -567,6 +581,132 @@ function handleWebSocketMessage(
       break;
     }
   }
+}
+
+/**
+ * Create category providers for the ESLint plugin.
+ *
+ * Provides two categories:
+ * - Issues: Current lint issues grouped by rule
+ * - Rules: Available ESLint rules with severity controls
+ */
+function createESLintCategoryProviders(): CategoryProvider[] {
+  return [
+    // Issues category - shows current issues grouped by rule
+    {
+      id: "eslint:issues",
+      label: "Issues",
+      priority: 1,
+      getItems: (services: PluginServices): CategoryItem[] => {
+        const state = services.getState<ESLintPluginSlice>();
+        if (!state?.issues) return [];
+
+        // Flatten all issues and group by rule
+        const issuesByRule = new Map<string, Issue[]>();
+        for (const issues of state.issues.values()) {
+          for (const issue of issues) {
+            const existing = issuesByRule.get(issue.ruleId) || [];
+            issuesByRule.set(issue.ruleId, [...existing, issue]);
+          }
+        }
+
+        // Convert to category items - one per rule with issue count
+        const items: CategoryItem[] = [];
+        for (const [ruleId, issues] of issuesByRule) {
+          const errorCount = issues.filter((i) => i.severity === "error").length;
+          const warningCount = issues.filter((i) => i.severity === "warning").length;
+
+          items.push({
+            id: `eslint:issue:${ruleId}`,
+            title: ruleId,
+            subtitle: `${errorCount} errors, ${warningCount} warnings`,
+            priority: errorCount > 0 ? 0 : 1,
+            metadata: { ruleId, errorCount, warningCount, total: issues.length },
+            execute: (svc) => {
+              // Open inspector with rule details
+              svc.openInspector("eslint-rule", { ruleId });
+              svc.closeCommandPalette();
+            },
+          });
+        }
+
+        // Sort by severity (errors first) then by count
+        items.sort((a, b) => {
+          const aErrors = (a.metadata?.errorCount as number) ?? 0;
+          const bErrors = (b.metadata?.errorCount as number) ?? 0;
+          if (aErrors !== bErrors) return bErrors - aErrors;
+
+          const aTotal = (a.metadata?.total as number) ?? 0;
+          const bTotal = (b.metadata?.total as number) ?? 0;
+          return bTotal - aTotal;
+        });
+
+        return items;
+      },
+      getItemCount: (services: PluginServices): number => {
+        const state = services.getState<ESLintPluginSlice>();
+        if (!state?.issues) return 0;
+
+        // Count unique rules with issues
+        const rules = new Set<string>();
+        for (const issues of state.issues.values()) {
+          for (const issue of issues) {
+            rules.add(issue.ruleId);
+          }
+        }
+        return rules.size;
+      },
+      searchKeys: ["title", "subtitle"],
+    },
+
+    // Rules category - shows available rules
+    {
+      id: "eslint:rules",
+      label: "Rules",
+      priority: 2,
+      getItems: (services: PluginServices): CategoryItem[] => {
+        const state = services.getState<ESLintPluginSlice>();
+        if (!state?.availableRules) return [];
+
+        const configs = state.ruleConfigs ?? new Map<string, RuleConfig>();
+
+        return state.availableRules.map((rule: AvailableRule): CategoryItem => {
+          const config = configs.get(rule.id);
+          const severity = config?.severity ?? rule.currentSeverity ?? rule.defaultSeverity;
+
+          return {
+            id: `eslint:rule:${rule.id}`,
+            title: rule.name || rule.id,
+            subtitle: rule.description || `${severity} severity`,
+            priority: severity === "error" ? 0 : severity === "warn" ? 1 : 2,
+            metadata: { ruleId: rule.id, severity, category: rule.category },
+            execute: (svc) => {
+              // Open inspector with rule details
+              svc.openInspector("eslint-rule", { ruleId: rule.id });
+              svc.closeCommandPalette();
+            },
+          };
+        });
+      },
+      getItemCount: (services: PluginServices): number => {
+        const state = services.getState<ESLintPluginSlice>();
+        return state?.availableRules?.length ?? 0;
+      },
+      searchKeys: ["title", "subtitle"],
+      filterPredicate: (item, query) => {
+        const lowerQuery = query.toLowerCase();
+        const ruleId = (item.metadata?.ruleId as string) ?? "";
+        const category = (item.metadata?.category as string) ?? "";
+
+        return (
+          item.title.toLowerCase().includes(lowerQuery) ||
+          (item.subtitle?.toLowerCase().includes(lowerQuery) ?? false) ||
+          ruleId.toLowerCase().includes(lowerQuery) ||
+          category.toLowerCase().includes(lowerQuery)
+        );
+      },
+    },
+  ];
 }
 
 export default eslintPlugin;

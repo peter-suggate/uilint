@@ -1,65 +1,163 @@
 /**
- * SearchInput - Elegant search bar for command palette
+ * SearchInput - Hero search bar for command palette
  *
- * Features Spotlight/Raycast-inspired design:
- * - Larger, more prominent input
- * - Subtle focus animations
- * - Animated clear button
- * - macOS-style keyboard hint
+ * Spotlight/Raycast-inspired design:
+ * - Large, prominent input (48px height)
+ * - Subtle focus glow
+ * - Glassmorphic background
+ * - Minimal color - monochrome with single accent
+ * - shadcn class conventions
  */
-import React, { useRef, useEffect, useState } from "react";
+
+import * as React from "react";
+import { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { cva, type VariantProps } from "class-variance-authority";
 import { SearchIcon, CloseIcon } from "../../icons";
 import { Kbd, IconButton } from "../primitives";
+import { cn } from "../../../lib/utils";
 
-interface SearchInputProps {
+// ============================================================================
+// Variants
+// ============================================================================
+
+const searchContainerVariants = cva(
+  "flex items-center gap-3 border-b transition-all duration-150",
+  {
+    variants: {
+      size: {
+        default: "px-4 py-3",
+        large: "px-5 py-4",
+      },
+      state: {
+        default: "bg-transparent border-border/30",
+        focused: "bg-muted/30 border-border/50",
+      },
+    },
+    defaultVariants: {
+      size: "large",
+      state: "default",
+    },
+  }
+);
+
+const searchInputVariants = cva(
+  "flex-1 bg-transparent border-none outline-none font-normal tracking-tight",
+  {
+    variants: {
+      size: {
+        default: "text-base h-8",
+        large: "text-lg h-10",
+      },
+    },
+    defaultVariants: {
+      size: "large",
+    },
+  }
+);
+
+// ============================================================================
+// Animation variants
+// ============================================================================
+
+const iconMotionVariants = {
+  default: { scale: 1, opacity: 0.4 },
+  focused: { scale: 1.05, opacity: 0.7 },
+};
+
+const clearButtonMotionVariants = {
+  initial: { opacity: 0, scale: 0.8 },
+  animate: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.8 },
+};
+
+const hintMotionVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+};
+
+// Crisp easing
+const crispEase = [0.32, 0.72, 0, 1] as const;
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface SearchInputProps extends VariantProps<typeof searchContainerVariants> {
+  /** Current search value */
   value: string;
+  /** Callback when value changes */
   onChange: (value: string) => void;
+  /** Placeholder text */
   placeholder?: string;
+  /** Auto focus on mount */
+  autoFocus?: boolean;
+  /** Additional class name */
+  className?: string;
 }
 
+// ============================================================================
+// Component
+// ============================================================================
+
+/**
+ * SearchInput - Hero search bar component
+ *
+ * @example
+ * ```tsx
+ * <SearchInput
+ *   value={query}
+ *   onChange={setQuery}
+ *   placeholder="Search commands, issues, rules..."
+ * />
+ * ```
+ */
 export function SearchInput({
   value,
   onChange,
   placeholder = "Search commands, issues, rules...",
+  autoFocus = true,
+  size,
+  className,
 }: SearchInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
 
   // Auto-focus on mount with slight delay for animation
   useEffect(() => {
+    if (!autoFocus) return;
+
     const timer = setTimeout(() => {
       inputRef.current?.focus();
     }, 50);
     return () => clearTimeout(timer);
-  }, []);
+  }, [autoFocus]);
+
+  const state = isFocused ? "focused" : "default";
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.1 }}
+      className={cn(searchContainerVariants({ size, state }), className)}
       style={{
-        display: "flex",
-        alignItems: "center",
-        padding: "14px 16px",
-        gap: 12,
-        borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
-        background: isFocused
-          ? "rgba(255, 255, 255, 0.6)"
-          : "rgba(255, 255, 255, 0.4)",
-        transition: "background 0.1s ease",
+        // Subtle glow on focus
+        boxShadow: isFocused
+          ? "0 1px 0 0 var(--uilint-border), inset 0 1px 0 0 rgba(255,255,255,0.02)"
+          : "none",
       }}
     >
-      {/* Search icon with subtle animation */}
+      {/* Search icon */}
       <motion.div
-        animate={{
-          color: isFocused ? "var(--uilint-accent)" : "var(--uilint-text-disabled)",
-        }}
-        transition={{ duration: 0.1 }}
-        style={{ display: "flex", alignItems: "center" }}
+        variants={iconMotionVariants}
+        animate={state}
+        transition={{ duration: 0.15, ease: crispEase }}
+        className="flex items-center justify-center shrink-0"
+        style={{ color: "var(--uilint-text-muted)" }}
       >
-        <SearchIcon size={20} />
+        <SearchIcon size={size === "large" ? 22 : 18} />
       </motion.div>
 
       {/* Input */}
@@ -71,33 +169,33 @@ export function SearchInput({
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         placeholder={placeholder}
+        className={cn(searchInputVariants({ size }))}
         style={{
-          flex: 1,
-          border: "none",
-          outline: "none",
-          fontSize: 15,
-          fontWeight: 400,
-          background: "transparent",
           color: "var(--uilint-text-primary)",
           caretColor: "var(--uilint-accent)",
         }}
       />
 
-      {/* Clear button with enter/exit animation */}
+      {/* Clear button / Keyboard hint */}
       <AnimatePresence mode="wait">
         {value ? (
           <motion.div
             key="clear"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.1 }}
+            variants={clearButtonMotionVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.1, ease: crispEase }}
           >
             <IconButton
               variant="ghost"
               size="sm"
               onClick={() => onChange("")}
               disableMotion
+              style={{
+                color: "var(--uilint-text-muted)",
+                opacity: 0.6,
+              }}
             >
               <CloseIcon size={14} />
             </IconButton>
@@ -105,21 +203,25 @@ export function SearchInput({
         ) : (
           <motion.div
             key="hint"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.1 }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-            }}
+            variants={hintMotionVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.1, ease: crispEase }}
+            className="flex items-center gap-2 shrink-0"
           >
             <Kbd animate={false}>esc</Kbd>
-            <span style={{ fontSize: 11, color: "var(--uilint-text-disabled)" }}>to close</span>
+            <span
+              className="text-[11px]"
+              style={{ color: "var(--uilint-text-disabled)" }}
+            >
+              to close
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
   );
 }
+
+export { searchContainerVariants, searchInputVariants };

@@ -17,7 +17,9 @@ import type {
   RuleDefinition,
   ToolbarAction,
   ToolbarActionGroup,
+  CategoryProvider,
 } from "./types";
+import { categoryRegistry, type CategoryRegistry } from "./category-registry";
 
 /**
  * Wrapper for a registered plugin with initialization state
@@ -96,6 +98,7 @@ export function sortByDependencies(plugins: Plugin[]): Plugin[] {
 export class PluginRegistry {
   private plugins: Map<string, RegisteredPlugin> = new Map();
   private services: PluginServices | null = null;
+  private categoryRegistryRef: CategoryRegistry = categoryRegistry;
 
   /**
    * Register a plugin with the registry.
@@ -151,6 +154,9 @@ export class PluginRegistry {
     console.log("[PluginRegistry] Initializing all plugins...");
     this.services = services;
 
+    // Initialize the category registry with services
+    this.categoryRegistryRef.initialize(services);
+
     // Get all plugins and sort by dependencies
     const allPlugins = Array.from(this.plugins.values()).map((rp) => rp.plugin);
     const sortedPlugins = sortByDependencies(allPlugins);
@@ -178,6 +184,14 @@ export class PluginRegistry {
           await plugin.initialize(services);
         }
 
+        // Register category providers from this plugin
+        if (plugin.categoryProviders) {
+          this.categoryRegistryRef.registerFromPlugin(plugin);
+          console.log(
+            `[PluginRegistry] Registered ${plugin.categoryProviders.length} category providers from "${plugin.id}"`
+          );
+        }
+
         registered.initialized = true;
         console.log(
           `[PluginRegistry] Plugin "${plugin.id}" initialized successfully`
@@ -190,6 +204,9 @@ export class PluginRegistry {
         // Continue with other plugins even if one fails
       }
     }
+
+    // Load category counts by priority
+    this.categoryRegistryRef.loadByPriority();
 
     console.log("[PluginRegistry] All plugins initialized");
   }
@@ -302,6 +319,34 @@ export class PluginRegistry {
 
     // Sort by priority (higher priority first, default to 0)
     return groups.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+  }
+
+  /**
+   * Aggregate all category providers from all registered plugins.
+   * Providers are sorted by priority (lower number = higher priority).
+   *
+   * @returns Array of all category providers, sorted by priority
+   */
+  getAllCategoryProviders(): CategoryProvider[] {
+    const providers: CategoryProvider[] = [];
+
+    for (const { plugin } of this.plugins.values()) {
+      if (plugin.categoryProviders) {
+        providers.push(...plugin.categoryProviders);
+      }
+    }
+
+    // Sort by priority (lower number first)
+    return providers.sort((a, b) => a.priority - b.priority);
+  }
+
+  /**
+   * Get the category registry instance.
+   *
+   * @returns The category registry
+   */
+  getCategoryRegistry(): CategoryRegistry {
+    return this.categoryRegistryRef;
   }
 
   /**
