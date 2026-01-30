@@ -827,45 +827,6 @@ export function CommandPalette() {
                   </AnimatePresence>
                 </div>
               </div>
-
-              {/* Footer with keyboard hints */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.1, delay: 0.05 }}
-                style={{
-                  padding: "8px 16px",
-                  borderTop: "1px solid var(--uilint-border)",
-                  fontSize: 11,
-                  color: "var(--uilint-text-disabled)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 16,
-                  background: "var(--uilint-surface-elevated)",
-                }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <Kbd animate={false}>↑</Kbd>
-                  <Kbd animate={false}>↓</Kbd>
-                  <span style={{ marginLeft: 2 }}>navigate</span>
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <Kbd animate={false}>←</Kbd>
-                  <Kbd animate={false}>→</Kbd>
-                  <span style={{ marginLeft: 2 }}>sidebar</span>
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <Kbd animate={false}>↵</Kbd>
-                  <span style={{ marginLeft: 2 }}>select</span>
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <Kbd animate={false}>esc</Kbd>
-                  <span style={{ marginLeft: 2 }}>close</span>
-                </span>
-                <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--uilint-text-muted)" }}>
-                  ⌘K to toggle
-                </span>
-              </motion.div>
             </GlassPanel>
           </motion.div>
         </motion.div>

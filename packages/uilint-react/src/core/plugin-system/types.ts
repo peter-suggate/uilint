@@ -115,6 +115,18 @@ export interface CategoryProvider {
   /** Parent plugin ID for nesting in sidebar */
   parentId?: string;
   /**
+   * Whether this is a dynamic category that generates sub-categories.
+   * If true, getSubCategories will be called to get child categories.
+   */
+  isDynamic?: boolean;
+  /**
+   * Get dynamic sub-categories for this category.
+   * Called when isDynamic is true to generate child categories based on current state.
+   * Each sub-category will appear in the sidebar under this category's parent.
+   * @param services Plugin services for accessing state
+   */
+  getSubCategories?: (services: PluginServices) => CategoryProvider[];
+  /**
    * Get items for this category.
    * Can be sync or async for lazy loading.
    * @param services Plugin services for accessing state

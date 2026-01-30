@@ -187,9 +187,16 @@ export class CategoryRegistry {
   /**
    * Load items for a category.
    * Returns cached items if valid, otherwise loads fresh data.
+   * Handles both static and dynamic providers.
    */
   async loadItems(providerId: string): Promise<CategoryItem[]> {
-    const provider = this.providers.get(providerId);
+    let provider = this.providers.get(providerId);
+
+    // If not found, check dynamic providers
+    if (!provider) {
+      provider = this.findDynamicProvider(providerId);
+    }
+
     if (!provider) {
       console.warn(`[CategoryRegistry] Unknown provider: ${providerId}`);
       return [];
@@ -221,6 +228,24 @@ export class CategoryRegistry {
     } finally {
       this.loadingPromises.delete(providerId);
     }
+  }
+
+  /**
+   * Find a dynamic provider by searching through all dynamic parent providers.
+   */
+  private findDynamicProvider(providerId: string): CategoryProvider | undefined {
+    if (!this.services) return undefined;
+
+    for (const provider of this.providers.values()) {
+      if (provider.isDynamic && provider.getSubCategories) {
+        const subCategories = provider.getSubCategories(this.services);
+        const found = subCategories.find((sub) => sub.id === providerId);
+        if (found) {
+          return found;
+        }
+      }
+    }
+    return undefined;
   }
 
   /**
@@ -418,16 +443,48 @@ export class CategoryRegistry {
   /**
    * Build the category tree for the sidebar.
    * Groups categories by parent plugin and filters out empty categories.
+   * Expands dynamic providers to include their sub-categories.
    */
   getCategoryTree(): CategoryNode[] {
     const nodes: CategoryNode[] = [];
     const pluginGroups: Map<string, CategoryNode[]> = new Map();
 
+    // First, expand dynamic providers to get all categories
+    const allProviders: CategoryProvider[] = [];
     for (const provider of this.providers.values()) {
+      if (provider.isDynamic && provider.getSubCategories && this.services) {
+        // Get dynamic sub-categories
+        const subCategories = provider.getSubCategories(this.services);
+        for (const subCategory of subCategories) {
+          // Register the sub-category temporarily for caching
+          if (!this.providers.has(subCategory.id)) {
+            // Set parent to the dynamic provider's parent
+            const subWithParent: CategoryProvider = {
+              ...subCategory,
+              parentId: subCategory.parentId ?? provider.parentId,
+            };
+            allProviders.push(subWithParent);
+
+            // Initialize cache if needed
+            if (!this.cache.has(subCategory.id)) {
+              this.cache.set(subCategory.id, {
+                items: [],
+                state: "idle",
+                loadedAt: 0,
+              });
+            }
+          }
+        }
+      } else {
+        allProviders.push(provider);
+      }
+    }
+
+    for (const provider of allProviders) {
       const cached = this.cache.get(provider.id);
       const count = cached?.count;
 
-      // Skip categories with zero items (unless still loading)
+      // Skip categories with zero items (unless still loading or count unknown)
       if (count === 0 && cached?.state === "loaded") {
         continue;
       }
