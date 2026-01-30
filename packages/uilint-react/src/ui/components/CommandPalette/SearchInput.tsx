@@ -16,6 +16,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { SearchIcon, CloseIcon } from "../../icons";
 import { Kbd, IconButton } from "../primitives";
 import { cn } from "../../../lib/utils";
+import { useIsMobile } from "../../hooks";
 
 // ============================================================================
 // Variants
@@ -123,6 +124,7 @@ export function SearchInput({
 }: SearchInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const { isMobile } = useIsMobile();
 
   // Auto-focus on mount with slight delay for animation
   useEffect(() => {
@@ -176,7 +178,7 @@ export function SearchInput({
         }}
       />
 
-      {/* Clear button / Keyboard hint */}
+      {/* Clear button / Keyboard hint (desktop only) */}
       <AnimatePresence mode="wait">
         {value ? (
           <motion.div
@@ -200,7 +202,7 @@ export function SearchInput({
               <CloseIcon size={14} />
             </IconButton>
           </motion.div>
-        ) : (
+        ) : !isMobile ? (
           <motion.div
             key="hint"
             variants={hintMotionVariants}
@@ -218,7 +220,7 @@ export function SearchInput({
               to close
             </span>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </motion.div>
   );
