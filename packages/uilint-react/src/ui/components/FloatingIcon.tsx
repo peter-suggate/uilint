@@ -17,6 +17,7 @@ import { getPluginServices } from "../../core/store/composed-store";
 import { SearchIcon } from "../icons";
 import { getGlassStyles } from "./primitives";
 import type { ToolbarAction, ToolbarActionGroup } from "../../core/plugin-system/types";
+import { useIsMobile } from "../hooks";
 
 interface Position {
   x: number;
@@ -301,6 +302,9 @@ export function FloatingIcon() {
   const [state, dispatch] = useReducer(floatingIconReducer, initialState);
   const { isDragging, isHovered, dragOffset, hasInteracted } = state;
 
+  // Mobile/touch detection
+  const { isMobile, isTouchDevice } = useIsMobile();
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Track first command palette interaction to hide hint
@@ -346,6 +350,20 @@ export function FloatingIcon() {
     e.stopPropagation();
   }, []);
 
+  const handleGripTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    dispatch({
+      type: "START_DRAG",
+      offset: { x: touch.clientX - rect.left, y: touch.clientY - rect.top },
+    });
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       if (!isDragging) return;
@@ -361,7 +379,28 @@ export function FloatingIcon() {
     [isDragging, dragOffset, setPosition]
   );
 
+  const handleTouchMove = useCallback(
+    (e: TouchEvent) => {
+      if (!isDragging || e.touches.length !== 1) return;
+      const touch = e.touches[0];
+
+      const newX = Math.max(0, Math.min(window.innerWidth - 300, touch.clientX - dragOffset.x));
+      const newY = Math.max(
+        0,
+        Math.min(window.innerHeight - PILL_HEIGHT - HINT_ROW_HEIGHT, touch.clientY - dragOffset.y)
+      );
+
+      setPosition({ x: newX, y: newY });
+      e.preventDefault();
+    },
+    [isDragging, dragOffset, setPosition]
+  );
+
   const handleMouseUp = useCallback(() => {
+    dispatch({ type: "STOP_DRAG" });
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
     dispatch({ type: "STOP_DRAG" });
   }, []);
 
@@ -369,12 +408,18 @@ export function FloatingIcon() {
     if (isDragging) {
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("touchmove", handleTouchMove, { passive: false });
+      window.addEventListener("touchend", handleTouchEnd);
+      window.addEventListener("touchcancel", handleTouchEnd);
       return () => {
         window.removeEventListener("mousemove", handleMouseMove);
         window.removeEventListener("mouseup", handleMouseUp);
+        window.removeEventListener("touchmove", handleTouchMove);
+        window.removeEventListener("touchend", handleTouchEnd);
+        window.removeEventListener("touchcancel", handleTouchEnd);
       };
     }
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
 
   const handleClick = useCallback(() => {
     if (!isDragging) {
@@ -391,8 +436,11 @@ export function FloatingIcon() {
 
   const portalRoot = document.getElementById("uilint-portal") || document.body;
 
-  // Determine if hint should be shown
-  const showHint = !hasInteracted && !isHovered;
+  // Determine if hint should be shown (hide on touch devices)
+  const showHint = !hasInteracted && !isHovered && !isTouchDevice;
+
+  // Use larger touch targets on mobile (at least 44px per Apple HIG)
+  const pillHeight = isMobile ? 44 : PILL_HEIGHT;
 
   const hasIssues = issueCount > 0;
   const hasGroups = visibleGroups.length > 0;
@@ -416,7 +464,7 @@ export function FloatingIcon() {
       {/* Top row: search pill + issues pill + vision dropdown pill */}
       <div
         style={{
-          height: PILL_HEIGHT,
+          height: pillHeight,
           display: "flex",
           alignItems: "center",
           gap: PILL_GAP,
@@ -425,7 +473,7 @@ export function FloatingIcon() {
         {/* ========== SEARCH PILL (primary) ========== */}
         <div
           style={{
-            height: PILL_HEIGHT,
+            height: pillHeight,
             display: "flex",
             alignItems: "center",
             gap: 0,
@@ -435,14 +483,15 @@ export function FloatingIcon() {
           {/* Grip handle */}
           <div
             onMouseDown={handleGripMouseDown}
+            onTouchStart={handleGripTouchStart}
             style={getPillGlassStyles(isDragging, {
-              width: 20,
-              height: PILL_HEIGHT,
+              width: isMobile ? 28 : 20,
+              height: pillHeight,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               cursor: isDragging ? "grabbing" : "grab",
-              borderRadius: `${PILL_HEIGHT / 2}px 0 0 ${PILL_HEIGHT / 2}px`,
+              borderRadius: `${pillHeight / 2}px 0 0 ${pillHeight / 2}px`,
               borderLeft: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
             })}
           >
@@ -467,10 +516,10 @@ export function FloatingIcon() {
             onClick={handleClick}
             aria-label="Search"
             style={getPillGlassStyles(isDragging, {
-              height: PILL_HEIGHT,
-              padding: "0 14px 0 10px",
+              height: pillHeight,
+              padding: isMobile ? "0 16px 0 12px" : "0 14px 0 10px",
               border: "none",
-              borderRadius: `0 ${PILL_HEIGHT / 2}px ${PILL_HEIGHT / 2}px 0`,
+              borderRadius: `0 ${pillHeight / 2}px ${pillHeight / 2}px 0`,
               borderRight: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
               cursor: "pointer",
               display: "flex",
@@ -494,16 +543,18 @@ export function FloatingIcon() {
           >
             <SearchIcon size={15} style={{ opacity: 0.5 }} />
             <span style={{ opacity: 0.7 }}>Search</span>
-            <span
-              style={{
-                fontSize: 11,
-                opacity: 0.45,
-                fontWeight: 500,
-                marginLeft: 2,
-              }}
-            >
-              {modKey}K
-            </span>
+            {!isTouchDevice && (
+              <span
+                style={{
+                  fontSize: 11,
+                  opacity: 0.45,
+                  fontWeight: 500,
+                  marginLeft: 2,
+                }}
+              >
+                {modKey}K
+              </span>
+            )}
           </button>
 
           {/* Connection indicator */}
@@ -529,10 +580,10 @@ export function FloatingIcon() {
           <button
             onClick={handleClick}
             style={getPillGlassStyles(isDragging, {
-              height: PILL_HEIGHT,
-              padding: "0 14px",
+              height: pillHeight,
+              padding: isMobile ? "0 12px" : "0 14px",
               border: "none",
-              borderRadius: PILL_HEIGHT / 2,
+              borderRadius: pillHeight / 2,
               borderLeft: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
               borderRight: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
               cursor: "pointer",
@@ -561,7 +612,10 @@ export function FloatingIcon() {
                 flexShrink: 0,
               }}
             />
-            <span>{issueCount > 99 ? "99+" : issueCount} {issueCount === 1 ? "issue" : "issues"}</span>
+            <span>
+              {issueCount > 99 ? "99+" : issueCount}
+              {!isMobile && ` ${issueCount === 1 ? "issue" : "issues"}`}
+            </span>
           </button>
         )}
 
@@ -579,12 +633,12 @@ export function FloatingIcon() {
         {visibleActions.length > 0 && (
           <div
             style={getPillGlassStyles(isDragging, {
-              height: PILL_HEIGHT,
+              height: pillHeight,
               display: "flex",
               alignItems: "center",
               gap: 2,
-              padding: "0 6px",
-              borderRadius: PILL_HEIGHT / 2,
+              padding: isMobile ? "0 8px" : "0 6px",
+              borderRadius: pillHeight / 2,
               borderLeft: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
               borderRight: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
             })}

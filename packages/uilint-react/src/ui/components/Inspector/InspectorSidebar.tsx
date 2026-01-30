@@ -17,6 +17,7 @@ import { ElementDetail } from "./ElementDetail";
 import { ResizeHandle } from "./ResizeHandle";
 import { CloseIcon, MaximizeIcon, DockIcon } from "../../icons";
 import { IconButton, getGlassStyles } from "../primitives";
+import { useIsMobile } from "../../hooks";
 import type { Issue } from "../../types";
 
 const MIN_WIDTH = 320;
@@ -42,6 +43,9 @@ export function InspectorSidebar() {
 
   // Track if component is mounted (for SSR safety)
   const [mounted, setMounted] = useState(false);
+
+  // Mobile detection
+  const { isMobile } = useIsMobile();
 
   // Drag state for floating mode
   const dragRef = useRef<{ startX: number; startY: number; startPos: { x: number; y: number } } | null>(null);
@@ -103,6 +107,13 @@ export function InspectorSidebar() {
     setMounted(true);
   }, []);
 
+  // Force floating/fullscreen mode on mobile - automatically undock when mobile
+  useEffect(() => {
+    if (isMobile && isOpen && docked) {
+      toggleInspectorDocked();
+    }
+  }, [isMobile, isOpen, docked]);
+
   // Manage document margin for docked mode
   useEffect(() => {
     if (!mounted) return;
@@ -146,10 +157,10 @@ export function InspectorSidebar() {
     [floatingSize, setInspectorFloatingSize]
   );
 
-  // Handle drag start for floating mode
+  // Handle drag start for floating mode (mouse)
   const handleDragStart = useCallback(
     (e: React.MouseEvent) => {
-      if (!floatingPosition) return;
+      if (!floatingPosition || isMobile) return;
       e.preventDefault();
       dragRef.current = {
         startX: e.clientX,
@@ -157,10 +168,24 @@ export function InspectorSidebar() {
         startPos: floatingPosition,
       };
     },
-    [floatingPosition]
+    [floatingPosition, isMobile]
   );
 
-  // Handle drag move/end
+  // Handle drag start for floating mode (touch)
+  const handleTouchDragStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (!floatingPosition || isMobile) return;
+      const touch = e.touches[0];
+      dragRef.current = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startPos: floatingPosition,
+      };
+    },
+    [floatingPosition, isMobile]
+  );
+
+  // Handle drag move/end (mouse and touch)
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!dragRef.current) return;
@@ -172,15 +197,34 @@ export function InspectorSidebar() {
       });
     };
 
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!dragRef.current) return;
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - dragRef.current.startX;
+      const deltaY = touch.clientY - dragRef.current.startY;
+      setInspectorFloatingPosition({
+        x: dragRef.current.startPos.x + deltaX,
+        y: dragRef.current.startPos.y + deltaY,
+      });
+    };
+
     const handleMouseUp = () => {
+      dragRef.current = null;
+    };
+
+    const handleTouchEnd = () => {
       dragRef.current = null;
     };
 
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
+    document.addEventListener("touchmove", handleTouchMove);
+    document.addEventListener("touchend", handleTouchEnd);
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleTouchEnd);
     };
   }, [setInspectorFloatingPosition]);
 
@@ -203,33 +247,39 @@ export function InspectorSidebar() {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "12px 16px",
+        padding: isMobile ? "16px 16px" : "12px 16px",
+        paddingTop: isMobile ? "calc(16px + env(safe-area-inset-top, 0px))" : "12px",
         borderBottom: "1px solid var(--uilint-border)",
         background: "var(--uilint-surface-elevated)",
-        cursor: isDraggable ? "move" : "default",
+        cursor: isDraggable && !isMobile ? "move" : "default",
         userSelect: "none",
       }}
-      onMouseDown={isDraggable ? handleDragStart : undefined}
+      onMouseDown={isDraggable && !isMobile ? handleDragStart : undefined}
+      onTouchStart={isDraggable && !isMobile ? handleTouchDragStart : undefined}
     >
       <span style={{ fontWeight: 600, color: "var(--uilint-text-primary)" }}>
         {title}
       </span>
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 4 }}>
+        {/* Hide dock/undock toggle on mobile - not useful in fullscreen mode */}
+        {!isMobile && (
+          <IconButton
+            variant="ghost"
+            size="sm"
+            onClick={toggleInspectorDocked}
+            title={docked ? "Undock to floating window" : "Dock to side"}
+          >
+            {docked ? <MaximizeIcon size={16} /> : <DockIcon size={16} />}
+          </IconButton>
+        )}
         <IconButton
           variant="ghost"
-          size="sm"
-          onClick={toggleInspectorDocked}
-          title={docked ? "Undock to floating window" : "Dock to side"}
-        >
-          {docked ? <MaximizeIcon size={16} /> : <DockIcon size={16} />}
-        </IconButton>
-        <IconButton
-          variant="ghost"
-          size="sm"
+          size={isMobile ? "md" : "sm"}
           onClick={closeInspector}
           title="Close"
+          style={isMobile ? { minWidth: 44, minHeight: 44 } : undefined}
         >
-          <CloseIcon size={16} />
+          <CloseIcon size={isMobile ? 20 : 16} />
         </IconButton>
       </div>
     </div>
@@ -278,14 +328,30 @@ export function InspectorSidebar() {
       )}
 
       {isOpen && !docked && (
-        // Floating mode - draggable, resizable popup
+        // Floating mode - draggable, resizable popup (fullscreen on mobile)
         <motion.div
           key="floating"
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: isMobile ? 1 : 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
+          exit={{ opacity: 0, scale: isMobile ? 1 : 0.95 }}
           transition={{ duration: 0.15 }}
-          style={{
+          style={isMobile ? {
+            // Mobile: fullscreen overlay
+            position: "fixed",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            ...glassStyle,
+            border: "none",
+            borderRadius: 0,
+            boxShadow: "none",
+            zIndex: 99997,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            pointerEvents: "auto",
+          } : {
+            // Desktop: positioned floating window
             position: "fixed",
             left: floatingPosition?.x ?? window.innerWidth - DEFAULT_FLOATING_WIDTH - 20,
             top: floatingPosition?.y ?? 80,
@@ -303,13 +369,21 @@ export function InspectorSidebar() {
           }}
         >
           <Header isDraggable />
-          <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+          <div style={{
+            flex: 1,
+            overflowY: "auto",
+            minHeight: 0,
+            paddingBottom: isMobile ? "env(safe-area-inset-bottom, 0px)" : undefined,
+          }}>
             {content}
           </div>
-          <ResizeHandle
-            direction="corner"
-            onResize={handleFloatingResize}
-          />
+          {/* Hide resize handle on mobile - not needed in fullscreen mode */}
+          {!isMobile && (
+            <ResizeHandle
+              direction="corner"
+              onResize={handleFloatingResize}
+            />
+          )}
         </motion.div>
       )}
     </AnimatePresence>,
