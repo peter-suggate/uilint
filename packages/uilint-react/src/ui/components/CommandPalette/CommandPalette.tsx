@@ -21,8 +21,10 @@ import { AnimatePresence, motion } from "motion/react";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
 import { categoryRegistry } from "../../../core/plugin-system/category-registry";
-import { useIssues, useCategoryRegistry } from "../../hooks";
+import { useIssues, useCategoryRegistry, useIsMobile } from "../../hooks";
+import { BottomSheet } from "../bottom-sheet";
 import { SearchInput } from "./SearchInput";
+import { MobileCategoryTabs } from "./MobileCategoryTabs";
 import { ResultItem } from "./ResultItem";
 import { RuleItem } from "./RuleItem";
 import { FileHeader } from "./FileHeader";
@@ -314,6 +316,7 @@ export function CommandPalette() {
 
   const { allIssues } = useIssues();
   const { categoryTree, loadItems, getCachedItems, searchItems } = useCategoryRegistry();
+  const { isMobile, isSmallScreen } = useIsMobile();
 
   // Get current state for command availability checks
   const storeState = useComposedStore((s) => s);
@@ -618,7 +621,7 @@ export function CommandPalette() {
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "center",
-            paddingTop: 80,
+            paddingTop: isMobile ? 20 : 80,
             zIndex: 99998,
             pointerEvents: "auto",
           }}
@@ -639,8 +642,8 @@ export function CommandPalette() {
               animate={false}
               style={{
                 width: "100%",
-                maxWidth: 680,
-                borderRadius: 16,
+                maxWidth: isMobile ? "100%" : 680,
+                borderRadius: isMobile ? 0 : 16,
                 overflow: "hidden",
               }}
             >
@@ -651,16 +654,28 @@ export function CommandPalette() {
               <div
                 style={{
                   display: "flex",
+                  flexDirection: isSmallScreen ? "column" : "row",
                   maxHeight: 420,
                 }}
               >
-                {/* Category Sidebar */}
-                <CategorySidebar
-                  categories={categoryTree}
-                  selectedId={selectedCategoryId}
-                  onSelect={setSelectedCategory}
-                  isFocused={sidebarFocused}
-                />
+                {/* Category Sidebar - hidden on small screens */}
+                {!isSmallScreen && (
+                  <CategorySidebar
+                    categories={categoryTree}
+                    selectedId={selectedCategoryId}
+                    onSelect={setSelectedCategory}
+                    isFocused={sidebarFocused}
+                  />
+                )}
+
+                {/* Mobile Category Tabs - shown on small screens */}
+                {isSmallScreen && (
+                  <MobileCategoryTabs
+                    categories={categoryTree}
+                    selectedId={selectedCategoryId}
+                    onSelect={setSelectedCategory}
+                  />
+                )}
 
                 {/* Results Pane */}
                 <div

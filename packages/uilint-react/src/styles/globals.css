@@ -97,6 +97,21 @@
   --transition-fast: var(--uilint-transition-fast);
   --transition-normal: var(--uilint-transition-normal);
   --transition-slow: var(--uilint-transition-slow);
+
+  /* Mobile-specific sizing */
+  --spacing-safe-area-top: env(safe-area-inset-top, 0px);
+  --spacing-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --spacing-safe-area-left: env(safe-area-inset-left, 0px);
+  --spacing-safe-area-right: env(safe-area-inset-right, 0px);
+
+  /* Touch target sizes (44px minimum per WCAG) */
+  --touch-target-min: 44px;
+  --touch-target-comfortable: 48px;
+
+  /* Mobile component dimensions */
+  --mobile-bottom-sheet-max-height: 85vh;
+  --mobile-fab-size: 56px;
+  --mobile-header-height: 56px;
 }
 
 /*
@@ -574,4 +589,55 @@
 
 [data-ui-lint] *::-webkit-scrollbar-thumb:hover {
   background: var(--uilint-scrollbar-thumb-hover);
+}
+
+/* Mobile responsive utilities */
+@media (max-width: 767px) {
+  .dev-tool-root {
+    --uilint-radius: 16px;
+  }
+}
+
+/* Safe area padding utility classes */
+.safe-area-padding-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-area-padding-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-padding-left {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.safe-area-padding-right {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Bottom sheet animations */
+@keyframes uilint-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes uilint-sheet-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+/* Touch-friendly focus states */
+@media (pointer: coarse) {
+  .dev-tool-root button:focus-visible,
+  .dev-tool-root [role="button"]:focus-visible {
+    outline-offset: 2px;
+  }
 }
