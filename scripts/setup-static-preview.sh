@@ -88,7 +88,9 @@ fi
 echo ""
 echo "📝 Generating lint manifest..."
 mkdir -p "$TEST_APP_DIR/public/.uilint"
-cd "$TEST_APP_DIR" && node "$UILINT_CLI" build-manifest -o public/.uilint/manifest.json --pretty
+# Note: build-manifest exits with code 1 if lint errors are found, which is expected
+# We use || true to continue the script so we can preview the issues in the UI
+cd "$TEST_APP_DIR" && node "$UILINT_CLI" build-manifest -o public/.uilint/manifest.json --pretty || true
 echo "   ✓ Generated manifest at public/.uilint/manifest.json"
 
 echo ""

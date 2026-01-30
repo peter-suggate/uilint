@@ -311,6 +311,17 @@ export function createPlan(
         });
       }
 
+      // Collect npm dependencies declared by selected rules
+      for (const rule of selectedRules) {
+        if (rule.npmDependencies) {
+          for (const dep of rule.npmDependencies) {
+            if (!packagesToInstall.includes(dep)) {
+              packagesToInstall.push(dep);
+            }
+          }
+        }
+      }
+
       dependencies.push({
         packagePath: pkgPath,
         packageManager: detectPackageManager(pkgPath),
