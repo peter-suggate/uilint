@@ -25,11 +25,11 @@ jobs:
 
       - name: Prepare test-app
         run: |
-          # Copy template to deploy directory
-          cp -R apps/test-app-template .vercel-deploy
-          cd .vercel-deploy
+          # Copy template to /tmp to avoid pnpm workspace hoisting
+          cp -R apps/test-app-template /tmp/vercel-deploy
+          cd /tmp/vercel-deploy
 
-          # Install dependencies
+          # Install dependencies (now isolated from monorepo workspace)
           pnpm install
 
           # Initialize UILint using the just-published npm version
@@ -62,7 +62,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           npm install -g vercel@latest
-          cd .vercel-deploy
+          cd /tmp/vercel-deploy
 
           # Create .vercel config
           mkdir -p .vercel
