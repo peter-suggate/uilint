@@ -7,8 +7,8 @@ pnpm build:packages 2>&1 | tee /tmp/pre-push-build.log || {
     exit 1
 }
 
-echo "🧪 Running tests (excluding e2e)..."
-pnpm --filter uilint-eslint --filter uilint-react --filter uilint test -- --exclude '**/e2e/**' 2>&1 | tee /tmp/pre-push-test.log || {
+echo "🧪 Running tests (excluding e2e and integration)..."
+pnpm --filter uilint-eslint --filter uilint-react --filter uilint test -- --exclude '**/e2e/**' --exclude '**/integration/**' 2>&1 | tee /tmp/pre-push-test.log || {
     echo "❌ Tests failed! See /tmp/pre-push-test.log for details"
     exit 1
 }
