@@ -325,16 +325,18 @@ describe("FloatingIcon", () => {
     });
   });
 
-  describe("Issue Count", () => {
-    it("does not show issue count when there are no issues", () => {
+  describe("Issue Count Badge", () => {
+    it("does not show issue badge when there are no issues", () => {
       createComposedStore();
       render(<FloatingIcon />);
 
-      // No issue count pill should be visible
-      expect(screen.queryByText(/issues?/)).toBeNull();
+      // No issue count badge should be visible (no numbers shown)
+      // The only number visible without issues would be in the keyboard shortcut
+      expect(screen.queryByText("1")).toBeNull();
+      expect(screen.queryByText("3")).toBeNull();
     });
 
-    it("shows issue count when eslint plugin has issues", () => {
+    it("shows issue count badge when eslint plugin has issues", () => {
       const store = createComposedStore();
 
       const issuesMap = new Map();
@@ -355,8 +357,8 @@ describe("FloatingIcon", () => {
 
       render(<FloatingIcon />);
 
-      // Should show "3 issues" for 3 total issues
-      expect(screen.getByText(/3 issues/)).toBeDefined();
+      // Badge should show "3" for 3 total issues
+      expect(screen.getByText("3")).toBeDefined();
     });
 
     it("shows 99+ when issue count exceeds 99", () => {
@@ -378,7 +380,8 @@ describe("FloatingIcon", () => {
 
       render(<FloatingIcon />);
 
-      expect(screen.getByText(/99\+ issues/)).toBeDefined();
+      // Badge should show "99+" for 100+ issues
+      expect(screen.getByText("99+")).toBeDefined();
     });
   });
 
