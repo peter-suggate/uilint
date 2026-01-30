@@ -586,16 +586,75 @@ function handleWebSocketMessage(
 /**
  * Create category providers for the ESLint plugin.
  *
- * Uses a dynamic provider that generates a category for each rule that has issues.
- * Each rule category shows its individual issues when selected.
+ * Provides two category types:
+ * 1. A static "Commands" category that always shows ESLint commands
+ * 2. A dynamic provider that generates categories for rules with issues
  */
 function createESLintCategoryProviders(): CategoryProvider[] {
   return [
+    // Static provider for ESLint commands - always visible
+    {
+      id: "eslint:commands",
+      label: "ESLint",
+      priority: 1,
+      parentId: "eslint",
+
+      // Return ESLint commands as category items
+      getItems: (services: PluginServices): CategoryItem[] => {
+        // Get full state to check command availability
+        const fullState = services.getState<{
+          wsConnected?: boolean;
+          plugins?: {
+            eslint?: {
+              scanStatus?: string;
+              issues?: Map<string, unknown[]>;
+            };
+          };
+        }>();
+
+        // Convert commands to category items, filtering by availability
+        return eslintCommands
+          .filter((cmd) => !cmd.isAvailable || cmd.isAvailable(fullState))
+          .map((cmd): CategoryItem => ({
+            id: cmd.id,
+            title: cmd.title,
+            subtitle: cmd.subtitle,
+            priority: 1,
+            metadata: {
+              category: cmd.category,
+              keywords: cmd.keywords,
+            },
+            execute: (svc) => {
+              cmd.execute(svc);
+            },
+          }));
+      },
+
+      getItemCount: (services: PluginServices): number => {
+        // Get full state to check command availability
+        const fullState = services.getState<{
+          wsConnected?: boolean;
+          plugins?: {
+            eslint?: {
+              scanStatus?: string;
+              issues?: Map<string, unknown[]>;
+            };
+          };
+        }>();
+
+        return eslintCommands.filter(
+          (cmd) => !cmd.isAvailable || cmd.isAvailable(fullState)
+        ).length;
+      },
+
+      searchKeys: ["title", "subtitle"],
+    },
+
     // Dynamic provider that generates a category for each rule with issues
     {
       id: "eslint:dynamic-rules",
-      label: "ESLint", // This won't be shown directly
-      priority: 1,
+      label: "Issues by Rule",
+      priority: 2,
       isDynamic: true,
       parentId: "eslint",
 

@@ -17,6 +17,7 @@ const toggleScanCommand: Command = {
   category: "eslint",
   subtitle: "Enable or disable real-time ESLint analysis",
   icon: undefined,
+  hideFromAllCategory: true,
   execute: (services: PluginServices) => {
     const state = services.getState<{
       plugins: {
@@ -57,6 +58,7 @@ const openFixesInspectorCommand: Command = {
   keywords: ["eslint", "fix", "fixes", "autofix", "repair", "issues"],
   category: "eslint",
   subtitle: "Open the fixes inspector panel",
+  hideFromAllCategory: true,
   execute: (services: PluginServices) => {
     services.openInspector("fixes", {});
     services.closeCommandPalette();
@@ -87,6 +89,7 @@ const startScanCommand: Command = {
   keywords: ["eslint", "scan", "start", "analyze", "lint", "check"],
   category: "eslint",
   subtitle: "Scan all elements on the current page",
+  hideFromAllCategory: true,
   execute: (services: PluginServices) => {
     const state = services.getState<{
       plugins: {
@@ -124,6 +127,7 @@ const stopScanCommand: Command = {
   keywords: ["eslint", "scan", "stop", "disable", "off"],
   category: "eslint",
   subtitle: "Stop scanning and clear results",
+  hideFromAllCategory: true,
   execute: (services: PluginServices) => {
     const state = services.getState<{
       plugins: {
@@ -157,6 +161,7 @@ const clearAndRescanCommand: Command = {
   keywords: ["eslint", "cache", "clear", "refresh", "reset", "rescan"],
   category: "eslint",
   subtitle: "Clear cached results and re-scan all files",
+  hideFromAllCategory: true,
   execute: (services: PluginServices) => {
     const state = services.getState<{
       plugins: {
