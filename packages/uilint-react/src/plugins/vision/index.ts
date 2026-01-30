@@ -136,13 +136,26 @@ function createVisionCategoryProviders(): CategoryProvider[] {
       parentId: "vision",
 
       getItems: (services: PluginServices): CategoryItem[] => {
-        const state = services.getState<{
-          plugins?: { vision?: { visionAvailable?: boolean } };
+        // Get full state to pass to isAvailable checks
+        // Commands expect different state shapes for their availability checks
+        const fullState = services.getState<{
+          plugins?: { vision?: VisionSlice };
+          screenshotHistory?: Map<string, unknown>;
+          autoScanSettings?: { vision?: { onRouteChange?: boolean } };
         }>();
+
+        // Build a unified state object for isAvailable checks
+        // Some commands check fullState.plugins.vision.*, others check fullState.screenshotHistory
+        const unifiedState = {
+          ...fullState,
+          // Pull up vision state properties for commands that expect them at root
+          screenshotHistory: fullState.plugins?.vision?.screenshotHistory ?? new Map(),
+          autoScanSettings: fullState.autoScanSettings ?? { vision: { onRouteChange: false } },
+        };
 
         // Filter commands based on availability
         return visionCommands
-          .filter((cmd) => !cmd.isAvailable || cmd.isAvailable(state))
+          .filter((cmd) => !cmd.isAvailable || cmd.isAvailable(unifiedState))
           .map((cmd): CategoryItem => ({
             id: cmd.id,
             title: cmd.title,
@@ -159,12 +172,22 @@ function createVisionCategoryProviders(): CategoryProvider[] {
       },
 
       getItemCount: (services: PluginServices): number => {
-        const state = services.getState<{
-          plugins?: { vision?: { visionAvailable?: boolean } };
+        // Get full state to pass to isAvailable checks
+        const fullState = services.getState<{
+          plugins?: { vision?: VisionSlice };
+          screenshotHistory?: Map<string, unknown>;
+          autoScanSettings?: { vision?: { onRouteChange?: boolean } };
         }>();
 
+        // Build a unified state object for isAvailable checks
+        const unifiedState = {
+          ...fullState,
+          screenshotHistory: fullState.plugins?.vision?.screenshotHistory ?? new Map(),
+          autoScanSettings: fullState.autoScanSettings ?? { vision: { onRouteChange: false } },
+        };
+
         return visionCommands.filter(
-          (cmd) => !cmd.isAvailable || cmd.isAvailable(state)
+          (cmd) => !cmd.isAvailable || cmd.isAvailable(unifiedState)
         ).length;
       },
 

@@ -1,15 +1,28 @@
 name: Preview Deployment
 
 on:
+  # Automatic deployment after successful publish to npm
   workflow_run:
     workflows: ["Publish"]
     types: [completed]
     branches: [main]
 
+  # Manual deployment - deploy any branch without publishing to npm
+  workflow_dispatch:
+    inputs:
+      use_npm:
+        description: 'Use published npm packages (false = build from source)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
 jobs:
   preview:
-    # Only run if publish succeeded
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # Run if: manual trigger OR publish succeeded
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -23,6 +36,14 @@ jobs:
         with:
           node-version: 20
 
+      # For manual deployments: build packages from source
+      - name: Build packages from source
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.use_npm != 'true' }}
+        run: |
+          echo "Building packages from source (branch: ${{ github.ref_name }})"
+          pnpm install
+          pnpm build:packages
+
       - name: Prepare test-app
         run: |
           # Copy template to /tmp to avoid pnpm workspace hoisting
@@ -32,9 +53,23 @@ jobs:
           # Install dependencies (now isolated from monorepo workspace)
           pnpm install
 
-          # Initialize UILint using the just-published npm version
-          # Note: --eslint is required to install the ESLint rules that generate lint issues
-          npx uilint@latest init --react --eslint
+          # For manual deployment with local packages: link built packages
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.use_npm }}" != "true" ]; then
+            echo "Linking locally built packages..."
+
+            # Install the locally built packages
+            pnpm add ${{ github.workspace }}/packages/uilint
+            pnpm add ${{ github.workspace }}/packages/uilint-react
+            pnpm add ${{ github.workspace }}/packages/uilint-eslint
+            pnpm add ${{ github.workspace }}/packages/jsx-loc-plugin
+
+            # Run uilint init with the local version
+            npx uilint init --react --eslint
+          else
+            # Use published npm version (after automatic publish)
+            echo "Using published npm packages..."
+            npx uilint@latest init --react --eslint
+          fi
 
           # Re-install to ensure uilint-react is installed after init modified package.json
           pnpm install
@@ -52,7 +87,7 @@ jobs:
           # Generate the lint manifest for static mode
           # Note: build-manifest exits with code 1 when lint issues are found, which is expected
           mkdir -p public/.uilint
-          npx uilint@latest build-manifest -o public/.uilint/manifest.json --pretty || true
+          npx uilint build-manifest -o public/.uilint/manifest.json --pretty || true
           echo "Generated lint manifest at public/.uilint/manifest.json"
 
       - name: Deploy to Vercel
@@ -80,4 +115,8 @@ jobs:
 
       - name: Log deployment URL
         run: |
-          echo "Preview deployed to: ${{ steps.deploy.outputs.url }}"
+          echo "🚀 Preview deployed!"
+          echo "   Branch: ${{ github.ref_name }}"
+          echo "   URL: ${{ steps.deploy.outputs.url }}"
+          echo "   Trigger: ${{ github.event_name == 'workflow_dispatch' && 'Manual' || 'Automatic (after publish)' }}"
+          echo "   Packages: ${{ github.event_name == 'workflow_dispatch' && inputs.use_npm != 'true' && 'Built from source' || 'Published npm packages' }}"
