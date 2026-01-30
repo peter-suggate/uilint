@@ -50,8 +50,9 @@ jobs:
           fi
 
           # Generate the lint manifest for static mode
+          # Note: build-manifest exits with code 1 when lint issues are found, which is expected
           mkdir -p public/.uilint
-          npx uilint@latest build-manifest -o public/.uilint/manifest.json --pretty
+          npx uilint@latest build-manifest -o public/.uilint/manifest.json --pretty || true
           echo "Generated lint manifest at public/.uilint/manifest.json"
 
       - name: Deploy to Vercel
