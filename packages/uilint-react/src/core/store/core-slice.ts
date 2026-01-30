@@ -42,6 +42,10 @@ export interface CommandPaletteState {
   selectedIndex: number;
   /** Active filters (shown as chips) */
   filters: CommandPaletteFilter[];
+  /** Currently selected category in the sidebar (null = "All") */
+  selectedCategoryId: string | null;
+  /** Whether sidebar is focused (for keyboard navigation) */
+  sidebarFocused: boolean;
 }
 
 /**
@@ -112,6 +116,10 @@ export interface CoreSlice {
   removeFilter: (index: number) => void;
   /** Clear all command palette filters */
   clearFilters: () => void;
+  /** Set the selected category in the sidebar */
+  setSelectedCategory: (categoryId: string | null) => void;
+  /** Toggle sidebar focus for keyboard navigation */
+  setSidebarFocused: (focused: boolean) => void;
 
   // ============ Inspector ============
   /** Inspector sidebar state */
@@ -197,6 +205,8 @@ const DEFAULT_COMMAND_PALETTE_STATE: CommandPaletteState = {
   query: "",
   selectedIndex: 0,
   filters: [],
+  selectedCategoryId: null,
+  sidebarFocused: false,
 };
 
 const DEFAULT_INSPECTOR_WIDTH = 400;
@@ -330,6 +340,25 @@ export const createCoreSlice = (
         ...get().commandPalette,
         filters: [],
         selectedIndex: 0,
+      },
+    });
+  },
+
+  setSelectedCategory: (categoryId) => {
+    set({
+      commandPalette: {
+        ...get().commandPalette,
+        selectedCategoryId: categoryId,
+        selectedIndex: 0,
+      },
+    });
+  },
+
+  setSidebarFocused: (focused) => {
+    set({
+      commandPalette: {
+        ...get().commandPalette,
+        sidebarFocused: focused,
       },
     });
   },
