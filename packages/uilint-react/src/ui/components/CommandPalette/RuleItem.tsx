@@ -4,7 +4,7 @@
  * Uses inline styles with CSS variables to match the devtools overlay design system.
  */
 import React, { useCallback } from "react";
-import { RuleIcon } from "../../icons";
+import { useIsMobile } from "../../hooks";
 import type { RuleDefinition } from "../../../core/plugin-system/types";
 
 interface RuleItemProps {
@@ -71,6 +71,8 @@ export function RuleItem({
   onSeverityChange,
   onClick,
 }: RuleItemProps) {
+  const { isMobile } = useIsMobile();
+
   const handleSeverityChange = useCallback(
     (severity: "error" | "warning" | "off") => {
       onSeverityChange(rule.id, severity);
@@ -82,52 +84,46 @@ export function RuleItem({
     e.stopPropagation();
   }, []);
 
-  const iconBg =
+  // Severity indicator color
+  const severityColor =
     rule.severity === "error"
-      ? { background: "rgba(239, 68, 68, 0.1)", color: "#ef4444" }
+      ? "#ef4444"
       : rule.severity === "warning"
-      ? { background: "rgba(245, 158, 11, 0.1)", color: "#f59e0b" }
-      : { background: "var(--uilint-surface-elevated)", color: "var(--uilint-text-disabled)" };
+      ? "#f59e0b"
+      : "var(--uilint-text-disabled)";
 
   return (
     <div
       onClick={onClick}
       style={{
-        padding: "10px 16px",
+        padding: isMobile ? "12px 16px" : "10px 16px",
         cursor: "pointer",
         borderBottom: "1px solid var(--uilint-border)",
         display: "flex",
         alignItems: "center",
-        gap: 12,
+        gap: 10,
         background: isSelected ? "var(--uilint-surface-elevated)" : "transparent",
       }}
     >
-      {/* Icon */}
+      {/* Severity indicator dot */}
       <div
         style={{
-          width: 28,
-          height: 28,
-          borderRadius: 6,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: severityColor,
           flexShrink: 0,
-          ...iconBg,
         }}
-      >
-        <RuleIcon size={14} />
-      </div>
+      />
 
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            fontSize: 13,
+            fontSize: isMobile ? 15 : 13,
             fontWeight: 500,
-            marginBottom: 1,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            marginBottom: 2,
+            lineHeight: 1.3,
             color: rule.severity === "off"
               ? "var(--uilint-text-disabled)"
               : "var(--uilint-text-primary)",
@@ -139,9 +135,6 @@ export function RuleItem({
           style={{
             fontSize: 11,
             color: "var(--uilint-text-muted)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
           }}
         >
           {rule.id}
@@ -160,6 +153,7 @@ export function RuleItem({
             borderRadius: 10,
             minWidth: 20,
             textAlign: "center",
+            flexShrink: 0,
           }}
         >
           {issueCount}

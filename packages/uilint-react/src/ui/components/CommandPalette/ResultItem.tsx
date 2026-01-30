@@ -2,8 +2,9 @@
  * ResultItem - Single result row in command palette
  */
 import React from "react";
-import { FileIcon, RuleIcon, WarningIcon, ErrorIcon, InfoIcon } from "../../icons";
+import { WarningIcon, ErrorIcon, InfoIcon } from "../../icons";
 import { Badge } from "../primitives";
+import { useIsMobile } from "../../hooks";
 import type { Issue } from "../../types";
 
 interface ResultItemProps {
@@ -13,6 +14,8 @@ interface ResultItemProps {
 }
 
 export function ResultItem({ issue, isSelected, onClick }: ResultItemProps) {
+  const { isMobile } = useIsMobile();
+
   const SeverityIcon = issue.severity === "error" ? ErrorIcon
     : issue.severity === "warning" ? WarningIcon
     : InfoIcon;
@@ -34,23 +37,22 @@ export function ResultItem({ issue, isSelected, onClick }: ResultItemProps) {
       style={{
         display: "flex",
         alignItems: "flex-start",
-        padding: "10px 16px",
+        padding: isMobile ? "12px 16px" : "10px 16px",
         cursor: "pointer",
-        gap: 12,
+        gap: 10,
         borderBottom: "1px solid var(--uilint-border)",
         background: isSelected ? "var(--uilint-surface-elevated)" : "transparent",
         transition: "background 0.1s ease",
       }}
     >
-      <SeverityIcon size={16} color={severityColor} />
+      <SeverityIcon size={16} color={severityColor} style={{ flexShrink: 0, marginTop: 2 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            fontSize: 14,
+            fontSize: isMobile ? 15 : 14,
+            lineHeight: 1.4,
             color: "var(--uilint-text-primary)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            wordBreak: "break-word",
           }}
         >
           {issue.message}
@@ -59,14 +61,14 @@ export function ResultItem({ issue, isSelected, onClick }: ResultItemProps) {
           style={{
             fontSize: 12,
             color: "var(--uilint-text-muted)",
-            marginTop: 2,
+            marginTop: 4,
             display: "flex",
             alignItems: "center",
+            flexWrap: "wrap",
             gap: 8,
           }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <FileIcon size={12} />
             {fileName}:{issue.line}
           </span>
           <Badge variant={severityVariant} size="sm" disableAnimation>

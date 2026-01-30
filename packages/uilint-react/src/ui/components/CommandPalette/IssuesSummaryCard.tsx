@@ -6,9 +6,10 @@
  */
 import React from "react";
 import { motion } from "motion/react";
-import { ErrorIcon, WarningIcon, InfoIcon, FileIcon, ChevronRightIcon } from "../../icons";
+import { ErrorIcon, WarningIcon } from "../../icons";
 import { StatBadge } from "../primitives";
 import { useScrollTarget } from "./useScrollSelectedIntoView";
+import { useIsMobile } from "../../hooks";
 import type { Issue } from "../../types";
 
 interface IssuesSummaryCardProps {
@@ -25,6 +26,7 @@ interface SeverityCount {
 }
 
 export function IssuesSummaryCard({ issues, isSelected, resultIndex, onClick }: IssuesSummaryCardProps) {
+  const { isMobile } = useIsMobile();
   const scrollRef = useScrollTarget(resultIndex ?? -1);
 
   // Count issues by severity
@@ -47,16 +49,13 @@ export function IssuesSummaryCard({ issues, isSelected, resultIndex, onClick }: 
 
   if (issues.length === 0) return null;
 
-  return (
-    <motion.div
+  const cardContent = (
+    <div
       ref={resultIndex != null ? scrollRef : undefined}
       onClick={onClick}
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.12, ease: [0.32, 0.72, 0, 1] }}
       style={{
-        margin: "8px 12px",
-        padding: "14px 16px",
+        margin: isMobile ? "8px 16px" : "8px 12px",
+        padding: isMobile ? "16px" : "14px 16px",
         borderRadius: "var(--uilint-card-radius, 12px)",
         cursor: "pointer",
         background: isSelected
@@ -80,45 +79,21 @@ export function IssuesSummaryCard({ issues, isSelected, resultIndex, onClick }: 
           marginBottom: 12,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              background: "linear-gradient(135deg, var(--uilint-accent) 0%, var(--uilint-info) 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <span style={{ fontSize: 14 }}>📋</span>
+        <div>
+          <div style={{ fontSize: isMobile ? 15 : 13, fontWeight: 600, color: "var(--uilint-text-primary)" }}>
+            All Issues
           </div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--uilint-text-primary)" }}>
-              All Issues
-            </div>
-            <div style={{ fontSize: 11, color: "var(--uilint-text-muted)" }}>
-              Type to search across all issues
-            </div>
+          <div style={{ fontSize: isMobile ? 13 : 11, color: "var(--uilint-text-muted)", marginTop: 2 }}>
+            Type to search across all issues
           </div>
         </div>
-        <ChevronRightIcon
-          size={16}
-          style={{
-            color: "var(--uilint-text-disabled)",
-            opacity: isSelected ? 1 : 0.5,
-            transform: isSelected ? "translateX(2px)" : "none",
-            transition: "all 0.1s ease",
-          }}
-        />
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats - simplified on mobile */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          display: "flex",
+          flexWrap: "wrap",
           gap: 8,
         }}
       >
@@ -134,7 +109,6 @@ export function IssuesSummaryCard({ issues, isSelected, resultIndex, onClick }: 
         {/* Errors */}
         {counts.errors > 0 && (
           <StatBadge
-            icon={<ErrorIcon size={12} />}
             label="Errors"
             value={counts.errors}
             variant="error"
@@ -146,7 +120,6 @@ export function IssuesSummaryCard({ issues, isSelected, resultIndex, onClick }: 
         {/* Warnings */}
         {counts.warnings > 0 && (
           <StatBadge
-            icon={<WarningIcon size={12} />}
             label="Warnings"
             value={counts.warnings}
             variant="warning"
@@ -157,7 +130,6 @@ export function IssuesSummaryCard({ issues, isSelected, resultIndex, onClick }: 
 
         {/* Files */}
         <StatBadge
-          icon={<FileIcon size={12} />}
           label="Files"
           value={fileCount}
           variant="success"
@@ -165,6 +137,21 @@ export function IssuesSummaryCard({ issues, isSelected, resultIndex, onClick }: 
           disableAnimation
         />
       </div>
+    </div>
+  );
+
+  // Skip motion wrapper on mobile
+  if (isMobile) {
+    return cardContent;
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.12, ease: [0.32, 0.72, 0, 1] }}
+    >
+      {cardContent}
     </motion.div>
   );
 }
@@ -233,27 +220,21 @@ function TopIssueItem({
   onClick: () => void;
   index: number;
 }) {
+  const { isMobile } = useIsMobile();
   const scrollRef = useScrollTarget(resultIndex);
   const SeverityIcon = issue.severity === "error" ? ErrorIcon : WarningIcon;
   const severityColor = issue.severity === "error" ? "var(--uilint-error)" : "var(--uilint-warning)";
   const fileName = issue.filePath.split("/").pop() || issue.filePath;
 
-  return (
-    <motion.div
+  const content = (
+    <div
       ref={scrollRef}
       onClick={onClick}
-      initial={{ opacity: 0, x: -6 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{
-        duration: 0.1,
-        delay: index * 0.02,
-        ease: [0.32, 0.72, 0, 1],
-      }}
       style={{
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         gap: 10,
-        padding: "8px 16px",
+        padding: isMobile ? "12px 16px" : "8px 16px",
         cursor: "pointer",
         background: isSelected
           ? "var(--uilint-info-bg)"
@@ -262,23 +243,40 @@ function TopIssueItem({
         transition: "all 0.1s ease",
       }}
     >
-      <SeverityIcon size={14} color={severityColor} />
+      <SeverityIcon size={14} color={severityColor} style={{ flexShrink: 0, marginTop: 2 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            fontSize: 12,
+            fontSize: isMobile ? 14 : 12,
+            lineHeight: 1.4,
             color: "var(--uilint-text-secondary)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
           }}
         >
           {issue.message}
         </div>
-        <div style={{ fontSize: 10, color: "var(--uilint-text-disabled)", marginTop: 1 }}>
+        <div style={{ fontSize: isMobile ? 12 : 10, color: "var(--uilint-text-disabled)", marginTop: 2 }}>
           {fileName}:{issue.line}
         </div>
       </div>
+    </div>
+  );
+
+  // Skip motion wrapper on mobile
+  if (isMobile) {
+    return content;
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -6 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{
+        duration: 0.1,
+        delay: index * 0.02,
+        ease: [0.32, 0.72, 0, 1],
+      }}
+    >
+      {content}
     </motion.div>
   );
 }
