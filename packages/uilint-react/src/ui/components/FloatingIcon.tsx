@@ -434,6 +434,11 @@ export function FloatingIcon() {
 
   const portalRoot = document.getElementById("uilint-portal") || document.body;
 
+  // Hide the floating icon when command palette is open
+  if (isCommandPaletteOpen) {
+    return null;
+  }
+
   // Determine if hint should be shown (hide on touch devices)
   const showHint = !hasInteracted && !isHovered && !isTouchDevice;
 
