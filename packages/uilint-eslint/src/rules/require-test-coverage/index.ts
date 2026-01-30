@@ -680,6 +680,12 @@ export default createRule<Options, MessageIds>({
             enum: ["error", "warn", "off"],
             description: "Severity for chunk coverage check",
           },
+          minStatements: {
+            type: "number",
+            minimum: 0,
+            description:
+              "Files with fewer statements are exempt from coverage requirements",
+          },
         },
         additionalProperties: false,
       },

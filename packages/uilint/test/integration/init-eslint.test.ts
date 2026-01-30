@@ -946,3 +946,47 @@ describe("ESLint installation - JavaScript vs TypeScript file formats", () => {
     expect(updatedConfig).toContain("uilint/prefer-tailwind");
   });
 });
+
+// ============================================================================
+// Dot-prefixed Directory Tests (GitHub Actions scenario)
+// ============================================================================
+
+describe("ESLint installation - dot-prefixed directories", () => {
+  it("detects ESLint config in project copied to dot-prefixed directory", async () => {
+    // This test simulates the GitHub Actions scenario where a project is
+    // copied to .vercel-deploy but the workspace root is the parent directory
+    // (the checked out repo) which contains a .git folder.
+    //
+    // The fix ensures that even if the project directory starts with a dot
+    // (which is normally skipped by findPackages), it's still detected.
+    fixture = useFixture("has-eslint-flat-ts");
+
+    // Create a simulated workspace structure:
+    // /tmp/workspace/.git/               <- marks workspace root
+    // /tmp/workspace/.vercel-deploy/     <- our project (would be skipped by findPackages)
+    const { mkdirSync, cpSync, rmSync } = require("fs");
+    const { join } = require("path");
+    const workspaceDir = join(fixture.path, "..", `workspace-${Date.now()}`);
+    const dotPrefixedDir = join(workspaceDir, ".vercel-deploy");
+
+    try {
+      // Create workspace structure
+      mkdirSync(join(workspaceDir, ".git"), { recursive: true });
+      cpSync(fixture.path, dotPrefixedDir, { recursive: true });
+
+      // Run analyze from the dot-prefixed directory
+      const state = await analyze(dotPrefixedDir);
+
+      // The workspace root should be the parent directory (has .git)
+      expect(state.workspaceRoot).toBe(workspaceDir);
+
+      // But the project in the dot-prefixed directory should still be found
+      expect(state.packages.length).toBe(1);
+      expect(state.packages[0].path).toBe(dotPrefixedDir);
+      expect(state.packages[0].eslintConfigPath).toContain("eslint.config.ts");
+    } finally {
+      // Cleanup
+      rmSync(workspaceDir, { recursive: true, force: true });
+    }
+  });
+});

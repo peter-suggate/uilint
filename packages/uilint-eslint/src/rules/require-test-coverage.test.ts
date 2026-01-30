@@ -252,7 +252,7 @@ describeWithFixtures("require-test-coverage mode", () => {
 export function existingFunction(): string { return "I exist"; }
 export function newFunction(): string { return "I am new"; }
 `,
-        options: [{ chunkCoverage: false }],
+        options: [{ chunkCoverage: false, minStatements: 0 }],
         errors: [
           { messageId: "belowThreshold" },
         ],
@@ -431,6 +431,7 @@ export function Component() {
         options: [{
           aggregateThreshold: 70,
           severity: {},
+          minStatements: 0,
         }],
         errors: [{ messageId: "belowAggregateThreshold" }],
       },
@@ -450,6 +451,7 @@ export function Component() {
         options: [{
           aggregateThreshold: 50,
           severity: {},
+          minStatements: 0,
         }],
         errors: [{ messageId: "belowAggregateThreshold" }],
       },
@@ -676,6 +678,7 @@ export function formatName(first: string, last: string): string {
           chunkCoverage: true,
           chunkThreshold: 80,
           severity: {},
+          minStatements: 0,
         }],
         errors: [
           // Function below threshold (coverage data doesn't match test code line numbers)
@@ -697,6 +700,7 @@ export function formatName(first: string, last: string): string {
           chunkThreshold: 100, // Set impossibly high to guarantee error
           relaxedThreshold: 40,
           severity: {},
+          minStatements: 0,
         }],
         errors: [
           // Utility will be below 100% threshold

@@ -7,7 +7,7 @@
  */
 
 import { existsSync, readFileSync } from "fs";
-import { join } from "path";
+import { join, relative } from "path";
 import { findWorkspaceRoot } from "uilint-core/node";
 import {
   detectNextAppRouter,
@@ -141,6 +141,44 @@ export async function analyze(
   if (projectHasPackageJson && projectPath !== workspaceRoot) {
     // Filter to only include the current project
     rawPackages = rawPackages.filter((pkg) => pkg.path === projectPath);
+
+    // If the current project wasn't found (e.g., it's in a dot-prefixed directory
+    // like .vercel-deploy which findPackages skips), add it directly
+    if (rawPackages.length === 0) {
+      try {
+        const pkgPath = join(projectPath, "package.json");
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+        const name = pkg.name || relative(workspaceRoot, projectPath) || ".";
+        const displayPath = relative(workspaceRoot, projectPath) || ".";
+
+        // Detect if it's a frontend package
+        const deps = {
+          ...(pkg.dependencies as Record<string, string> | undefined),
+          ...(pkg.devDependencies as Record<string, string> | undefined),
+        };
+        const frontendIndicators = ["react", "react-dom", "next", "vue", "svelte", "@angular/core", "solid-js", "preact"];
+        const isFrontend = frontendIndicators.some((dep) => dep in deps);
+
+        // Detect TypeScript
+        const isTypeScript = existsSync(join(projectPath, "tsconfig.json")) || "typescript" in deps;
+
+        // Check for ESLint config
+        const eslintConfigFiles = ["eslint.config.js", "eslint.config.ts", "eslint.config.mjs", "eslint.config.cjs"];
+        const hasEslintConfig = eslintConfigFiles.some((f) => existsSync(join(projectPath, f)));
+
+        rawPackages.push({
+          path: projectPath,
+          displayPath,
+          name,
+          hasEslintConfig,
+          isFrontend,
+          isRoot: false,
+          isTypeScript,
+        });
+      } catch {
+        // Ignore parse errors
+      }
+    }
   }
   const packages: EslintPackageInfo[] = rawPackages.map((pkg) => {
     const eslintConfigPath = findEslintConfigFile(pkg.path);

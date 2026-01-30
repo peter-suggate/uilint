@@ -39,10 +39,12 @@
     "publish:packages": "pnpm sync:workspace && pnpm build:packages && pnpm --filter uilint-core publish --access public --no-git-checks && pnpm --filter uilint-react publish --access public --no-git-checks && pnpm --filter uilint publish --access public --no-git-checks && pnpm --filter uilint-eslint publish --access public --no-git-checks && pnpm --filter uilint-duplicates publish --access public --no-git-checks && pnpm --filter jsx-loc-plugin publish --access public --no-git-checks",
     "publish:patch": "pnpm version:patch && pnpm publish:packages",
     "publish:minor": "pnpm version:minor && pnpm publish:packages",
-    "publish:major": "pnpm version:major && pnpm publish:packages"
+    "publish:major": "pnpm version:major && pnpm publish:packages",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
+    "husky": "^9.1.7",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
