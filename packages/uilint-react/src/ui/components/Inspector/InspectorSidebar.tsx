@@ -85,8 +85,28 @@ export function InspectorSidebar() {
         </div>
       );
     } else if (panelId === "issue" && panelData?.issue) {
-      title = "Issue Details";
-      content = <IssueDetail issue={panelData.issue as Issue} />;
+      const issue = panelData.issue as Issue;
+      // Check if the issue's rule has a custom inspector panel
+      const ruleContribution = issue.ruleId
+        ? pluginRegistry.getRuleContribution(issue.ruleId) ||
+          pluginRegistry.getRuleContribution(issue.ruleId.replace("uilint/", ""))
+        : undefined;
+
+      if (ruleContribution?.inspectorPanel) {
+        const services = getPluginServices();
+        const CustomPanel = ruleContribution.inspectorPanel;
+        title = "Issue Details";
+        content = services ? (
+          <CustomPanel data={panelData} services={services} />
+        ) : (
+          <div style={{ padding: 16, color: "var(--uilint-text-muted)", textAlign: "center" }}>
+            Loading...
+          </div>
+        );
+      } else {
+        title = "Issue Details";
+        content = <IssueDetail issue={issue} />;
+      }
     } else if (panelId === "element" && panelData?.dataLoc) {
       title = "Element Issues";
       content = (

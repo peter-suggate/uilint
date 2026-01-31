@@ -9,7 +9,7 @@ import { RuleTester } from "@typescript-eslint/rule-tester";
 import { describe, it, afterAll, beforeEach } from "vitest";
 import rule, { clearIndexCache } from "./no-semantic-duplicates.js";
 import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
-import { join } from "path";
+import { join, relative } from "path";
 import { tmpdir } from "os";
 
 RuleTester.afterAll = afterAll;
@@ -97,8 +97,10 @@ function setupIndex(
   const ids: string[] = [];
 
   for (const chunk of chunks) {
+    // Store relative path for portability (matching production behavior)
+    const relativeFilePath = relative(projectRoot, chunk.filePath);
     metadata[chunk.id] = {
-      filePath: chunk.filePath,
+      filePath: relativeFilePath,
       startLine: chunk.startLine,
       endLine: chunk.endLine,
       startColumn: chunk.startColumn ?? 0,

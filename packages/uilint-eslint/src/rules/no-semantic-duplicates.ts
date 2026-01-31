@@ -508,11 +508,15 @@ export default createRule<Options, MessageIds>({
     const filename = context.filename || context.getFilename();
     const projectRoot = findProjectRoot(dirname(filename), indexPath);
 
+    // Convert to relative path for index lookup (index stores relative paths for portability)
+    const relativeFilename = relative(projectRoot, filename);
+
     // Initialize logging to .uilint folder
     initLog(projectRoot);
 
     log(`\n========== Rule create() ==========`);
     log(`Filename: ${filename}`);
+    log(`Relative filename: ${relativeFilename}`);
     log(`Threshold: ${threshold}`);
     log(`Index path: ${indexPath}`);
     log(`Min lines: ${minLines}`);
@@ -531,16 +535,16 @@ export default createRule<Options, MessageIds>({
       node: TSESTree.Node,
       name: string | null
     ): void {
-      log(`checkForDuplicates: name=${name}, file=${filename}`);
+      log(`checkForDuplicates: name=${name}, file=${relativeFilename}`);
 
       if (!index) {
         log(`  No index loaded`);
         return;
       }
 
-      // Get chunks for this file
-      const fileChunks = index.fileToChunks.get(filename);
-      log(`  Looking for chunks for file: ${filename}`);
+      // Get chunks for this file (using relative path for portability)
+      const fileChunks = index.fileToChunks.get(relativeFilename);
+      log(`  Looking for chunks for file: ${relativeFilename}`);
       log(`  Files in index: ${Array.from(index.fileToChunks.keys()).join(", ")}`);
 
       if (!fileChunks || fileChunks.length === 0) {
@@ -592,17 +596,21 @@ export default createRule<Options, MessageIds>({
 
               reportedChunks.add(chunkId);
 
-              const relPath = relative(projectRoot, bestMeta.filePath);
+              // Index stores relative paths, so bestMeta.filePath is already relative
+              const relPath = bestMeta.filePath;
               const similarity = Math.round(best.score * 100);
 
               // Extract source code for both chunks
+              // For source file, use absolute path (filename is absolute from context)
               const sourceCode = extractCodeFromFile(
                 filename,
                 meta.startLine,
                 meta.endLine
               );
+              // For target file, convert relative path back to absolute for reading
+              const targetAbsolutePath = join(projectRoot, bestMeta.filePath);
               const targetCode = extractCodeFromFile(
-                bestMeta.filePath,
+                targetAbsolutePath,
                 bestMeta.startLine,
                 bestMeta.endLine
               );
@@ -622,18 +630,18 @@ export default createRule<Options, MessageIds>({
                   similarity: String(similarity),
                   otherName: bestMeta.name || "(anonymous)",
                   otherLocation: `${relPath}:${bestMeta.startLine}`,
-                  // Extended data for inspector panel
+                  // Extended data for inspector panel (use relative paths for portability)
                   sourceCode: sourceCode || "",
                   targetCode: targetCode || "",
                   sourceLocation: JSON.stringify({
-                    filePath: filename,
+                    filePath: relativeFilename,
                     startLine: meta.startLine,
                     endLine: meta.endLine,
                     startColumn: meta.startColumn,
                     endColumn: meta.endColumn,
                   }),
                   targetLocation: JSON.stringify({
-                    filePath: bestMeta.filePath,
+                    filePath: bestMeta.filePath, // Already relative from index
                     startLine: bestMeta.startLine,
                     endLine: bestMeta.endLine,
                     startColumn: bestMeta.startColumn,

@@ -6,13 +6,17 @@
  * - Source code section (scrollable)
  * - Target/similar code section (scrollable)
  * - Action bar with "Show in Heatmap" button
+ *
+ * When extended data (sourceCode, targetCode) is not available (e.g., in static mode),
+ * the panel parses the ESLint message to extract target info and fetches code dynamically.
  */
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import type { InspectorPanelProps } from "../../../core/plugin-system/types";
 import { useComposedStore } from "../../../core/store";
 import { DuplicateSimilarityBadge } from "./DuplicateSimilarityBadge";
 import { ScrollableCodeSection } from "./ScrollableCodeSection";
 import { useDiffHighlights } from "./useDiffHighlights";
+import { useSourceCode } from "../../../ui/hooks/useSourceCode";
 
 /**
  * Location data for a code chunk
@@ -92,6 +96,38 @@ function TargetIcon() {
 }
 
 /**
+ * Parse the ESLint message to extract duplicate info.
+ * Message format: "This {kind} '{name}' is {similarity}% similar to '{otherName}' at {otherLocation}. Consider consolidating."
+ */
+interface ParsedDuplicateMessage {
+  kind?: string;
+  sourceName?: string;
+  similarity?: number;
+  targetName?: string;
+  targetFilePath?: string;
+  targetLine?: number;
+}
+
+function parseDuplicateMessage(message: string | undefined): ParsedDuplicateMessage | null {
+  if (!message) return null;
+
+  // Pattern: "This component 'Button' is 85% similar to 'OtherButton' at path/file.tsx:42. Consider consolidating."
+  const regex = /This\s+(\w+)\s+'([^']+)'\s+is\s+(\d+)%\s+similar\s+to\s+'([^']+)'\s+at\s+([^:]+):(\d+)/i;
+  const match = message.match(regex);
+
+  if (!match) return null;
+
+  return {
+    kind: match[1],
+    sourceName: match[2],
+    similarity: parseInt(match[3], 10),
+    targetName: match[4],
+    targetFilePath: match[5],
+    targetLine: parseInt(match[6], 10),
+  };
+}
+
+/**
  * Extract issue data from panel props
  */
 function extractIssueData(data?: Record<string, unknown>): DuplicateIssueData | null {
@@ -124,10 +160,62 @@ export function DuplicatesInspectorPanel({ data, services }: InspectorPanelProps
   // Track whether heatmap filter is active for this duplicate
   const [isFilterActive, setIsFilterActive] = useState(false);
 
+  // Extract issue info from the data prop (comes from the Issue object when clicking an issue)
+  const issueInfo = useMemo(() => {
+    if (!data) return null;
+    // Try to get from nested issue object first, then from data directly
+    const issue = (data.issue as Record<string, unknown>) || data;
+    return {
+      filePath: (issue.filePath as string) || "",
+      line: (issue.line as number) || 0,
+      column: (issue.column as number) || 0,
+      message: (issue.message as string) || "",
+      dataLoc: (issue.dataLoc as string) || "",
+    };
+  }, [data]);
+
+  // Parse the message to extract target info when extended data is missing
+  const parsedMessage = useMemo(() => {
+    return parseDuplicateMessage(issueInfo?.message || issueData?.message);
+  }, [issueInfo?.message, issueData?.message]);
+
+  // Determine if we need to fetch code dynamically
+  const needsDynamicFetch = !issueData?.sourceCode || !issueData?.targetCode;
+
+  // Use the parsed info to determine source and target locations for fetching
+  const sourceFilePath = issueData?.sourceLocation?.filePath || issueInfo?.filePath || "";
+  const sourceLine = issueData?.sourceLocation?.startLine || issueInfo?.line || 0;
+  const targetFilePath = issueData?.targetLocation?.filePath || parsedMessage?.targetFilePath || "";
+  const targetLine = issueData?.targetLocation?.startLine || parsedMessage?.targetLine || 0;
+
+  // Fetch source code dynamically when needed
+  const sourceCodeResult = useSourceCode({
+    filePath: sourceFilePath,
+    line: sourceLine,
+    contextAbove: 15,  // Fetch more context to capture the full function/component
+    contextBelow: 15,
+    enabled: needsDynamicFetch && !!sourceFilePath && sourceLine > 0,
+  });
+
+  // Fetch target code dynamically when needed
+  const targetCodeResult = useSourceCode({
+    filePath: targetFilePath,
+    line: targetLine,
+    contextAbove: 15,
+    contextBelow: 15,
+    enabled: needsDynamicFetch && !!targetFilePath && targetLine > 0,
+  });
+
+  // Determine the actual code to display
+  const displaySourceCode = issueData?.sourceCode ||
+    (sourceCodeResult.context?.lines.join("\n") || "");
+  const displayTargetCode = issueData?.targetCode ||
+    (targetCodeResult.context?.lines.join("\n") || "");
+
   // Compute diff highlights between source and target
   const { sourceLines, targetLines, computed: diffComputed } = useDiffHighlights(
-    issueData?.sourceCode || "",
-    issueData?.targetCode || ""
+    displaySourceCode,
+    displayTargetCode
   );
 
   // Build dataLoc strings from locations
@@ -137,8 +225,27 @@ export function DuplicatesInspectorPanel({ data, services }: InspectorPanelProps
     return `${loc.filePath}:${loc.startLine}:${loc.startColumn ?? 0}`;
   }, []);
 
-  const sourceDataLoc = getDataLoc(issueData?.sourceLocation);
-  const targetDataLoc = getDataLoc(issueData?.targetLocation);
+  // Build effective locations for display
+  const effectiveSourceLocation: LocationData | undefined = issueData?.sourceLocation ||
+    (sourceFilePath && sourceLine ? {
+      filePath: sourceFilePath,
+      startLine: sourceCodeResult.context?.startLine || sourceLine,
+      endLine: sourceCodeResult.context?.endLine || sourceLine,
+      startColumn: 0,
+      endColumn: 0,
+    } : undefined);
+
+  const effectiveTargetLocation: LocationData | undefined = issueData?.targetLocation ||
+    (targetFilePath && targetLine ? {
+      filePath: targetFilePath,
+      startLine: targetCodeResult.context?.startLine || targetLine,
+      endLine: targetCodeResult.context?.endLine || targetLine,
+      startColumn: 0,
+      endColumn: 0,
+    } : undefined);
+
+  const sourceDataLoc = getDataLoc(effectiveSourceLocation);
+  const targetDataLoc = getDataLoc(effectiveTargetLocation);
 
   // Clear heatmap filter when panel unmounts
   useEffect(() => {
@@ -147,8 +254,8 @@ export function DuplicatesInspectorPanel({ data, services }: InspectorPanelProps
     };
   }, [clearHeatmapFilter]);
 
-  // Handle missing data
-  if (!issueData) {
+  // Handle missing data - show message only if we really can't get any info
+  if (!issueData && !issueInfo) {
     return (
       <div
         style={{
@@ -163,8 +270,28 @@ export function DuplicatesInspectorPanel({ data, services }: InspectorPanelProps
     );
   }
 
-  // Handle missing code
-  if (!issueData.sourceCode || !issueData.targetCode) {
+  // Show loading state while fetching code
+  const isLoading = needsDynamicFetch && (sourceCodeResult.isLoading || targetCodeResult.isLoading);
+  if (isLoading) {
+    return (
+      <div
+        style={{
+          padding: 24,
+          textAlign: "center",
+          color: "var(--uilint-text-muted)",
+          fontSize: 13,
+        }}
+      >
+        <div style={{ marginBottom: 8 }}>Loading code comparison...</div>
+        <div style={{ fontSize: 11, opacity: 0.8 }}>
+          Fetching source files...
+        </div>
+      </div>
+    );
+  }
+
+  // Handle case where we couldn't fetch the code
+  if (needsDynamicFetch && !displaySourceCode && !displayTargetCode) {
     return (
       <div
         style={{
@@ -178,15 +305,18 @@ export function DuplicatesInspectorPanel({ data, services }: InspectorPanelProps
           Code comparison not available.
         </div>
         <div style={{ fontSize: 11, opacity: 0.8 }}>
-          Run the latest version of the duplicates rule to see code comparison.
+          {parsedMessage
+            ? `Similar to '${parsedMessage.targetName}' at ${parsedMessage.targetFilePath}:${parsedMessage.targetLine}`
+            : "Could not fetch source code from server."}
         </div>
       </div>
     );
   }
 
-  const similarity = issueData.similarity ?? 0;
-  const sourceLocation = issueData.sourceLocation;
-  const targetLocation = issueData.targetLocation;
+  // Use parsed or provided similarity
+  const similarity = issueData?.similarity ?? parsedMessage?.similarity ?? 0;
+  const sourceLocation = effectiveSourceLocation;
+  const targetLocation = effectiveTargetLocation;
 
   // Check if filter is currently active for these locations
   const filterIsActive =
@@ -256,12 +386,12 @@ export function DuplicatesInspectorPanel({ data, services }: InspectorPanelProps
       </div>
 
       {/* Source code section */}
-      {sourceLocation && (
+      {sourceLocation && displaySourceCode && (
         <ScrollableCodeSection
           label="This Code"
           icon={<SourceIcon />}
           filePath={sourceLocation.filePath}
-          code={issueData.sourceCode}
+          code={displaySourceCode}
           startLine={sourceLocation.startLine}
           endLine={sourceLocation.endLine}
           focusLine={sourceLocation.startLine}
@@ -272,12 +402,12 @@ export function DuplicatesInspectorPanel({ data, services }: InspectorPanelProps
       )}
 
       {/* Target/similar code section */}
-      {targetLocation && (
+      {targetLocation && displayTargetCode && (
         <ScrollableCodeSection
           label="Similar Code"
           icon={<TargetIcon />}
           filePath={targetLocation.filePath}
-          code={issueData.targetCode}
+          code={displayTargetCode}
           startLine={targetLocation.startLine}
           endLine={targetLocation.endLine}
           focusLine={targetLocation.startLine}
