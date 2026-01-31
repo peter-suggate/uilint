@@ -19,7 +19,6 @@ import type {
   ToolbarActionGroup,
   CategoryProvider,
 } from "./types";
-import { categoryRegistry, type CategoryRegistry } from "./category-registry";
 
 /**
  * Wrapper for a registered plugin with initialization state
@@ -91,14 +90,15 @@ export function sortByDependencies(plugins: Plugin[]): Plugin[] {
  *
  * Central registry for managing UILint plugins. Handles:
  * - Plugin registration with dependency validation
- * - Ordered initialization based on dependencies
- * - Aggregation of plugin contributions
+ * - Aggregation of plugin contributions (commands, panels, etc.)
  * - Lifecycle management (dispose)
+ *
+ * Note: Plugin initialization is handled by `initializePlugins()` in composed-store.ts,
+ * which is the single entry point for plugin setup.
  */
 export class PluginRegistry {
   private plugins: Map<string, RegisteredPlugin> = new Map();
   private services: PluginServices | null = null;
-  private categoryRegistryRef: CategoryRegistry = categoryRegistry;
 
   /**
    * Register a plugin with the registry.
@@ -146,69 +146,26 @@ export class PluginRegistry {
   }
 
   /**
-   * Initialize all registered plugins in dependency order.
+   * Set the plugin services reference.
+   * Called by initializePlugins() after creating services.
    *
-   * @param services - Plugin services to pass to each plugin's initialize method
+   * @param services - The plugin services
    */
-  async initializeAll(services: PluginServices): Promise<void> {
-    console.log("[PluginRegistry] Initializing all plugins...");
+  setServices(services: PluginServices): void {
     this.services = services;
+  }
 
-    // Initialize the category registry with services
-    this.categoryRegistryRef.initialize(services);
-
-    // Get all plugins and sort by dependencies
-    const allPlugins = Array.from(this.plugins.values()).map((rp) => rp.plugin);
-    const sortedPlugins = sortByDependencies(allPlugins);
-
-    console.log(
-      `[PluginRegistry] Initialization order: ${sortedPlugins.map((p) => p.id).join(" -> ")}`
-    );
-
-    // Initialize in order
-    for (const plugin of sortedPlugins) {
-      const registered = this.plugins.get(plugin.id);
-      if (!registered) continue;
-
-      if (registered.initialized) {
-        console.log(
-          `[PluginRegistry] Plugin "${plugin.id}" already initialized, skipping`
-        );
-        continue;
-      }
-
-      try {
-        console.log(`[PluginRegistry] Initializing plugin: ${plugin.id}`);
-
-        if (plugin.initialize) {
-          await plugin.initialize(services);
-        }
-
-        // Register category providers from this plugin
-        if (plugin.categoryProviders) {
-          this.categoryRegistryRef.registerFromPlugin(plugin);
-          console.log(
-            `[PluginRegistry] Registered ${plugin.categoryProviders.length} category providers from "${plugin.id}"`
-          );
-        }
-
-        registered.initialized = true;
-        console.log(
-          `[PluginRegistry] Plugin "${plugin.id}" initialized successfully`
-        );
-      } catch (error) {
-        console.error(
-          `[PluginRegistry] Failed to initialize plugin "${plugin.id}":`,
-          error
-        );
-        // Continue with other plugins even if one fails
-      }
+  /**
+   * Mark a plugin as initialized.
+   * Called by initializePlugins() after successfully initializing a plugin.
+   *
+   * @param pluginId - The ID of the plugin to mark as initialized
+   */
+  markPluginInitialized(pluginId: string): void {
+    const registered = this.plugins.get(pluginId);
+    if (registered) {
+      registered.initialized = true;
     }
-
-    // Load category counts by priority
-    this.categoryRegistryRef.loadByPriority();
-
-    console.log("[PluginRegistry] All plugins initialized");
   }
 
   /**
@@ -338,15 +295,6 @@ export class PluginRegistry {
 
     // Sort by priority (lower number first)
     return providers.sort((a, b) => a.priority - b.priority);
-  }
-
-  /**
-   * Get the category registry instance.
-   *
-   * @returns The category registry
-   */
-  getCategoryRegistry(): CategoryRegistry {
-    return this.categoryRegistryRef;
   }
 
   /**

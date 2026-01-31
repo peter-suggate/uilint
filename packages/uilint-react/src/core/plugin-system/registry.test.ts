@@ -132,6 +132,22 @@ function createMockRuleMeta(overrides: Partial<RuleMeta> = {}): RuleMeta {
   };
 }
 
+/**
+ * Helper to simulate plugin initialization in tests.
+ * Sets services and marks plugins as initialized.
+ */
+function simulatePluginInitialization(
+  registry: PluginRegistry,
+  services: PluginServices,
+  pluginIds?: string[]
+): void {
+  registry.setServices(services);
+  const idsToInit = pluginIds ?? registry.getPlugins().map((p) => p.id);
+  for (const id of idsToInit) {
+    registry.markPluginInitialized(id);
+  }
+}
+
 // ============================================================================
 // sortByDependencies Tests
 // ============================================================================
@@ -720,154 +736,38 @@ describe("PluginRegistry", () => {
   });
 
   // --------------------------------------------------------------------------
-  // initializeAll() Tests
+  // setServices() and markPluginInitialized() Tests
   // --------------------------------------------------------------------------
 
-  describe("initializeAll()", () => {
-    it("initializes plugins in dependency order", async () => {
-      const initOrder: string[] = [];
-
-      const pluginA = createMockPlugin({
-        id: "a",
-        dependencies: ["b"],
-        initialize: vi.fn(() => {
-          initOrder.push("a");
-        }),
-      });
-      const pluginB = createMockPlugin({
-        id: "b",
-        initialize: vi.fn(() => {
-          initOrder.push("b");
-        }),
-      });
-
-      registry.register(pluginB);
-      registry.register(pluginA);
-
-      const services = createMockPluginServices();
-      await registry.initializeAll(services);
-
-      expect(initOrder).toEqual(["b", "a"]);
-    });
-
-    it("sets initialized flag after successful initialization", async () => {
-      const plugin = createMockPlugin({
-        id: "init-me",
-        initialize: vi.fn(),
-      });
-
-      registry.register(plugin);
-
-      expect(registry.isInitialized("init-me")).toBe(false);
-
-      const services = createMockPluginServices();
-      await registry.initializeAll(services);
-
-      expect(registry.isInitialized("init-me")).toBe(true);
-    });
-
-    it("skips already initialized plugins", async () => {
-      const initFn = vi.fn();
-      const plugin = createMockPlugin({
-        id: "skip-me",
-        initialize: initFn,
-      });
-
-      registry.register(plugin);
-      const services = createMockPluginServices();
-
-      await registry.initializeAll(services);
-      await registry.initializeAll(services);
-
-      expect(initFn).toHaveBeenCalledTimes(1);
-    });
-
-    it("continues initialization even if one plugin fails", async () => {
-      const successInit = vi.fn();
-
-      const failPlugin = createMockPlugin({
-        id: "fail",
-        initialize: vi.fn(() => {
-          throw new Error("Init failed");
-        }),
-      });
-      const successPlugin = createMockPlugin({
-        id: "success",
-        initialize: successInit,
-      });
-
-      registry.register(failPlugin);
-      registry.register(successPlugin);
-
-      const services = createMockPluginServices();
-      await registry.initializeAll(services);
-
-      expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to initialize plugin "fail"'),
-        expect.any(Error)
-      );
-      expect(successInit).toHaveBeenCalled();
-      expect(registry.isInitialized("success")).toBe(true);
-      // Failed plugin should not be marked as initialized
-      expect(registry.isInitialized("fail")).toBe(false);
-    });
-
-    it("passes services to initialize function", async () => {
-      const initFn = vi.fn();
-      const plugin = createMockPlugin({
-        id: "service-consumer",
-        initialize: initFn,
-      });
-
-      registry.register(plugin);
-
-      const services = createMockPluginServices();
-      await registry.initializeAll(services);
-
-      expect(initFn).toHaveBeenCalledWith(services);
-    });
-
-    it("stores services for later access", async () => {
+  describe("setServices()", () => {
+    it("sets services for later access", () => {
       const plugin = createMockPlugin({ id: "p" });
       registry.register(plugin);
 
       expect(registry.getServices()).toBeNull();
 
       const services = createMockPluginServices();
-      await registry.initializeAll(services);
+      registry.setServices(services);
 
       expect(registry.getServices()).toBe(services);
     });
+  });
 
-    it("handles plugins without initialize method", async () => {
-      const plugin = createMockPlugin({ id: "no-init" });
-
+  describe("markPluginInitialized()", () => {
+    it("marks plugin as initialized", () => {
+      const plugin = createMockPlugin({ id: "test-plugin" });
       registry.register(plugin);
 
-      const services = createMockPluginServices();
-      await registry.initializeAll(services);
+      expect(registry.isInitialized("test-plugin")).toBe(false);
 
-      expect(registry.isInitialized("no-init")).toBe(true);
+      registry.markPluginInitialized("test-plugin");
+
+      expect(registry.isInitialized("test-plugin")).toBe(true);
     });
 
-    it("handles async initialize functions", async () => {
-      const initOrder: string[] = [];
-
-      const plugin = createMockPlugin({
-        id: "async-init",
-        initialize: vi.fn(async () => {
-          await new Promise((resolve) => setTimeout(resolve, 10));
-          initOrder.push("async-init");
-        }),
-      });
-
-      registry.register(plugin);
-
-      const services = createMockPluginServices();
-      await registry.initializeAll(services);
-
-      expect(initOrder).toContain("async-init");
-      expect(registry.isInitialized("async-init")).toBe(true);
+    it("does nothing for unregistered plugin", () => {
+      // Should not throw
+      expect(() => registry.markPluginInitialized("nonexistent")).not.toThrow();
     });
   });
 
@@ -895,7 +795,7 @@ describe("PluginRegistry", () => {
       registry.register(plugin2);
 
       const services = createMockPluginServices();
-      await registry.initializeAll(services);
+      simulatePluginInitialization(registry, services);
 
       registry.disposeAll();
 
@@ -926,7 +826,7 @@ describe("PluginRegistry", () => {
       registry.register(pluginA);
 
       const services = createMockPluginServices();
-      await registry.initializeAll(services);
+      simulatePluginInitialization(registry, services);
 
       registry.disposeAll();
 
@@ -960,7 +860,7 @@ describe("PluginRegistry", () => {
       registry.register(plugin);
 
       const services = createMockPluginServices();
-      await registry.initializeAll(services);
+      simulatePluginInitialization(registry, services);
 
       expect(registry.isInitialized("disposable")).toBe(true);
 
@@ -974,7 +874,7 @@ describe("PluginRegistry", () => {
       registry.register(plugin);
 
       const services = createMockPluginServices();
-      await registry.initializeAll(services);
+      simulatePluginInitialization(registry, services);
 
       expect(registry.getServices()).toBe(services);
 
@@ -1003,7 +903,7 @@ describe("PluginRegistry", () => {
       registry.register(plugin2);
 
       const services = createMockPluginServices();
-      await registry.initializeAll(services);
+      simulatePluginInitialization(registry, services);
 
       registry.disposeAll();
 
@@ -1023,7 +923,7 @@ describe("PluginRegistry", () => {
       registry.register(plugin);
 
       const services = createMockPluginServices();
-      await registry.initializeAll(services);
+      simulatePluginInitialization(registry, services);
 
       // Should not throw
       expect(() => registry.disposeAll()).not.toThrow();
@@ -1062,7 +962,7 @@ describe("PluginRegistry", () => {
       registry.register(plugin);
 
       const services = createMockPluginServices();
-      await registry.initializeAll(services);
+      simulatePluginInitialization(registry, services);
 
       registry.clear();
 
@@ -1074,7 +974,7 @@ describe("PluginRegistry", () => {
       registry.register(plugin);
 
       const services = createMockPluginServices();
-      await registry.initializeAll(services);
+      simulatePluginInitialization(registry, services);
 
       registry.clear();
 
@@ -1117,7 +1017,7 @@ describe("PluginRegistry", () => {
       registry.register(plugin);
 
       const services = createMockPluginServices();
-      await registry.initializeAll(services);
+      simulatePluginInitialization(registry, services);
 
       expect(registry.isInitialized("initialized")).toBe(true);
     });
@@ -1137,7 +1037,7 @@ describe("PluginRegistry", () => {
       registry.register(plugin);
 
       const services = createMockPluginServices();
-      await registry.initializeAll(services);
+      simulatePluginInitialization(registry, services);
 
       expect(registry.getServices()).toBe(services);
     });
