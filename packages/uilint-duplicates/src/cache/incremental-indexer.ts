@@ -353,9 +353,10 @@ export class IncrementalIndexer {
           // Store vector
           this.vectorStore.add(chunk.id, embedding);
 
-          // Store metadata
+          // Store metadata with relative path for portability across environments
+          const relativeFilePath = relative(this.projectRoot, chunk.filePath);
           const metadata: StoredChunkMetadata = {
-            filePath: chunk.filePath,
+            filePath: relativeFilePath,
             startLine: chunk.startLine,
             endLine: chunk.endLine,
             startColumn: chunk.startColumn,
