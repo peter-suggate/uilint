@@ -16,12 +16,12 @@
 
 import { create, type StoreApi, type UseBoundStore } from "zustand";
 import { createCoreSlice, type CoreSlice } from "./core-slice";
+import { createCategorySlice, type CategorySlice } from "./category-slice";
 import {
   pluginRegistry,
   sortByDependencies,
   type PluginRegistry,
 } from "../plugin-system/registry";
-import { categoryRegistry } from "../plugin-system/category-registry";
 import type {
   PluginServices,
   WebSocketService,
@@ -86,9 +86,10 @@ export interface PluginSlices {
 /**
  * The composed store state combines:
  * 1. CoreSlice - Core UI state (floating icon, command palette, inspector, etc.)
- * 2. PluginSlices - Namespaced plugin state accessible via `plugins.{pluginId}`
+ * 2. CategorySlice - Category provider state for command palette sidebar
+ * 3. PluginSlices - Namespaced plugin state accessible via `plugins.{pluginId}`
  */
-export type ComposedState = CoreSlice & PluginSlices;
+export type ComposedState = CoreSlice & CategorySlice & PluginSlices;
 
 /**
  * Actions for managing the composed store
@@ -298,9 +299,20 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
       subscribe: () => () => {},
     });
 
+    // Initialize the category slice
+    const categorySlice = createCategorySlice(set, get, {
+      setState: set,
+      getState: get,
+      getInitialState: () => get(),
+      subscribe: () => () => {},
+    });
+
     return {
       // Core slice state and actions
       ...coreSlice,
+
+      // Category slice state and actions
+      ...categorySlice,
 
       // Plugin slices namespace (empty initially)
       plugins: {},
@@ -552,8 +564,8 @@ export async function initializePlugins(
     `[initializePlugins] Initialization order: ${sortedPlugins.map((p) => p.id).join(" -> ")}`
   );
 
-  // Initialize the category registry with services
-  categoryRegistry.initialize(pluginServicesInstance);
+  // Initialize the category registry slice with services
+  store.getState().initializeCategoryRegistry(pluginServicesInstance);
 
   // First, create slices for all plugins and register them
   for (const plugin of sortedPlugins) {
@@ -617,7 +629,7 @@ export async function initializePlugins(
 
         // Register category providers for command bar sidebar
         if (plugin.categoryProviders) {
-          categoryRegistry.registerFromPlugin(plugin);
+          store.getState().registerCategoryProvidersFromPlugin(plugin);
           console.log(
             `[initializePlugins] Registered ${plugin.categoryProviders.length} category providers from "${plugin.id}"`
           );
@@ -632,8 +644,14 @@ export async function initializePlugins(
     }
   }
 
-  // Load category counts by priority (P0 immediately, P1-P3 scheduled)
-  categoryRegistry.loadByPriority();
+  // Load category items for high-priority categories
+  // P0 categories load immediately, others can be loaded on demand
+  const state = store.getState();
+  for (const provider of state.categoryProviders.values()) {
+    if (provider.priority === 0) {
+      state.loadCategoryItems(provider.id);
+    }
+  }
 
   console.log(
     `[initializePlugins] Initialized ${plugins.length} plugins`
