@@ -595,7 +595,7 @@ function createESLintCategoryProviders(): CategoryProvider[] {
     // Static provider for ESLint commands - always visible
     {
       id: "eslint:commands",
-      label: "ESLint",
+      label: "Commands",
       priority: 1,
       parentId: "eslint",
 
