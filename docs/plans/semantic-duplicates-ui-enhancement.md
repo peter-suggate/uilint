@@ -120,22 +120,24 @@ Given the narrow width (320-800px) and tall height of the inspector, we have sev
 └─────────────────────────────────┘
 ```
 
-**Smart Enhancements**:
+**Design Philosophy: No Toggles, Smart Behavior**
+
+Instead of explicit controls, use intuitive scroll-based interactions:
+
 1. **Sticky similarity header** - Always visible when scrolling
-2. **Full code by default** - Show complete function/component, not just context lines
-3. **"Show more" for very long code** - Only truncate if code exceeds ~50 lines
-4. **Jump to similar** - Button to scroll between sections
+2. **Scroll to reveal** - Start with focused view, scroll up/down to load more context dynamically
+3. **Infinite code scroll** - Seamlessly load lines as user scrolls (like modern code viewers)
+4. **Smart diff highlighting** - Always on, but subtle enough to not distract
 
 #### 2.1 Create DuplicatesInspectorPanel Component
 - **File**: `packages/uilint-react/src/plugins/semantic/panels/DuplicatesInspectorPanel.tsx`
 - **Features**:
   - Stacked vertical layout (source above, target below)
   - Sticky similarity score header with color-coded badge
-  - **Full code shown by default** (no collapse needed with vertical space)
-  - Truncation only for very long code (50+ lines) with "Show all" link
-  - File path headers with "Go to file" action
-  - Syntax-highlighted code using existing `SourceViewer` pattern
-  - Action bar with "Show in Heatmap" and navigation buttons
+  - **Scroll-to-reveal code** - initial focus on duplicated region, scroll to see more
+  - File path headers with "Go to file" action (click to navigate)
+  - Syntax-highlighted code with inline diff highlighting (always on, subtle)
+  - Action bar with "Show in Heatmap" button
 
 ```tsx
 interface DuplicatesInspectorPanelProps {
@@ -151,16 +153,48 @@ interface DuplicatesInspectorPanelProps {
 }
 ```
 
-#### 2.2 Create CodeSection Sub-component
-- **File**: `packages/uilint-react/src/plugins/semantic/panels/CodeSection.tsx`
+#### 2.2 Create ScrollableCodeSection Sub-component
+- **File**: `packages/uilint-react/src/plugins/semantic/panels/ScrollableCodeSection.tsx`
 - **Features**:
-  - Reusable code block with labeled header
+  - Reusable scrollable code block with labeled header
   - Section label ("This Code" / "Similar Code") with icon
   - File path + line range as clickable link
-  - Line number gutter
-  - Full code shown (no collapse - leverage vertical space)
-  - Smart truncation: show first 50 lines with "Show N more lines" for long code
-  - "Go to file" action in header
+  - Line number gutter with smooth scroll
+  - **Infinite scroll behavior**:
+    - Initially shows ~20 lines centered on the issue
+    - Scrolling up/down dynamically loads more lines
+    - Subtle fade at edges indicates more content available
+    - Loads in chunks (e.g., 20 lines at a time) for performance
+  - Virtualized rendering for large files (only renders visible lines)
+  - Scroll position preserved when switching between issues
+
+```tsx
+interface ScrollableCodeSectionProps {
+  label: string;                    // "This Code" | "Similar Code"
+  icon: ReactNode;
+  filePath: string;
+  code: string;
+  startLine: number;
+  endLine: number;
+  focusLine: number;               // Line to center on initially
+  diffHighlights?: DiffSegment[];  // Pre-computed diff data
+  onNavigate?: () => void;         // Click handler for file path
+}
+```
+
+**Scroll Behavior:**
+```
+┌─────────────────────────────────┐
+│ ░░░ fade indicates more above ░░│  <- Scroll up to load
+├─────────────────────────────────┤
+│ 15 │ function Button() {        │
+│ 16 │   const [x, setX] = ...    │
+│ 17 │►  return <button>...</butt>│  <- Focused line
+│ 18 │ }                          │
+├─────────────────────────────────┤
+│ ░░░ fade indicates more below ░░│  <- Scroll down to load
+└─────────────────────────────────┘
+```
 
 #### 2.3 Create DuplicateSimilarityBadge Component
 - **File**: `packages/uilint-react/src/plugins/semantic/panels/DuplicateSimilarityBadge.tsx`
@@ -170,8 +204,8 @@ interface DuplicatesInspectorPanelProps {
   - 70-85%: Orange (moderate similarity)
   - <70%: Yellow (lower similarity)
 
-#### 2.4 Add Inline Diff Highlighting
-**Goal**: Subtle, elegant highlighting of matching vs. differing code between sections
+#### 2.4 Add Inline Diff Highlighting (Always On, Subtle)
+**Goal**: Elegant, unobtrusive highlighting that shows similarity without distraction
 
 ##### Package Evaluation
 
@@ -179,80 +213,69 @@ interface DuplicatesInspectorPanelProps {
 |---------|-------|------|------|------|
 | **`diff`** | 7k+ | 15kb | Fast, word/char level, well-maintained | Low-level API |
 | **`diff-match-patch`** | 6k+ | 45kb | Google's algorithm, character-level | Larger bundle |
-| **`jsdiff`** | 7k+ | 15kb | Same as `diff`, common choice | - |
 
 **Recommended: `diff` (jsdiff)**
 - Small bundle size (15kb)
 - Supports word-level and character-level diffing
 - Well-maintained, 7k+ GitHub stars
-- No React dependency (flexible integration)
 
-##### Highlighting Strategy
+##### Design Philosophy: Always On, Never Distracting
 
-Rather than traditional red/green git-style diffs (which highlight differences), we'll use a **similarity-focused** approach:
+No toggle needed. The highlighting is subtle enough to provide value without demanding attention:
 
 ```
 ┌─────────────────────────────────────────┐
-│ Matching code:     Normal text          │
-│ Different code:    Subtle muted opacity │  <- De-emphasize differences
-│ Identical blocks:  Subtle background    │  <- Highlight similarities
+│ Matching code:     Normal text          │  <- Clean, readable
+│ Different code:    Slight opacity fade  │  <- Visible but not loud
+│ Identical lines:   No special treatment │  <- No background noise
 └─────────────────────────────────────────┘
 ```
 
 **Visual Design:**
-- **Matching tokens**: Normal text color
-- **Different tokens**: `opacity: 0.5` + subtle strikethrough or muted color
-- **Identical lines**: Very subtle green-tinted background (`rgba(34, 197, 94, 0.05)`)
-- **No harsh colors** - keeps focus on similarity, not changes
+- **Matching tokens**: Normal text color (100% opacity)
+- **Different tokens**: `opacity: 0.4` - visible but clearly secondary
+- **No backgrounds** - keeps code clean and scannable
+- **No strikethrough** - too visually noisy for always-on
 
 ##### Implementation
-- **File**: `packages/uilint-react/src/plugins/semantic/panels/DiffHighlighter.tsx`
+- **File**: `packages/uilint-react/src/plugins/semantic/panels/useDiffHighlights.ts`
 - **Features**:
+  - Custom hook that computes diff segments
   - Uses `diff.diffWords()` for word-level comparison
-  - Falls back to `diff.diffChars()` for single-word differences
-  - Returns React nodes with appropriate styling
-  - Configurable: can toggle highlighting on/off
-  - Performance: memoized diff computation
+  - Memoized computation (only recalculates when code changes)
+  - Returns array of `DiffSegment` for rendering
 
 ```tsx
 import { diffWords } from "diff";
 
-interface DiffHighlighterProps {
-  sourceCode: string;
-  targetCode: string;
-  showDiff?: boolean;  // Toggle highlighting
+interface DiffSegment {
+  text: string;
+  type: "match" | "source-only" | "target-only";
+  lineNumber: number;
 }
 
-// Output: Array of spans with appropriate classes
-// - .diff-match: Matching text (normal)
-// - .diff-source-only: In source but not target (muted)
-// - .diff-target-only: In target but not source (muted)
+function useDiffHighlights(
+  sourceCode: string,
+  targetCode: string
+): { sourceSegments: DiffSegment[]; targetSegments: DiffSegment[] }
 ```
 
-##### CSS Classes
-```css
-.diff-match {
-  /* Normal text - no special styling */
-}
-
-.diff-source-only,
-.diff-target-only {
-  opacity: 0.5;
-  text-decoration: line-through;
-  text-decoration-color: var(--muted-color);
-  text-decoration-thickness: 1px;
-}
-
-.diff-identical-line {
-  background: rgba(34, 197, 94, 0.05);
-  border-left: 2px solid rgba(34, 197, 94, 0.3);
-}
+##### Rendering in CodeSection
+```tsx
+// In ScrollableCodeSection, render each line with diff segments
+{line.segments.map((seg, i) => (
+  <span
+    key={i}
+    style={{ opacity: seg.type === "match" ? 1 : 0.4 }}
+  >
+    {seg.text}
+  </span>
+))}
 ```
 
-##### Toggle in UI
-- Small toggle in the similarity header: "Highlight differences"
-- Default: OFF (clean view first, user can enable)
-- Persists preference in localStorage
+##### Smart Threshold
+- Only compute diff for code blocks < 500 lines (performance)
+- For larger files, skip diff highlighting (code is shown normally)
 
 #### 2.5 Register Inspector Panel in Semantic Plugin
 - **File**: `packages/uilint-react/src/plugins/semantic/index.ts`
@@ -275,15 +298,17 @@ ruleContributions: [
 - **File**: `packages/uilint-react/src/plugins/semantic/panels/DuplicatesInspectorPanel.test.tsx`
 - **Tests**:
   - Renders source and target code in stacked layout
-  - Shows full code by default (not truncated)
+  - Initially centers on the duplicated code region
   - Displays correct file paths and line numbers
   - Shows similarity percentage with correct color coding
   - Handles missing data gracefully (loading state, error state)
-  - Long code (50+ lines) shows truncation with "Show more" link
+  - Scrolling loads additional lines dynamically
+  - Fade indicators appear when more content exists
   - "Show in Heatmap" button triggers filter
   - "Go to file" action navigates correctly
-  - Diff highlighting toggle works
-  - Diff correctly identifies matching/different tokens
+  - Diff highlighting renders matching text at full opacity
+  - Diff highlighting renders differing text at reduced opacity
+  - Large files (500+ lines) skip diff computation
 
 ---
 
@@ -377,7 +402,7 @@ const filteredRects = useMemo(() => {
 ---
 
 ### Phase 5: General Inspector Source Code Improvements
-**Goal**: Leverage vertical space to show more source code context across all inspector panels
+**Goal**: Leverage vertical space with scroll-to-reveal pattern across all inspector panels
 
 #### 5.0 Current Limitations
 
@@ -385,43 +410,43 @@ const filteredRects = useMemo(() => {
 |--------|---------------|---------|
 | Context lines | Hardcoded 5 above + 5 below | Wastes available vertical space |
 | Full file view | Not available | Can't see surrounding code |
-| Context size | Fixed | Doesn't adapt to panel height |
-| IssueDetail | Hardcodes `contextLines={5}` | No customization possible |
+| Context size | Fixed | Doesn't adapt to scroll behavior |
+| IssueDetail | Hardcodes `contextLines={5}` | No way to see more |
 
-#### 5.1 Dynamic Context Sizing
+#### 5.1 Scroll-to-Reveal Source Viewer
 - **File**: `packages/uilint-react/src/ui/components/Inspector/SourceViewer.tsx`
 - **Changes**:
-  - Add `contextMode` prop: `"fixed" | "auto" | "full"`
-  - `"fixed"`: Current behavior (default for backwards compatibility)
-  - `"auto"`: Calculate context based on available viewport height
-  - `"full"`: Show entire file with scroll to highlighted line
-  - Use `ResizeObserver` to track container height
-  - Calculate optimal line count: `Math.floor((containerHeight - headerHeight) / lineHeight)`
+  - Remove fixed `contextLines` - use dynamic loading instead
+  - Initial view: ~15-20 lines centered on issue
+  - **Scroll up**: Dynamically load earlier lines
+  - **Scroll down**: Dynamically load later lines
+  - Subtle fade at edges indicates more content
+  - Virtualized rendering for performance
 
 ```tsx
 interface SourceViewerProps {
   filePath: string;
   line: number;
   column?: number;
-  contextLines?: number;       // For fixed mode
-  contextMode?: "fixed" | "auto" | "full";  // NEW
-  defaultExpanded?: boolean;
-  maxLines?: number;           // Cap for auto mode (default: 50)
+  initialContext?: number;     // Lines to show initially (default: 15)
+  highlightRange?: HighlightRange;
 }
 ```
 
-#### 5.2 "Show Full File" Toggle
+#### 5.2 Infinite Scroll Implementation
 - **File**: `packages/uilint-react/src/ui/components/Inspector/SourceViewer.tsx`
 - **Features**:
-  - Toggle button in header: "Show more" / "Show full file"
-  - Three states: minimal (5 lines) → expanded (15-20 lines) → full file
-  - Smooth scroll to highlighted line when expanding
-  - Remember preference per file in session storage
+  - Uses `IntersectionObserver` to detect scroll to edges
+  - Loads chunks of 20 lines at a time
+  - Smooth loading with no layout shift
+  - Maintains scroll position during load
+  - WebSocket request for additional lines on demand
 
 ```
 ┌─────────────────────────────────────────┐
-│ src/Button.tsx:42:5        [▼] [Full ↕] │  <- Header with toggle
+│ src/Button.tsx:42:5                     │  <- Header (file path only)
 ├─────────────────────────────────────────┤
+│ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │  <- Fade: scroll up for more
 │ 38 │ // Helper function                 │
 │ 39 │ function validate(props) {         │
 │ 40 │   if (!props.label) {              │
@@ -430,11 +455,11 @@ interface SourceViewerProps {
 │ 43 │   }                                │
 │ 44 │   return true;                     │
 │ 45 │ }                                  │
-│ 46 │                                    │
-│ 47 │ export function Button(props) {    │
-│    │ ...                                │  <- More lines visible
+│ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │  <- Fade: scroll down for more
 └─────────────────────────────────────────┘
 ```
+
+**No toggles, no buttons** - just scroll naturally to explore the code.
 
 #### 5.3 Enhanced Line Highlighting
 - **File**: `packages/uilint-react/src/ui/components/Inspector/SourceViewer.tsx`
@@ -457,13 +482,12 @@ interface SourceViewerProps {
 }
 ```
 
-#### 5.4 Update IssueDetail to Use Dynamic Context
+#### 5.4 Update IssueDetail to Use Scroll-to-Reveal
 - **File**: `packages/uilint-react/src/ui/components/Inspector/IssueDetail.tsx`
 - **Changes**:
   - Remove hardcoded `contextLines={5}`
-  - Use `contextMode="auto"` by default
+  - Use new scroll-based SourceViewer
   - Pass issue's line range for multi-line highlighting
-  - Add "Show more context" button below code
 
 ```tsx
 // Before
@@ -471,7 +495,7 @@ interface SourceViewerProps {
   filePath={issue.filePath}
   line={issue.line}
   column={issue.column}
-  contextLines={5}  // Hardcoded
+  contextLines={5}  // Hardcoded limitation
 />
 
 // After
@@ -479,7 +503,6 @@ interface SourceViewerProps {
   filePath={issue.filePath}
   line={issue.line}
   column={issue.column}
-  contextMode="auto"
   highlightRange={issue.endLine ? {
     startLine: issue.line,
     endLine: issue.endLine,
@@ -487,26 +510,29 @@ interface SourceViewerProps {
     endColumn: issue.endColumn,
   } : undefined}
 />
+// User scrolls to see more - no configuration needed
 ```
 
 #### 5.5 Keyboard Navigation for Source Viewer
 - **File**: `packages/uilint-react/src/ui/components/Inspector/SourceViewer.tsx`
 - **Features**:
-  - `↑/↓` arrows to scroll through code
-  - `Home/End` to jump to start/end
-  - `Esc` to collapse viewer
-  - `Enter` to toggle full file view
-  - Focus management when expanding
+  - `↑/↓` arrows to scroll through code (loads more as needed)
+  - `Home` to jump to start of file (loads beginning)
+  - `End` to jump to end of file (loads ending)
+  - `g` to return to the highlighted issue line
+  - Focus outline when keyboard-navigating
 
 #### 5.6 Add Tests for Enhanced Source Viewer
 - **File**: `packages/uilint-react/src/ui/components/Inspector/SourceViewer.test.tsx`
 - **Tests**:
-  - Auto context mode calculates correct line count
-  - Full file mode scrolls to highlighted line
-  - Toggle cycles through view modes
+  - Initially shows ~15 lines centered on issue
+  - Scrolling up triggers load of earlier lines
+  - Scrolling down triggers load of later lines
+  - Fade indicators appear when more content exists above/below
   - Multi-line highlighting renders correctly
-  - Keyboard navigation works
-  - ResizeObserver updates context on resize
+  - Keyboard navigation scrolls and loads as expected
+  - Maintains scroll position when lines are loaded
+  - Virtualizes rendering for large files
 
 ---
 
@@ -579,9 +605,9 @@ Phase 4 (WebSocket) ─────────> Optional, independent
 |------|---------|
 | `packages/uilint-react/src/plugins/semantic/panels/DuplicatesInspectorPanel.tsx` | Main inspector panel |
 | `packages/uilint-react/src/plugins/semantic/panels/DuplicatesInspectorPanel.test.tsx` | Panel tests |
-| `packages/uilint-react/src/plugins/semantic/panels/CodeSection.tsx` | Reusable code block with header |
+| `packages/uilint-react/src/plugins/semantic/panels/ScrollableCodeSection.tsx` | Scroll-to-reveal code block |
 | `packages/uilint-react/src/plugins/semantic/panels/DuplicateSimilarityBadge.tsx` | Similarity indicator |
-| `packages/uilint-react/src/plugins/semantic/panels/DiffHighlighter.tsx` | Word-level diff highlighting |
+| `packages/uilint-react/src/plugins/semantic/panels/useDiffHighlights.ts` | Hook for computing diff segments |
 | `packages/uilint-react/src/ui/components/HeatmapOverlay.test.tsx` | Heat map filter tests |
 | `packages/uilint-react/src/ui/components/Inspector/SourceViewer.test.tsx` | Enhanced source viewer tests |
 
@@ -616,24 +642,24 @@ Phase 4 (WebSocket) ─────────> Optional, independent
 
 ### Visual Regression Tests (Optional)
 - Snapshot tests for stacked code comparison view
-- Test long code truncation and "Show more" states
+- Test fade indicators at scroll boundaries
+- Test diff highlighting opacity levels
 
 ### Manual Testing Checklist
 - [ ] Select a semantic duplicate issue
 - [ ] Verify stacked code layout renders correctly
-- [ ] Verify full code is shown by default (not collapsed)
+- [ ] Verify code is centered on duplicated region initially
 - [ ] Verify similarity percentage displays with correct color
 - [ ] Verify heat map shows only source + target elements
 - [ ] Verify "Show in Heatmap" button works
-- [ ] Verify "Go to file" navigation works
-- [ ] Test with very long code snippets (50+ lines shows truncation)
-- [ ] Test with many duplicate issues
-- [ ] Verify general SourceViewer shows more context than before
-- [ ] Test "Show full file" toggle in SourceViewer
-- [ ] Toggle diff highlighting on/off
-- [ ] Verify diff highlighting shows matching text normally
-- [ ] Verify diff highlighting mutes differing tokens subtly
-- [ ] Ensure diff highlighting doesn't cause performance issues
+- [ ] Verify clicking file path navigates to file
+- [ ] Scroll up in code section → more lines load smoothly
+- [ ] Scroll down in code section → more lines load smoothly
+- [ ] Verify fade indicators appear at edges when more content exists
+- [ ] Verify diff highlighting is subtle (opacity only, no harsh colors)
+- [ ] Verify matching code is full opacity, differing code is faded
+- [ ] Test keyboard navigation (↑/↓, Home/End, g)
+- [ ] Ensure scrolling doesn't cause layout shift
 
 ---
 
