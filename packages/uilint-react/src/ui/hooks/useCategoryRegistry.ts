@@ -54,7 +54,8 @@ export interface UseCategoryRegistryReturn {
  */
 export function useCategoryRegistry(): UseCategoryRegistryReturn {
   // Force re-render when registry changes
-  const [, forceUpdate] = useState(0);
+  // We use the counter value as a dependency for memos that need to update
+  const [updateCounter, forceUpdate] = useState(0);
 
   // Subscribe to registry changes
   useEffect(() => {
@@ -67,7 +68,8 @@ export function useCategoryRegistry(): UseCategoryRegistryReturn {
   // Get category tree (memoized based on update counter)
   const categoryTree = useMemo(() => {
     return categoryRegistry.getCategoryTree();
-  }, [forceUpdate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateCounter]);
 
   // Check if any category is loading
   const isLoading = useMemo(() => {
@@ -75,17 +77,20 @@ export function useCategoryRegistry(): UseCategoryRegistryReturn {
     return providers.some(
       (p) => categoryRegistry.getLoadingState(p.id) === "loading"
     );
-  }, [forceUpdate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateCounter]);
 
   // Load items for a category
   const loadItems = useCallback(async (categoryId: string) => {
     return categoryRegistry.loadItems(categoryId);
   }, []);
 
-  // Get cached items
+  // Get cached items - depends on updateCounter so reference changes when cache updates
+  // This ensures consumers (like CommandPalette's categoryItems memo) re-compute
   const getCachedItems = useCallback((categoryId: string) => {
     return categoryRegistry.getCachedItems(categoryId);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateCounter]);
 
   // Search items
   const searchItems = useCallback(
