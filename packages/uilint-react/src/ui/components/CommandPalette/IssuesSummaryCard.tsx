@@ -9,7 +9,7 @@ import { motion } from "motion/react";
 import { ErrorIcon, WarningIcon } from "../../icons";
 import { StatBadge } from "../primitives";
 import { useScrollTarget } from "./useScrollSelectedIntoView";
-import { useIsMobile } from "../../hooks";
+import { useComposedStore } from "../../../core/store";
 import type { Issue } from "../../types";
 
 interface IssuesSummaryCardProps {
@@ -26,7 +26,7 @@ interface SeverityCount {
 }
 
 export function IssuesSummaryCard({ issues, isSelected, resultIndex, onClick }: IssuesSummaryCardProps) {
-  const { isMobile } = useIsMobile();
+  const isMobile = useComposedStore((s) => s.mobile.isMobile);
   const scrollRef = useScrollTarget(resultIndex ?? -1);
 
   // Count issues by severity
@@ -220,7 +220,7 @@ function TopIssueItem({
   onClick: () => void;
   index: number;
 }) {
-  const { isMobile } = useIsMobile();
+  const isMobile = useComposedStore((s) => s.mobile.isMobile);
   const scrollRef = useScrollTarget(resultIndex);
   const SeverityIcon = issue.severity === "error" ? ErrorIcon : WarningIcon;
   const severityColor = issue.severity === "error" ? "var(--uilint-error)" : "var(--uilint-warning)";

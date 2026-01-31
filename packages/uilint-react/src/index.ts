@@ -12,7 +12,6 @@ export {
   InspectorSidebar,
   // Hooks
   useIssues,
-  useKeyboardShortcuts,
   useElementRects,
   // Type utilities
   parseDataLoc,

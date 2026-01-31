@@ -10,7 +10,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import { useScrollTarget } from "./useScrollSelectedIntoView";
-import { useIsMobile } from "../../hooks";
+import { useComposedStore } from "../../../core/store";
 
 interface AnimatedListItemProps {
   children: React.ReactNode;
@@ -33,7 +33,7 @@ export function AnimatedListItem({
   maxDelay = 0.12,
   staggerDelay = 0.02,
 }: AnimatedListItemProps) {
-  const { isMobile } = useIsMobile();
+  const isMobile = useComposedStore((s) => s.mobile.isMobile);
 
   // On mobile, skip staggered animations to prevent flickering
   if (isMobile) {
@@ -70,7 +70,7 @@ export function AnimatedSection({
   children: React.ReactNode;
   delay?: number;
 }) {
-  const { isMobile } = useIsMobile();
+  const isMobile = useComposedStore((s) => s.mobile.isMobile);
 
   // On mobile, skip animations to prevent flickering
   if (isMobile) {
@@ -108,7 +108,7 @@ export function SelectionIndicator({
   variant?: "default" | "command" | "issue";
   resultIndex?: number;
 }) {
-  const { isMobile } = useIsMobile();
+  const isMobile = useComposedStore((s) => s.mobile.isMobile);
   // Always call the hook (Rules of Hooks) — uses -1 as no-op sentinel
   const scrollRef = useScrollTarget(resultIndex ?? -1);
   const bgStyles = {

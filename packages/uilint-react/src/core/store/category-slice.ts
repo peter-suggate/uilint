@@ -502,6 +502,49 @@ export const createCategorySlice: StateCreator<CategorySlice> = (set, get) => ({
 const EMPTY_ITEMS: CategoryItem[] = [];
 
 /**
+ * Selector to get all child category IDs for a parent category.
+ * Returns category IDs that have this parentId set, including dynamic subcategories.
+ */
+export function selectChildCategoryIds(
+  state: CategorySlice,
+  parentId: string
+): string[] {
+  const { categoryProviders, categoryServices } = state;
+  const childIds: string[] = [];
+
+  for (const provider of categoryProviders.values()) {
+    // Check direct children
+    if (provider.parentId === parentId) {
+      childIds.push(provider.id);
+    }
+
+    // Check dynamic subcategories
+    if (provider.isDynamic && provider.getSubCategories && categoryServices) {
+      const subCategories = provider.getSubCategories(categoryServices);
+      for (const sub of subCategories) {
+        // Dynamic subcategories inherit parentId from their parent provider
+        const effectiveParentId = sub.parentId ?? provider.parentId;
+        if (effectiveParentId === parentId) {
+          childIds.push(sub.id);
+        }
+      }
+    }
+  }
+
+  return childIds;
+}
+
+/**
+ * Selector to check if a category is a parent (has children).
+ */
+export function selectIsParentCategory(
+  state: CategorySlice,
+  categoryId: string
+): boolean {
+  return selectChildCategoryIds(state, categoryId).length > 0;
+}
+
+/**
  * Selector to get cached items for a category.
  * Use with: useComposedStore((s) => selectCategoryItems(s, categoryId))
  */
@@ -511,6 +554,48 @@ export function selectCategoryItems(
 ): CategoryItem[] {
   if (!categoryId) return EMPTY_ITEMS;
   return state.categoryCache.get(categoryId)?.items ?? EMPTY_ITEMS;
+}
+
+/**
+ * Selector to get aggregated items from a category and all its children.
+ * When a parent category is selected, this returns items from all child categories.
+ * Items are sorted by priority and deduplicated by ID.
+ */
+export function selectAggregatedCategoryItems(
+  state: CategorySlice,
+  categoryId: string | null
+): CategoryItem[] {
+  if (!categoryId) return EMPTY_ITEMS;
+
+  // First check if this category has direct items
+  const directItems = state.categoryCache.get(categoryId)?.items ?? [];
+
+  // Get all child category IDs
+  const childIds = selectChildCategoryIds(state, categoryId);
+
+  // If no children, return direct items only
+  if (childIds.length === 0) {
+    return directItems;
+  }
+
+  // Aggregate items from all children
+  const allItems: CategoryItem[] = [...directItems];
+  const seenIds = new Set(directItems.map((item) => item.id));
+
+  for (const childId of childIds) {
+    const childCache = state.categoryCache.get(childId);
+    if (childCache?.items) {
+      for (const item of childCache.items) {
+        if (!seenIds.has(item.id)) {
+          seenIds.add(item.id);
+          allItems.push(item);
+        }
+      }
+    }
+  }
+
+  // Sort by priority
+  return allItems.sort((a, b) => (a.priority ?? 1) - (b.priority ?? 1));
 }
 
 /**

@@ -7,8 +7,11 @@
  * Elements:
  * - Search pill (primary): grip handle + search button with issue count badge
  * - Vision pill (detached): dropdown with capture options + shortcuts
+ *
+ * Drag state is managed by the centralized drag-slice in the store.
+ * Global mouse/touch event handlers are managed by the subscription system.
  */
-import React, { useRef, useCallback, useEffect, useReducer, useState } from "react";
+import React, { useRef, useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useComposedStore } from "../../core/store";
 import { pluginRegistry } from "../../core/plugin-system/registry";
@@ -16,50 +19,10 @@ import { getPluginServices } from "../../core/store/composed-store";
 import { SearchIcon } from "../icons";
 import { getGlassStyles } from "./primitives";
 import type { ToolbarAction, ToolbarActionGroup } from "../../core/plugin-system/types";
-import { useIsMobile } from "../hooks";
 
 interface Position {
   x: number;
   y: number;
-}
-
-/** Local UI state for the floating icon */
-interface FloatingIconState {
-  isDragging: boolean;
-  isHovered: boolean;
-  dragOffset: Position;
-  hasInteracted: boolean;
-}
-
-type FloatingIconAction =
-  | { type: "START_DRAG"; offset: Position }
-  | { type: "STOP_DRAG" }
-  | { type: "SET_HOVERED"; hovered: boolean }
-  | { type: "SET_INTERACTED" };
-
-const initialState: FloatingIconState = {
-  isDragging: false,
-  isHovered: false,
-  dragOffset: { x: 0, y: 0 },
-  hasInteracted: false,
-};
-
-function floatingIconReducer(
-  state: FloatingIconState,
-  action: FloatingIconAction
-): FloatingIconState {
-  switch (action.type) {
-    case "START_DRAG":
-      return { ...state, isDragging: true, dragOffset: action.offset };
-    case "STOP_DRAG":
-      return { ...state, isDragging: false };
-    case "SET_HOVERED":
-      return { ...state, isHovered: action.hovered };
-    case "SET_INTERACTED":
-      return { ...state, hasInteracted: true };
-    default:
-      return state;
-  }
 }
 
 const PILL_HEIGHT = 36;
@@ -296,21 +259,42 @@ export function FloatingIcon() {
     return count;
   });
 
-  // Consolidated local UI state using reducer
-  const [state, dispatch] = useReducer(floatingIconReducer, initialState);
-  const { isDragging, isHovered, dragOffset, hasInteracted } = state;
+  // Drag state from store (managed by subscription system)
+  const activeDrag = useComposedStore((s) => s.activeDrag);
+  const startDrag = useComposedStore((s) => s.startDrag);
+  const isDragging = activeDrag?.type === "floating-icon";
 
-  // Mobile/touch detection
-  const { isMobile, isTouchDevice } = useIsMobile();
+  // Local UI state that's truly component-specific
+  const [isHovered, setIsHovered] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
+
+  // Mobile/touch detection from store
+  const isMobile = useComposedStore((s) => s.mobile.isMobile);
+  const isTouchDevice = useComposedStore((s) => s.mobile.isTouchDevice);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Track first command palette interaction to hide hint
   useEffect(() => {
     if (isCommandPaletteOpen && !hasInteracted) {
-      dispatch({ type: "SET_INTERACTED" });
+      setHasInteracted(true);
     }
   }, [isCommandPaletteOpen, hasInteracted]);
+
+  // Update floating icon position during drag
+  // The subscription system handles mouse/touch move events and updates activeDrag.currentPos
+  useLayoutEffect(() => {
+    if (!isDragging || !activeDrag) return;
+
+    const { currentPos, offset } = activeDrag;
+    const newX = Math.max(0, Math.min(window.innerWidth - 300, currentPos.x - offset.x));
+    const newY = Math.max(
+      0,
+      Math.min(window.innerHeight - PILL_HEIGHT - HINT_ROW_HEIGHT, currentPos.y - offset.y)
+    );
+
+    setPosition({ x: newX, y: newY });
+  }, [isDragging, activeDrag, setPosition]);
 
   // Get toolbar action groups from registered plugins
   const toolbarActionGroups = pluginRegistry.getAllToolbarActionGroups();
@@ -335,89 +319,39 @@ export function FloatingIcon() {
   const currentPosition = position ?? getDefaultPosition();
   const modKey = isMac() ? "⌘" : "Ctrl+";
 
-  const handleGripMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
+  // Drag handlers - just start the drag, the subscription system handles move/end
+  const handleGripMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return;
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
 
-    dispatch({
-      type: "START_DRAG",
-      offset: { x: e.clientX - rect.left, y: e.clientY - rect.top },
-    });
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-
-  const handleGripTouchStart = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length !== 1) return;
-    const touch = e.touches[0];
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    dispatch({
-      type: "START_DRAG",
-      offset: { x: touch.clientX - rect.left, y: touch.clientY - rect.top },
-    });
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!isDragging) return;
-
-      const newX = Math.max(0, Math.min(window.innerWidth - 300, e.clientX - dragOffset.x));
-      const newY = Math.max(
-        0,
-        Math.min(window.innerHeight - PILL_HEIGHT - HINT_ROW_HEIGHT, e.clientY - dragOffset.y)
-      );
-
-      setPosition({ x: newX, y: newY });
-    },
-    [isDragging, dragOffset, setPosition]
-  );
-
-  const handleTouchMove = useCallback(
-    (e: TouchEvent) => {
-      if (!isDragging || e.touches.length !== 1) return;
-      const touch = e.touches[0];
-
-      const newX = Math.max(0, Math.min(window.innerWidth - 300, touch.clientX - dragOffset.x));
-      const newY = Math.max(
-        0,
-        Math.min(window.innerHeight - PILL_HEIGHT - HINT_ROW_HEIGHT, touch.clientY - dragOffset.y)
-      );
-
-      setPosition({ x: newX, y: newY });
+      const offset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      startDrag("floating-icon", { x: e.clientX, y: e.clientY }, offset);
       e.preventDefault();
+      e.stopPropagation();
     },
-    [isDragging, dragOffset, setPosition]
+    [startDrag]
   );
 
-  const handleMouseUp = useCallback(() => {
-    dispatch({ type: "STOP_DRAG" });
-  }, []);
+  const handleGripTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
 
-  const handleTouchEnd = useCallback(() => {
-    dispatch({ type: "STOP_DRAG" });
-  }, []);
+      const offset = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+      startDrag("floating-icon", { x: touch.clientX, y: touch.clientY }, offset);
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    [startDrag]
+  );
 
-  useEffect(() => {
-    if (isDragging) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-      window.addEventListener("touchmove", handleTouchMove, { passive: false });
-      window.addEventListener("touchend", handleTouchEnd);
-      window.addEventListener("touchcancel", handleTouchEnd);
-      return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-        window.removeEventListener("touchmove", handleTouchMove);
-        window.removeEventListener("touchend", handleTouchEnd);
-        window.removeEventListener("touchcancel", handleTouchEnd);
-      };
-    }
-  }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
+  // Note: Global mouse/touch move and end events are handled by the subscription system
+  // in subscriptions.ts (initializeDragHandlers). This eliminates the need for
+  // useEffect-based event listener management.
 
   const handleClick = useCallback(() => {
     if (!isDragging) {
@@ -450,8 +384,8 @@ export function FloatingIcon() {
   return createPortal(
     <div
       ref={containerRef}
-      onMouseEnter={() => dispatch({ type: "SET_HOVERED", hovered: true })}
-      onMouseLeave={() => dispatch({ type: "SET_HOVERED", hovered: false })}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         position: "fixed",
         left: currentPosition.x,

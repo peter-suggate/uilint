@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useCallback } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useCallback } from "react";
 import type { RefCallback } from "react";
 
 /**
@@ -22,7 +22,8 @@ export const ScrollSelectedContext = createContext<ScrollSelectedContextValue | 
 export function useScrollSelectedIntoView(selectedIndex: number): ScrollSelectedContextValue {
   const itemRefs = useRef<Map<number, HTMLElement>>(new Map());
 
-  useEffect(() => {
+  // useLayoutEffect for synchronous scroll to prevent visual jumps
+  useLayoutEffect(() => {
     const el = itemRefs.current.get(selectedIndex);
     el?.scrollIntoView?.({ block: "nearest" });
   }, [selectedIndex]);

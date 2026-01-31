@@ -4,7 +4,7 @@
 import React from "react";
 import { WarningIcon, ErrorIcon, InfoIcon } from "../../icons";
 import { Badge } from "../primitives";
-import { useIsMobile } from "../../hooks";
+import { useComposedStore } from "../../../core/store";
 import type { Issue } from "../../types";
 
 interface ResultItemProps {
@@ -14,7 +14,7 @@ interface ResultItemProps {
 }
 
 export function ResultItem({ issue, isSelected, onClick }: ResultItemProps) {
-  const { isMobile } = useIsMobile();
+  const isMobile = useComposedStore((s) => s.mobile.isMobile);
 
   const SeverityIcon = issue.severity === "error" ? ErrorIcon
     : issue.severity === "warning" ? WarningIcon

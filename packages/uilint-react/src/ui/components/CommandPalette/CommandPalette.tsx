@@ -15,12 +15,12 @@
  * - shadcn class conventions
  */
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
-import { useIssues, useCategoryRegistry, useCategoryItems, useIsMobile } from "../../hooks";
+import { useIssues, useCategoryRegistry, useCategoryItems } from "../../hooks";
 import { SearchInput } from "./SearchInput";
 import { MobileCategoryTabs } from "./MobileCategoryTabs";
 import { ResultItem } from "./ResultItem";
@@ -65,7 +65,7 @@ function CommandResultItem({
   onClick: () => void;
   index: number;
 }) {
-  const { isMobile } = useIsMobile();
+  const isMobile = useComposedStore((s) => s.mobile.isMobile);
 
   // Only show icons for action commands (start, stop, clear)
   const getIconStyle = () => {
@@ -184,7 +184,7 @@ function CategoryItemResult({
   onClick: () => void;
   index: number;
 }) {
-  const { isMobile } = useIsMobile();
+  const isMobile = useComposedStore((s) => s.mobile.isMobile);
 
   const content = (
     <div
@@ -297,33 +297,34 @@ function SectionHeader({ children, count }: { children: React.ReactNode; count?:
 
 export function CommandPalette() {
   const isOpen = useComposedStore((s) => s.commandPalette.open);
+  const query = useComposedStore((s) => s.commandPalette.query);
+  const selectedIndex = useComposedStore((s) => s.commandPalette.selectedIndex);
   const selectedCategoryId = useComposedStore((s) => s.commandPalette.selectedCategoryId);
   const sidebarFocused = useComposedStore((s) => s.commandPalette.sidebarFocused);
   const closeCommandPalette = useComposedStore((s) => s.closeCommandPalette);
+  const setQuery = useComposedStore((s) => s.setCommandPaletteQuery);
+  const setSelectedIndex = useComposedStore((s) => s.setCommandPaletteSelectedIndex);
   const setSelectedCategory = useComposedStore((s) => s.setSelectedCategory);
   const setSidebarFocused = useComposedStore((s) => s.setSidebarFocused);
   const openInspector = useComposedStore((s) => s.openInspector);
 
-  const [query, setQuery] = useState("");
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  // Mobile detection from store
+  const isMobile = useComposedStore((s) => s.mobile.isMobile);
+  const isSmallScreen = useComposedStore((s) => s.mobile.isSmallScreen);
+
   const scrollCtx = useScrollSelectedIntoView(selectedIndex);
 
   const { allIssues } = useIssues();
-  const { categoryTree, loadItems, searchItems } = useCategoryRegistry();
-  const { isMobile, isSmallScreen } = useIsMobile();
+  const { categoryTree } = useCategoryRegistry();
 
-  // Get category items reactively using selector
+  // Get category items reactively using selector (aggregates child items for parent categories)
   const categoryItems = useCategoryItems(selectedCategoryId);
 
   // Get current state for command availability checks
   const storeState = useComposedStore((s) => s);
 
-  // Load category items when category changes
-  useEffect(() => {
-    if (selectedCategoryId && isOpen) {
-      loadItems(selectedCategoryId);
-    }
-  }, [selectedCategoryId, isOpen, loadItems]);
+  // Note: Category loading is now handled by initializeCategoryAutoLoad subscription
+  // which triggers when selectedCategoryId changes in the store
 
   // Get available commands from registry
   const availableCommands = useMemo(() => {
@@ -565,10 +566,10 @@ export function CommandPalette() {
       // Up/Down for navigation
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, allResults.length - 1));
+        setSelectedIndex(Math.min(selectedIndex + 1, allResults.length - 1));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        setSelectedIndex((i) => Math.max(i - 1, 0));
+        setSelectedIndex(Math.max(selectedIndex - 1, 0));
       } else if (e.key === "Enter" && allResults[selectedIndex]) {
         e.preventDefault();
         handleSelectResult(allResults[selectedIndex]);
@@ -577,18 +578,8 @@ export function CommandPalette() {
     [allResults, selectedIndex, handleSelectResult, sidebarFocused, setSidebarFocused]
   );
 
-  // Reset selection when query changes
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
-
-  // Reset query and category when closing
-  useEffect(() => {
-    if (!isOpen) {
-      setQuery("");
-      setSelectedIndex(0);
-    }
-  }, [isOpen]);
+  // Note: Reset on query change is handled by setCommandPaletteQuery action (resets selectedIndex to 0)
+  // Note: Reset on close is handled by closeCommandPalette action (resets all command palette state)
 
   const portalRoot = document.getElementById("uilint-portal") || document.body;
 

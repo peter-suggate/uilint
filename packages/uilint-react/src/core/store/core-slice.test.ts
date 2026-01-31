@@ -16,6 +16,7 @@ import {
   type CoreSlice,
   type CommandPaletteFilter,
   type FloatingIconPosition,
+  type MobileState,
 } from "./core-slice";
 import type { PluginServices, WebSocketService, DOMObserverService } from "../plugin-system/types";
 
@@ -207,6 +208,28 @@ describe("Core Slice - Initial State", () => {
     it("has default wsUrl as ws://localhost:9234", () => {
       const { getState } = createTestSlice();
       expect(getState().wsUrl).toBe("ws://localhost:9234");
+    });
+  });
+
+  describe("Mobile State Initial Values", () => {
+    it("has isMobile as false by default", () => {
+      const { getState } = createTestSlice();
+      expect(getState().mobile.isMobile).toBe(false);
+    });
+
+    it("has isTablet as false by default", () => {
+      const { getState } = createTestSlice();
+      expect(getState().mobile.isTablet).toBe(false);
+    });
+
+    it("has isTouchDevice as false by default", () => {
+      const { getState } = createTestSlice();
+      expect(getState().mobile.isTouchDevice).toBe(false);
+    });
+
+    it("has isSmallScreen as false by default", () => {
+      const { getState } = createTestSlice();
+      expect(getState().mobile.isSmallScreen).toBe(false);
     });
   });
 });
@@ -989,6 +1012,123 @@ describe("Core Slice - Selection Actions", () => {
 
       expect(getState().selectedElementId).toBe("element-1");
       expect(getState().hoveredElementId).toBeNull();
+    });
+  });
+});
+
+// ============================================================================
+// Mobile State Actions Tests
+// ============================================================================
+
+describe("Core Slice - Mobile State Actions", () => {
+  describe("setMobileState", () => {
+    it("updates all mobile state properties", () => {
+      const { getState } = createTestSlice();
+
+      const newState: MobileState = {
+        isMobile: true,
+        isTablet: false,
+        isTouchDevice: true,
+        isSmallScreen: true,
+      };
+
+      getState().setMobileState(newState);
+
+      expect(getState().mobile).toEqual(newState);
+    });
+
+    it("can set mobile device state", () => {
+      const { getState } = createTestSlice();
+
+      getState().setMobileState({
+        isMobile: true,
+        isTablet: false,
+        isTouchDevice: true,
+        isSmallScreen: false,
+      });
+
+      expect(getState().mobile.isMobile).toBe(true);
+      expect(getState().mobile.isTouchDevice).toBe(true);
+    });
+
+    it("can set tablet device state", () => {
+      const { getState } = createTestSlice();
+
+      getState().setMobileState({
+        isMobile: false,
+        isTablet: true,
+        isTouchDevice: true,
+        isSmallScreen: false,
+      });
+
+      expect(getState().mobile.isTablet).toBe(true);
+      expect(getState().mobile.isMobile).toBe(false);
+    });
+
+    it("can set small screen state", () => {
+      const { getState } = createTestSlice();
+
+      getState().setMobileState({
+        isMobile: true,
+        isTablet: false,
+        isTouchDevice: false,
+        isSmallScreen: true,
+      });
+
+      expect(getState().mobile.isSmallScreen).toBe(true);
+    });
+
+    it("can update state multiple times (simulating resize)", () => {
+      const { getState } = createTestSlice();
+
+      // Start at desktop
+      getState().setMobileState({
+        isMobile: false,
+        isTablet: false,
+        isTouchDevice: false,
+        isSmallScreen: false,
+      });
+      expect(getState().mobile.isMobile).toBe(false);
+
+      // Resize to tablet
+      getState().setMobileState({
+        isMobile: false,
+        isTablet: true,
+        isTouchDevice: false,
+        isSmallScreen: false,
+      });
+      expect(getState().mobile.isTablet).toBe(true);
+
+      // Resize to mobile
+      getState().setMobileState({
+        isMobile: true,
+        isTablet: false,
+        isTouchDevice: false,
+        isSmallScreen: false,
+      });
+      expect(getState().mobile.isMobile).toBe(true);
+      expect(getState().mobile.isTablet).toBe(false);
+    });
+
+    it("does not affect other state when updating mobile state", () => {
+      const { getState } = createTestSlice();
+
+      // Set up various state
+      getState().openCommandPalette();
+      getState().setSelectedElementId("element-123");
+      getState().setFloatingIconPosition({ x: 100, y: 200 });
+
+      getState().setMobileState({
+        isMobile: true,
+        isTablet: false,
+        isTouchDevice: true,
+        isSmallScreen: true,
+      });
+
+      // Verify other state is preserved
+      expect(getState().commandPalette.open).toBe(true);
+      expect(getState().selectedElementId).toBe("element-123");
+      expect(getState().floatingIconPosition).toEqual({ x: 100, y: 200 });
     });
   });
 });

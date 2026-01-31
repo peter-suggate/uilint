@@ -125,14 +125,15 @@ const visionToolbarActionGroup: ToolbarActionGroup = {
 
 /**
  * Create category providers for the vision plugin.
- * Provides a "Vision" category in the sidebar that shows vision commands.
+ * Provides categories in the sidebar for vision commands and captures.
  */
 function createVisionCategoryProviders(): CategoryProvider[] {
   return [
+    // Commands category - always visible
     {
       id: "vision:commands",
-      label: "Vision",
-      priority: 2, // Lower priority than ESLint issues
+      label: "Commands",
+      priority: 1, // Commands shown first
       parentId: "vision",
 
       getItems: (services: PluginServices): CategoryItem[] => {
@@ -193,7 +194,82 @@ function createVisionCategoryProviders(): CategoryProvider[] {
 
       searchKeys: ["title", "subtitle"],
     },
+
+    // Captures category - shows screenshot captures
+    {
+      id: "vision:captures",
+      label: "Captures",
+      priority: 2, // Captures shown after commands
+      parentId: "vision",
+
+      getItems: (services: PluginServices): CategoryItem[] => {
+        const fullState = services.getState<{
+          plugins?: { vision?: VisionSlice };
+        }>();
+
+        const screenshotHistory = fullState.plugins?.vision?.screenshotHistory;
+        if (!screenshotHistory || screenshotHistory.size === 0) {
+          return [];
+        }
+
+        // Convert captures to category items
+        const captures = Array.from(screenshotHistory.values()) as ScreenshotCapture[];
+
+        // Sort by timestamp (most recent first)
+        captures.sort((a, b) => b.timestamp - a.timestamp);
+
+        return captures.map((capture): CategoryItem => {
+          const issueCount = capture.issues?.length ?? 0;
+          const hasIssues = issueCount > 0;
+          const subtitle = hasIssues
+            ? `${capture.route} • ${issueCount} issue${issueCount > 1 ? "s" : ""}`
+            : capture.route;
+
+          return {
+            id: `vision:capture:${capture.id}`,
+            title: formatCaptureTitle(capture),
+            subtitle,
+            priority: hasIssues ? 0 : 1, // Captures with issues shown first
+            metadata: {
+              captureId: capture.id,
+              route: capture.route,
+              timestamp: capture.timestamp,
+              type: capture.type,
+              issueCount,
+            },
+            execute: (svc) => {
+              // Select the capture in the gallery
+              const state = svc.getState<{ plugins?: { vision?: VisionSlice } }>();
+              state.plugins?.vision?.setSelectedScreenshotId(capture.id);
+              // Open inspector to show the capture
+              svc.openInspector("capture", { capture });
+              svc.closeCommandPalette();
+            },
+          };
+        });
+      },
+
+      getItemCount: (services: PluginServices): number => {
+        const fullState = services.getState<{
+          plugins?: { vision?: VisionSlice };
+        }>();
+
+        return fullState.plugins?.vision?.screenshotHistory?.size ?? 0;
+      },
+
+      searchKeys: ["title", "subtitle"],
+    },
   ];
+}
+
+/**
+ * Format a capture title for display
+ */
+function formatCaptureTitle(capture: ScreenshotCapture): string {
+  const date = new Date(capture.timestamp);
+  const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const typeLabel = capture.type === "region" ? "Region" : "Full Page";
+  return `${typeLabel} • ${timeStr}`;
 }
 
 /**

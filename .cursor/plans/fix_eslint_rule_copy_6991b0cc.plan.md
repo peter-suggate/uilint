@@ -29,7 +29,7 @@ Ensure `uilint --eslint` reliably **copies selected rules into each selected pac
 
 ## Key findings
 
-- The planner (`createPlan`) _intends_ to copy rules into `<pkgPath>/.uilint/rules/`, but it currently **swallows rule-loader failures** and continues, which can result in **no rule files being copied** while the install still “succeeds”. See the try/catch around `loadSelectedRules` in [`packages/uilint/src/commands/install/plan.ts`](packages/uilint/src/commands/install/plan.ts).
+- The planner (`createPlan`) *intends* to copy rules into `<pkgPath>/.uilint/rules/`, but it currently **swallows rule-loader failures** and continues, which can result in **no rule files being copied** while the install still “succeeds”. See the try/catch around `loadSelectedRules` in [`packages/uilint/src/commands/install/plan.ts`](packages/uilint/src/commands/install/plan.ts).
 - Monorepo integration tests currently have at least one expectation that rules are copied to workspace root; with the chosen behavior (**per-package**), those assertions need to be updated.
 - JS-only packages rely on `uilint-eslint/dist/rules/*.js` for copying. `uilint-eslint` is configured to emit these via tsup (see [`packages/uilint-eslint/tsup.config.ts`](packages/uilint-eslint/tsup.config.ts)), so tests should validate that path is used.
 
