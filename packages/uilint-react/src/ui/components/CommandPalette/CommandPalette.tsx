@@ -20,7 +20,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
-import { useIssues, useCategoryRegistry, useIsMobile } from "../../hooks";
+import { useIssues, useCategoryRegistry, useCategoryItems, useIsMobile } from "../../hooks";
 import { SearchInput } from "./SearchInput";
 import { MobileCategoryTabs } from "./MobileCategoryTabs";
 import { ResultItem } from "./ResultItem";
@@ -309,8 +309,11 @@ export function CommandPalette() {
   const scrollCtx = useScrollSelectedIntoView(selectedIndex);
 
   const { allIssues } = useIssues();
-  const { categoryTree, loadItems, getCachedItems, searchItems } = useCategoryRegistry();
+  const { categoryTree, loadItems, searchItems } = useCategoryRegistry();
   const { isMobile, isSmallScreen } = useIsMobile();
+
+  // Get category items reactively using selector
+  const categoryItems = useCategoryItems(selectedCategoryId);
 
   // Get current state for command availability checks
   const storeState = useComposedStore((s) => s);
@@ -351,12 +354,6 @@ export function CommandPalette() {
 
   // PERFORMANCE: Only show issues when searching or when category is issues-related
   const isSearching = query.trim().length > 0;
-
-  // Get category items when a category is selected
-  const categoryItems = useMemo(() => {
-    if (!selectedCategoryId) return [];
-    return getCachedItems(selectedCategoryId);
-  }, [selectedCategoryId, getCachedItems]);
 
   // Filter issues by query - only compute when searching
   const filteredIssues = useMemo(() => {

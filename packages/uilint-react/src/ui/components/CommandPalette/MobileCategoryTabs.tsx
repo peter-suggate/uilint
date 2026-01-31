@@ -3,7 +3,7 @@
  */
 import * as React from "react";
 import { motion } from "motion/react";
-import type { CategoryNode } from "../../../core/plugin-system/category-registry";
+import type { CategoryNode } from "../../../core/store/category-slice";
 
 interface MobileCategoryTabsProps {
   categories: CategoryNode[];

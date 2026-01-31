@@ -1,15 +1,17 @@
 /**
  * useCategoryRegistry - React hook for accessing the category registry
  *
- * Provides reactive access to category providers and their loading states.
- * Automatically subscribes to registry changes and triggers re-renders.
+ * Provides reactive access to category providers and their loading states
+ * using Zustand selectors for automatic re-renders when state changes.
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useCallback } from "react";
+import { useComposedStore } from "../../core/store/composed-store";
 import {
-  categoryRegistry,
+  selectCategoryItems,
+  selectAnyCategoryLoading,
   type CategoryNode,
-} from "../../core/plugin-system/category-registry";
+} from "../../core/store/category-slice";
 import type { CategoryItem } from "../../core/plugin-system/types";
 
 /**
@@ -20,7 +22,7 @@ export interface UseCategoryRegistryReturn {
   categoryTree: CategoryNode[];
   /** Load items for a specific category */
   loadItems: (categoryId: string) => Promise<CategoryItem[]>;
-  /** Get cached items for a category */
+  /** Get cached items for a category (reactive) */
   getCachedItems: (categoryId: string) => CategoryItem[];
   /** Search items across categories */
   searchItems: (query: string, categoryId?: string) => CategoryItem[];
@@ -31,7 +33,10 @@ export interface UseCategoryRegistryReturn {
 }
 
 /**
- * React hook for using the category registry
+ * React hook for using the category registry via Zustand selectors.
+ *
+ * All state access is reactive - components will automatically re-render
+ * when the relevant state changes.
  *
  * @example
  * ```tsx
@@ -53,52 +58,36 @@ export interface UseCategoryRegistryReturn {
  * ```
  */
 export function useCategoryRegistry(): UseCategoryRegistryReturn {
-  // Force re-render when registry changes
-  const [, forceUpdate] = useState(0);
+  // Use stored state for reactive updates
+  const categoryTree = useComposedStore((s) => s.categoryTree);
+  const isLoading = useComposedStore(selectAnyCategoryLoading);
 
-  // Subscribe to registry changes
-  useEffect(() => {
-    const unsubscribe = categoryRegistry.subscribe(() => {
-      forceUpdate((n) => n + 1);
-    });
-    return unsubscribe;
-  }, []);
+  // Get actions from store
+  const loadCategoryItems = useComposedStore((s) => s.loadCategoryItems);
+  const invalidateCategoryCache = useComposedStore((s) => s.invalidateCategoryCache);
+  const searchCategoryItems = useComposedStore((s) => s.searchCategoryItems);
+  const categoryCache = useComposedStore((s) => s.categoryCache);
 
-  // Get category tree (memoized based on update counter)
-  const categoryTree = useMemo(() => {
-    return categoryRegistry.getCategoryTree();
-  }, [forceUpdate]);
-
-  // Check if any category is loading
-  const isLoading = useMemo(() => {
-    const providers = categoryRegistry.getAllProviders();
-    return providers.some(
-      (p) => categoryRegistry.getLoadingState(p.id) === "loading"
-    );
-  }, [forceUpdate]);
-
-  // Load items for a category
-  const loadItems = useCallback(async (categoryId: string) => {
-    return categoryRegistry.loadItems(categoryId);
-  }, []);
-
-  // Get cached items
-  const getCachedItems = useCallback((categoryId: string) => {
-    return categoryRegistry.getCachedItems(categoryId);
-  }, []);
-
-  // Search items
-  const searchItems = useCallback(
-    (query: string, categoryId?: string) => {
-      return categoryRegistry.searchItems(query, categoryId);
-    },
-    []
+  // Wrap actions in stable callbacks
+  const loadItems = useCallback(
+    (categoryId: string) => loadCategoryItems(categoryId),
+    [loadCategoryItems]
   );
 
-  // Invalidate cache
-  const invalidate = useCallback((categoryId?: string) => {
-    categoryRegistry.invalidate(categoryId);
-  }, []);
+  const getCachedItems = useCallback(
+    (categoryId: string) => categoryCache.get(categoryId)?.items ?? [],
+    [categoryCache]
+  );
+
+  const searchItems = useCallback(
+    (query: string, categoryId?: string) => searchCategoryItems(query, categoryId),
+    [searchCategoryItems]
+  );
+
+  const invalidate = useCallback(
+    (categoryId?: string) => invalidateCategoryCache(categoryId),
+    [invalidateCategoryCache]
+  );
 
   return {
     categoryTree,
@@ -108,4 +97,33 @@ export function useCategoryRegistry(): UseCategoryRegistryReturn {
     invalidate,
     isLoading,
   };
+}
+
+/**
+ * Hook to get cached items for a specific category.
+ * More efficient than useCategoryRegistry when you only need items for one category.
+ *
+ * @param categoryId - The category ID to get items for
+ * @returns Array of cached items (empty if not loaded)
+ *
+ * @example
+ * ```tsx
+ * function CategoryItemsList({ categoryId }: { categoryId: string }) {
+ *   const items = useCategoryItems(categoryId);
+ *   return <ul>{items.map(item => <li key={item.id}>{item.title}</li>)}</ul>;
+ * }
+ * ```
+ */
+export function useCategoryItems(categoryId: string | null): CategoryItem[] {
+  return useComposedStore((state) => selectCategoryItems(state, categoryId));
+}
+
+/**
+ * Hook to load items for a category.
+ * Returns a stable callback that loads items on demand.
+ *
+ * @returns Function to load items for a category
+ */
+export function useLoadCategoryItems(): (categoryId: string) => Promise<CategoryItem[]> {
+  return useComposedStore((s) => s.loadCategoryItems);
 }

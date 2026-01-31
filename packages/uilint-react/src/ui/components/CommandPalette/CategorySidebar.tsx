@@ -13,7 +13,7 @@ import * as React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../../lib/utils";
-import type { CategoryNode } from "../../../core/plugin-system/category-registry";
+import type { CategoryNode } from "../../../core/store/category-slice";
 
 // ============================================================================
 // Variants
