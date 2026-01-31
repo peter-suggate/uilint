@@ -20,7 +20,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
-import { useIssues, useCategoryRegistry, useCategoryItems, useIsMobile } from "../../hooks";
+import { useIssues, useCategoryRegistry, useCategoryItems, useLoadCategoryWithChildren, useIsMobile } from "../../hooks";
 import { SearchInput } from "./SearchInput";
 import { MobileCategoryTabs } from "./MobileCategoryTabs";
 import { ResultItem } from "./ResultItem";
@@ -310,20 +310,22 @@ export function CommandPalette() {
 
   const { allIssues } = useIssues();
   const { categoryTree, loadItems, searchItems } = useCategoryRegistry();
+  const loadCategoryWithChildren = useLoadCategoryWithChildren();
   const { isMobile, isSmallScreen } = useIsMobile();
 
-  // Get category items reactively using selector
+  // Get category items reactively using selector (aggregates child items for parent categories)
   const categoryItems = useCategoryItems(selectedCategoryId);
 
   // Get current state for command availability checks
   const storeState = useComposedStore((s) => s);
 
-  // Load category items when category changes
+  // Load category items when category changes (loads children for parent categories)
   useEffect(() => {
     if (selectedCategoryId && isOpen) {
-      loadItems(selectedCategoryId);
+      // Load the category and all its children to support aggregation
+      loadCategoryWithChildren(selectedCategoryId);
     }
-  }, [selectedCategoryId, isOpen, loadItems]);
+  }, [selectedCategoryId, isOpen, loadCategoryWithChildren]);
 
   // Get available commands from registry
   const availableCommands = useMemo(() => {

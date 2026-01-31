@@ -6,10 +6,12 @@
  */
 
 import { useCallback } from "react";
-import { useComposedStore } from "../../core/store/composed-store";
+import { useComposedStore, getStoreApi } from "../../core/store/composed-store";
 import {
   selectCategoryItems,
   selectAnyCategoryLoading,
+  selectAggregatedCategoryItems,
+  selectChildCategoryIds,
   type CategoryNode,
 } from "../../core/store/category-slice";
 import type { CategoryItem } from "../../core/plugin-system/types";
@@ -103,6 +105,9 @@ export function useCategoryRegistry(): UseCategoryRegistryReturn {
  * Hook to get cached items for a specific category.
  * More efficient than useCategoryRegistry when you only need items for one category.
  *
+ * When the category is a parent (has children), returns aggregated items
+ * from all child categories combined.
+ *
  * @param categoryId - The category ID to get items for
  * @returns Array of cached items (empty if not loaded)
  *
@@ -115,6 +120,18 @@ export function useCategoryRegistry(): UseCategoryRegistryReturn {
  * ```
  */
 export function useCategoryItems(categoryId: string | null): CategoryItem[] {
+  return useComposedStore((state) => selectAggregatedCategoryItems(state, categoryId));
+}
+
+/**
+ * Hook to get cached items for a specific category (direct items only, no aggregation).
+ * Use this when you specifically want only the items registered directly to a category,
+ * not including any child category items.
+ *
+ * @param categoryId - The category ID to get items for
+ * @returns Array of directly cached items (empty if not loaded)
+ */
+export function useCategoryItemsDirect(categoryId: string | null): CategoryItem[] {
   return useComposedStore((state) => selectCategoryItems(state, categoryId));
 }
 
@@ -126,4 +143,37 @@ export function useCategoryItems(categoryId: string | null): CategoryItem[] {
  */
 export function useLoadCategoryItems(): (categoryId: string) => Promise<CategoryItem[]> {
   return useComposedStore((s) => s.loadCategoryItems);
+}
+
+/**
+ * Hook to load items for a category and all its children.
+ * Useful when selecting a parent category that should display aggregated items.
+ *
+ * @returns Function that loads items for a category and all child categories
+ */
+export function useLoadCategoryWithChildren(): (categoryId: string) => Promise<void> {
+  const loadCategoryItems = useComposedStore((s) => s.loadCategoryItems);
+
+  return useCallback(
+    async (categoryId: string) => {
+      const storeApi = getStoreApi();
+      if (!storeApi) {
+        // Store not initialized yet, just load the category directly
+        await loadCategoryItems(categoryId);
+        return;
+      }
+
+      const state = storeApi.getState();
+      const childIds = selectChildCategoryIds(state, categoryId);
+
+      // Load the parent category and all children in parallel
+      const loadPromises = [
+        loadCategoryItems(categoryId),
+        ...childIds.map((childId) => loadCategoryItems(childId)),
+      ];
+
+      await Promise.all(loadPromises);
+    },
+    [loadCategoryItems]
+  );
 }
