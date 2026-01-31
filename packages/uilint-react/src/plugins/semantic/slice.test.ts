@@ -668,10 +668,16 @@ describe("semanticPlugin", () => {
   });
 
   describe("inspector panels", () => {
-    it("has empty inspectorPanels array", () => {
+    it("has inspectorPanels with duplicates panel", () => {
       expect(semanticPlugin.inspectorPanels).toBeDefined();
       expect(Array.isArray(semanticPlugin.inspectorPanels)).toBe(true);
-      expect(semanticPlugin.inspectorPanels).toHaveLength(0);
+      expect(semanticPlugin.inspectorPanels).toHaveLength(1);
+
+      const duplicatesPanel = semanticPlugin.inspectorPanels?.find(
+        (p) => p.id === "duplicates"
+      );
+      expect(duplicatesPanel).toBeDefined();
+      expect(duplicatesPanel?.priority).toBe(10);
     });
   });
 
