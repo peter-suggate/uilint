@@ -6,8 +6,11 @@
  * - Floating: Draggable, resizable popup window
  *
  * Supports both built-in panels (issue, element) and plugin-contributed panels.
+ *
+ * Drag state is managed by the centralized drag-slice in the store.
+ * Auto-undock on mobile is handled by the subscription system (initializeInspectorAutoUndock).
  */
-import React, { useMemo, useCallback, useRef, useEffect, useState } from "react";
+import React, { useMemo, useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useComposedStore, getPluginServices } from "../../../core/store";
@@ -17,7 +20,6 @@ import { ElementDetail } from "./ElementDetail";
 import { ResizeHandle } from "./ResizeHandle";
 import { CloseIcon, MaximizeIcon, DockIcon } from "../../icons";
 import { IconButton, getGlassStyles } from "../primitives";
-import { useIsMobile } from "../../hooks";
 import type { Issue } from "../../types";
 
 const MIN_WIDTH = 320;
@@ -44,11 +46,13 @@ export function InspectorSidebar() {
   // Track if component is mounted (for SSR safety)
   const [mounted, setMounted] = useState(false);
 
-  // Mobile detection
-  const { isMobile } = useIsMobile();
+  // Mobile detection from store (updated by subscription system)
+  const isMobile = useComposedStore((s) => s.mobile.isMobile);
 
-  // Drag state for floating mode
-  const dragRef = useRef<{ startX: number; startY: number; startPos: { x: number; y: number } } | null>(null);
+  // Drag state from store (managed by subscription system)
+  const activeDrag = useComposedStore((s) => s.activeDrag);
+  const startDrag = useComposedStore((s) => s.startDrag);
+  const isDragging = activeDrag?.type === "inspector-floating";
 
   // Get all inspector panels from plugins
   const pluginPanels = useMemo(() => {
@@ -107,15 +111,11 @@ export function InspectorSidebar() {
     setMounted(true);
   }, []);
 
-  // Force floating/fullscreen mode on mobile - automatically undock when mobile
-  useEffect(() => {
-    if (isMobile && isOpen && docked) {
-      toggleInspectorDocked();
-    }
-  }, [isMobile, isOpen, docked]);
+  // Note: Auto-undock on mobile is handled by initializeInspectorAutoUndock
+  // in the subscription system (subscriptions.ts). No useEffect needed here.
 
-  // Manage document margin for docked mode
-  useEffect(() => {
+  // Manage document margin for docked mode (useLayoutEffect for DOM manipulation)
+  useLayoutEffect(() => {
     if (!mounted) return;
 
     const root = document.documentElement;
@@ -137,6 +137,20 @@ export function InspectorSidebar() {
     };
   }, [mounted, isOpen, docked, width]);
 
+  // Update floating position during drag
+  // The subscription system handles mouse/touch move events and updates activeDrag.currentPos
+  useLayoutEffect(() => {
+    if (!isDragging || !activeDrag || !activeDrag.elementStartPos) return;
+
+    const { currentPos, startPos, elementStartPos } = activeDrag;
+    const deltaX = currentPos.x - startPos.x;
+    const deltaY = currentPos.y - startPos.y;
+    setInspectorFloatingPosition({
+      x: elementStartPos.x + deltaX,
+      y: elementStartPos.y + deltaY,
+    });
+  }, [isDragging, activeDrag, setInspectorFloatingPosition]);
+
   // Handle docked resize
   const handleDockedResize = useCallback(
     (deltaX: number) => {
@@ -157,76 +171,31 @@ export function InspectorSidebar() {
     [floatingSize, setInspectorFloatingSize]
   );
 
-  // Handle drag start for floating mode (mouse)
+  // Drag handlers - just start the drag, the subscription system handles move/end
   const handleDragStart = useCallback(
     (e: React.MouseEvent) => {
       if (!floatingPosition || isMobile) return;
       e.preventDefault();
-      dragRef.current = {
-        startX: e.clientX,
-        startY: e.clientY,
-        startPos: floatingPosition,
-      };
+      const startPos = { x: e.clientX, y: e.clientY };
+      // Use offset of {0, 0} since we track element start position directly
+      startDrag("inspector-floating", startPos, { x: 0, y: 0 }, floatingPosition);
     },
-    [floatingPosition, isMobile]
+    [floatingPosition, isMobile, startDrag]
   );
 
-  // Handle drag start for floating mode (touch)
   const handleTouchDragStart = useCallback(
     (e: React.TouchEvent) => {
       if (!floatingPosition || isMobile) return;
       const touch = e.touches[0];
-      dragRef.current = {
-        startX: touch.clientX,
-        startY: touch.clientY,
-        startPos: floatingPosition,
-      };
+      const startPos = { x: touch.clientX, y: touch.clientY };
+      startDrag("inspector-floating", startPos, { x: 0, y: 0 }, floatingPosition);
     },
-    [floatingPosition, isMobile]
+    [floatingPosition, isMobile, startDrag]
   );
 
-  // Handle drag move/end (mouse and touch)
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!dragRef.current) return;
-      const deltaX = e.clientX - dragRef.current.startX;
-      const deltaY = e.clientY - dragRef.current.startY;
-      setInspectorFloatingPosition({
-        x: dragRef.current.startPos.x + deltaX,
-        y: dragRef.current.startPos.y + deltaY,
-      });
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!dragRef.current) return;
-      const touch = e.touches[0];
-      const deltaX = touch.clientX - dragRef.current.startX;
-      const deltaY = touch.clientY - dragRef.current.startY;
-      setInspectorFloatingPosition({
-        x: dragRef.current.startPos.x + deltaX,
-        y: dragRef.current.startPos.y + deltaY,
-      });
-    };
-
-    const handleMouseUp = () => {
-      dragRef.current = null;
-    };
-
-    const handleTouchEnd = () => {
-      dragRef.current = null;
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-    document.addEventListener("touchmove", handleTouchMove);
-    document.addEventListener("touchend", handleTouchEnd);
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      document.removeEventListener("touchmove", handleTouchMove);
-      document.removeEventListener("touchend", handleTouchEnd);
-    };
-  }, [setInspectorFloatingPosition]);
+  // Note: Global mouse/touch move and end events are handled by the subscription system
+  // in subscriptions.ts (initializeDragHandlers). This eliminates the need for
+  // useEffect-based event listener management.
 
   // Initialize floating position if not set
   useEffect(() => {

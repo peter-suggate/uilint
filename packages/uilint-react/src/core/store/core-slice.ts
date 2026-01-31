@@ -21,6 +21,29 @@ export interface FloatingIconPosition {
 }
 
 /**
+ * Breakpoints for responsive design.
+ */
+export const BREAKPOINTS = {
+  sm: 640,
+  md: 768,
+  lg: 1024,
+} as const;
+
+/**
+ * Mobile/viewport detection state.
+ */
+export interface MobileState {
+  /** Viewport width < 768px */
+  isMobile: boolean;
+  /** Viewport width >= 768px and < 1024px */
+  isTablet: boolean;
+  /** Device has touch capability */
+  isTouchDevice: boolean;
+  /** Viewport width < 640px */
+  isSmallScreen: boolean;
+}
+
+/**
  * Filter chip for the command palette search.
  * Allows filtering by rule, issue, loc (source location), file, capture, or plugin.
  */
@@ -142,6 +165,12 @@ export interface CoreSlice {
   wsConnected: boolean;
   /** WebSocket server URL */
   wsUrl: string;
+
+  // ============ Mobile/Viewport Detection ============
+  /** Mobile detection state */
+  mobile: MobileState;
+  /** Update mobile state (called by subscriptions) */
+  setMobileState: (state: MobileState) => void;
 }
 
 // ============================================================================
@@ -211,6 +240,13 @@ const DEFAULT_COMMAND_PALETTE_STATE: CommandPaletteState = {
 
 const DEFAULT_INSPECTOR_WIDTH = 400;
 const _DEFAULT_WS_URL = "ws://localhost:9234";
+
+const DEFAULT_MOBILE_STATE: MobileState = {
+  isMobile: false,
+  isTablet: false,
+  isTouchDevice: false,
+  isSmallScreen: false,
+};
 
 /**
  * Load initial inspector state from localStorage.
@@ -433,4 +469,11 @@ export const createCoreSlice = (
   // ============ Connection (delegated from websocket service) ============
   wsConnected: services.websocket.isConnected,
   wsUrl: services.websocket.url,
+
+  // ============ Mobile/Viewport Detection ============
+  mobile: { ...DEFAULT_MOBILE_STATE },
+
+  setMobileState: (mobileState) => {
+    set({ mobile: mobileState });
+  },
 });

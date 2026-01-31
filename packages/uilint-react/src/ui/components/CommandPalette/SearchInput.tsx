@@ -16,7 +16,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { SearchIcon, CloseIcon } from "../../icons";
 import { Kbd, IconButton } from "../primitives";
 import { cn } from "../../../lib/utils";
-import { useIsMobile } from "../../hooks";
+import { useComposedStore } from "../../../core/store";
 
 // ============================================================================
 // Variants
@@ -124,7 +124,7 @@ export function SearchInput({
 }: SearchInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
-  const { isMobile } = useIsMobile();
+  const isMobile = useComposedStore((s) => s.mobile.isMobile);
 
   // Auto-focus on mount with slight delay for animation
   useEffect(() => {

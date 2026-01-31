@@ -19,7 +19,7 @@ export {
 } from "./types";
 
 // Hooks (for advanced usage)
-export { useIssues, useKeyboardShortcuts, useElementRects } from "./hooks";
+export { useIssues, useElementRects } from "./hooks";
 
 // Components (for custom composition)
 export { FloatingIcon } from "./components/FloatingIcon";

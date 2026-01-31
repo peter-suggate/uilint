@@ -7,6 +7,9 @@
  * - CommandPalette: Search interface for issues
  * - InspectorSidebar: Detail panel for issues/elements
  * - RegionSelector: Full-screen overlay for region capture
+ *
+ * Note: Keyboard shortcuts are handled by the subscription system
+ * (initializeKeyboardShortcuts in subscriptions.ts) when the store is created.
  */
 import React, { useEffect, useCallback } from "react";
 import { FloatingIcon } from "./components/FloatingIcon";
@@ -14,7 +17,6 @@ import { HeatmapOverlay } from "./components/HeatmapOverlay";
 import { CommandPalette } from "./components/CommandPalette";
 import { InspectorSidebar } from "./components/Inspector";
 import { RegionSelector } from "./components/RegionSelector";
-import { useKeyboardShortcuts } from "./hooks";
 import { useComposedStore } from "../core/store";
 import type { VisionSlice } from "../plugins/vision/slice";
 
@@ -56,8 +58,8 @@ export interface UILintProps {
  * Add this to your app to enable the UILint overlay
  */
 export function UILint({ enabled = true }: UILintProps) {
-  // Set up keyboard shortcuts (Cmd+K, etc.)
-  useKeyboardShortcuts();
+  // Note: Keyboard shortcuts are handled by the subscription system
+  // (initializeKeyboardShortcuts) when the store is created. No hook needed here.
 
   // Get vision state for region selection
   const visionState = useComposedStore(

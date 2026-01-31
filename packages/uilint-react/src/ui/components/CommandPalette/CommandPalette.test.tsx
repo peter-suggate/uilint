@@ -249,3 +249,121 @@ describe("CommandPalette - ESLint rule search", () => {
     expect(inspectorState.panelId).toBe("custom-plugin-rule");
   });
 });
+
+// ============================================================================
+// Store Integration Tests (useEffect migration)
+// ============================================================================
+
+describe("CommandPalette - Store Integration", () => {
+  beforeEach(() => {
+    resetStore();
+    vi.spyOn(pluginRegistry, "getAllRules").mockReturnValue([]);
+    vi.spyOn(pluginRegistry, "getAllCommands").mockReturnValue([]);
+    vi.spyOn(pluginRegistry, "getAllInspectorPanels").mockReturnValue([]);
+  });
+
+  afterEach(() => {
+    cleanup();
+    resetStore();
+    vi.restoreAllMocks();
+  });
+
+  it("does not render when closed", () => {
+    const store = createComposedStore();
+    // Palette should start closed
+    expect(store.getState().commandPalette.open).toBe(false);
+
+    render(<CommandPalette />);
+
+    // Should not find search input when closed
+    expect(document.querySelector("input")).toBeNull();
+  });
+
+  it("renders when opened via store", () => {
+    const store = createComposedStore();
+    store.getState().openCommandPalette();
+
+    render(<CommandPalette />);
+
+    // Should find search input when open
+    expect(document.querySelector("input")).not.toBeNull();
+  });
+
+  it("uses query from store state when set before render", () => {
+    const store = createComposedStore();
+    store.getState().openCommandPalette();
+    store.getState().setCommandPaletteQuery("preset query");
+
+    render(<CommandPalette />);
+
+    // Input should reflect store state
+    const input = document.querySelector("input") as HTMLInputElement;
+    expect(input.value).toBe("preset query");
+  });
+
+  it("updates store query on input change", () => {
+    const store = createComposedStore();
+    store.getState().openCommandPalette();
+
+    render(<CommandPalette />);
+
+    const input = document.querySelector("input")!;
+    fireEvent.change(input, { target: { value: "new query" } });
+
+    expect(store.getState().commandPalette.query).toBe("new query");
+  });
+
+  it("resets query when opening palette", () => {
+    const store = createComposedStore();
+
+    // Set a query while closed
+    store.getState().setCommandPaletteQuery("old query");
+    expect(store.getState().commandPalette.query).toBe("old query");
+
+    // Open should reset query
+    store.getState().openCommandPalette();
+
+    expect(store.getState().commandPalette.query).toBe("");
+  });
+
+  it("resets selectedIndex when query changes", () => {
+    const store = createComposedStore();
+    store.getState().openCommandPalette();
+    store.getState().setCommandPaletteSelectedIndex(5);
+
+    // Changing query should reset index to 0
+    store.getState().setCommandPaletteQuery("test");
+
+    expect(store.getState().commandPalette.selectedIndex).toBe(0);
+  });
+
+  it("resets state when closing palette", () => {
+    const store = createComposedStore();
+    store.getState().openCommandPalette();
+    store.getState().setCommandPaletteQuery("some query");
+    store.getState().setCommandPaletteSelectedIndex(3);
+
+    store.getState().closeCommandPalette();
+
+    expect(store.getState().commandPalette.open).toBe(false);
+    expect(store.getState().commandPalette.query).toBe("");
+    expect(store.getState().commandPalette.selectedIndex).toBe(0);
+  });
+
+  it("uses mobile state from store", () => {
+    const store = createComposedStore();
+    store.getState().openCommandPalette();
+    store.getState().setMobileState({
+      isMobile: true,
+      isTablet: false,
+      isTouchDevice: true,
+      isSmallScreen: true,
+    });
+
+    render(<CommandPalette />);
+
+    // Mobile mode should show "Done" button
+    const doneButton = screen.queryByText("Done");
+    expect(doneButton).not.toBeNull();
+  });
+});

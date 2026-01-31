@@ -17,6 +17,8 @@
 import { create, type StoreApi, type UseBoundStore } from "zustand";
 import { createCoreSlice, type CoreSlice } from "./core-slice";
 import { createCategorySlice, type CategorySlice } from "./category-slice";
+import { createDragSlice, type DragSlice } from "./drag-slice";
+import { initializeSubscriptions, type CleanupFn } from "./subscriptions";
 import {
   pluginRegistry,
   sortByDependencies,
@@ -87,9 +89,10 @@ export interface PluginSlices {
  * The composed store state combines:
  * 1. CoreSlice - Core UI state (floating icon, command palette, inspector, etc.)
  * 2. CategorySlice - Category provider state for command palette sidebar
- * 3. PluginSlices - Namespaced plugin state accessible via `plugins.{pluginId}`
+ * 3. DragSlice - Unified drag state management
+ * 4. PluginSlices - Namespaced plugin state accessible via `plugins.{pluginId}`
  */
-export type ComposedState = CoreSlice & CategorySlice & PluginSlices;
+export type ComposedState = CoreSlice & CategorySlice & DragSlice & PluginSlices;
 
 /**
  * Actions for managing the composed store
@@ -161,6 +164,12 @@ let storeInstance: UseBoundStore<StoreApi<ComposedStore>> | null = null;
 let pluginServicesInstance: PluginServices | null = null;
 
 /**
+ * Cleanup function for store subscriptions.
+ * Called when the store is reset.
+ */
+let subscriptionsCleanup: CleanupFn | null = null;
+
+/**
  * Default WebSocket service stub.
  * In practice, this would be replaced with a real implementation.
  */
@@ -218,6 +227,7 @@ const createDefaultDOMObserverService = (): DOMObserverService => ({
 interface StoreCreationResult {
   store: UseBoundStore<StoreApi<ComposedStore>>;
   services: PluginServices;
+  cleanup: CleanupFn;
 }
 
 /**
@@ -288,6 +298,12 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
       closeCommandPalette: () => {
         get().closeCommandPalette();
       },
+      closeInspector: () => {
+        get().closeInspector();
+      },
+      invalidateCategory: (categoryId?: string) => {
+        get().invalidateCategoryCache(categoryId);
+      },
     };
 
     // Initialize the core slice with services
@@ -307,12 +323,23 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
       subscribe: () => () => {},
     });
 
+    // Initialize the drag slice
+    const dragSlice = createDragSlice(set, get, {
+      setState: set,
+      getState: get,
+      getInitialState: () => get(),
+      subscribe: () => () => {},
+    });
+
     return {
       // Core slice state and actions
       ...coreSlice,
 
       // Category slice state and actions
       ...categorySlice,
+
+      // Drag slice state and actions
+      ...dragSlice,
 
       // Plugin slices namespace (empty initially)
       plugins: {},
@@ -379,7 +406,10 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
     store.setState({ wsConnected: connected, wsUrl: websocket.url });
   });
 
-  return { store, services: services! };
+  // Initialize store subscriptions (keyboard shortcuts, mobile detection, etc.)
+  const cleanup = initializeSubscriptions(store);
+
+  return { store, services: services!, cleanup };
 }
 
 /**
@@ -438,6 +468,7 @@ export function createComposedStore(
   const result = createStoreInternal(options);
   storeInstance = result.store;
   pluginServicesInstance = result.services;
+  subscriptionsCleanup = result.cleanup;
 
   return storeInstance;
 }
@@ -704,6 +735,12 @@ export function getPluginServices(): PluginServices | null {
 export function resetStore(
   options?: ComposedStoreOptions
 ): UseBoundStore<StoreApi<ComposedStore>> | void {
+  // Clean up subscriptions before resetting
+  if (subscriptionsCleanup) {
+    subscriptionsCleanup();
+    subscriptionsCleanup = null;
+  }
+
   // Zustand stores don't have a destroy method, just clear the reference
   storeInstance = null;
   pluginServicesInstance = null;

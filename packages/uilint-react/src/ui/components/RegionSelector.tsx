@@ -7,7 +7,7 @@
  * for vision capture. Shows a live selection rectangle with dimensions.
  */
 
-import React, { useEffect, useCallback, useReducer } from "react";
+import React, { useEffect, useLayoutEffect, useCallback, useReducer } from "react";
 import { createPortal } from "react-dom";
 
 export interface SelectedRegion {
@@ -175,7 +175,8 @@ export function RegionSelector({
   }, [active, onCancel]);
 
   // Prevent page scroll while selecting
-  useEffect(() => {
+  // useLayoutEffect for synchronous DOM style changes to prevent visual flashing
+  useLayoutEffect(() => {
     if (!active) return;
 
     const preventScroll = (e: Event) => {

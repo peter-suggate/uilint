@@ -4,7 +4,7 @@
  * Uses inline styles with CSS variables to match the devtools overlay design system.
  */
 import React, { useCallback } from "react";
-import { useIsMobile } from "../../hooks";
+import { useComposedStore } from "../../../core/store";
 import type { RuleDefinition } from "../../../core/plugin-system/types";
 
 interface RuleItemProps {
@@ -71,7 +71,7 @@ export function RuleItem({
   onSeverityChange,
   onClick,
 }: RuleItemProps) {
-  const { isMobile } = useIsMobile();
+  const isMobile = useComposedStore((s) => s.mobile.isMobile);
 
   const handleSeverityChange = useCallback(
     (severity: "error" | "warning" | "off") => {
