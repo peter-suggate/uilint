@@ -1063,6 +1063,158 @@ describe("Core Slice - Integration", () => {
 });
 
 // ============================================================================
+// Heatmap Filter Actions Tests
+// ============================================================================
+
+describe("Core Slice - Heatmap Filter Actions", () => {
+  describe("heatmapFilter Initial State", () => {
+    it("has mode as 'all' by default", () => {
+      const { getState } = createTestSlice();
+      expect(getState().heatmapFilter.mode).toBe("all");
+    });
+
+    it("has empty highlightedLocs array by default", () => {
+      const { getState } = createTestSlice();
+      expect(getState().heatmapFilter.highlightedLocs).toEqual([]);
+    });
+
+    it("has filterLabel as null by default", () => {
+      const { getState } = createTestSlice();
+      expect(getState().heatmapFilter.filterLabel).toBeNull();
+    });
+  });
+
+  describe("setHeatmapFilter", () => {
+    it("sets mode to 'related-only' when locs provided", () => {
+      const { getState } = createTestSlice();
+
+      getState().setHeatmapFilter(["loc1", "loc2"]);
+
+      expect(getState().heatmapFilter.mode).toBe("related-only");
+    });
+
+    it("sets mode to 'all' when empty locs provided", () => {
+      const { getState } = createTestSlice();
+
+      getState().setHeatmapFilter(["loc1"]);
+      expect(getState().heatmapFilter.mode).toBe("related-only");
+
+      getState().setHeatmapFilter([]);
+
+      expect(getState().heatmapFilter.mode).toBe("all");
+    });
+
+    it("stores the provided locations", () => {
+      const { getState } = createTestSlice();
+      const locs = ["file.tsx:10:5", "file.tsx:25:10"];
+
+      getState().setHeatmapFilter(locs);
+
+      expect(getState().heatmapFilter.highlightedLocs).toEqual(locs);
+    });
+
+    it("sets filterLabel when provided", () => {
+      const { getState } = createTestSlice();
+
+      getState().setHeatmapFilter(["loc1"], "Duplicate Pair");
+
+      expect(getState().heatmapFilter.filterLabel).toBe("Duplicate Pair");
+    });
+
+    it("sets filterLabel to null when not provided", () => {
+      const { getState } = createTestSlice();
+
+      getState().setHeatmapFilter(["loc1"]);
+
+      expect(getState().heatmapFilter.filterLabel).toBeNull();
+    });
+
+    it("can update filter multiple times", () => {
+      const { getState } = createTestSlice();
+
+      getState().setHeatmapFilter(["loc1"], "First");
+      expect(getState().heatmapFilter.highlightedLocs).toEqual(["loc1"]);
+      expect(getState().heatmapFilter.filterLabel).toBe("First");
+
+      getState().setHeatmapFilter(["loc2", "loc3"], "Second");
+      expect(getState().heatmapFilter.highlightedLocs).toEqual(["loc2", "loc3"]);
+      expect(getState().heatmapFilter.filterLabel).toBe("Second");
+    });
+  });
+
+  describe("clearHeatmapFilter", () => {
+    it("resets mode to 'all'", () => {
+      const { getState } = createTestSlice();
+
+      getState().setHeatmapFilter(["loc1", "loc2"]);
+      expect(getState().heatmapFilter.mode).toBe("related-only");
+
+      getState().clearHeatmapFilter();
+
+      expect(getState().heatmapFilter.mode).toBe("all");
+    });
+
+    it("clears highlightedLocs to empty array", () => {
+      const { getState } = createTestSlice();
+
+      getState().setHeatmapFilter(["loc1", "loc2"]);
+
+      getState().clearHeatmapFilter();
+
+      expect(getState().heatmapFilter.highlightedLocs).toEqual([]);
+    });
+
+    it("clears filterLabel to null", () => {
+      const { getState } = createTestSlice();
+
+      getState().setHeatmapFilter(["loc1"], "Some Label");
+
+      getState().clearHeatmapFilter();
+
+      expect(getState().heatmapFilter.filterLabel).toBeNull();
+    });
+
+    it("can be called when filter is already clear", () => {
+      const { getState } = createTestSlice();
+
+      getState().clearHeatmapFilter();
+      getState().clearHeatmapFilter();
+
+      expect(getState().heatmapFilter.mode).toBe("all");
+      expect(getState().heatmapFilter.highlightedLocs).toEqual([]);
+      expect(getState().heatmapFilter.filterLabel).toBeNull();
+    });
+  });
+
+  describe("heatmap filter integration", () => {
+    it("preserves other state when setting filter", () => {
+      const { getState } = createTestSlice();
+
+      getState().setSelectedElementId("element-1");
+      getState().openInspector("test-panel");
+
+      getState().setHeatmapFilter(["loc1"], "Test");
+
+      expect(getState().selectedElementId).toBe("element-1");
+      expect(getState().inspector.open).toBe(true);
+    });
+
+    it("preserves filter when other state changes", () => {
+      const { getState } = createTestSlice();
+
+      getState().setHeatmapFilter(["loc1", "loc2"], "Duplicate Pair");
+
+      getState().openCommandPalette();
+      getState().setSelectedElementId("element-1");
+
+      expect(getState().heatmapFilter.mode).toBe("related-only");
+      expect(getState().heatmapFilter.highlightedLocs).toEqual(["loc1", "loc2"]);
+      expect(getState().heatmapFilter.filterLabel).toBe("Duplicate Pair");
+    });
+  });
+});
+
+// ============================================================================
 // Service Integration Tests
 // ============================================================================
 

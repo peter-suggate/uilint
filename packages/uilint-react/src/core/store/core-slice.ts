@@ -68,6 +68,28 @@ export interface InspectorState {
   floatingSize: { width: number; height: number } | null;
 }
 
+/**
+ * Heat map filter state for focusing on related elements.
+ * Used when inspecting issues that reference multiple locations (e.g., duplicates).
+ */
+export interface HeatmapFilterState {
+  /**
+   * Filter mode:
+   * - "all": Show all elements with issues (default)
+   * - "related-only": Only show elements in highlightedLocs
+   */
+  mode: "all" | "related-only";
+  /**
+   * dataLoc values to highlight when mode is "related-only".
+   * Empty array = show all elements.
+   */
+  highlightedLocs: string[];
+  /**
+   * Optional label describing the filter (e.g., "Duplicate Pair")
+   */
+  filterLabel: string | null;
+}
+
 // ============================================================================
 // Slice Interface
 // ============================================================================
@@ -142,6 +164,18 @@ export interface CoreSlice {
   wsConnected: boolean;
   /** WebSocket server URL */
   wsUrl: string;
+
+  // ============ Heatmap Filtering ============
+  /** Heat map filter state for focusing on related elements */
+  heatmapFilter: HeatmapFilterState;
+  /**
+   * Set heatmap filter to highlight specific elements
+   * @param locs dataLoc values to highlight
+   * @param label Optional label describing the filter
+   */
+  setHeatmapFilter: (locs: string[], label?: string) => void;
+  /** Clear heatmap filter (show all elements) */
+  clearHeatmapFilter: () => void;
 }
 
 // ============================================================================
@@ -207,6 +241,12 @@ const DEFAULT_COMMAND_PALETTE_STATE: CommandPaletteState = {
   filters: [],
   selectedCategoryId: null,
   sidebarFocused: false,
+};
+
+const DEFAULT_HEATMAP_FILTER_STATE: HeatmapFilterState = {
+  mode: "all",
+  highlightedLocs: [],
+  filterLabel: null,
 };
 
 const DEFAULT_INSPECTOR_WIDTH = 400;
@@ -433,4 +473,23 @@ export const createCoreSlice = (
   // ============ Connection (delegated from websocket service) ============
   wsConnected: services.websocket.isConnected,
   wsUrl: services.websocket.url,
+
+  // ============ Heatmap Filtering ============
+  heatmapFilter: { ...DEFAULT_HEATMAP_FILTER_STATE },
+
+  setHeatmapFilter: (locs, label) => {
+    set({
+      heatmapFilter: {
+        mode: locs.length > 0 ? "related-only" : "all",
+        highlightedLocs: locs,
+        filterLabel: label ?? null,
+      },
+    });
+  },
+
+  clearHeatmapFilter: () => {
+    set({
+      heatmapFilter: { ...DEFAULT_HEATMAP_FILTER_STATE },
+    });
+  },
 });

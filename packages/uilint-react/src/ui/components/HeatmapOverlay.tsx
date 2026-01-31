@@ -113,11 +113,29 @@ export function HeatmapOverlay() {
   const hoveredElementId = useComposedStore((s) => s.hoveredElementId);
   const setHoveredElementId = useComposedStore((s) => s.setHoveredElementId);
 
+  // Get heatmap filter state
+  const heatmapFilter = useComposedStore((s) => s.heatmapFilter);
+
   // Get issues from store
   const issues = useComposedStore((s) => s.plugins?.eslint?.issues);
 
   // Track element positions
   const elementRects = useElementRects(issues);
+
+  // Filter elements based on heatmap filter
+  const filteredEntries = useMemo(() => {
+    const entries = Array.from(elementRects.entries());
+
+    // If filter mode is "all", show everything
+    if (heatmapFilter.mode === "all" || heatmapFilter.highlightedLocs.length === 0) {
+      return entries;
+    }
+
+    // Filter to only show highlighted locations
+    return entries.filter(([dataLoc]) =>
+      heatmapFilter.highlightedLocs.some((loc) => dataLoc.includes(loc) || loc.includes(dataLoc))
+    );
+  }, [elementRects, heatmapFilter]);
 
   // Handle clicking an overlay item
   const handleClick = (dataLoc: string) => {
@@ -149,9 +167,14 @@ export function HeatmapOverlay() {
         setHoveredElementId(dataLoc || null);
       }}
     >
-      {Array.from(elementRects.entries()).map(([dataLoc, { rect }]) => {
+      {filteredEntries.map(([dataLoc, { rect }]) => {
         const elementIssues = issues.get(dataLoc) || [];
         if (elementIssues.length === 0) return null;
+
+        // Check if this element is specifically highlighted (part of filter)
+        const isHighlighted =
+          heatmapFilter.mode === "related-only" &&
+          heatmapFilter.highlightedLocs.length > 0;
 
         return (
           <OverlayItem
@@ -159,7 +182,7 @@ export function HeatmapOverlay() {
             dataLoc={dataLoc}
             rect={rect}
             issues={elementIssues}
-            isHovered={hoveredElementId === dataLoc}
+            isHovered={hoveredElementId === dataLoc || isHighlighted}
             showDetails={altKeyHeld}
             onClick={() => handleClick(dataLoc)}
           />

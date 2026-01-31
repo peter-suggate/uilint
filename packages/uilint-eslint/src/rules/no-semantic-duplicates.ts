@@ -390,6 +390,29 @@ function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 /**
+ * Extract code from a file for a given line range
+ */
+function extractCodeFromFile(
+  filePath: string,
+  startLine: number,
+  endLine: number
+): string | null {
+  try {
+    if (!existsSync(filePath)) {
+      return null;
+    }
+    const content = readFileSync(filePath, "utf-8");
+    const lines = content.split("\n");
+    // Convert to 0-indexed and extract the range
+    const start = Math.max(0, startLine - 1);
+    const end = Math.min(lines.length, endLine);
+    return lines.slice(start, end).join("\n");
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Find similar chunks to a given chunk
  */
 function findSimilarChunks(
@@ -572,6 +595,18 @@ export default createRule<Options, MessageIds>({
               const relPath = relative(projectRoot, bestMeta.filePath);
               const similarity = Math.round(best.score * 100);
 
+              // Extract source code for both chunks
+              const sourceCode = extractCodeFromFile(
+                filename,
+                meta.startLine,
+                meta.endLine
+              );
+              const targetCode = extractCodeFromFile(
+                bestMeta.filePath,
+                bestMeta.startLine,
+                bestMeta.endLine
+              );
+
               log(`  REPORTING: ${meta.kind} '${name || meta.name}' is ${similarity}% similar to '${bestMeta.name}' at ${relPath}:${bestMeta.startLine}`);
 
               context.report({
@@ -587,6 +622,26 @@ export default createRule<Options, MessageIds>({
                   similarity: String(similarity),
                   otherName: bestMeta.name || "(anonymous)",
                   otherLocation: `${relPath}:${bestMeta.startLine}`,
+                  // Extended data for inspector panel
+                  sourceCode: sourceCode || "",
+                  targetCode: targetCode || "",
+                  sourceLocation: JSON.stringify({
+                    filePath: filename,
+                    startLine: meta.startLine,
+                    endLine: meta.endLine,
+                    startColumn: meta.startColumn,
+                    endColumn: meta.endColumn,
+                  }),
+                  targetLocation: JSON.stringify({
+                    filePath: bestMeta.filePath,
+                    startLine: bestMeta.startLine,
+                    endLine: bestMeta.endLine,
+                    startColumn: bestMeta.startColumn,
+                    endColumn: bestMeta.endColumn,
+                  }),
+                  sourceName: name || meta.name || "(anonymous)",
+                  targetName: bestMeta.name || "(anonymous)",
+                  similarityScore: String(best.score),
                 },
               });
             }
