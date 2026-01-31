@@ -39,6 +39,8 @@ export interface SubscriptionOptions {
   enableCategoryAutoLoad?: boolean;
   /** Whether to enable global drag handlers (default: true) */
   enableDragHandlers?: boolean;
+  /** Whether to enable dynamic category tree rebuild (default: true) */
+  enableDynamicCategoryTreeRebuild?: boolean;
 }
 
 // ============================================================================
@@ -371,6 +373,42 @@ export function initializeCategoryAutoLoad(
 }
 
 // ============================================================================
+// Dynamic Category Tree Subscription
+// ============================================================================
+
+/**
+ * Initialize dynamic category tree rebuild behavior.
+ *
+ * Watches for changes in plugin data that affects dynamic category providers
+ * (like ESLint issues) and rebuilds the category tree when they change.
+ * This ensures that dynamic subcategories (e.g., ESLint rule categories)
+ * appear in the sidebar when issues are loaded.
+ *
+ * @param store - The Zustand store API
+ * @returns Cleanup function to unsubscribe
+ */
+export function initializeDynamicCategoryTreeRebuild(
+  store: StoreApi<ComposedStore>
+): CleanupFn {
+  // Track previous issue count to detect changes
+  let previousIssueCount = 0;
+
+  const unsubscribe = store.subscribe((state) => {
+    // Check ESLint issues - this is what the dynamic provider uses
+    const eslintState = state.plugins?.eslint as { issues?: Map<string, unknown[]> } | undefined;
+    const currentIssueCount = eslintState?.issues?.size ?? 0;
+
+    // Rebuild tree when issue count changes (issues added or removed)
+    if (currentIssueCount !== previousIssueCount) {
+      previousIssueCount = currentIssueCount;
+      state.rebuildCategoryTree();
+    }
+  });
+
+  return unsubscribe;
+}
+
+// ============================================================================
 // Main Initialization
 // ============================================================================
 
@@ -402,6 +440,7 @@ export function initializeSubscriptions(
     enableMobileDetection = true,
     enableCategoryAutoLoad = true,
     enableDragHandlers = true,
+    enableDynamicCategoryTreeRebuild = true,
   } = options;
 
   const cleanupFns: CleanupFn[] = [];
@@ -421,6 +460,10 @@ export function initializeSubscriptions(
 
   if (enableDragHandlers) {
     cleanupFns.push(initializeDragHandlers(store));
+  }
+
+  if (enableDynamicCategoryTreeRebuild) {
+    cleanupFns.push(initializeDynamicCategoryTreeRebuild(store));
   }
 
   // Return combined cleanup function

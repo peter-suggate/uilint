@@ -90,6 +90,8 @@ export interface CategorySlice {
   invalidateCategoryCache: (categoryId?: string) => void;
   /** Search items across categories */
   searchCategoryItems: (query: string, categoryId?: string) => CategoryItem[];
+  /** Rebuild the category tree (call when dynamic provider data changes) */
+  rebuildCategoryTree: () => void;
 }
 
 // ============================================================================
@@ -491,6 +493,14 @@ export const createCategorySlice: StateCreator<CategorySlice> = (set, get) => ({
 
     // Sort by priority
     return results.sort((a, b) => (a.priority ?? 1) - (b.priority ?? 1));
+  },
+
+  rebuildCategoryTree: () => {
+    const { categoryProviders, categoryCache, categoryServices } = get();
+    const newTree = buildCategoryTree(categoryProviders, categoryCache, categoryServices);
+    set({
+      categoryTree: newTree,
+    });
   },
 });
 

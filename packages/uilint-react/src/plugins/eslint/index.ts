@@ -660,7 +660,9 @@ function createESLintCategoryProviders(): CategoryProvider[] {
 
       // Generate sub-categories for each rule that has issues
       getSubCategories: (services: PluginServices): CategoryProvider[] => {
-        const state = services.getState<ESLintPluginSlice>();
+        // Access the full store state and get the ESLint plugin slice
+        const fullState = services.getState<{ plugins?: { eslint?: ESLintPluginSlice } }>();
+        const state = fullState?.plugins?.eslint;
         if (!state?.issues) return [];
 
         // Group issues by rule
