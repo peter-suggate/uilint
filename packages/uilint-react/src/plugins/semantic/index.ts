@@ -8,6 +8,7 @@
 import type { Plugin } from "../../core/plugin-system/types";
 import { semanticCommands } from "./commands";
 import { createSemanticPluginSlice, type SemanticPluginSlice } from "./slice";
+import { DuplicatesInspectorPanel, getDuplicatesPanelTitle } from "./panels";
 
 /**
  * Semantic analysis plugin
@@ -29,9 +30,6 @@ export const semanticPlugin: Plugin<SemanticPluginSlice> = {
   // Contributed commands
   commands: semanticCommands,
 
-  // Inspector panels (none for now)
-  inspectorPanels: [],
-
   // Per-rule UI contributions
   ruleContributions: [
     {
@@ -42,9 +40,19 @@ export const semanticPlugin: Plugin<SemanticPluginSlice> = {
     },
     {
       ruleId: "no-semantic-duplicates",
-      // Custom inspector for duplicates
-      // inspectorPanel: DuplicatesInspector,
+      // Custom inspector for duplicates with side-by-side code comparison
+      inspectorPanel: DuplicatesInspectorPanel,
       heatmapColor: "#f59e0b", // Amber for duplicates
+    },
+  ],
+
+  // Inspector panels contributed by this plugin
+  inspectorPanels: [
+    {
+      id: "duplicates",
+      title: getDuplicatesPanelTitle,
+      component: DuplicatesInspectorPanel,
+      priority: 10,
     },
   ],
 

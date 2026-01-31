@@ -10,6 +10,7 @@ export {
   type CommandPaletteState,
   type CommandPaletteFilter,
   type InspectorState,
+  type HeatmapFilterState,
 } from "./core-slice";
 
 // Composed store - unified store with plugin slices
