@@ -16,7 +16,12 @@
 
 import { create, type StoreApi, type UseBoundStore } from "zustand";
 import { createCoreSlice, type CoreSlice } from "./core-slice";
-import { pluginRegistry, type PluginRegistry } from "../plugin-system/registry";
+import {
+  pluginRegistry,
+  sortByDependencies,
+  type PluginRegistry,
+} from "../plugin-system/registry";
+import { categoryRegistry } from "../plugin-system/category-registry";
 import type {
   PluginServices,
   WebSocketService,
@@ -510,7 +515,14 @@ function createScopedServicesForPlugin(
 
 /**
  * Initialize all registered plugins and merge their slices into the store.
- * This should be called after the store is created and before rendering.
+ *
+ * This is the single entry point for plugin initialization. It:
+ * 1. Creates the store with provided services
+ * 2. Sorts plugins by dependencies
+ * 3. Creates state slices for each plugin
+ * 4. Initializes each plugin
+ * 5. Registers category providers for command bar
+ * 6. Loads category counts
  *
  * @param options - Optional configuration for services and registry
  * @returns Promise that resolves when all plugins are initialized
@@ -523,17 +535,28 @@ export async function initializePlugins(
 
   // Get the plugin services
   if (!pluginServicesInstance) {
-    throw new Error("[ComposedStore] Plugin services not initialized");
+    throw new Error("[initializePlugins] Plugin services not initialized");
   }
 
   // Use provided registry or default singleton
   const registry = options?.registry ?? pluginRegistry;
 
-  // Collect slices from plugins that have createSlice
+  // Set services on the registry so methods like getAllRules() work
+  registry.setServices(pluginServicesInstance);
+
+  // Get plugins and sort by dependencies for correct initialization order
   const plugins = registry.getPlugins();
+  const sortedPlugins = sortByDependencies(plugins);
+
+  console.log(
+    `[initializePlugins] Initialization order: ${sortedPlugins.map((p) => p.id).join(" -> ")}`
+  );
+
+  // Initialize the category registry with services
+  categoryRegistry.initialize(pluginServicesInstance);
 
   // First, create slices for all plugins and register them
-  for (const plugin of plugins) {
+  for (const plugin of sortedPlugins) {
     if (plugin.createSlice && plugin.id) {
       try {
         // Create scoped services for this plugin
@@ -555,7 +578,7 @@ export async function initializePlugins(
         } else {
           // For unknown plugins, still register them but without strict typing
           console.log(
-            `[ComposedStore] Registering unknown plugin slice: ${plugin.id}`
+            `[initializePlugins] Registering unknown plugin slice: ${plugin.id}`
           );
           store.setState((state) => ({
             plugins: {
@@ -566,7 +589,7 @@ export async function initializePlugins(
         }
       } catch (error) {
         console.error(
-          `[ComposedStore] Failed to create slice for plugin ${plugin.id}:`,
+          `[initializePlugins] Failed to create slice for plugin ${plugin.id}:`,
           error
         );
       }
@@ -575,26 +598,45 @@ export async function initializePlugins(
 
   // Now initialize all plugins with their scoped services
   // This must happen AFTER slices are registered so handlers can access state
-  for (const plugin of plugins) {
-    if (plugin.initialize && plugin.id) {
+  for (const plugin of sortedPlugins) {
+    if (plugin.id) {
       try {
         const scopedServices = createScopedServicesForPlugin(
           plugin.id,
           pluginServicesInstance,
           store
         );
-        plugin.initialize(scopedServices);
+
+        // Initialize the plugin
+        if (plugin.initialize) {
+          await plugin.initialize(scopedServices);
+        }
+
+        // Mark plugin as initialized in the registry
+        registry.markPluginInitialized(plugin.id);
+
+        // Register category providers for command bar sidebar
+        if (plugin.categoryProviders) {
+          categoryRegistry.registerFromPlugin(plugin);
+          console.log(
+            `[initializePlugins] Registered ${plugin.categoryProviders.length} category providers from "${plugin.id}"`
+          );
+        }
       } catch (error) {
         console.error(
-          `[ComposedStore] Failed to initialize plugin ${plugin.id}:`,
+          `[initializePlugins] Failed to initialize plugin ${plugin.id}:`,
           error
         );
+        // Continue with other plugins even if one fails
       }
     }
   }
 
+  // Load category counts by priority (P0 immediately, P1-P3 scheduled)
+  categoryRegistry.loadByPriority();
+
   console.log(
-    `[ComposedStore] Initialized ${plugins.length} plugins with slices`
+    `[initializePlugins] Initialized ${plugins.length} plugins`
   );
 }
 
