@@ -207,6 +207,8 @@ export interface InjectVitestCoverageAction {
 export interface InjectTsconfigAction {
   type: "inject_tsconfig";
   projectPath: string;
+  /** Whether to add uilint-react/devtools to compilerOptions.types */
+  addDevtoolsTypes?: boolean;
 }
 
 export interface InstallNextRoutesAction {

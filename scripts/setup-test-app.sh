@@ -1,9 +1,7 @@
 #!/bin/bash
 
 # Setup test app from template
-# - If test-app doesn't exist: copy from template, install uilint
-# - If test-app exists with .uilint: run uilint upgrade
-# - If test-app exists without .uilint: overwrite and install
+# Always removes existing test-app and creates fresh from template
 
 set -e
 
@@ -15,17 +13,9 @@ UILINT_CLI="$ROOT_DIR/packages/uilint/dist/index.js"
 
 echo "Setting up test app..."
 
-# Check if we should upgrade (test-app exists with .uilint)
-if [ -d "$TEST_APP_DIR/.uilint" ]; then
-    echo "UILint detected in existing test-app, running upgrade..."
-    cd "$TEST_APP_DIR" && node "$UILINT_CLI" upgrade
-    echo "Done! Test app upgraded at apps/test-app"
-    exit 0
-fi
-
-# Otherwise, create fresh from template (overwrite if exists)
+# Always remove existing test-app and create fresh
 if [ -d "$TEST_APP_DIR" ]; then
-    echo "Removing existing test-app (no uilint installation found)..."
+    echo "Removing existing test-app..."
     rm -rf "$TEST_APP_DIR"
 fi
 
@@ -56,7 +46,7 @@ sed 's/"name": "[^"]*"/"name": "test-app"/' "$TEST_APP_DIR/package.json" > "$TES
 echo "Installing dependencies..."
 cd "$ROOT_DIR" && pnpm install
 
-echo "Running uilint init..."
-cd "$TEST_APP_DIR" && node "$UILINT_CLI" init
+echo "Running uilint init --eslint --react..."
+cd "$TEST_APP_DIR" && node "$UILINT_CLI" init --eslint --react
 
 echo "Done! Test app is ready at apps/test-app"

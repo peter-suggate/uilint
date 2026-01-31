@@ -74,6 +74,21 @@ describe("Vite overlay planning", () => {
       })
     );
   });
+
+  it("plans tsconfig injection with devtools types", async () => {
+    fixture = useFixture("fresh-vite-react-app");
+
+    const state = await analyze(fixture.path);
+    const prompter = mockPrompter({ installItems: ["vite"] });
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+
+    const tsconfigAction = plan.actions.find((a) => a.type === "inject_tsconfig");
+    expect(tsconfigAction).toBeDefined();
+    if (tsconfigAction?.type === "inject_tsconfig") {
+      expect(tsconfigAction.addDevtoolsTypes).toBe(true);
+    }
+  });
 });
 
 // ============================================================================
@@ -102,6 +117,93 @@ describe("Vite installation - execute", () => {
     const updatedViteConfig = fixture.readFile("vite.config.ts");
     expect(updatedViteConfig).toContain('from "jsx-loc-plugin/vite"');
     expect(updatedViteConfig).toContain("jsxLoc(");
+  });
+
+  it("adds uilint-react/devtools to tsconfig.json types", async () => {
+    fixture = useFixture("fresh-vite-react-app");
+
+    // Verify initial tsconfig state
+    const initialTsconfig = fixture.readJson("tsconfig.json") as {
+      compilerOptions?: { types?: string[] };
+    };
+    expect(initialTsconfig.compilerOptions?.types).toBeUndefined();
+
+    const state = await analyze(fixture.path);
+    const prompter = mockPrompter({ installItems: ["vite"] });
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+    const result = await execute(plan, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+
+    expect(result.success).toBe(true);
+
+    // Verify tsconfig was updated with devtools types
+    const updatedTsconfig = fixture.readJson("tsconfig.json") as {
+      compilerOptions: { types: string[] };
+    };
+    expect(updatedTsconfig.compilerOptions.types).toContain("uilint-react/devtools");
+  });
+
+  it("adds devtools types to existing types array", async () => {
+    fixture = useFixture("fresh-vite-react-app");
+
+    // Set up tsconfig with existing types
+    const tsconfig = fixture.readJson("tsconfig.json") as {
+      compilerOptions: Record<string, unknown>;
+    };
+    tsconfig.compilerOptions.types = ["node", "vite/client"];
+    fixture.writeJson("tsconfig.json", tsconfig);
+
+    const state = await analyze(fixture.path);
+    const prompter = mockPrompter({ installItems: ["vite"] });
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+    const result = await execute(plan, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+
+    expect(result.success).toBe(true);
+
+    const updatedTsconfig = fixture.readJson("tsconfig.json") as {
+      compilerOptions: { types: string[] };
+    };
+    expect(updatedTsconfig.compilerOptions.types).toContain("node");
+    expect(updatedTsconfig.compilerOptions.types).toContain("vite/client");
+    expect(updatedTsconfig.compilerOptions.types).toContain("uilint-react/devtools");
+  });
+
+  it("skips adding devtools types if already present (idempotent)", async () => {
+    fixture = useFixture("fresh-vite-react-app");
+
+    // Set up tsconfig with devtools types already present
+    const tsconfig = fixture.readJson("tsconfig.json") as {
+      compilerOptions: Record<string, unknown>;
+    };
+    tsconfig.compilerOptions.types = ["uilint-react/devtools"];
+    fixture.writeJson("tsconfig.json", tsconfig);
+
+    const state = await analyze(fixture.path);
+    const prompter = mockPrompter({ installItems: ["vite"] });
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+    const result = await execute(plan, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+
+    expect(result.success).toBe(true);
+
+    const updatedTsconfig = fixture.readJson("tsconfig.json") as {
+      compilerOptions: { types: string[] };
+    };
+    // Should not have duplicates
+    const devtoolsCount = updatedTsconfig.compilerOptions.types.filter(
+      (t) => t === "uilint-react/devtools"
+    ).length;
+    expect(devtoolsCount).toBe(1);
   });
 });
 

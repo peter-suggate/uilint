@@ -252,4 +252,30 @@ describe("tsconfig.json exclusion injection", () => {
     );
     expect(new Set(targetPaths).size).toBe(selectedPaths.length);
   });
+
+  it("does not add devtools types for ESLint-only installs", async () => {
+    fixture = useFixture("has-eslint-flat-ts-with-tsconfig");
+
+    const state = await analyze(fixture.path);
+    const pkg = state.packages.find((p) => p.eslintConfigPath !== null)!;
+
+    const prompter = mockPrompter({
+      installItems: ["eslint"],
+      eslintPackagePaths: [pkg.path],
+      eslintRuleIds: ["prefer-tailwind"],
+    });
+
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+    await execute(plan, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+
+    // Verify tsconfig does NOT have devtools types (ESLint-only install)
+    const updatedTsconfig = fixture.readJson("tsconfig.json") as {
+      compilerOptions?: { types?: string[] };
+    };
+    expect(updatedTsconfig.compilerOptions?.types).toBeUndefined();
+  });
 });

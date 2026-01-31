@@ -396,10 +396,14 @@ async function executeInjectVitestCoverage(
 }
 
 /**
- * Execute tsconfig.json exclusion injection
+ * Execute tsconfig.json injection
  *
  * This action is "soft" - it succeeds even if no tsconfig.json is found.
- * Projects without TypeScript don't need this exclusion.
+ * Projects without TypeScript don't need this.
+ *
+ * May add:
+ * - .uilint to exclude array (for ESLint rules)
+ * - uilint-react/devtools to compilerOptions.types (for React devtools)
  */
 async function executeInjectTsconfig(
   action: InjectTsconfigAction,
@@ -408,14 +412,21 @@ async function executeInjectTsconfig(
   const { dryRun = false } = options;
 
   if (dryRun) {
+    const changes: string[] = [];
+    changes.push("Add .uilint to tsconfig.json exclude");
+    if (action.addDevtoolsTypes) {
+      changes.push("Add uilint-react/devtools to compilerOptions.types");
+    }
     return {
       action,
       success: true,
-      wouldDo: `Add .uilint to tsconfig.json exclude: ${action.projectPath}`,
+      wouldDo: `${changes.join(", ")}: ${action.projectPath}`,
     };
   }
 
-  const result = injectTsconfigExclusion(action.projectPath);
+  const result = injectTsconfigExclusion(action.projectPath, {
+    addDevtoolsTypes: action.addDevtoolsTypes,
+  });
 
   return {
     action,

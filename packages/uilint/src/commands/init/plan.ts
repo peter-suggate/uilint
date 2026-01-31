@@ -168,6 +168,13 @@ export function createPlan(
       type: "inject_next_config",
       projectPath,
     });
+
+    // Add uilint-react/devtools to tsconfig.json types for TypeScript support
+    actions.push({
+      type: "inject_tsconfig",
+      projectPath,
+      addDevtoolsTypes: true,
+    });
   }
 
   // =========================================================================
@@ -207,6 +214,13 @@ export function createPlan(
     actions.push({
       type: "inject_vite_config",
       projectPath,
+    });
+
+    // Add uilint-react/devtools to tsconfig.json types for TypeScript support
+    actions.push({
+      type: "inject_tsconfig",
+      projectPath,
+      addDevtoolsTypes: true,
     });
   }
 
