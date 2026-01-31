@@ -2,7 +2,10 @@
 
 ## Overview
 
-This document outlines a comprehensive plan to enhance the UI for the `no-semantic-duplicates` ESLint rule. The goal is to provide an intuitive comparison view in the inspector and filter the heat map overlay to show only relevant elements when an issue is selected.
+This document outlines a comprehensive plan to enhance the UI for the `no-semantic-duplicates` ESLint rule, along with general improvements to the inspector's source code display. The goals are:
+1. Provide an intuitive comparison view for duplicate code in the inspector
+2. Filter the heat map overlay to show only relevant elements when an issue is selected
+3. **Improve source code display across all inspector panels** to leverage available vertical space
 
 **Layout Constraint**: The inspector sidebar is narrow (320-800px width) but has abundant vertical height. Layout designs must optimize for vertical space rather than horizontal.
 
@@ -119,8 +122,8 @@ Given the narrow width (320-800px) and tall height of the inspector, we have sev
 
 **Smart Enhancements**:
 1. **Sticky similarity header** - Always visible when scrolling
-2. **Collapsible sections** - Expand/collapse each code block
-3. **Scroll sync indicator** - Optional line-to-line linking
+2. **Full code by default** - Show complete function/component, not just context lines
+3. **"Show more" for very long code** - Only truncate if code exceeds ~50 lines
 4. **Jump to similar** - Button to scroll between sections
 
 #### 2.1 Create DuplicatesInspectorPanel Component
@@ -128,7 +131,8 @@ Given the narrow width (320-800px) and tall height of the inspector, we have sev
 - **Features**:
   - Stacked vertical layout (source above, target below)
   - Sticky similarity score header with color-coded badge
-  - Collapsible code sections (default: both expanded)
+  - **Full code shown by default** (no collapse needed with vertical space)
+  - Truncation only for very long code (50+ lines) with "Show all" link
   - File path headers with "Go to file" action
   - Syntax-highlighted code using existing `SourceViewer` pattern
   - Action bar with "Show in Heatmap" and navigation buttons
@@ -147,15 +151,15 @@ interface DuplicatesInspectorPanelProps {
 }
 ```
 
-#### 2.2 Create CollapsibleCodeSection Sub-component
-- **File**: `packages/uilint-react/src/plugins/semantic/panels/CollapsibleCodeSection.tsx`
+#### 2.2 Create CodeSection Sub-component
+- **File**: `packages/uilint-react/src/plugins/semantic/panels/CodeSection.tsx`
 - **Features**:
-  - Reusable collapsible code block with header
+  - Reusable code block with labeled header
   - Section label ("This Code" / "Similar Code") with icon
   - File path + line range as clickable link
-  - Expand/collapse toggle (chevron icon)
   - Line number gutter
-  - Highlighted target line within the block
+  - Full code shown (no collapse - leverage vertical space)
+  - Smart truncation: show first 50 lines with "Show N more lines" for long code
   - "Go to file" action in header
 
 #### 2.3 Create DuplicateSimilarityBadge Component
@@ -166,7 +170,91 @@ interface DuplicatesInspectorPanelProps {
   - 70-85%: Orange (moderate similarity)
   - <70%: Yellow (lower similarity)
 
-#### 2.4 Register Inspector Panel in Semantic Plugin
+#### 2.4 Add Inline Diff Highlighting
+**Goal**: Subtle, elegant highlighting of matching vs. differing code between sections
+
+##### Package Evaluation
+
+| Package | Stars | Size | Pros | Cons |
+|---------|-------|------|------|------|
+| **`diff`** | 7k+ | 15kb | Fast, word/char level, well-maintained | Low-level API |
+| **`diff-match-patch`** | 6k+ | 45kb | Google's algorithm, character-level | Larger bundle |
+| **`jsdiff`** | 7k+ | 15kb | Same as `diff`, common choice | - |
+
+**Recommended: `diff` (jsdiff)**
+- Small bundle size (15kb)
+- Supports word-level and character-level diffing
+- Well-maintained, 7k+ GitHub stars
+- No React dependency (flexible integration)
+
+##### Highlighting Strategy
+
+Rather than traditional red/green git-style diffs (which highlight differences), we'll use a **similarity-focused** approach:
+
+```
+┌─────────────────────────────────────────┐
+│ Matching code:     Normal text          │
+│ Different code:    Subtle muted opacity │  <- De-emphasize differences
+│ Identical blocks:  Subtle background    │  <- Highlight similarities
+└─────────────────────────────────────────┘
+```
+
+**Visual Design:**
+- **Matching tokens**: Normal text color
+- **Different tokens**: `opacity: 0.5` + subtle strikethrough or muted color
+- **Identical lines**: Very subtle green-tinted background (`rgba(34, 197, 94, 0.05)`)
+- **No harsh colors** - keeps focus on similarity, not changes
+
+##### Implementation
+- **File**: `packages/uilint-react/src/plugins/semantic/panels/DiffHighlighter.tsx`
+- **Features**:
+  - Uses `diff.diffWords()` for word-level comparison
+  - Falls back to `diff.diffChars()` for single-word differences
+  - Returns React nodes with appropriate styling
+  - Configurable: can toggle highlighting on/off
+  - Performance: memoized diff computation
+
+```tsx
+import { diffWords } from "diff";
+
+interface DiffHighlighterProps {
+  sourceCode: string;
+  targetCode: string;
+  showDiff?: boolean;  // Toggle highlighting
+}
+
+// Output: Array of spans with appropriate classes
+// - .diff-match: Matching text (normal)
+// - .diff-source-only: In source but not target (muted)
+// - .diff-target-only: In target but not source (muted)
+```
+
+##### CSS Classes
+```css
+.diff-match {
+  /* Normal text - no special styling */
+}
+
+.diff-source-only,
+.diff-target-only {
+  opacity: 0.5;
+  text-decoration: line-through;
+  text-decoration-color: var(--muted-color);
+  text-decoration-thickness: 1px;
+}
+
+.diff-identical-line {
+  background: rgba(34, 197, 94, 0.05);
+  border-left: 2px solid rgba(34, 197, 94, 0.3);
+}
+```
+
+##### Toggle in UI
+- Small toggle in the similarity header: "Highlight differences"
+- Default: OFF (clean view first, user can enable)
+- Persists preference in localStorage
+
+#### 2.5 Register Inspector Panel in Semantic Plugin
 - **File**: `packages/uilint-react/src/plugins/semantic/index.ts`
 - **Changes**:
   - Import `DuplicatesInspectorPanel`
@@ -183,16 +271,19 @@ ruleContributions: [
 ],
 ```
 
-#### 2.5 Add Tests for Inspector Panel
+#### 2.6 Add Tests for Inspector Panel
 - **File**: `packages/uilint-react/src/plugins/semantic/panels/DuplicatesInspectorPanel.test.tsx`
 - **Tests**:
   - Renders source and target code in stacked layout
+  - Shows full code by default (not truncated)
   - Displays correct file paths and line numbers
   - Shows similarity percentage with correct color coding
   - Handles missing data gracefully (loading state, error state)
-  - Collapsible sections expand/collapse correctly
+  - Long code (50+ lines) shows truncation with "Show more" link
   - "Show in Heatmap" button triggers filter
   - "Go to file" action navigates correctly
+  - Diff highlighting toggle works
+  - Diff correctly identifies matching/different tokens
 
 ---
 
@@ -285,6 +376,140 @@ const filteredRects = useMemo(() => {
 
 ---
 
+### Phase 5: General Inspector Source Code Improvements
+**Goal**: Leverage vertical space to show more source code context across all inspector panels
+
+#### 5.0 Current Limitations
+
+| Aspect | Current State | Problem |
+|--------|---------------|---------|
+| Context lines | Hardcoded 5 above + 5 below | Wastes available vertical space |
+| Full file view | Not available | Can't see surrounding code |
+| Context size | Fixed | Doesn't adapt to panel height |
+| IssueDetail | Hardcodes `contextLines={5}` | No customization possible |
+
+#### 5.1 Dynamic Context Sizing
+- **File**: `packages/uilint-react/src/ui/components/Inspector/SourceViewer.tsx`
+- **Changes**:
+  - Add `contextMode` prop: `"fixed" | "auto" | "full"`
+  - `"fixed"`: Current behavior (default for backwards compatibility)
+  - `"auto"`: Calculate context based on available viewport height
+  - `"full"`: Show entire file with scroll to highlighted line
+  - Use `ResizeObserver` to track container height
+  - Calculate optimal line count: `Math.floor((containerHeight - headerHeight) / lineHeight)`
+
+```tsx
+interface SourceViewerProps {
+  filePath: string;
+  line: number;
+  column?: number;
+  contextLines?: number;       // For fixed mode
+  contextMode?: "fixed" | "auto" | "full";  // NEW
+  defaultExpanded?: boolean;
+  maxLines?: number;           // Cap for auto mode (default: 50)
+}
+```
+
+#### 5.2 "Show Full File" Toggle
+- **File**: `packages/uilint-react/src/ui/components/Inspector/SourceViewer.tsx`
+- **Features**:
+  - Toggle button in header: "Show more" / "Show full file"
+  - Three states: minimal (5 lines) → expanded (15-20 lines) → full file
+  - Smooth scroll to highlighted line when expanding
+  - Remember preference per file in session storage
+
+```
+┌─────────────────────────────────────────┐
+│ src/Button.tsx:42:5        [▼] [Full ↕] │  <- Header with toggle
+├─────────────────────────────────────────┤
+│ 38 │ // Helper function                 │
+│ 39 │ function validate(props) {         │
+│ 40 │   if (!props.label) {              │
+│ 41 │     console.warn("Missing label"); │
+│ 42 │►    return false; // Issue here ◄  │  <- Highlighted line
+│ 43 │   }                                │
+│ 44 │   return true;                     │
+│ 45 │ }                                  │
+│ 46 │                                    │
+│ 47 │ export function Button(props) {    │
+│    │ ...                                │  <- More lines visible
+└─────────────────────────────────────────┘
+```
+
+#### 5.3 Enhanced Line Highlighting
+- **File**: `packages/uilint-react/src/ui/components/Inspector/SourceViewer.tsx`
+- **Features**:
+  - Multi-line highlighting for issues spanning lines
+  - Column-level highlighting within a line
+  - Fade effect for lines far from the issue
+  - Issue range props: `startLine`, `endLine`, `startColumn`, `endColumn`
+
+```tsx
+// Enhanced highlighting props
+interface SourceViewerProps {
+  // ... existing props
+  highlightRange?: {
+    startLine: number;
+    endLine: number;
+    startColumn?: number;
+    endColumn?: number;
+  };
+}
+```
+
+#### 5.4 Update IssueDetail to Use Dynamic Context
+- **File**: `packages/uilint-react/src/ui/components/Inspector/IssueDetail.tsx`
+- **Changes**:
+  - Remove hardcoded `contextLines={5}`
+  - Use `contextMode="auto"` by default
+  - Pass issue's line range for multi-line highlighting
+  - Add "Show more context" button below code
+
+```tsx
+// Before
+<SourceViewer
+  filePath={issue.filePath}
+  line={issue.line}
+  column={issue.column}
+  contextLines={5}  // Hardcoded
+/>
+
+// After
+<SourceViewer
+  filePath={issue.filePath}
+  line={issue.line}
+  column={issue.column}
+  contextMode="auto"
+  highlightRange={issue.endLine ? {
+    startLine: issue.line,
+    endLine: issue.endLine,
+    startColumn: issue.column,
+    endColumn: issue.endColumn,
+  } : undefined}
+/>
+```
+
+#### 5.5 Keyboard Navigation for Source Viewer
+- **File**: `packages/uilint-react/src/ui/components/Inspector/SourceViewer.tsx`
+- **Features**:
+  - `↑/↓` arrows to scroll through code
+  - `Home/End` to jump to start/end
+  - `Esc` to collapse viewer
+  - `Enter` to toggle full file view
+  - Focus management when expanding
+
+#### 5.6 Add Tests for Enhanced Source Viewer
+- **File**: `packages/uilint-react/src/ui/components/Inspector/SourceViewer.test.tsx`
+- **Tests**:
+  - Auto context mode calculates correct line count
+  - Full file mode scrolls to highlighted line
+  - Toggle cycles through view modes
+  - Multi-line highlighting renders correctly
+  - Keyboard navigation works
+  - ResizeObserver updates context on resize
+
+---
+
 ## Task Parallelization Strategy
 
 Tasks can be parallelized across these independent workstreams:
@@ -309,22 +534,40 @@ Tasks can be parallelized across these independent workstreams:
 - Can be skipped if code is included in report
 - Fallback mechanism for large code
 
+### Workstream E: General SourceViewer Improvements (Phase 5)
+- **Partially independent** - can start early, but Phase 2 benefits from it
+- SourceViewer enhancements (5.1-5.3) can be done first
+- IssueDetail update (5.4) after SourceViewer is enhanced
+- Benefits all inspector panels, not just duplicates
+
 ### Parallel Execution Plan
 
 ```
 Week 1:
-├── Developer 1: Phase 1 (ESLint rule) ─────────────────┐
-├── Developer 2: Phase 2.1-2.3 (UI components) ─────────┤
-└── Developer 3: Phase 3.1-3.2 (Heat map state/filter) ─┘
+├── Developer 1: Phase 1 (ESLint rule) ─────────────────────────┐
+├── Developer 2: Phase 5.1-5.3 (SourceViewer enhancements) ─────┤
+└── Developer 3: Phase 3.1-3.2 (Heat map state/filter) ─────────┘
 
 Week 2:
-├── Developer 1: Phase 4 (WebSocket) ───────────────────┐
-├── Developer 2: Phase 2.4-2.5 (Integration + tests) ───┤
-└── Developer 3: Phase 3.3-3.5 (Integration + tests) ───┘
+├── Developer 1: Phase 2.1-2.3 (Duplicates panel - uses Phase 5)┐
+├── Developer 2: Phase 5.4-5.6 (IssueDetail + tests) ───────────┤
+└── Developer 3: Phase 3.3-3.5 (Heat map integration + tests) ──┘
 
 Week 3:
-├── All: Integration testing and bug fixes
-└── All: Documentation and cleanup
+├── Developer 1: Phase 2.4-2.5 (Duplicates integration + tests) ┐
+├── Developer 2: Phase 4 (WebSocket - optional) ────────────────┤
+└── All: Integration testing and bug fixes ─────────────────────┘
+```
+
+**Dependency Graph:**
+```
+Phase 5 (SourceViewer) ──┬──> Phase 2 (Duplicates Panel)
+                         │
+Phase 1 (ESLint Rule) ───┘
+
+Phase 3 (Heat Map) ──────────> Phase 2 (integrates filter)
+
+Phase 4 (WebSocket) ─────────> Optional, independent
 ```
 
 ---
@@ -336,9 +579,16 @@ Week 3:
 |------|---------|
 | `packages/uilint-react/src/plugins/semantic/panels/DuplicatesInspectorPanel.tsx` | Main inspector panel |
 | `packages/uilint-react/src/plugins/semantic/panels/DuplicatesInspectorPanel.test.tsx` | Panel tests |
-| `packages/uilint-react/src/plugins/semantic/panels/CollapsibleCodeSection.tsx` | Collapsible code block component |
+| `packages/uilint-react/src/plugins/semantic/panels/CodeSection.tsx` | Reusable code block with header |
 | `packages/uilint-react/src/plugins/semantic/panels/DuplicateSimilarityBadge.tsx` | Similarity indicator |
+| `packages/uilint-react/src/plugins/semantic/panels/DiffHighlighter.tsx` | Word-level diff highlighting |
 | `packages/uilint-react/src/ui/components/HeatmapOverlay.test.tsx` | Heat map filter tests |
+| `packages/uilint-react/src/ui/components/Inspector/SourceViewer.test.tsx` | Enhanced source viewer tests |
+
+### New Dependencies
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `diff` | ^5.x | Word/character-level text diffing for similarity highlighting |
 
 ### Modified Files
 | File | Changes |
@@ -366,18 +616,24 @@ Week 3:
 
 ### Visual Regression Tests (Optional)
 - Snapshot tests for stacked code comparison view
-- Test collapsible section states (expanded/collapsed)
+- Test long code truncation and "Show more" states
 
 ### Manual Testing Checklist
 - [ ] Select a semantic duplicate issue
 - [ ] Verify stacked code layout renders correctly
-- [ ] Verify both code sections are collapsible
+- [ ] Verify full code is shown by default (not collapsed)
 - [ ] Verify similarity percentage displays with correct color
 - [ ] Verify heat map shows only source + target elements
 - [ ] Verify "Show in Heatmap" button works
 - [ ] Verify "Go to file" navigation works
-- [ ] Test with very long code snippets (scrolling)
+- [ ] Test with very long code snippets (50+ lines shows truncation)
 - [ ] Test with many duplicate issues
+- [ ] Verify general SourceViewer shows more context than before
+- [ ] Test "Show full file" toggle in SourceViewer
+- [ ] Toggle diff highlighting on/off
+- [ ] Verify diff highlighting shows matching text normally
+- [ ] Verify diff highlighting mutes differing tokens subtly
+- [ ] Ensure diff highlighting doesn't cause performance issues
 
 ---
 
@@ -395,8 +651,8 @@ Week 3:
 4. **Performance**: No noticeable lag when:
    - Opening the inspector
    - Filtering the heat map
-   - Scrolling through code
-   - Expanding/collapsing sections
+   - Scrolling through full code display
+   - Loading full file content
 
 5. **Test Coverage**: >80% coverage on new code with meaningful assertions.
 
