@@ -2,7 +2,9 @@
 
 ## Overview
 
-This document outlines a comprehensive plan to enhance the UI for the `no-semantic-duplicates` ESLint rule. The goal is to provide an intuitive side-by-side comparison view in the inspector and filter the heat map overlay to show only relevant elements when an issue is selected.
+This document outlines a comprehensive plan to enhance the UI for the `no-semantic-duplicates` ESLint rule. The goal is to provide an intuitive comparison view in the inspector and filter the heat map overlay to show only relevant elements when an issue is selected.
+
+**Layout Constraint**: The inspector sidebar is narrow (320-800px width) but has abundant vertical height. Layout designs must optimize for vertical space rather than horizontal.
 
 ## Current State
 
@@ -75,17 +77,61 @@ data: {
 ---
 
 ### Phase 2: Create Duplicates Inspector Panel (Client-side)
-**Goal**: Side-by-side comparison view in the inspector
+**Goal**: Intuitive comparison view optimized for vertical inspector layout
+
+#### 2.0 Layout Options Analysis
+
+Given the narrow width (320-800px) and tall height of the inspector, we have several layout options:
+
+| Layout | Pros | Cons |
+|--------|------|------|
+| **Stacked (Recommended)** | Full width for code, easy scanning, natural scroll | Requires scrolling to compare |
+| **Tabbed** | Minimal space, clean UI | Can't see both at once |
+| **Accordion** | Compact, user-controlled | Extra clicks to expand |
+| **Unified Diff** | Familiar to devs, compact | Complex for non-identical code |
+| **Mini-map + Detail** | Quick overview | Implementation complexity |
+
+**Recommended: Stacked Layout with Smart Enhancements**
+
+```
+┌─────────────────────────────────┐
+│ ⚠ 87% Similar                   │  <- Similarity header
+├─────────────────────────────────┤
+│ 📍 This Code                    │  <- Section label
+│ src/Button.tsx:15-28            │  <- File path + lines
+│ ┌─────────────────────────────┐ │
+│ │ 15 │ function Button() {    │ │  <- Code block (collapsible)
+│ │ 16 │   const [x, setX] =... │ │
+│ │ .. │ ...                    │ │
+│ └─────────────────────────────┘ │
+├─────────────────────────────────┤
+│ 🔗 Similar Code                 │  <- Section label
+│ src/IconButton.tsx:22-35        │  <- Clickable to navigate
+│ ┌─────────────────────────────┐ │
+│ │ 22 │ function IconButton(){ │ │  <- Code block (collapsible)
+│ │ 23 │   const [x, setX] =... │ │
+│ │ .. │ ...                    │ │
+│ └─────────────────────────────┘ │
+├─────────────────────────────────┤
+│ [Show in Heatmap] [Go to File]  │  <- Action buttons
+└─────────────────────────────────┘
+```
+
+**Smart Enhancements**:
+1. **Sticky similarity header** - Always visible when scrolling
+2. **Collapsible sections** - Expand/collapse each code block
+3. **Scroll sync indicator** - Optional line-to-line linking
+4. **Jump to similar** - Button to scroll between sections
 
 #### 2.1 Create DuplicatesInspectorPanel Component
 - **File**: `packages/uilint-react/src/plugins/semantic/panels/DuplicatesInspectorPanel.tsx`
 - **Features**:
-  - Side-by-side code comparison layout
-  - Similarity score badge with visual indicator
-  - File path and line range headers for each side
+  - Stacked vertical layout (source above, target below)
+  - Sticky similarity score header with color-coded badge
+  - Collapsible code sections (default: both expanded)
+  - File path headers with "Go to file" action
   - Syntax-highlighted code using existing `SourceViewer` pattern
-  - "Source" (left) and "Similar" (right) labels
-  - Responsive design (stacked on narrow screens)
+  - Action bar with "Show in Heatmap" and navigation buttons
 
 ```tsx
 interface DuplicatesInspectorPanelProps {
@@ -101,13 +147,16 @@ interface DuplicatesInspectorPanelProps {
 }
 ```
 
-#### 2.2 Create CodeComparisonView Sub-component
-- **File**: `packages/uilint-react/src/plugins/semantic/panels/CodeComparisonView.tsx`
+#### 2.2 Create CollapsibleCodeSection Sub-component
+- **File**: `packages/uilint-react/src/plugins/semantic/panels/CollapsibleCodeSection.tsx`
 - **Features**:
-  - Reusable side-by-side code viewer
-  - Synchronized scrolling (optional)
-  - Line number gutter on each side
-  - Diff-style highlighting for differences (optional future enhancement)
+  - Reusable collapsible code block with header
+  - Section label ("This Code" / "Similar Code") with icon
+  - File path + line range as clickable link
+  - Expand/collapse toggle (chevron icon)
+  - Line number gutter
+  - Highlighted target line within the block
+  - "Go to file" action in header
 
 #### 2.3 Create DuplicateSimilarityBadge Component
 - **File**: `packages/uilint-react/src/plugins/semantic/panels/DuplicateSimilarityBadge.tsx`
@@ -137,12 +186,13 @@ ruleContributions: [
 #### 2.5 Add Tests for Inspector Panel
 - **File**: `packages/uilint-react/src/plugins/semantic/panels/DuplicatesInspectorPanel.test.tsx`
 - **Tests**:
-  - Renders source and target code side by side
+  - Renders source and target code in stacked layout
   - Displays correct file paths and line numbers
-  - Shows similarity percentage correctly
-  - Handles missing data gracefully
-  - Responsive layout on different screen sizes
-  - Matches visual regression snapshots (optional)
+  - Shows similarity percentage with correct color coding
+  - Handles missing data gracefully (loading state, error state)
+  - Collapsible sections expand/collapse correctly
+  - "Show in Heatmap" button triggers filter
+  - "Go to file" action navigates correctly
 
 ---
 
@@ -286,7 +336,7 @@ Week 3:
 |------|---------|
 | `packages/uilint-react/src/plugins/semantic/panels/DuplicatesInspectorPanel.tsx` | Main inspector panel |
 | `packages/uilint-react/src/plugins/semantic/panels/DuplicatesInspectorPanel.test.tsx` | Panel tests |
-| `packages/uilint-react/src/plugins/semantic/panels/CodeComparisonView.tsx` | Side-by-side code viewer |
+| `packages/uilint-react/src/plugins/semantic/panels/CollapsibleCodeSection.tsx` | Collapsible code block component |
 | `packages/uilint-react/src/plugins/semantic/panels/DuplicateSimilarityBadge.tsx` | Similarity indicator |
 | `packages/uilint-react/src/ui/components/HeatmapOverlay.test.tsx` | Heat map filter tests |
 
@@ -315,36 +365,38 @@ Week 3:
 - Test WebSocket communication mocking
 
 ### Visual Regression Tests (Optional)
-- Snapshot tests for side-by-side comparison view
-- Test responsive layouts at different breakpoints
+- Snapshot tests for stacked code comparison view
+- Test collapsible section states (expanded/collapsed)
 
 ### Manual Testing Checklist
 - [ ] Select a semantic duplicate issue
-- [ ] Verify side-by-side code appears correctly
-- [ ] Verify similarity percentage displays
+- [ ] Verify stacked code layout renders correctly
+- [ ] Verify both code sections are collapsible
+- [ ] Verify similarity percentage displays with correct color
 - [ ] Verify heat map shows only source + target elements
-- [ ] Verify "Show All" toggle works
-- [ ] Test on mobile viewport (stacked layout)
-- [ ] Test with very long code snippets
+- [ ] Verify "Show in Heatmap" button works
+- [ ] Verify "Go to file" navigation works
+- [ ] Test with very long code snippets (scrolling)
 - [ ] Test with many duplicate issues
 
 ---
 
 ## Success Criteria
 
-1. **Side-by-Side Comparison**: When a `no-semantic-duplicates` issue is selected, the inspector shows both source and target code in a clear, readable comparison view.
+1. **Stacked Code Comparison**: When a `no-semantic-duplicates` issue is selected, the inspector shows both source and target code in a clear, stacked vertical layout optimized for the narrow sidebar.
 
-2. **Heat Map Focus**: The heat map overlay filters to show only the source element and target element, making it easy to locate both pieces of code.
+2. **Heat Map Focus**: The heat map overlay filters to show only the source element and target element, making it easy to locate both pieces of code on the page.
 
 3. **Intuitive UX**: Users can immediately understand:
-   - Which code is duplicated
-   - Where the duplicate is located
-   - How similar the code is (percentage)
+   - Which code is duplicated (labeled sections)
+   - Where the duplicate is located (file paths + line numbers)
+   - How similar the code is (color-coded percentage badge)
 
 4. **Performance**: No noticeable lag when:
    - Opening the inspector
    - Filtering the heat map
    - Scrolling through code
+   - Expanding/collapsing sections
 
 5. **Test Coverage**: >80% coverage on new code with meaningful assertions.
 
@@ -353,16 +405,16 @@ Week 3:
 ## Open Questions
 
 1. **Code Size Limit**: Should we limit the code snippet size in the report? Large files could bloat the ESLint output.
-   - **Proposed**: Limit to 50 lines, show "..." with link to full file
+   - **Proposed**: Limit to 50 lines, show "..." with "View full file" link
 
 2. **Multiple Duplicates**: What if a chunk has multiple similar matches?
-   - **Proposed**: Show primary match in side-by-side, list others below
+   - **Proposed**: Show primary match in stacked view, add "N more similar" expandable list below
 
 3. **Cross-File Navigation**: Should clicking on target location open that file?
-   - **Proposed**: Yes, via existing file navigation mechanism
+   - **Proposed**: Yes, via existing file navigation mechanism (IDE integration)
 
-4. **Synchronized Scrolling**: Should the side-by-side view have synchronized scrolling?
-   - **Proposed**: Optional feature, default off for simplicity
+4. **Default Collapse State**: Should sections start expanded or collapsed?
+   - **Proposed**: Both expanded by default; remember user preference in localStorage
 
 ---
 
@@ -378,6 +430,6 @@ Week 3:
    - Phase 3.3-3.5: Show All toggle + tests
 
 3. **Nice to Have**:
-   - Phase 4: WebSocket fallback
-   - Synchronized scrolling
-   - Diff highlighting
+   - Phase 4: WebSocket fallback for large code
+   - Diff highlighting between similar code blocks
+   - "Jump to similar" button to scroll between sections
