@@ -5,6 +5,7 @@
  * Used as an alternative to WebSocket communication for remote/production deployments.
  */
 
+import { devLog, devError } from "uilint-core";
 import type { PluginServices } from "../../core/plugin-system/types";
 import type { ESLintPluginSlice } from "./slice";
 import type { AvailableRule, RuleConfig } from "./types";
@@ -70,7 +71,7 @@ export function processManifest(
   services: PluginServices,
   manifest: LintManifest
 ): void {
-  console.log(
+  devLog(
     "[ESLint Plugin] Processing manifest:",
     manifest.summary.totalIssues,
     "issues in",
@@ -109,7 +110,7 @@ export function processManifest(
     scanStatus: "complete",
   });
 
-  console.log(
+  devLog(
     "[ESLint Plugin] Manifest processed:",
     byDataLoc.size,
     "unique dataLocs with issues"
@@ -182,7 +183,7 @@ export function configureStaticMode(manifestUrl: string): void {
     fetcher,
     manifest: null,
   };
-  console.log("[ESLint Plugin] Configured for static mode:", manifestUrl);
+  devLog("[ESLint Plugin] Configured for static mode:", manifestUrl);
 }
 
 /**
@@ -211,13 +212,13 @@ export function clearStaticMode(): void {
  */
 export function initializeStaticMode(services: PluginServices): () => void {
   if (!staticModeState) {
-    console.error("[ESLint Plugin] Static mode not configured");
+    devError("[ESLint Plugin] Static mode not configured");
     return () => {};
   }
 
   const { fetcher } = staticModeState;
 
-  console.log("[ESLint Plugin] Initializing in static mode...");
+  devLog("[ESLint Plugin] Initializing in static mode...");
 
   // Set initial state
   services.setState({ scanStatus: "scanning" });
@@ -230,7 +231,7 @@ export function initializeStaticMode(services: PluginServices): () => void {
       processManifest(services, manifest);
     })
     .catch((error) => {
-      console.error("[ESLint Plugin] Failed to fetch manifest:", error);
+      devError("[ESLint Plugin] Failed to fetch manifest:", error);
       services.setState({ scanStatus: "error" });
     });
 
@@ -240,7 +241,7 @@ export function initializeStaticMode(services: PluginServices): () => void {
     if (!staticModeState?.manifest) return;
 
     // Log for debugging
-    console.log(
+    devLog(
       "[ESLint Plugin] Static mode: DOM elements detected:",
       elements.length
     );
@@ -252,7 +253,7 @@ export function initializeStaticMode(services: PluginServices): () => void {
   // Return cleanup function
   return () => {
     unsubscribeDom();
-    console.log("[ESLint Plugin] Static mode disposed");
+    devLog("[ESLint Plugin] Static mode disposed");
   };
 }
 

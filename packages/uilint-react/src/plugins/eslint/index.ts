@@ -5,6 +5,7 @@
  * Extracts ESLint-related state and functionality from the main store.
  */
 
+import { devLog, devError } from "uilint-core";
 import type {
   Plugin,
   PluginServices,
@@ -222,7 +223,7 @@ export const eslintPlugin: Plugin = {
       requestId: `rule-severity-${Date.now()}`,
     });
 
-    console.log("[ESLint Plugin] Setting rule severity:", ruleId, "->", eslintSeverity);
+    devLog("[ESLint Plugin] Setting rule severity:", ruleId, "->", eslintSeverity);
   },
 
   /**
@@ -259,23 +260,23 @@ export const eslintPlugin: Plugin = {
       requestId: `rule-config-${Date.now()}`,
     });
 
-    console.log("[ESLint Plugin] Setting rule config:", ruleId, config);
+    devLog("[ESLint Plugin] Setting rule config:", ruleId, config);
   },
 
   /**
    * Initialize the plugin
    */
   initialize: (services: PluginServices) => {
-    console.log("[ESLint Plugin] Initializing...");
+    devLog("[ESLint Plugin] Initializing...");
 
     // Check if static mode is configured
     if (isStaticMode()) {
-      console.log("[ESLint Plugin] Running in STATIC mode (manifest-based)");
+      devLog("[ESLint Plugin] Running in STATIC mode (manifest-based)");
       return initializeStaticMode(services);
     }
 
     // WebSocket mode (default)
-    console.log("[ESLint Plugin] Running in WEBSOCKET mode");
+    devLog("[ESLint Plugin] Running in WEBSOCKET mode");
 
     // Subscribe to WebSocket messages for lint results, rules metadata, etc.
     const unsubscribers: Array<() => void> = [];
@@ -287,7 +288,7 @@ export const eslintPlugin: Plugin = {
       unsubscribers.push(unsubscribe);
     }
 
-    console.log("[ESLint Plugin] Subscribed to", ESLINT_WS_MESSAGE_TYPES.length, "message types");
+    devLog("[ESLint Plugin] Subscribed to", ESLINT_WS_MESSAGE_TYPES.length, "message types");
 
     // Subscribe to DOM observer for element detection
     const unsubscribeDom = services.domObserver.onElementsAdded((elements: ScannedElementInfo[]) => {
@@ -295,11 +296,11 @@ export const eslintPlugin: Plugin = {
     });
     unsubscribers.push(unsubscribeDom);
 
-    console.log("[ESLint Plugin] Subscribed to DOM observer");
+    devLog("[ESLint Plugin] Subscribed to DOM observer");
 
     // Return cleanup function
     return () => {
-      console.log("[ESLint Plugin] Disposing...");
+      devLog("[ESLint Plugin] Disposing...");
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
   },
@@ -308,7 +309,7 @@ export const eslintPlugin: Plugin = {
    * Dispose the plugin
    */
   dispose: (_services: PluginServices) => {
-    console.log("[ESLint Plugin] Disposed");
+    devLog("[ESLint Plugin] Disposed");
   },
 };
 
@@ -324,18 +325,18 @@ function handleElementsAdded(
   // Get current state - services.getState() returns the plugin's scoped slice directly
   const state = services.getState<ESLintPluginSlice>();
 
-  console.log("[ESLint Plugin] handleElementsAdded called with", elements.length, "elements");
-  console.log("[ESLint Plugin] State check - scanStatus:", state?.scanStatus, "wsConnected:", services.websocket.isConnected);
+  devLog("[ESLint Plugin] handleElementsAdded called with", elements.length, "elements");
+  devLog("[ESLint Plugin] State check - scanStatus:", state?.scanStatus, "wsConnected:", services.websocket.isConnected);
 
   // Check if scanning is active
   if (state.scanStatus !== "scanning") {
-    console.log("[ESLint Plugin] Scanning not active (status:", state.scanStatus, "), skipping lint requests");
+    devLog("[ESLint Plugin] Scanning not active (status:", state.scanStatus, "), skipping lint requests");
     return;
   }
 
   // Check if WebSocket is connected
   if (!services.websocket.isConnected) {
-    console.log("[ESLint Plugin] WebSocket not connected, skipping lint requests");
+    devLog("[ESLint Plugin] WebSocket not connected, skipping lint requests");
     return;
   }
 
@@ -344,11 +345,11 @@ function handleElementsAdded(
   const filePaths = extractUniqueFilePaths(dataLocs);
 
   if (filePaths.size === 0) {
-    console.log("[ESLint Plugin] No file paths extracted from", elements.length, "elements");
+    devLog("[ESLint Plugin] No file paths extracted from", elements.length, "elements");
     return;
   }
 
-  console.log("[ESLint Plugin] Detected", elements.length, "elements from", filePaths.size, "unique files:", Array.from(filePaths).slice(0, 3));
+  devLog("[ESLint Plugin] Detected", elements.length, "elements from", filePaths.size, "unique files:", Array.from(filePaths).slice(0, 3));
 
   // Get already-requested files from state
   const requestedFiles = state.requestedFiles ?? new Set<string>();
@@ -367,7 +368,7 @@ function handleElementsAdded(
         requestId,
       });
 
-      console.log("[ESLint Plugin] Sent lint:file request for", filePath);
+      devLog("[ESLint Plugin] Sent lint:file request for", filePath);
     }
   }
 
@@ -379,9 +380,9 @@ function handleElementsAdded(
     }
     // Update the eslint slice state - need to use the full path
     services.setState({ requestedFiles: updatedRequestedFiles });
-    console.log("[ESLint Plugin] Updated requestedFiles with", newFiles.length, "new files");
+    devLog("[ESLint Plugin] Updated requestedFiles with", newFiles.length, "new files");
   } else {
-    console.log("[ESLint Plugin] All files already requested, skipping");
+    devLog("[ESLint Plugin] All files already requested, skipping");
   }
 }
 
@@ -464,7 +465,7 @@ function handleWebSocketMessage(
   switch (message.type) {
     case "lint:result": {
       const { filePath, issues: rawIssues } = message;
-      console.log("[ESLint Plugin] Received lint result:", filePath, rawIssues.length, "issues");
+      devLog("[ESLint Plugin] Received lint result:", filePath, rawIssues.length, "issues");
 
       // Convert raw issues to unified Issue type
       const converted = rawIssues
@@ -495,13 +496,13 @@ function handleWebSocketMessage(
 
     case "lint:progress": {
       const { filePath, phase } = message;
-      console.log("[ESLint Plugin] Lint progress:", filePath, phase);
+      devLog("[ESLint Plugin] Lint progress:", filePath, phase);
       break;
     }
 
     case "file:changed": {
       const { filePath } = message;
-      console.log("[ESLint Plugin] File changed:", filePath);
+      devLog("[ESLint Plugin] File changed:", filePath);
 
       // Invalidate cache for this file - remove all issues with matching filePath
       const state = services.getState<ESLintPluginSlice>();
@@ -522,21 +523,21 @@ function handleWebSocketMessage(
 
     case "workspace:info": {
       const { appRoot, workspaceRoot, serverCwd } = message;
-      console.log("[ESLint Plugin] Workspace info:", { appRoot, workspaceRoot, serverCwd });
+      devLog("[ESLint Plugin] Workspace info:", { appRoot, workspaceRoot, serverCwd });
       services.setState({ appRoot, workspaceRoot, serverCwd });
       break;
     }
 
     case "workspace:capabilities": {
       const { postToolUseHook } = message;
-      console.log("[ESLint Plugin] Workspace capabilities:", { postToolUseHook });
+      devLog("[ESLint Plugin] Workspace capabilities:", { postToolUseHook });
       services.setState({ workspaceCapabilities: { postToolUseHook } });
       break;
     }
 
     case "rules:metadata": {
       const { rules } = message;
-      console.log("[ESLint Plugin] Received rules metadata:", rules.length, "rules");
+      devLog("[ESLint Plugin] Received rules metadata:", rules.length, "rules");
 
       // Initialize rule configs from current severities
       const configs = new Map<string, RuleConfig>();
@@ -570,9 +571,9 @@ function handleWebSocketMessage(
         const configs = new Map(configState.ruleConfigs);
         configs.set(ruleId, { severity, options });
         services.setState({ ruleConfigs: configs });
-        console.log("[ESLint Plugin] Rule config updated:", ruleId, "->", severity);
+        devLog("[ESLint Plugin] Rule config updated:", ruleId, "->", severity);
       } else {
-        console.error("[ESLint Plugin] Failed to update rule config:", error);
+        devError("[ESLint Plugin] Failed to update rule config:", error);
       }
       break;
     }
@@ -585,7 +586,7 @@ function handleWebSocketMessage(
       const configs = new Map(state.ruleConfigs);
       configs.set(ruleId, { severity, options });
       services.setState({ ruleConfigs: configs });
-      console.log("[ESLint Plugin] Rule config changed (broadcast):", ruleId, "->", severity);
+      devLog("[ESLint Plugin] Rule config changed (broadcast):", ruleId, "->", severity);
       break;
     }
   }

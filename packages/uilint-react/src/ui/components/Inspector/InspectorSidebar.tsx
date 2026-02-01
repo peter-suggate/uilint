@@ -263,7 +263,7 @@ export function InspectorSidebar() {
         )}
         <IconButton
           variant="ghost"
-          size={isMobile ? "md" : "sm"}
+          size={isMobile ? "default" : "sm"}
           onClick={closeInspector}
           title="Close"
           style={isMobile ? { minWidth: 44, minHeight: 44 } : undefined}

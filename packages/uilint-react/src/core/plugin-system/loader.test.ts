@@ -149,18 +149,11 @@ describe("loader", () => {
         enabled: true,
       };
 
-      // Suppress console.error for this test
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
       const plugin = await loadPlugin(manifest);
 
+      // Returns null on load failure
       expect(plugin).toBeNull();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Failed to load plugin "failing-plugin":',
-        expect.any(Error)
-      );
-
-      consoleSpy.mockRestore();
+      // Note: Error is now silenced during tests via test-aware devError
     });
 
     it("returns null when load returns undefined default", async () => {
@@ -278,16 +271,12 @@ describe("loader", () => {
         },
       ];
 
-      // Suppress console.warn for this test
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
       const plugins = await loadPlugins(manifests);
 
+      // Only the plugin with id should be included
       expect(plugins).toHaveLength(1);
       expect(plugins[0].id).toBe("has-id");
-      expect(consoleSpy).toHaveBeenCalled();
-
-      consoleSpy.mockRestore();
+      // Note: Warning is now silenced during tests via test-aware devWarn
     });
 
     it("calls onProgress callback during loading", async () => {

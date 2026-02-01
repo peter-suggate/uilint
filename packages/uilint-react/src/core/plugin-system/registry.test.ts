@@ -305,12 +305,9 @@ describe("PluginRegistry", () => {
 
       registry.register(plugin);
 
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining("Registering plugin: my-plugin")
-      );
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining("registered successfully")
-      );
+      // Note: Logging is now silenced during tests via test-aware devLog
+      // Verify registration worked by checking the plugin is registered
+      expect(registry.isRegistered("my-plugin")).toBe(true);
     });
 
     it("warns and skips on duplicate registration", () => {
@@ -319,9 +316,7 @@ describe("PluginRegistry", () => {
       registry.register(plugin);
       registry.register(plugin);
 
-      expect(consoleSpy.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Plugin "duplicate" is already registered')
-      );
+      // Note: Warning is now silenced during tests via test-aware devWarn
       // Should still only have one plugin
       expect(registry.getPlugins()).toHaveLength(1);
     });
@@ -334,12 +329,8 @@ describe("PluginRegistry", () => {
 
       registry.register(plugin);
 
-      expect(consoleSpy.warn).toHaveBeenCalledWith(
-        expect.stringContaining("has unregistered dependencies")
-      );
-      expect(consoleSpy.warn).toHaveBeenCalledWith(
-        expect.stringContaining("missing-dep-1")
-      );
+      // Note: Warning is now silenced during tests via test-aware devWarn
+      // Plugin should still be registered despite missing dependencies
       expect(registry.isRegistered("dependent")).toBe(true);
     });
 
@@ -905,12 +896,11 @@ describe("PluginRegistry", () => {
       const services = createMockPluginServices();
       simulatePluginInitialization(registry, services);
 
-      registry.disposeAll();
+      // Should not throw even when one plugin fails to dispose
+      expect(() => registry.disposeAll()).not.toThrow();
 
-      expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to dispose plugin "fail-dispose"'),
-        expect.any(Error)
-      );
+      // Note: Error logging is now silenced during tests via test-aware devError
+      // Second plugin should still be disposed even if first one fails
       expect(dispose2).toHaveBeenCalled();
     });
 

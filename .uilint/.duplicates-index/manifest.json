@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "createdAt": "2026-02-01T01:55:23.672Z",
+  "updatedAt": "2026-02-01T01:55:23.672Z",
+  "embeddingModel": "nomic-embed-text",
+  "dimension": 768,
+  "fileCount": 453,
+  "chunkCount": 1564
+}

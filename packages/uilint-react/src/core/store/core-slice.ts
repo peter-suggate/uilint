@@ -6,6 +6,7 @@
  */
 
 import type { StateCreator } from "zustand";
+import { devWarn } from "uilint-core";
 import type { PluginServices, TileFilter } from "../plugin-system/types";
 
 // ============================================================================
@@ -247,7 +248,7 @@ function getStorageValue<T>(key: string, defaultValue: T): T {
     if (stored === null) return defaultValue;
     return JSON.parse(stored) as T;
   } catch (e) {
-    console.warn(`[UILint] Failed to load ${key} from localStorage:`, e);
+    devWarn(`[UILint] Failed to load ${key} from localStorage:`, e);
     return defaultValue;
   }
 }
@@ -261,7 +262,7 @@ function setStorageValue<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (e) {
-    console.warn(`[UILint] Failed to save ${key} to localStorage:`, e);
+    devWarn(`[UILint] Failed to save ${key} to localStorage:`, e);
   }
 }
 

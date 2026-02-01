@@ -15,6 +15,7 @@
  */
 
 import { create, type StoreApi, type UseBoundStore } from "zustand";
+import { devLog, devWarn, devError } from "uilint-core";
 import { createCoreSlice, type CoreSlice } from "./core-slice";
 import { createCategorySlice, type CategorySlice } from "./category-slice";
 import { createDragSlice, type DragSlice } from "./drag-slice";
@@ -177,20 +178,20 @@ const createDefaultWebSocketService = (): WebSocketService => ({
   isConnected: false,
   url: "ws://localhost:9234",
   connect: () => {
-    console.warn("[ComposedStore] WebSocket connect called but not implemented");
+    devWarn("[ComposedStore] WebSocket connect called but not implemented");
   },
   disconnect: () => {
-    console.warn("[ComposedStore] WebSocket disconnect called but not implemented");
+    devWarn("[ComposedStore] WebSocket disconnect called but not implemented");
   },
   send: () => {
-    console.warn("[ComposedStore] WebSocket send called but not implemented");
+    devWarn("[ComposedStore] WebSocket send called but not implemented");
   },
   on: () => {
-    console.warn("[ComposedStore] WebSocket on called but not implemented");
+    devWarn("[ComposedStore] WebSocket on called but not implemented");
     return () => {};
   },
   onConnectionChange: () => {
-    console.warn("[ComposedStore] WebSocket onConnectionChange called but not implemented");
+    devWarn("[ComposedStore] WebSocket onConnectionChange called but not implemented");
     return () => {};
   },
 });
@@ -201,17 +202,17 @@ const createDefaultWebSocketService = (): WebSocketService => ({
  */
 const createDefaultDOMObserverService = (): DOMObserverService => ({
   start: () => {
-    console.warn("[ComposedStore] DOMObserver start called but not implemented");
+    devWarn("[ComposedStore] DOMObserver start called but not implemented");
   },
   stop: () => {
-    console.warn("[ComposedStore] DOMObserver stop called but not implemented");
+    devWarn("[ComposedStore] DOMObserver stop called but not implemented");
   },
   onElementsAdded: () => {
-    console.warn("[ComposedStore] DOMObserver onElementsAdded called but not implemented");
+    devWarn("[ComposedStore] DOMObserver onElementsAdded called but not implemented");
     return () => {};
   },
   onElementsRemoved: () => {
-    console.warn("[ComposedStore] DOMObserver onElementsRemoved called but not implemented");
+    devWarn("[ComposedStore] DOMObserver onElementsRemoved called but not implemented");
     return () => {};
   },
 });
@@ -349,7 +350,7 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
         pluginId: K,
         slice: PluginSliceMap[K]
       ) => {
-        console.log(`[ComposedStore] Registering plugin slice: ${String(pluginId)}`);
+        devLog(`[ComposedStore] Registering plugin slice: ${String(pluginId)}`);
         set((state) => ({
           plugins: {
             ...state.plugins,
@@ -359,7 +360,7 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
       },
 
       unregisterPluginSlice: (pluginId: keyof PluginSliceMap) => {
-        console.log(`[ComposedStore] Unregistering plugin slice: ${String(pluginId)}`);
+        devLog(`[ComposedStore] Unregistering plugin slice: ${String(pluginId)}`);
         set((state) => {
           const { [pluginId]: _removed, ...rest } = state.plugins;
           return { plugins: rest };
@@ -379,7 +380,7 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
         set((state) => {
           const existingSlice = state.plugins[pluginId];
           if (!existingSlice) {
-            console.warn(
+            devWarn(
               `[ComposedStore] Cannot update unregistered plugin slice: ${String(pluginId)}`
             );
             return state;
@@ -591,7 +592,7 @@ export async function initializePlugins(
   const plugins = registry.getPlugins();
   const sortedPlugins = sortByDependencies(plugins);
 
-  console.log(
+  devLog(
     `[initializePlugins] Initialization order: ${sortedPlugins.map((p) => p.id).join(" -> ")}`
   );
 
@@ -620,7 +621,7 @@ export async function initializePlugins(
           );
         } else {
           // For unknown plugins, still register them but without strict typing
-          console.log(
+          devLog(
             `[initializePlugins] Registering unknown plugin slice: ${plugin.id}`
           );
           store.setState((state) => ({
@@ -631,7 +632,7 @@ export async function initializePlugins(
           }));
         }
       } catch (error) {
-        console.error(
+        devError(
           `[initializePlugins] Failed to create slice for plugin ${plugin.id}:`,
           error
         );
@@ -661,12 +662,12 @@ export async function initializePlugins(
         // Register category providers for command bar sidebar
         if (plugin.categoryProviders) {
           store.getState().registerCategoryProvidersFromPlugin(plugin);
-          console.log(
+          devLog(
             `[initializePlugins] Registered ${plugin.categoryProviders.length} category providers from "${plugin.id}"`
           );
         }
       } catch (error) {
-        console.error(
+        devError(
           `[initializePlugins] Failed to initialize plugin ${plugin.id}:`,
           error
         );
@@ -684,7 +685,7 @@ export async function initializePlugins(
     }
   }
 
-  console.log(
+  devLog(
     `[initializePlugins] Initialized ${plugins.length} plugins`
   );
 }

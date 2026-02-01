@@ -12,6 +12,8 @@
  * - Dependency injection for testability
  */
 
+import { devError } from "uilint-core";
+
 // =============================================================================
 // Constants
 // =============================================================================
@@ -395,7 +397,7 @@ export class DOMObserverServiceImpl implements DOMObserverService {
         try {
           handler(addedElements);
         } catch (error) {
-          console.error("[DOMObserverService] Error in added handler:", error);
+          devError("[DOMObserverService] Error in added handler:", error);
         }
       }
     }
@@ -406,7 +408,7 @@ export class DOMObserverServiceImpl implements DOMObserverService {
         try {
           handler(removedIds);
         } catch (error) {
-          console.error(
+          devError(
             "[DOMObserverService] Error in removed handler:",
             error
           );

@@ -1,0 +1,4167 @@
+{
+  "version": 1,
+  "files": {
+    "/Users/petersuggate/code/me/uilint/scripts/sync-prompts-to-langfuse.ts": {
+      "contentHash": "15b594af4e7810e9",
+      "mtimeMs": 1767756735847.933,
+      "chunkIds": [
+        "012b039f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/vitest.config.ts": {
+      "contentHash": "27683edce3a92349",
+      "mtimeMs": 1769328059049.0227,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/vite.devtools.config.ts": {
+      "contentHash": "5b4a743685dace4c",
+      "mtimeMs": 1769898062351.5798,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/vite.config.ts": {
+      "contentHash": "7c8b1d22d5d9db91",
+      "mtimeMs": 1769898062306.2007,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/tsup.config.ts": {
+      "contentHash": "e119ab64ebf3545f",
+      "mtimeMs": 1767756735700.058,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/tailwind.config.ts": {
+      "contentHash": "6f304e053ed47805",
+      "mtimeMs": 1769898062306.3276,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/eslint.config.ts": {
+      "contentHash": "fac7eadfb18cccbd",
+      "mtimeMs": 1769495242952.2434,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/vitest.config.ts": {
+      "contentHash": "0f0db621fd6587dc",
+      "mtimeMs": 1767835398033.2908,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/tsup.config.ts": {
+      "contentHash": "60432b8341d20951",
+      "mtimeMs": 1768885814294.485,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/vitest.config.ts": {
+      "contentHash": "c71dd109fbc6b002",
+      "mtimeMs": 1768700343618.204,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/tsup.config.ts": {
+      "contentHash": "680d52bdad2e1060",
+      "mtimeMs": 1768700343589.0728,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/tsup.config.ts": {
+      "contentHash": "7f9568393bb0fb76",
+      "mtimeMs": 1767756735658.3298,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/vitest.config.ts": {
+      "contentHash": "393c15280fda920f",
+      "mtimeMs": 1769759547557.729,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/tsup.config.ts": {
+      "contentHash": "354adaf8bb473bb7",
+      "mtimeMs": 1767756735848.122,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/jsx-loc-plugin/tsup.config.ts": {
+      "contentHash": "d9537d575c404efd",
+      "mtimeMs": 1768189631329.9104,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/vitest.setup.ts": {
+      "contentHash": "299a2c0f39065dde",
+      "mtimeMs": 1767756735655.0562,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/vitest.config.ts": {
+      "contentHash": "364aaf1dcbaf39e4",
+      "mtimeMs": 1769284449990.2659,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/uilint.d.ts": {
+      "contentHash": "d5ea5681f029279f",
+      "mtimeMs": 1768500352461.4514,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/uilint-react.d.ts": {
+      "contentHash": "fac17bd7a5118afb",
+      "mtimeMs": 1769653912805.689,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/tailwind.config.ts": {
+      "contentHash": "9748cff3457cc2d8",
+      "mtimeMs": 1767757648172.4048,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/next.config.ts": {
+      "contentHash": "51516153626c5f09",
+      "mtimeMs": 1769284449989.1274,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/next-env.d.ts": {
+      "contentHash": "57be83e010c61e22",
+      "mtimeMs": 1769232428925.015,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/eslint.config.ts": {
+      "contentHash": "df1221586c943ecc",
+      "mtimeMs": 1769284449988.4587,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/vitest.setup.ts": {
+      "contentHash": "299a2c0f39065dde",
+      "mtimeMs": 1769896687437.022,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/vitest.config.ts": {
+      "contentHash": "f5e0ab6a20c41b70",
+      "mtimeMs": 1769896709424,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/uilint.d.ts": {
+      "contentHash": "d5ea5681f029279f",
+      "mtimeMs": 1769896687427.9878,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/uilint-react.d.ts": {
+      "contentHash": "fac17bd7a5118afb",
+      "mtimeMs": 1769896687424.9158,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/tailwind.config.ts": {
+      "contentHash": "9748cff3457cc2d8",
+      "mtimeMs": 1769896687415.4314,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/next.config.ts": {
+      "contentHash": "5db8b3ae6d17b83a",
+      "mtimeMs": 1769896709424,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/next-env.d.ts": {
+      "contentHash": "93e5426acf22e441",
+      "mtimeMs": 1769896735560.9978,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/eslint.config.ts": {
+      "contentHash": "ebfdbc5b67d20c45",
+      "mtimeMs": 1769896709424,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/web-component.tsx": {
+      "contentHash": "423c2a027d586d1f",
+      "mtimeMs": 1769653912813.7253,
+      "chunkIds": [
+        "61991565",
+        "ce02e405",
+        "0f531735",
+        "c091a788",
+        "7e4c646d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/node.ts": {
+      "contentHash": "f4d69251e5df41a1",
+      "mtimeMs": 1767757705831.6157,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/index.ts": {
+      "contentHash": "c380cc97dad890f6",
+      "mtimeMs": 1769894478521.7146,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/devtools.ts": {
+      "contentHash": "a5f3549822c84377",
+      "mtimeMs": 1769898062288.9016,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/devtools-types.d.ts": {
+      "contentHash": "9f2776a40dfc7042",
+      "mtimeMs": 1769653912810.8662,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/DevTool.tsx": {
+      "contentHash": "bd379fbc19fa4013",
+      "mtimeMs": 1769653912809.4297,
+      "chunkIds": [
+        "6672940d",
+        "20d65e05",
+        "aa9deb5f",
+        "477d392d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rule-registry.ts": {
+      "contentHash": "8db6a12d02cd8138",
+      "mtimeMs": 1769495242950.4282,
+      "chunkIds": [
+        "8f2114bb",
+        "6a37b1e9",
+        "3aea0eac",
+        "1806943a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/index.ts": {
+      "contentHash": "eea50afcb3d191c7",
+      "mtimeMs": 1769495242946.1973,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/category-registry.ts": {
+      "contentHash": "c2174fa7fc0b4ca4",
+      "mtimeMs": 1769059546641.0396,
+      "chunkIds": [
+        "f21e7e29"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/scripts/generate-index.ts": {
+      "contentHash": "f2502132e73287ea",
+      "mtimeMs": 1769280491503.6646,
+      "chunkIds": [
+        "4c520650",
+        "34b11804",
+        "5a82a09b",
+        "a8f88f43"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/src/node.ts": {
+      "contentHash": "a5cf27d349d93a54",
+      "mtimeMs": 1768700343716.1497,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/src/index.ts": {
+      "contentHash": "ddeace38c15ec198",
+      "mtimeMs": 1768701732401.6455,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/types.ts": {
+      "contentHash": "4365f5119a92ffd1",
+      "mtimeMs": 1769898062289.7275,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/node.ts": {
+      "contentHash": "6c8fb0dd42c9044c",
+      "mtimeMs": 1769898062351.5186,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/logger.ts": {
+      "contentHash": "9edb89485b671078",
+      "mtimeMs": 1767757734203.8074,
+      "chunkIds": [
+        "95d3c5f7",
+        "e19d2075",
+        "4f373377",
+        "a3a98927",
+        "6e722cca",
+        "84e7c1aa",
+        "4e4be33d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/index.ts": {
+      "contentHash": "4466e3c6b69a7fee",
+      "mtimeMs": 1768116810203.3027,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/index.ts": {
+      "contentHash": "c8e1504c86232443",
+      "mtimeMs": 1769653912822.888,
+      "chunkIds": [
+        "942b767c",
+        "9bf63a62"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/bin/uilint.js": {
+      "contentHash": "71fc62e0cd68a81d",
+      "mtimeMs": 1769653912814.2004,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/jsx-loc-plugin/src/vite.ts": {
+      "contentHash": "ac2f029c4a091860",
+      "mtimeMs": 1768189605009.3706,
+      "chunkIds": [
+        "836eb120",
+        "1f940a18",
+        "83944988",
+        "caa85cff"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/jsx-loc-plugin/src/transform.ts": {
+      "contentHash": "7c14538febea32fb",
+      "mtimeMs": 1768608137143.111,
+      "chunkIds": [
+        "02d250d8",
+        "7b20e781",
+        "4152bdf7",
+        "454f9150",
+        "f9dc52e6",
+        "985fd007",
+        "41c50e7f",
+        "056861bc"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/jsx-loc-plugin/src/loader.ts": {
+      "contentHash": "df55902100e03f3b",
+      "mtimeMs": 1767756735843.832,
+      "chunkIds": [
+        "f09cffff",
+        "f77be7de"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/jsx-loc-plugin/src/index.ts": {
+      "contentHash": "375a7138e1320739",
+      "mtimeMs": 1767756735843.7195,
+      "chunkIds": [
+        "ac9cc47f",
+        "b3384cc1"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/page.tsx": {
+      "contentHash": "02a9eb265d1f03c5",
+      "mtimeMs": 1767922324169.5012,
+      "chunkIds": [
+        "514d571a",
+        "f3f0d7b5",
+        "963fcaf6",
+        "3181850d",
+        "b2eda921",
+        "e1dd061c",
+        "fce24f38"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/layout.tsx": {
+      "contentHash": "2c3d5c0e0d70861f",
+      "mtimeMs": 1769284449987.634,
+      "chunkIds": [
+        "cd6e301f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/providers.tsx": {
+      "contentHash": "8d4b0fc24103ffaa",
+      "mtimeMs": 1769896709424,
+      "chunkIds": [
+        "015ecf50"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/page.tsx": {
+      "contentHash": "02a9eb265d1f03c5",
+      "mtimeMs": 1769896687393.6484,
+      "chunkIds": [
+        "361d5107",
+        "439b4b68",
+        "597cff4b",
+        "9c7551d0",
+        "4b03cedc",
+        "9e74cac1",
+        "9441d025"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/layout.tsx": {
+      "contentHash": "96e7968f0559054f",
+      "mtimeMs": 1769896709424,
+      "chunkIds": [
+        "ee75e7aa"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/types.ts": {
+      "contentHash": "9b6e751bbd2c4990",
+      "mtimeMs": 1769297394151.8574,
+      "chunkIds": [
+        "333d972b",
+        "dd964c3f",
+        "737e31d1",
+        "b39f3958",
+        "3608a085"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/index.ts": {
+      "contentHash": "4396f6de338f1051",
+      "mtimeMs": 1769894486039.6672,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/icons.tsx": {
+      "contentHash": "f92d099cf8c5193a",
+      "mtimeMs": 1769325340854.0696,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/UILint.tsx": {
+      "contentHash": "d154c1681906e5e7",
+      "mtimeMs": 1769894435230.9998,
+      "chunkIds": [
+        "45401f70",
+        "cc1067ce",
+        "a262fd70"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/styles/inject-styles.ts": {
+      "contentHash": "72b866595bc69135",
+      "mtimeMs": 1769898062288.888,
+      "chunkIds": [
+        "b6f1c683"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/scanner/vision-capture.ts": {
+      "contentHash": "cd968d7348a0f082",
+      "mtimeMs": 1769297394147.302,
+      "chunkIds": [
+        "7ac5437e",
+        "882a49bc",
+        "7534fe60",
+        "2a7febc4",
+        "361a033a",
+        "e56b0184",
+        "98a7ca05",
+        "5506f141",
+        "9ae1ed0e",
+        "cd19b509",
+        "bb66cd11",
+        "6b6fae4a",
+        "284d000a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/scanner/jsdom-adapter.ts": {
+      "contentHash": "918bbc57b703d433",
+      "mtimeMs": 1767756735843.7195,
+      "chunkIds": [
+        "389a4030"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/scanner/environment.ts": {
+      "contentHash": "7cd832a948938789",
+      "mtimeMs": 1767756735658.0684,
+      "chunkIds": [
+        "bd4910df",
+        "f505a414",
+        "eda86dc0"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/scanner/dom-scanner.ts": {
+      "contentHash": "4dc115693ccf6e69",
+      "mtimeMs": 1768189404084.183,
+      "chunkIds": [
+        "3d3b91d3"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/lib/utils.ts": {
+      "contentHash": "33f17c975463c14c",
+      "mtimeMs": 1769898062351.4407,
+      "chunkIds": [
+        "29fa7dca"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/index.ts": {
+      "contentHash": "7228a58ef4e9c2b2",
+      "mtimeMs": 1769297394136.382,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/consistency/types.ts": {
+      "contentHash": "de83e344c2f89084",
+      "mtimeMs": 1767408714480.1582,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/consistency/snapshot.ts": {
+      "contentHash": "750125920719de22",
+      "mtimeMs": 1767756735843.7842,
+      "chunkIds": [
+        "5e2dec28",
+        "900efb05",
+        "081828ec",
+        "e764da59",
+        "eb5cd117",
+        "a81ab6e7",
+        "7458e4db",
+        "79070ea4",
+        "b7f17bb5",
+        "2da74ce2",
+        "42e7bc26",
+        "c772311a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/consistency/index.ts": {
+      "contentHash": "765f788dbe6ecb42",
+      "mtimeMs": 1767408714492.717,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/consistency/highlights.tsx": {
+      "contentHash": "8956ac47bcac2cf9",
+      "mtimeMs": 1769297394135.9514,
+      "chunkIds": [
+        "31796f50",
+        "e2fde37e",
+        "378b4aae",
+        "e1217a2f",
+        "eada26c0",
+        "e30f3edf",
+        "d2a7e4a6",
+        "3f64d552"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/@/lib/utils.ts": {
+      "contentHash": "ded18dad5b7eace3",
+      "mtimeMs": 1769898062306.1785,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/utils/create-rule.ts": {
+      "contentHash": "c6ac13ea0d6f8b53",
+      "mtimeMs": 1769759064383.8047,
+      "chunkIds": [
+        "a452df63"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/zustand-use-selectors.ts": {
+      "contentHash": "92c48fc6b62f3b00",
+      "mtimeMs": 1769226814485.9797,
+      "chunkIds": [
+        "0040cd77",
+        "689135ca",
+        "4e2013ab",
+        "6450509d",
+        "b9da9435"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/semantic-vision.ts": {
+      "contentHash": "57d9c77df11cd67f",
+      "mtimeMs": 1769297394132.8042,
+      "chunkIds": [
+        "f22dbe94",
+        "e108b707",
+        "a6d0bdb0",
+        "596a9efe",
+        "4d2031bf"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/require-input-validation.ts": {
+      "contentHash": "09732f7ad66a1209",
+      "mtimeMs": 1769226816339.8496,
+      "chunkIds": [
+        "a56ee0b6",
+        "66478124",
+        "c0c35c61",
+        "90b213a1"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/prefer-zustand-state-management.ts": {
+      "contentHash": "144b65f8abca2b15",
+      "mtimeMs": 1769226799127.806,
+      "chunkIds": [
+        "7baf0097",
+        "eeb934c3",
+        "efc9eef7",
+        "fdea2054",
+        "2604d686",
+        "7825ec93",
+        "397e68e5",
+        "ba1fd955"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/prefer-tailwind.ts": {
+      "contentHash": "e929466acc318b6f",
+      "mtimeMs": 1769364935466.6526,
+      "chunkIds": [
+        "606520b2",
+        "f849ce28",
+        "ed2227f5",
+        "0919b5c1",
+        "3d7df22c",
+        "ec9670b0",
+        "fc92217c",
+        "75f78a47"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/no-semantic-duplicates.ts": {
+      "contentHash": "df21b47a2fec1b90",
+      "mtimeMs": 1769895430377.217,
+      "chunkIds": [
+        "b7be9fac",
+        "f5a9a04f",
+        "a379efa9",
+        "e2e52eab",
+        "fd1c68eb",
+        "08db5c13",
+        "8a1c4574",
+        "0394d170",
+        "ef60c466",
+        "0af47ab4",
+        "62280fb7"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/no-secrets-in-code.ts": {
+      "contentHash": "794c8c4b7641baa2",
+      "mtimeMs": 1769226815406.9185,
+      "chunkIds": [
+        "75c109a8",
+        "f03f74b7",
+        "45d22940",
+        "100fbab5",
+        "be614345",
+        "6c1f3f45",
+        "bc61f602"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/no-prop-drilling-depth.ts": {
+      "contentHash": "a200a371bba30513",
+      "mtimeMs": 1769226817238.476,
+      "chunkIds": [
+        "5ddca47d",
+        "358493a5",
+        "84a0e258",
+        "7aa52acb",
+        "1df6f02f",
+        "dd97edc9",
+        "a5f7f3da",
+        "25097beb",
+        "71d4791c",
+        "84156be9",
+        "f3e81400"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/no-direct-store-import.ts": {
+      "contentHash": "a6fc7c1a6e697728",
+      "mtimeMs": 1769226789569.7678,
+      "chunkIds": [
+        "0e460bce"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/no-any-in-props.ts": {
+      "contentHash": "e63e5cedb89b881b",
+      "mtimeMs": 1769226804627.1643,
+      "chunkIds": [
+        "14ab680d",
+        "e935ad9b",
+        "499ad36c",
+        "d0166c8e",
+        "a4a37e53",
+        "f53db87f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/enforce-absolute-imports.ts": {
+      "contentHash": "dcec2c426c747cd2",
+      "mtimeMs": 1769226803560.792,
+      "chunkIds": [
+        "0411ec6e",
+        "790a781e",
+        "743e4b4c",
+        "2e184a6d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/consistent-dark-mode.ts": {
+      "contentHash": "df7caecf01e497f1",
+      "mtimeMs": 1769226788263.8433,
+      "chunkIds": [
+        "892f35d7",
+        "00a77922",
+        "472fa7a1",
+        "08f0dd5b",
+        "34586782",
+        "6ed529f8",
+        "e726c1b6",
+        "44620927",
+        "aa7c5b1c"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/src/query/api.ts": {
+      "contentHash": "f9a5996fabdf0f8f",
+      "mtimeMs": 1768702027498.2583,
+      "chunkIds": [
+        "ef3ec8ed",
+        "5f7ad92a",
+        "3427f8e2",
+        "3b986312",
+        "9efc15c0",
+        "4063050e",
+        "24c7b227",
+        "5c2bf2b1"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/src/index/vector-store.ts": {
+      "contentHash": "96023350487ab43b",
+      "mtimeMs": 1768701159469.8997,
+      "chunkIds": [
+        "fd239349"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/src/index/types.ts": {
+      "contentHash": "b2a7b1ff321e055f",
+      "mtimeMs": 1768701254109.5938,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/src/index/metadata-store.ts": {
+      "contentHash": "c8a38da51c1e35ed",
+      "mtimeMs": 1768701183258.0378,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/src/embeddings/types.ts": {
+      "contentHash": "b0d550cfc46450e0",
+      "mtimeMs": 1768711446423.2893,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/src/embeddings/ollama-embeddings.ts": {
+      "contentHash": "1785fded16c0b844",
+      "mtimeMs": 1768700914948.3489,
+      "chunkIds": [
+        "0be417f9"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/src/embeddings/chunker.ts": {
+      "contentHash": "44afa5c0abb486ff",
+      "mtimeMs": 1768711791954.613,
+      "chunkIds": [
+        "62e47c7b",
+        "6614081a",
+        "a7f138bd",
+        "33cc5af5",
+        "09a423ea",
+        "725375e2",
+        "97dcf172",
+        "5f943d2e",
+        "e61ed8fe",
+        "926904f9",
+        "7858155b",
+        "199a04e5",
+        "c769c0ae",
+        "f89f7501",
+        "1f719aa7",
+        "1fa97b9a",
+        "6a58fdef",
+        "dfda9562",
+        "7f36973b",
+        "242d4fea",
+        "6df4afd0",
+        "b796d263",
+        "2f6c149e",
+        "7bd65542",
+        "2ce21429",
+        "cad89601"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/src/detection/scorer.ts": {
+      "contentHash": "09e43157b5f86a5f",
+      "mtimeMs": 1768701650042.0674,
+      "chunkIds": [
+        "c5318911",
+        "985c6c19",
+        "3dcf612b",
+        "5cc56848"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/src/detection/duplicate-finder.ts": {
+      "contentHash": "e034af88ac0eabdf",
+      "mtimeMs": 1768701678566.6067,
+      "chunkIds": [
+        "aca541e9",
+        "31a2bbbe",
+        "313b2234",
+        "6fdd9d0a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/src/cache/incremental-indexer.ts": {
+      "contentHash": "20d5d61d11840d01",
+      "mtimeMs": 1768701471655.3298,
+      "chunkIds": [
+        "97c63fbf"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/src/cache/file-tracker.ts": {
+      "contentHash": "507b8bca5e34a572",
+      "mtimeMs": 1768701183280.5952,
+      "chunkIds": [
+        "32cdc7b8",
+        "3fe86ef8",
+        "7d7f115c",
+        "c7356dd4"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/utils/workspace-root.ts": {
+      "contentHash": "257f5226c9ceb5f5",
+      "mtimeMs": 1767757669372.8354,
+      "chunkIds": [
+        "efe73126",
+        "154d52a3",
+        "bfefb330"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/tailwind/config-reader.ts": {
+      "contentHash": "66a066211c7a92c3",
+      "mtimeMs": 1767756735700.0354,
+      "chunkIds": [
+        "283826fe",
+        "40712872",
+        "07c3f456",
+        "44a5bbf2"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/tailwind/class-tokens.ts": {
+      "contentHash": "a5a6f363d9afb7e8",
+      "mtimeMs": 1767757667821.7466,
+      "chunkIds": [
+        "3447e5af",
+        "9b849c97",
+        "cd383662",
+        "4e1e6eec",
+        "d2a4af0a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/scanner/vision-analyzer.ts": {
+      "contentHash": "03cb47f419948c97",
+      "mtimeMs": 1769898062345.8184,
+      "chunkIds": [
+        "727d7c09",
+        "8f0e8420",
+        "8708f9c6"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/scanner/style-extractor.ts": {
+      "contentHash": "80a3c39d458bddbf",
+      "mtimeMs": 1767756735843.81,
+      "chunkIds": [
+        "eb5940b7",
+        "eebf46a7",
+        "9cd23921",
+        "2224d99b",
+        "f1b724e4",
+        "ba7bf23b",
+        "0c457e4d",
+        "37561d76",
+        "e996a569",
+        "7244bc3d",
+        "b6947bfd",
+        "c5679d89",
+        "d2b87891"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/scanner/html-parser.ts": {
+      "contentHash": "aaa193445023110a",
+      "mtimeMs": 1767756735700.048,
+      "chunkIds": [
+        "eb5d78ef",
+        "ddb843b6",
+        "2f76f36e",
+        "408d26ea",
+        "6863748b"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/styleguide/schema.ts": {
+      "contentHash": "7e56d33dcdcf9fc0",
+      "mtimeMs": 1767756735660.4866,
+      "chunkIds": [
+        "1fda6be8",
+        "a09d8e85",
+        "6dd8c10e",
+        "19c33bf6",
+        "9b491760",
+        "caa4ab30",
+        "7c2211aa",
+        "17f958f3",
+        "6a3b84ed",
+        "8390a633",
+        "0fcf8bbe"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/styleguide/reader.ts": {
+      "contentHash": "9fe20e8d587b8be8",
+      "mtimeMs": 1767756735844.0427,
+      "chunkIds": [
+        "2db7d3ac",
+        "dd4f2d03",
+        "2c3d9d6c",
+        "6eaafbdc",
+        "4d9e97c6",
+        "d13164b9",
+        "b3256682"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/styleguide/parser.ts": {
+      "contentHash": "997769bc16fa3afa",
+      "mtimeMs": 1767756735789.0225,
+      "chunkIds": [
+        "ae346212",
+        "6273929f",
+        "3d92c881",
+        "5a8d770b",
+        "50f11f61",
+        "d2ee5dde",
+        "3c290780",
+        "917211fd",
+        "4e60fe27",
+        "25f97edc",
+        "96660ca0"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/styleguide/generator.ts": {
+      "contentHash": "d9d04ffbf5a418bd",
+      "mtimeMs": 1767756735697.9688,
+      "chunkIds": [
+        "cce84b2c",
+        "c5cf5c79",
+        "6d3c1238",
+        "fa93b669"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/ollama/prompts.ts": {
+      "contentHash": "e1018817a3a35479",
+      "mtimeMs": 1767756735843.9785,
+      "chunkIds": [
+        "29eb5321",
+        "df1cb298",
+        "44d068fe",
+        "1a48ab62"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/ollama/defaults.ts": {
+      "contentHash": "0d6dbd1d627f4cfc",
+      "mtimeMs": 1767757666400.192,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/ollama/client.ts": {
+      "contentHash": "e9da8e0fec006091",
+      "mtimeMs": 1769898062306.2605,
+      "chunkIds": [
+        "6b000288"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/ollama/bootstrap.ts": {
+      "contentHash": "f31712477f73dd1c",
+      "mtimeMs": 1767756735839.4917,
+      "chunkIds": [
+        "d9cc5a85",
+        "c33de648",
+        "f576c57c",
+        "ab2cd290",
+        "9c62dd7b",
+        "6a421109",
+        "0f2aab62",
+        "149d638b",
+        "3d1f4ea6",
+        "f829da1f",
+        "8f463642",
+        "369c8866"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/format/issues.ts": {
+      "contentHash": "b64d0e0e9b36aceb",
+      "mtimeMs": 1767396726475.9524,
+      "chunkIds": [
+        "ea4319c0",
+        "d1ab5d3a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/consistency/types.ts": {
+      "contentHash": "d4d8459749204473",
+      "mtimeMs": 1767408714459.4292,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/consistency/prompts.ts": {
+      "contentHash": "3c6ddb5b586756dc",
+      "mtimeMs": 1767408714459.4446,
+      "chunkIds": [
+        "05743518",
+        "327ccc9e",
+        "c10a4fd5",
+        "29f275a2",
+        "085054d8"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/consistency/index.ts": {
+      "contentHash": "69b636a691bab744",
+      "mtimeMs": 1767756735843.9436,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-core/src/consistency/analyzer.ts": {
+      "contentHash": "3ef0926b96e0a419",
+      "mtimeMs": 1767757664618.5837,
+      "chunkIds": [
+        "99f99164",
+        "ffb928a6",
+        "89cce764",
+        "ecd75f6f",
+        "d0759ea2"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/helpers/ws-test-client.ts": {
+      "contentHash": "380dcb1656335d91",
+      "mtimeMs": 1769491370010.4053,
+      "chunkIds": [
+        "69e9c02a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/helpers/server-starter.ts": {
+      "contentHash": "94d3fac44c53ae1e",
+      "mtimeMs": 1769316816932.4692,
+      "chunkIds": [
+        "737ec119",
+        "9348a89b",
+        "622cb94c",
+        "8161549a",
+        "aa02bb61"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/helpers/prompts.ts": {
+      "contentHash": "3615f6cf42fc8437",
+      "mtimeMs": 1769230722623.6443,
+      "chunkIds": [
+        "934333fd",
+        "9070444d",
+        "cc320625",
+        "a22b6bc3"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/helpers/index.ts": {
+      "contentHash": "6416eaaa21fa7d5c",
+      "mtimeMs": 1769316816932.268,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/helpers/fixtures.ts": {
+      "contentHash": "78f676b80603abf5",
+      "mtimeMs": 1769317194508.0369,
+      "chunkIds": [
+        "d3fa5215",
+        "8ab927ab",
+        "8c07660d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/vite-detect.ts": {
+      "contentHash": "0a032b54152be5e2",
+      "mtimeMs": 1768177878629.3347,
+      "chunkIds": [
+        "ca5dac50",
+        "46e01c00",
+        "6d7a5097",
+        "95d7895a",
+        "46596eb6",
+        "c7668cb2"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/vite-config-inject.ts": {
+      "contentHash": "4e9b60e4d45ae9d4",
+      "mtimeMs": 1769296554378.0054,
+      "chunkIds": [
+        "30ef935b",
+        "77bbcf9f",
+        "b3aacde3",
+        "cec925bd",
+        "f41efe78",
+        "b85c4374",
+        "0b503d76",
+        "c3aaeaa9",
+        "67cbcdae",
+        "cd8a9068",
+        "3845c9fa",
+        "810292dd",
+        "ca295eec"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/vision-run.ts": {
+      "contentHash": "92e4e92f440f2f70",
+      "mtimeMs": 1769898062306.0955,
+      "chunkIds": [
+        "03a69a7e",
+        "fcd4dddc",
+        "a20fce43",
+        "ed3ef3c7",
+        "e4d7b1ad"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/tsconfig-inject.ts": {
+      "contentHash": "7af7a34797020ab2",
+      "mtimeMs": 1769879762173.8262,
+      "chunkIds": [
+        "f5144fcc"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/timing.ts": {
+      "contentHash": "207266602b9dd880",
+      "mtimeMs": 1768116810203.146,
+      "chunkIds": [
+        "6d2dfe36",
+        "8e648fd6",
+        "608bc2d3",
+        "5d3f0db1"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/skill-loader.ts": {
+      "contentHash": "80fe01f3f016f1ad",
+      "mtimeMs": 1768350395159.5388,
+      "chunkIds": [
+        "a196c1e3",
+        "315f1b97",
+        "791b3a78",
+        "6faa302c",
+        "e851d402"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/rule-loader.ts": {
+      "contentHash": "d496b667ce8407e9",
+      "mtimeMs": 1769495242960.0933,
+      "chunkIds": [
+        "1d7a3d56",
+        "5f9c68cd",
+        "5c295a57",
+        "362a7990",
+        "34b75296",
+        "841294a6",
+        "bc8f7bbe",
+        "a9eb2399",
+        "86812c6a",
+        "749d0095",
+        "f72efffe",
+        "4c4c20fc"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/react-inject.ts": {
+      "contentHash": "617dd2fb1ae29927",
+      "mtimeMs": 1769296554020.2468,
+      "chunkIds": [
+        "9e3e1eae",
+        "e9bd0215",
+        "07c49190",
+        "3a957c11",
+        "b6b2967e",
+        "e7668abb",
+        "2874b47c",
+        "09e86efe",
+        "76f93348",
+        "0c200819",
+        "687985b8",
+        "de2744c4",
+        "50a90428",
+        "1c120c4b",
+        "94d1549b",
+        "51c3ed1f",
+        "7feb4a6e"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/prompts.ts": {
+      "contentHash": "247c4a16eb14f6b2",
+      "mtimeMs": 1768116810203.2832,
+      "chunkIds": [
+        "15db2edb",
+        "12bdde50",
+        "db413185",
+        "ef2f16f6",
+        "450e1712",
+        "95b81287",
+        "6acba763",
+        "48f253a5",
+        "e3598d61",
+        "9eb93530",
+        "6e16fd32",
+        "91acfdbc",
+        "2de11a9a",
+        "622ece71",
+        "dd2a9b19",
+        "6d1eacd4",
+        "2f7cfa96",
+        "b1c4a9ec",
+        "779e25da",
+        "033de856"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/prettier.ts": {
+      "contentHash": "93a405939e113e08",
+      "mtimeMs": 1768537912434.3616,
+      "chunkIds": [
+        "dfd1fb6c",
+        "9413e82b",
+        "868f4096",
+        "449a9d0f",
+        "01328f2b",
+        "d5987554"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/path-specifiers.ts": {
+      "contentHash": "93c1af7f4cf6ddb9",
+      "mtimeMs": 1767757662376.0916,
+      "chunkIds": [
+        "4fdc4676"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/package-manager.ts": {
+      "contentHash": "49832ae636ae13c3",
+      "mtimeMs": 1769227909509.697,
+      "chunkIds": [
+        "28b2998b",
+        "1e8ccc0f",
+        "a76cdf56",
+        "7a16277a",
+        "ac336307",
+        "0518dccb",
+        "0ec4804c",
+        "1488b349",
+        "7a8a9044",
+        "def2afc1"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/package-detect.ts": {
+      "contentHash": "6548eb6dd9f7cb17",
+      "mtimeMs": 1768356050588.6497,
+      "chunkIds": [
+        "728d3a47",
+        "e9184abc",
+        "346932f9",
+        "f85fbddf",
+        "33d7bb07",
+        "f803d40e",
+        "23bd1995"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/output.ts": {
+      "contentHash": "9d868d650bdefdff",
+      "mtimeMs": 1767396625531.359,
+      "chunkIds": [
+        "f3e329c5",
+        "65046f63",
+        "18a40e8c",
+        "4fec9850",
+        "fbcb68d3",
+        "b5b96a37",
+        "c40aa0c3",
+        "e76c037e",
+        "1e14ce2c",
+        "18c58888"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/option-prompter.ts": {
+      "contentHash": "1c4fa6dada9df7ae",
+      "mtimeMs": 1769059095322.3792,
+      "chunkIds": [
+        "1adce9ee",
+        "bac4fc7c",
+        "9eac111c",
+        "51def1c0",
+        "fc0a92de"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/next-routes.ts": {
+      "contentHash": "20e911ddc3c6dc8f",
+      "mtimeMs": 1769296554572.2979,
+      "chunkIds": [
+        "c9ad40aa",
+        "9da46c4b",
+        "c6d320ec"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/next-detect.ts": {
+      "contentHash": "01a58d5d06a85973",
+      "mtimeMs": 1767756735843.9998,
+      "chunkIds": [
+        "4cb75c5b",
+        "7eb1b279",
+        "f4422178",
+        "44634077"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/next-config-inject.ts": {
+      "contentHash": "ca7ca336aebfa05a",
+      "mtimeMs": 1769296554196.6096,
+      "chunkIds": [
+        "c2a9357e",
+        "595f8455",
+        "4f456036",
+        "6f031564",
+        "8e80286b",
+        "3a31459c",
+        "42febcdc",
+        "cbc3d6d7",
+        "8ce0af0f",
+        "52f7e1a2",
+        "fcfc45ef",
+        "ec93d0e0"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/migration-engine.ts": {
+      "contentHash": "d881201a72d18f0d",
+      "mtimeMs": 1769227124537.6125,
+      "chunkIds": [
+        "b2e66f86",
+        "b26f7ff3",
+        "ce15c551",
+        "8e02f786",
+        "c52ccbbf"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/manifest.ts": {
+      "contentHash": "b94c46e6e94288bf",
+      "mtimeMs": 1769226968791.9395,
+      "chunkIds": [
+        "c1ced71a",
+        "bf6cb47f",
+        "914bad6b",
+        "b28aa238",
+        "83a7293f",
+        "e14368d6",
+        "64416b84",
+        "81841c1a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/llm-client.ts": {
+      "contentHash": "0237936872e43bda",
+      "mtimeMs": 1769898062345.9736,
+      "chunkIds": [
+        "2368f94e",
+        "4de23d41",
+        "a79667c4",
+        "fdd01445",
+        "d23d794a",
+        "3240e6cb",
+        "bab342ce",
+        "a87a25ed",
+        "b1c55cea"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/input.ts": {
+      "contentHash": "e42b70d78976ec50",
+      "mtimeMs": 1767756735843.9956,
+      "chunkIds": [
+        "ebbbeeb2",
+        "2a64ae75",
+        "e190ac6c",
+        "3b17c3d9",
+        "ad6e030c",
+        "c3296c8b"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/eslint-utils.ts": {
+      "contentHash": "c83cdfa3cba48199",
+      "mtimeMs": 1769653912823.2769,
+      "chunkIds": [
+        "6c98c809",
+        "82e8b1ff",
+        "d605b864",
+        "cc7a12f6",
+        "a647c82e",
+        "a2e67a97",
+        "7ce3f4b4",
+        "bfc33752",
+        "2ffd0067",
+        "9ee62a7b",
+        "406e6678",
+        "5abbaf90"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/eslint-config-inject.ts": {
+      "contentHash": "4968bbf00b258a25",
+      "mtimeMs": 1769495242958.635,
+      "chunkIds": [
+        "e1d431b9",
+        "255be1aa",
+        "8176e6df",
+        "76fd125f",
+        "3ca01143",
+        "1eb35208",
+        "d8dd045d",
+        "477c6ae8",
+        "bc5bd16c",
+        "a742c069",
+        "9166ffa9",
+        "ca876b40",
+        "df0f5b37",
+        "076eec41",
+        "b96cd176",
+        "998174dd",
+        "ee9da313",
+        "f3adb847",
+        "84d5f0fe",
+        "5182c7e1",
+        "35751bf4",
+        "7eac8b8e",
+        "1b9472d5",
+        "dc350519",
+        "6505e557",
+        "33c165e0",
+        "7b23eaf3",
+        "e98a7a0f",
+        "6cf32a9b",
+        "ca6b9af8",
+        "1f97fe69",
+        "2321c650",
+        "7f4326c9",
+        "7e2b8701",
+        "8a307d58",
+        "f60b9763",
+        "47151374",
+        "26f0fcf8",
+        "862b7510",
+        "98af0d5f",
+        "44325220",
+        "66d20bb5",
+        "6bc4ca15",
+        "e5a91c4f",
+        "0376ff6e",
+        "244f276c",
+        "e9729aa1",
+        "4e1addcf",
+        "df81d25d",
+        "463cc475",
+        "e9393bf5",
+        "8ebf01cd",
+        "b1f1d97c",
+        "c1d6d169"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/coverage-prepare.ts": {
+      "contentHash": "9b40a4c1b20efed7",
+      "mtimeMs": 1768768614758.7017,
+      "chunkIds": [
+        "09ab3a7a",
+        "71e0d989",
+        "ccf7b0cd"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/coverage-detect.ts": {
+      "contentHash": "ddad03aff0655064",
+      "mtimeMs": 1768768054542.859,
+      "chunkIds": [
+        "1beb6bd3",
+        "5388e52c",
+        "5efeadc5",
+        "7ec86618",
+        "af5a057c"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/utils/client-boundary-tracer.ts": {
+      "contentHash": "e29b3ec7b01875e5",
+      "mtimeMs": 1768533415732.7095,
+      "chunkIds": [
+        "c1e1d65f",
+        "0855d670",
+        "09463e97",
+        "87d62be0",
+        "03add83a",
+        "22598b81"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/vision.ts": {
+      "contentHash": "d464502d8ff7b898",
+      "mtimeMs": 1769898062351.4426,
+      "chunkIds": [
+        "60388042",
+        "45b3bd93",
+        "dfc6e3f2",
+        "e13a2c99",
+        "13143bb6",
+        "d5cc3028",
+        "37c40385",
+        "492f295c",
+        "1ec8b782",
+        "375fa794",
+        "8eee6d07",
+        "932274e6",
+        "39207085",
+        "505bf235",
+        "2178521a",
+        "65f6d158",
+        "75142409"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/upgrade.ts": {
+      "contentHash": "bab3f633f33e8944",
+      "mtimeMs": 1769228203243.6257,
+      "chunkIds": [
+        "c96488e7",
+        "0c4b8f20"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/update.ts": {
+      "contentHash": "b7f9affe0c19f436",
+      "mtimeMs": 1767756735848.143,
+      "chunkIds": [
+        "b203c8b9",
+        "af9fdc48"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/serve.ts": {
+      "contentHash": "272469229eca8ecc",
+      "mtimeMs": 1769381925767.2402,
+      "chunkIds": [
+        "9dcbb6e5",
+        "39f69635",
+        "5e0d47c6",
+        "f3ff1351",
+        "ad1855b9",
+        "d8d529cc",
+        "e852acba",
+        "033e7d8e",
+        "cd355f6c",
+        "fcb736fe",
+        "9bf92a55",
+        "42e38011",
+        "61f902dc",
+        "0efac578",
+        "45dc7092",
+        "aaf27963",
+        "b130fb8d",
+        "f3df5e12",
+        "fbe42cb6",
+        "a295b1d3",
+        "c6053222",
+        "e9667b8a",
+        "ffce8eec",
+        "b496ac81",
+        "632b7484",
+        "5de3900e",
+        "bef80720",
+        "ae2e6e7c",
+        "4274b4b6",
+        "ecaa8a12",
+        "926f8aa6",
+        "8b87124d",
+        "eea94ec7",
+        "2b471019",
+        "bc7d1d1f",
+        "997baf97",
+        "b7c8a4a9",
+        "92528a63"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/scan.ts": {
+      "contentHash": "927f0c521e1cfe58",
+      "mtimeMs": 1768116810115.5786,
+      "chunkIds": [
+        "2b73067c",
+        "60d3dbac",
+        "07621679",
+        "2dbd5751",
+        "ad3c0173",
+        "0c977fcf",
+        "0aae5b6e",
+        "10389683",
+        "d0ac5e89",
+        "f10f5c23",
+        "dc532a37",
+        "565352a9",
+        "b87ac86a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/remove-ui.tsx": {
+      "contentHash": "b9a733ce4148c5b3",
+      "mtimeMs": 1769320603422.6096,
+      "chunkIds": [
+        "e09e05b2",
+        "02b9164c",
+        "be917ccf",
+        "f4e8e099",
+        "adc34070"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init-ui.tsx": {
+      "contentHash": "41f6943169f16483",
+      "mtimeMs": 1769653912816.1306,
+      "chunkIds": [
+        "6b4ff4af",
+        "8d3e90f1",
+        "7bda5427",
+        "806f7b74",
+        "ee9347c5",
+        "e64c505f",
+        "6972b017",
+        "f35bcf16",
+        "932b9c03"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/consistency.ts": {
+      "contentHash": "da11ea350a3b5e0d",
+      "mtimeMs": 1767756735847.98,
+      "chunkIds": [
+        "129c30f5",
+        "dfe4a35c",
+        "26373b32"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/config.ts": {
+      "contentHash": "2599e40f90930196",
+      "mtimeMs": 1769495242957.516,
+      "chunkIds": [
+        "1b8b8136",
+        "f79f0c31",
+        "07e8c8bd",
+        "073ea9fa",
+        "7fa8d428",
+        "3a645819",
+        "0e7d1b87",
+        "c71d7ef6",
+        "5e52d9e3",
+        "f9bfcf8d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/analyze.ts": {
+      "contentHash": "2be736396d9060c5",
+      "mtimeMs": 1768116810202.9294,
+      "chunkIds": [
+        "ae1e6ac2",
+        "2eddb813",
+        "379fecf2",
+        "5ec150d9",
+        "b2572216",
+        "2ec9faa8",
+        "fa4e5a24",
+        "f28c0c00",
+        "d54562a4",
+        "ca47f6f6",
+        "d4f3ca20",
+        "5dd857a1"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/todos/page.tsx": {
+      "contentHash": "e308463916bbeec1",
+      "mtimeMs": 1769157983932.0603,
+      "chunkIds": [
+        "9569079a",
+        "2e1a380e",
+        "7a2e1531",
+        "e864d730",
+        "9f87de13"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/settings/page.tsx": {
+      "contentHash": "def679017cc8f047",
+      "mtimeMs": 1767757626536.0325,
+      "chunkIds": [
+        "7ee27acf",
+        "10749b32",
+        "b40572e1",
+        "2e35e97a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/stores/todoStore.ts": {
+      "contentHash": "6ea456a6f2b0a931",
+      "mtimeMs": 1769157941051.039,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/profile/page.tsx": {
+      "contentHash": "20dd2707907cbfbb",
+      "mtimeMs": 1767838683535.7183,
+      "chunkIds": [
+        "d9a1d575",
+        "2a138ba5",
+        "639e2e2a",
+        "5927f580"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/lib/utils.ts": {
+      "contentHash": "17f8f92dd1b46da9",
+      "mtimeMs": 1767757610570.4392,
+      "chunkIds": [
+        "7d00e4ad"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/lib/helpers.ts": {
+      "contentHash": "710ff844c82d8a4e",
+      "mtimeMs": 1768712520540.02,
+      "chunkIds": [
+        "ff9ba2e1",
+        "451a757c",
+        "8453d0bf",
+        "a0a4b4f0",
+        "9cbba6a1"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/lib/formatters.ts": {
+      "contentHash": "711f6054808f587a",
+      "mtimeMs": 1768712512984.9067,
+      "chunkIds": [
+        "b614f5c9",
+        "53b327af",
+        "120f6ba9",
+        "a9a869ad"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/hooks/useDataFetching.ts": {
+      "contentHash": "f543a7066e1b7917",
+      "mtimeMs": 1768712530974.8591,
+      "chunkIds": [
+        "d9581b4c",
+        "1e1f9794",
+        "01624aab"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/hooks/useAsync.ts": {
+      "contentHash": "eea5704e9f9b72b5",
+      "mtimeMs": 1768712545624.587,
+      "chunkIds": [
+        "73d3a740",
+        "ee741e64",
+        "34c10abb"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/typography.tsx": {
+      "contentHash": "caccc97e9eef8665",
+      "mtimeMs": 1767756735658.1753,
+      "chunkIds": [
+        "96b9b90b",
+        "085e40e0",
+        "559c8723"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/cards.tsx": {
+      "contentHash": "c6a655b7f4a68647",
+      "mtimeMs": 1767756735843.9106,
+      "chunkIds": [
+        "4d153d49",
+        "4acd201a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/buttons.tsx": {
+      "contentHash": "20b7faf56e4e5bd2",
+      "mtimeMs": 1767756735843.8865,
+      "chunkIds": [
+        "b8480faa",
+        "5e6cf13d",
+        "ef60f170"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/UserAvatar.tsx": {
+      "contentHash": "1453a29b7ddadd6c",
+      "mtimeMs": 1768712554287.0134,
+      "chunkIds": [
+        "ab24f240"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/StatCard.tsx": {
+      "contentHash": "88fbec840752c117",
+      "mtimeMs": 1768712591064.2659,
+      "chunkIds": [
+        "17dfd5e6"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/Spinner.tsx": {
+      "contentHash": "c462c5e8dc27c7ea",
+      "mtimeMs": 1768712629487.78,
+      "chunkIds": [
+        "ba0468dc"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/SearchInput.tsx": {
+      "contentHash": "aedb1dc75226071f",
+      "mtimeMs": 1768712608915.8784,
+      "chunkIds": [
+        "4f673a5f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/SearchBox.tsx": {
+      "contentHash": "db71e7c9f375bf96",
+      "mtimeMs": 1768712740049.9924,
+      "chunkIds": [
+        "fccc1b2a",
+        "c90e559d",
+        "65d995eb"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/ProfilePicture.tsx": {
+      "contentHash": "29e14db5d73375c1",
+      "mtimeMs": 1768712563676.732,
+      "chunkIds": [
+        "0b8f8a49"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/PriceDisplay.tsx": {
+      "contentHash": "68ee0c50fd9841c8",
+      "mtimeMs": 1768712660140.448,
+      "chunkIds": [
+        "3fb98e0d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/NoDataPlaceholder.tsx": {
+      "contentHash": "b0f7934da88411cd",
+      "mtimeMs": 1768712578160.0989,
+      "chunkIds": [
+        "4544da40"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/Navigation.tsx": {
+      "contentHash": "0ddd6621895c1b5e",
+      "mtimeMs": 1767757600923.2966,
+      "chunkIds": [
+        "a46e7d29",
+        "80528ca0",
+        "4b3bdebf"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/MetricCard.tsx": {
+      "contentHash": "c7bc254211d3f163",
+      "mtimeMs": 1768712600967.165,
+      "chunkIds": [
+        "e8b2a51a",
+        "5c96bbc9"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/LoadingSpinner.tsx": {
+      "contentHash": "9d11abbf6afdcb33",
+      "mtimeMs": 1768712623458.0012,
+      "chunkIds": [
+        "d66b9325"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/EmptyState.tsx": {
+      "contentHash": "717eef9661ed6b70",
+      "mtimeMs": 1768712570052.5508,
+      "chunkIds": [
+        "0e3ef9e0"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/CostLabel.tsx": {
+      "contentHash": "04d2ba836fc19d8c",
+      "mtimeMs": 1768712669777.0896,
+      "chunkIds": [
+        "20936707",
+        "3b66b388",
+        "74d8337f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/ConfirmDialog.tsx": {
+      "contentHash": "72be2822af8b82c9",
+      "mtimeMs": 1768712639502.1733,
+      "chunkIds": [
+        "7256520b"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/AlertModal.tsx": {
+      "contentHash": "ebcee03d2b4d2891",
+      "mtimeMs": 1768712652237.514,
+      "chunkIds": [
+        "a15f9923"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/todos/page.tsx": {
+      "contentHash": "e308463916bbeec1",
+      "mtimeMs": 1769896687393.1777,
+      "chunkIds": [
+        "43893f07",
+        "8ccf1093",
+        "284e744c",
+        "1502728d",
+        "650a3e4e"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/stores/todoStore.ts": {
+      "contentHash": "6ea456a6f2b0a931",
+      "mtimeMs": 1769896687372.58,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/settings/page.tsx": {
+      "contentHash": "def679017cc8f047",
+      "mtimeMs": 1769896687370.5984,
+      "chunkIds": [
+        "ce740a12",
+        "141ea74f",
+        "dd44a9bc",
+        "22ffbf07"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/profile/page.tsx": {
+      "contentHash": "20dd2707907cbfbb",
+      "mtimeMs": 1769896687386.1313,
+      "chunkIds": [
+        "f741c188",
+        "932f0a38",
+        "dd5d7c57",
+        "1df8c41d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/lib/utils.ts": {
+      "contentHash": "17f8f92dd1b46da9",
+      "mtimeMs": 1769896687389.5396,
+      "chunkIds": [
+        "fa6f6f90"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/lib/helpers.ts": {
+      "contentHash": "710ff844c82d8a4e",
+      "mtimeMs": 1769896687388.4158,
+      "chunkIds": [
+        "ab758d1c",
+        "e07f5fe1",
+        "fe771902",
+        "3399374d",
+        "8c743dbc"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/lib/formatters.ts": {
+      "contentHash": "711f6054808f587a",
+      "mtimeMs": 1769896687390.2324,
+      "chunkIds": [
+        "7a8753f4",
+        "3cdee072",
+        "b7121214",
+        "6de3dd10"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/typography.tsx": {
+      "contentHash": "caccc97e9eef8665",
+      "mtimeMs": 1769896687379.5579,
+      "chunkIds": [
+        "9010cf56",
+        "b77204fd",
+        "28a2547e"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/cards.tsx": {
+      "contentHash": "c6a655b7f4a68647",
+      "mtimeMs": 1769896687382.7327,
+      "chunkIds": [
+        "98659b74",
+        "42ca53e7"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/buttons.tsx": {
+      "contentHash": "20b7faf56e4e5bd2",
+      "mtimeMs": 1769896687381.7947,
+      "chunkIds": [
+        "9f310017",
+        "eea41440",
+        "e5134f0d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/UserAvatar.tsx": {
+      "contentHash": "1453a29b7ddadd6c",
+      "mtimeMs": 1769896687385.0537,
+      "chunkIds": [
+        "34948e7d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/StatCard.tsx": {
+      "contentHash": "88fbec840752c117",
+      "mtimeMs": 1769896687379.1426,
+      "chunkIds": [
+        "ba15037b"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/Spinner.tsx": {
+      "contentHash": "c462c5e8dc27c7ea",
+      "mtimeMs": 1769896687384.659,
+      "chunkIds": [
+        "af7a1dc1"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/SearchInput.tsx": {
+      "contentHash": "aedb1dc75226071f",
+      "mtimeMs": 1769896687385.4521,
+      "chunkIds": [
+        "76cd9642"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/SearchBox.tsx": {
+      "contentHash": "db71e7c9f375bf96",
+      "mtimeMs": 1769896687380.1567,
+      "chunkIds": [
+        "e378ab37",
+        "90b57700",
+        "8634a536"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/ProfilePicture.tsx": {
+      "contentHash": "29e14db5d73375c1",
+      "mtimeMs": 1769896687377.258,
+      "chunkIds": [
+        "23f8d814"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/PriceDisplay.tsx": {
+      "contentHash": "68ee0c50fd9841c8",
+      "mtimeMs": 1769896687383.2952,
+      "chunkIds": [
+        "cea83770"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/NoDataPlaceholder.tsx": {
+      "contentHash": "b0f7934da88411cd",
+      "mtimeMs": 1769896687378.7305,
+      "chunkIds": [
+        "a02f98dd"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/Navigation.tsx": {
+      "contentHash": "0ddd6621895c1b5e",
+      "mtimeMs": 1769896687383.8274,
+      "chunkIds": [
+        "f33a7314",
+        "699f251d",
+        "68c630a2"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/MetricCard.tsx": {
+      "contentHash": "c7bc254211d3f163",
+      "mtimeMs": 1769896687381.3516,
+      "chunkIds": [
+        "a7dd6487",
+        "9e304d74"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/LoadingSpinner.tsx": {
+      "contentHash": "9d11abbf6afdcb33",
+      "mtimeMs": 1769896687382.3235,
+      "chunkIds": [
+        "a35d2ff8"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/EmptyState.tsx": {
+      "contentHash": "717eef9661ed6b70",
+      "mtimeMs": 1769896687384.2783,
+      "chunkIds": [
+        "6e1c089d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/CostLabel.tsx": {
+      "contentHash": "04d2ba836fc19d8c",
+      "mtimeMs": 1769896687377.7546,
+      "chunkIds": [
+        "28b2419a",
+        "5fac0315",
+        "8013f202"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/ConfirmDialog.tsx": {
+      "contentHash": "72be2822af8b82c9",
+      "mtimeMs": 1769896687374.425,
+      "chunkIds": [
+        "2da0d756"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/AlertModal.tsx": {
+      "contentHash": "ebcee03d2b4d2891",
+      "mtimeMs": 1769896687380.8381,
+      "chunkIds": [
+        "16401c7e"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/hooks/useDataFetching.ts": {
+      "contentHash": "f543a7066e1b7917",
+      "mtimeMs": 1769896687386.7112,
+      "chunkIds": [
+        "90e2c591",
+        "5287d2a9",
+        "057c6ef6"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/hooks/useAsync.ts": {
+      "contentHash": "eea5704e9f9b72b5",
+      "mtimeMs": 1769896687387.149,
+      "chunkIds": [
+        "3aba83bd",
+        "085d6979",
+        "08c31fc6"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/hooks/useSourceCode.ts": {
+      "contentHash": "58cf1db45da3f800",
+      "mtimeMs": 1769331067712.1155,
+      "chunkIds": [
+        "d5135126",
+        "88b82a0f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/hooks/useIssues.ts": {
+      "contentHash": "db6a77f9ed20e138",
+      "mtimeMs": 1769297394150.6401,
+      "chunkIds": [
+        "df3ead5f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/hooks/useElementRects.ts": {
+      "contentHash": "83b06afbb24dd4e5",
+      "mtimeMs": 1769326046225.533,
+      "chunkIds": [
+        "f0e6e2fd"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/hooks/useCategoryRegistry.ts": {
+      "contentHash": "cb4448aaf466b545",
+      "mtimeMs": 1769888328912.2195,
+      "chunkIds": [
+        "f5a18069",
+        "0ef04f69",
+        "78f1b226",
+        "7d9834e2",
+        "2b2d2d34"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/hooks/index.ts": {
+      "contentHash": "3785ed496b025c82",
+      "mtimeMs": 1769894465666.2356,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/primitives.ts": {
+      "contentHash": "b3d7c0deff6004bf",
+      "mtimeMs": 1769490150576.3215,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/kbd.tsx": {
+      "contentHash": "e602fe759aaa562b",
+      "mtimeMs": 1769490150574.7844,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/input.tsx": {
+      "contentHash": "35720c462ba3f40e",
+      "mtimeMs": 1769490150574.573,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/icon-button.tsx": {
+      "contentHash": "780bcc20f42acce8",
+      "mtimeMs": 1769490150574.3677,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/glass-panel.tsx": {
+      "contentHash": "c690fc58bdbe306e",
+      "mtimeMs": 1769490150574.1394,
+      "chunkIds": [
+        "7c1d7d3d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/card.tsx": {
+      "contentHash": "10c990f6ee077bd3",
+      "mtimeMs": 1769490150573.8894,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/button.tsx": {
+      "contentHash": "3f96a23d51655584",
+      "mtimeMs": 1769490150573.6418,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/bottom-sheet.tsx": {
+      "contentHash": "909be580c65b974e",
+      "mtimeMs": 1769759254816.1042,
+      "chunkIds": [
+        "7b533f16",
+        "f37dce09"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/badge.tsx": {
+      "contentHash": "f5a0758f3a5b7978",
+      "mtimeMs": 1769490150573.3774,
+      "chunkIds": [
+        "cdad91a6",
+        "e4816846",
+        "2aaad6a1",
+        "2129a47e",
+        "dde64331"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/RegionSelector.tsx": {
+      "contentHash": "6920a81ada4bf298",
+      "mtimeMs": 1769894557395.754,
+      "chunkIds": [
+        "fbed7e84",
+        "165aa2e5",
+        "74d137b2",
+        "30a84c68",
+        "7b54145a",
+        "ac47426e"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/HeatmapOverlay.tsx": {
+      "contentHash": "9e82ee4c329a0c66",
+      "mtimeMs": 1769895430383.9482,
+      "chunkIds": [
+        "f7873b28",
+        "6f434fc3",
+        "f6f09aec"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/FloatingIcon.tsx": {
+      "contentHash": "51abd60d05fee1ef",
+      "mtimeMs": 1769891008928.1272,
+      "chunkIds": [
+        "267d28a5",
+        "de8d1451",
+        "56a98c3b",
+        "3e7d82cf",
+        "717defaf",
+        "a467f5e8",
+        "c7f2e86f",
+        "dc580226",
+        "2f4840ed",
+        "c8563283",
+        "d29b81d9",
+        "250ace12"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/vision/types.ts": {
+      "contentHash": "0d95ecea074c516e",
+      "mtimeMs": 1769297394146.8867,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/vision/slice.ts": {
+      "contentHash": "8aa637637b78e321",
+      "mtimeMs": 1769378113089.7974,
+      "chunkIds": [
+        "8f4db28a",
+        "ec84d93f",
+        "7e52de1f",
+        "685ef557",
+        "28d3bb1d",
+        "23cd0150",
+        "eba813ca"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/vision/index.ts": {
+      "contentHash": "613b71edb3d0cb3c",
+      "mtimeMs": 1769888328911.131,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/vision/commands.ts": {
+      "contentHash": "76d7ba2be1679c37",
+      "mtimeMs": 1769759064385.7002,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/semantic/types.ts": {
+      "contentHash": "023de590fbfbd120",
+      "mtimeMs": 1769297394145.191,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/semantic/slice.ts": {
+      "contentHash": "82b68ab6c08b1c22",
+      "mtimeMs": 1769327560333.1228,
+      "chunkIds": [
+        "40a675f6",
+        "3cc17eb6"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/semantic/index.ts": {
+      "contentHash": "e139d098da4543d4",
+      "mtimeMs": 1769895430379.992,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/semantic/commands.ts": {
+      "contentHash": "8eaaba89d7b5500e",
+      "mtimeMs": 1769297394144.121,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/fix-prompt/index.ts": {
+      "contentHash": "c33f146f913d24c1",
+      "mtimeMs": 1769381925764.8813,
+      "chunkIds": [
+        "a3721498"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/fix-prompt/FixPromptPanel.tsx": {
+      "contentHash": "7ccb224eaeae2a55",
+      "mtimeMs": 1769391142197.9858,
+      "chunkIds": [
+        "b2bed925",
+        "96d826bc",
+        "223ed218",
+        "a3782f6c"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/eslint/types.ts": {
+      "contentHash": "b3963f5a47430d84",
+      "mtimeMs": 1769495242954.2852,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/eslint/static-handler.ts": {
+      "contentHash": "432182428add2583",
+      "mtimeMs": 1769653912812.9644,
+      "chunkIds": [
+        "ced275ca",
+        "7e5d5929",
+        "4d24ef69",
+        "b0e85c42",
+        "bfb2a5ea",
+        "4cd101e5",
+        "07e22efd",
+        "7d1cf33a",
+        "3ff1d696",
+        "50a63337",
+        "1af5018f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/eslint/slice.ts": {
+      "contentHash": "439fe2779b842354",
+      "mtimeMs": 1769381925763.1443,
+      "chunkIds": [
+        "e5d61c72",
+        "d640b83e",
+        "4a2935a9",
+        "1b1309d5"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/eslint/scanner.ts": {
+      "contentHash": "16ed1ed033227a65",
+      "mtimeMs": 1769316816929.5503,
+      "chunkIds": [
+        "514c31f9",
+        "947df345"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/eslint/index.ts": {
+      "contentHash": "c361001ac79958a2",
+      "mtimeMs": 1769896607443.8494,
+      "chunkIds": [
+        "d1ce27f9",
+        "0fec737e",
+        "b9504a36",
+        "9fa265e4",
+        "7984d93b",
+        "1182982b"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/eslint/commands.ts": {
+      "contentHash": "d11cb68e32f6abc7",
+      "mtimeMs": 1769879513099.7786,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/store/subscriptions.ts": {
+      "contentHash": "9cc1a11681c4dd31",
+      "mtimeMs": 1769896632946.3208,
+      "chunkIds": [
+        "b45d0a3c",
+        "360d2c0b",
+        "1f870853",
+        "eefb0665",
+        "fa4501e9",
+        "4177b723",
+        "a8f51898",
+        "1421c530",
+        "2c6a5899",
+        "4cf13bf9",
+        "e1dc8eb4",
+        "d22ca8b7",
+        "4718a19d",
+        "db41e03f",
+        "565d6f0a",
+        "45aa1ef5"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/store/index.ts": {
+      "contentHash": "820f2d386dc0a004",
+      "mtimeMs": 1769895430379.3232,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/store/drag-slice.ts": {
+      "contentHash": "05ec44f1eb7e200d",
+      "mtimeMs": 1769890499916.9458,
+      "chunkIds": [
+        "49952c54",
+        "0823f98d",
+        "f4a44e67",
+        "fe772389",
+        "0db7d2a7",
+        "28acab98"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/store/core-slice.ts": {
+      "contentHash": "049475e11061b87a",
+      "mtimeMs": 1769895430378.6953,
+      "chunkIds": [
+        "13f76a9c",
+        "d59efb2c",
+        "1b5d5848",
+        "336a292a",
+        "f95e712d",
+        "b960e179",
+        "ae83a00f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/store/composed-store.ts": {
+      "contentHash": "4786a61212ad34f7",
+      "mtimeMs": 1769890596045.342,
+      "chunkIds": [
+        "14c1bd4c",
+        "b8867550",
+        "45407526",
+        "8ded4957",
+        "23bcb4c8",
+        "1e086391",
+        "2c328bf8",
+        "9993c536",
+        "61b94e53",
+        "39828dad",
+        "1ebe298b",
+        "7d8e1ef8",
+        "72bf9ef1",
+        "a09e8f1a",
+        "807b35ff",
+        "c63cb3d9"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/store/category-slice.ts": {
+      "contentHash": "583e0e30c64a4c41",
+      "mtimeMs": 1769896659192.2078,
+      "chunkIds": [
+        "b333018d",
+        "f3e3c30f",
+        "9953176b",
+        "4c7d7a84",
+        "7c1e6897",
+        "e14158bf",
+        "5ea7ecd1",
+        "9fc5a75c",
+        "95fd7e84",
+        "5aa543ee",
+        "7d79a446",
+        "342e2316",
+        "70d7c0cf",
+        "02c07cd6"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/plugin-system/types.ts": {
+      "contentHash": "4ee584bb691b5645",
+      "mtimeMs": 1769888328909.918,
+      "chunkIds": [
+        "114c8d64"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/plugin-system/registry.ts": {
+      "contentHash": "a6d3a52f9c1d2eef",
+      "mtimeMs": 1769879513097.9917,
+      "chunkIds": [
+        "3ba6e326",
+        "a17d0fb7",
+        "0484913b"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/plugin-system/loader.ts": {
+      "contentHash": "3e4c097543ce1a2f",
+      "mtimeMs": 1769320137665.0266,
+      "chunkIds": [
+        "4af16971",
+        "3f4eacdf",
+        "c92ef5e1"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/plugin-system/index.ts": {
+      "contentHash": "b2f98f03f231d11b",
+      "mtimeMs": 1769756958763.174,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/plugin-system/category-registry.ts": {
+      "contentHash": "8b783d45050856b7",
+      "mtimeMs": 1769759064384.4775,
+      "chunkIds": [
+        "65abefb2",
+        "e62d80aa"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/services/websocket.ts": {
+      "contentHash": "fd837ad23c1a5992",
+      "mtimeMs": 1769319375969.508,
+      "chunkIds": [
+        "8903ec6c"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/services/source-cache.ts": {
+      "contentHash": "938930865cc52047",
+      "mtimeMs": 1769331017388.3074,
+      "chunkIds": [
+        "22b31564",
+        "ea1cac29",
+        "d04b2474",
+        "c8064c89",
+        "a5b74922",
+        "53a060ad",
+        "536819d2"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/services/manifest-types.ts": {
+      "contentHash": "2f5662bd79a065ad",
+      "mtimeMs": 1769653912810.2742,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/services/manifest-fetcher.ts": {
+      "contentHash": "40994c3bb3b305e3",
+      "mtimeMs": 1769653912809.858,
+      "chunkIds": [
+        "c2a07124",
+        "59d636d0",
+        "524268e8",
+        "2121e652",
+        "d91d6adf",
+        "dda78bc9",
+        "2a239152",
+        "7fe59082"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/services/index.ts": {
+      "contentHash": "cc33fdb77ab8809a",
+      "mtimeMs": 1769297394138.8965,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/core/services/dom-observer.ts": {
+      "contentHash": "79fc4ecbb898408d",
+      "mtimeMs": 1769297394138.6716,
+      "chunkIds": [
+        "f5c459d7",
+        "30277cb0",
+        "93906019",
+        "3b96216f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/components/ui-lint/visibility-utils.ts": {
+      "contentHash": "19d76bed4fea640c",
+      "mtimeMs": 1768013989490.6208,
+      "chunkIds": [
+        "950c54e9",
+        "98b1215a",
+        "ed3a88d8",
+        "5477b150",
+        "36f1f1e4"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/components/ui-lint/types.ts": {
+      "contentHash": "f16a813a0cc712b9",
+      "mtimeMs": 1769495242953.4998,
+      "chunkIds": [
+        "cd9f68c4"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/components/ui-lint/source-fetcher.ts": {
+      "contentHash": "c0dd91dba811714b",
+      "mtimeMs": 1767835402083.379,
+      "chunkIds": [
+        "fc0a1884",
+        "b8df55db",
+        "9c5df694",
+        "407f1963",
+        "1ac0b1f3",
+        "068b7c53"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/components/ui-lint/index.ts": {
+      "contentHash": "95b3562414fb3d04",
+      "mtimeMs": 1769297394135.3682,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/components/ui-lint/heatmap-colors.ts": {
+      "contentHash": "cecca7c8546605db",
+      "mtimeMs": 1769320551351.8271,
+      "chunkIds": [
+        "bed1060a",
+        "c5069e78",
+        "48e52f4e"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/components/ui-lint/dom-utils.ts": {
+      "contentHash": "89009ef5e1b2fd70",
+      "mtimeMs": 1768608144317.4795,
+      "chunkIds": [
+        "37d0b61a",
+        "d8cd5164",
+        "311deb3b",
+        "a5133ff9",
+        "428700e1",
+        "609240b0",
+        "981a91ea",
+        "b62f8ec6",
+        "9df05ab7",
+        "4c2bb06f",
+        "213c5a18"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/components/ui-lint/code-formatting.ts": {
+      "contentHash": "45887c0ee14c5e68",
+      "mtimeMs": 1767917972879.9426,
+      "chunkIds": [
+        "0b653a84",
+        "7f09fe0a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/@/components/ui/toolbar-expandable.tsx": {
+      "contentHash": "ffb429224b59f12c",
+      "mtimeMs": 1768500352462.5063,
+      "chunkIds": [
+        "1e4cb486",
+        "3516bb19",
+        "e7983783",
+        "d71f8db8",
+        "54cbf88a",
+        "fe0741c4",
+        "69a54863"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/@/components/ui/scroll-area.tsx": {
+      "contentHash": "9c349dfbffdd2345",
+      "mtimeMs": 1768500352461.9585,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/@/components/ui/popover.tsx": {
+      "contentHash": "4ca1039d1874cc23",
+      "mtimeMs": 1768276265768.9841,
+      "chunkIds": [
+        "bb752fa5",
+        "048c1914",
+        "9d3e10a4",
+        "ba6c340b",
+        "c8cbc224",
+        "071bab20",
+        "e8b263fd",
+        "08583fea",
+        "6089433c",
+        "c828fd6f",
+        "3efd65a0",
+        "569b1deb",
+        "16c03bef",
+        "f0afe054",
+        "40c350c4",
+        "71a54243",
+        "4aebef11",
+        "d6e5cdd4",
+        "7e94999c"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/@/components/ui/kbd.tsx": {
+      "contentHash": "03e0e1718f509f23",
+      "mtimeMs": 1768193967524.8567,
+      "chunkIds": [
+        "144d789e",
+        "b6adc92b"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/@/components/ui/expandable.tsx": {
+      "contentHash": "d310c18b6dd72205",
+      "mtimeMs": 1769898062345.854,
+      "chunkIds": [
+        "a7e584eb",
+        "3ff0c18a",
+        "0b025c0b",
+        "b12196f1"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/@/components/ui/button.tsx": {
+      "contentHash": "5083d27a68255d5f",
+      "mtimeMs": 1768274251570.9136,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/@/components/ui/badge.tsx": {
+      "contentHash": "8018f3c794ba7521",
+      "mtimeMs": 1769898062351.4775,
+      "chunkIds": [
+        "0e2c7af5",
+        "ed40a099"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/semantic/index.ts": {
+      "contentHash": "0a5b699137b9fcc8",
+      "mtimeMs": 1769759064383.487,
+      "chunkIds": [
+        "35120463",
+        "95379a74",
+        "3d9a7bd8"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/require-test-coverage/index.ts": {
+      "contentHash": "5eb152eb90cbb85c",
+      "mtimeMs": 1769759930143.8188,
+      "chunkIds": [
+        "bef989c8",
+        "5ca28963",
+        "1b2f5da9",
+        "d33b42ea",
+        "94eb832b",
+        "71c17de2",
+        "377bac7e",
+        "e54b5f55",
+        "80b1fbd9",
+        "cdd87924",
+        "033cdc2d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/no-mixed-component-libraries/index.ts": {
+      "contentHash": "c4842f8f08ea4a10",
+      "mtimeMs": 1769226827096.5078,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/exact-duplicates/Button.tsx": {
+      "contentHash": "3a5584de7e8479f5",
+      "mtimeMs": 1768700363206.341,
+      "chunkIds": [
+        "3a264f96"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/exact-duplicates/Button.copy.tsx": {
+      "contentHash": "3a5584de7e8479f5",
+      "mtimeMs": 1768700363229.9426,
+      "chunkIds": [
+        "a394e3dd"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/no-duplicates/Sidebar.tsx": {
+      "contentHash": "d6402c6f013ea7ee",
+      "mtimeMs": 1768700363300.4084,
+      "chunkIds": [
+        "178d0580",
+        "a4f0992f",
+        "283864ba"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/no-duplicates/Header.tsx": {
+      "contentHash": "ecc3839b2472690b",
+      "mtimeMs": 1768700363252.8225,
+      "chunkIds": [
+        "558bfa33"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/no-duplicates/Footer.tsx": {
+      "contentHash": "6380714a71f485b2",
+      "mtimeMs": 1768700363276.6492,
+      "chunkIds": [
+        "8b17f0c2"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/nextjs-app-use-client/next.config.ts": {
+      "contentHash": "4b061ca3b490efc3",
+      "mtimeMs": 1769230722617.778,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/has-eslint-vite/vite.config.ts": {
+      "contentHash": "eeeb57dc2a9c1c07",
+      "mtimeMs": 1769230722620.935,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/has-eslint-flat-ts-with-tsconfig/eslint.config.ts": {
+      "contentHash": "fc0137674c0502c8",
+      "mtimeMs": 1769230722620.3872,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/has-eslint-flat-ts/eslint.config.ts": {
+      "contentHash": "fc0137674c0502c8",
+      "mtimeMs": 1769230722617.9995,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/fresh-vite-react-app/vite.config.ts": {
+      "contentHash": "eeeb57dc2a9c1c07",
+      "mtimeMs": 1769230722616.8645,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/fresh-nextjs-app/next.config.ts": {
+      "contentHash": "baa56afb51d3dfc7",
+      "mtimeMs": 1769230722619.3506,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/init/helpers/render-utils.ts": {
+      "contentHash": "4327b00973f19886",
+      "mtimeMs": 1769230722604.6128,
+      "chunkIds": [
+        "97b30655",
+        "a9db4fe7",
+        "204a638b",
+        "b7a1498d",
+        "ed7b619d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/init/helpers/mock-state.ts": {
+      "contentHash": "4ebd9c2c59b000f5",
+      "mtimeMs": 1769230722604.9685,
+      "chunkIds": [
+        "f2091d15",
+        "151bde1e",
+        "e69adf21",
+        "ff828f1a",
+        "e4d16a7f",
+        "e0e5be17",
+        "f0bbc70d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/init/helpers/index.ts": {
+      "contentHash": "369ea06a266a5f8b",
+      "mtimeMs": 1769230722604.3223,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/init/helpers/generator-utils.ts": {
+      "contentHash": "8e0c11512e46f5de",
+      "mtimeMs": 1769230722604.109,
+      "chunkIds": [
+        "1c1e3b83"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/socket/types.ts": {
+      "contentHash": "d66b0b5942df4863",
+      "mtimeMs": 1769491370008.321,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/socket/test-harness.ts": {
+      "contentHash": "7fe10ba134b0a1f3",
+      "mtimeMs": 1769491370007.799,
+      "chunkIds": [
+        "1f697dab"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/socket/index.ts": {
+      "contentHash": "59e10f7e5e60494a",
+      "mtimeMs": 1769491370007.363,
+      "chunkIds": [
+        "4fb2269d",
+        "7c1b067f",
+        "554db19f",
+        "0cfebabc",
+        "82fdd8b5",
+        "d03eff58",
+        "aad121a6"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/socket/client.ts": {
+      "contentHash": "e77c2b8ff0dfb4e8",
+      "mtimeMs": 1769491370006.992,
+      "chunkIds": [
+        "f6a8c4d3"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/update/types.ts": {
+      "contentHash": "6824ba02c04abdcd",
+      "mtimeMs": 1769227934622.4233,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/update/plan.ts": {
+      "contentHash": "4d2e68eec6974b6e",
+      "mtimeMs": 1769227983713.3855,
+      "chunkIds": [
+        "788941ce",
+        "e95b0335",
+        "07969aca",
+        "ba9a2818"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/update/index.ts": {
+      "contentHash": "cef8b208b6b1d8fd",
+      "mtimeMs": 1769227306033.4521,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/update/execute.ts": {
+      "contentHash": "4853abd65f7b9d54",
+      "mtimeMs": 1769228068042.1184,
+      "chunkIds": [
+        "d3e50fca",
+        "19c70507",
+        "6c813d53",
+        "d3f1166b",
+        "51a243db",
+        "b65aeb52",
+        "127b6735"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/update/analyze.ts": {
+      "contentHash": "5cd7a461f35206f8",
+      "mtimeMs": 1769227967889.6023,
+      "chunkIds": [
+        "f147943f",
+        "5c63ce3b",
+        "a31570fd",
+        "a18ea4f3",
+        "e40d5a8c"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/manifest/types.ts": {
+      "contentHash": "8ab3ad5fafdace29",
+      "mtimeMs": 1769653912822.3684,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/manifest/index.ts": {
+      "contentHash": "acb2abfc511ada5d",
+      "mtimeMs": 1769653912822.0015,
+      "chunkIds": [
+        "a48c280d",
+        "f320db74"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/manifest/generator.ts": {
+      "contentHash": "130c388f35ad83b7",
+      "mtimeMs": 1769653912817.0728,
+      "chunkIds": [
+        "d5612395",
+        "bb04dddd",
+        "59e9e1d8",
+        "b4859d96"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/duplicates/similar.ts": {
+      "contentHash": "eee509f0e8805463",
+      "mtimeMs": 1768701929187.5647,
+      "chunkIds": [
+        "4f200b5d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/duplicates/search.ts": {
+      "contentHash": "df1d15c1c5d874de",
+      "mtimeMs": 1768701913676.9326,
+      "chunkIds": [
+        "73893457"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/duplicates/index.ts": {
+      "contentHash": "bc286e70eea807bb",
+      "mtimeMs": 1768701868178.6426,
+      "chunkIds": [
+        "d013806f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/duplicates/index-cmd.ts": {
+      "contentHash": "a7f7afd789d5e84f",
+      "mtimeMs": 1768701885842.1895,
+      "chunkIds": [
+        "ea4b232c"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/duplicates/find.ts": {
+      "contentHash": "f724bea999e6e570",
+      "mtimeMs": 1768701901277.7517,
+      "chunkIds": [
+        "6350c8f0"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/versioning.ts": {
+      "contentHash": "e74aeee0f51d6528",
+      "mtimeMs": 1768682908235.3687,
+      "chunkIds": [
+        "6e93c6f6",
+        "31e58dc7",
+        "3f96f54b",
+        "eae0af79",
+        "776d5cd0",
+        "5e37f83b"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/types.ts": {
+      "contentHash": "fb5f98b2f6e55416",
+      "mtimeMs": 1769879738976.338,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/test-helpers.ts": {
+      "contentHash": "08bc5dcfbbbfc653",
+      "mtimeMs": 1769653912816.652,
+      "chunkIds": [
+        "21a324d0",
+        "078ebd21",
+        "019bcd12"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/plan.ts": {
+      "contentHash": "7bc5bdf745ec8c9f",
+      "mtimeMs": 1769879779169.949,
+      "chunkIds": [
+        "e0e709ab",
+        "757d7c3b",
+        "0029896a",
+        "76cec2c6",
+        "a0cc7bd6"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/index.ts": {
+      "contentHash": "a59ae90094c1d300",
+      "mtimeMs": 1769320481085.6453,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/execute.ts": {
+      "contentHash": "b0eb60d020b385f4",
+      "mtimeMs": 1769879799954.4958,
+      "chunkIds": [
+        "a0cebeba",
+        "830278b5",
+        "c2bde919",
+        "70ab4642",
+        "d97de247",
+        "168bf6f7",
+        "d3806e58",
+        "f62569c1",
+        "ea5a2a0c",
+        "4425d0c2",
+        "4910e400",
+        "684cbe40",
+        "1c009569",
+        "84ff0ae2",
+        "2edc9fbf",
+        "b6dedf43",
+        "478b6333",
+        "e230101a",
+        "d163aaba",
+        "0845f4a9",
+        "06deac98",
+        "08c788bf",
+        "a1688694",
+        "a88889cd"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/dry-run-preview.ts": {
+      "contentHash": "7b050cb84f72c1b0",
+      "mtimeMs": 1768768668654.549,
+      "chunkIds": [
+        "4cec89ae",
+        "2445deee",
+        "f3f6bf6f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/constants.ts": {
+      "contentHash": "ce2f6653d37cdb3e",
+      "mtimeMs": 1768365414006.2249,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/cli-prompter.ts": {
+      "contentHash": "15d22a783fec8e15",
+      "mtimeMs": 1769060260125.099,
+      "chunkIds": [
+        "95a5adaa",
+        "fb53a7d2",
+        "8a791aa4",
+        "b36a0b43"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/analyze.ts": {
+      "contentHash": "8ed100b500c213e8",
+      "mtimeMs": 1769759142093.246,
+      "chunkIds": [
+        "a86fb350",
+        "dce6ea57",
+        "11e586e1",
+        "dedfdc78"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/skills/ui-consistency-enforcer/references/TEST-TEMPLATE.ts": {
+      "contentHash": "384764aff1d4f7e5",
+      "mtimeMs": 1768350395157.3967,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/skills/ui-consistency-enforcer/references/RULE-TEMPLATE.ts": {
+      "contentHash": "33bd4429dc9a4237",
+      "mtimeMs": 1768350395157.1982,
+      "chunkIds": [
+        "d6f291be",
+        "a8d18166",
+        "def09a56"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/todos/[id]/page.tsx": {
+      "contentHash": "f4db7126e6e410fd",
+      "mtimeMs": 1769158045540.2656,
+      "chunkIds": [
+        "7cea788a",
+        "6ecb46d7",
+        "a21a6855",
+        "10697ccb",
+        "d12a1aa9",
+        "da2628bc",
+        "5851fd0f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/ui/input.tsx": {
+      "contentHash": "3d6f8461dd145a04",
+      "mtimeMs": 1767757600092.6887,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/ui/checkbox.tsx": {
+      "contentHash": "09d7eae64d6b9b62",
+      "mtimeMs": 1767757599048.131,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/ui/card.tsx": {
+      "contentHash": "7ed2d1523e0340ed",
+      "mtimeMs": 1767757598102.767,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app-template/app/components/ui/button.tsx": {
+      "contentHash": "272169f7404747ce",
+      "mtimeMs": 1767757597124.6138,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/todos/[id]/page.tsx": {
+      "contentHash": "f4db7126e6e410fd",
+      "mtimeMs": 1769896687392.4705,
+      "chunkIds": [
+        "cc280397",
+        "87a39a2a",
+        "8344ee88",
+        "bc9620f6",
+        "7e37d374",
+        "5d168041",
+        "3f73f272"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/ui/input.tsx": {
+      "contentHash": "3d6f8461dd145a04",
+      "mtimeMs": 1769896687376.6677,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/ui/checkbox.tsx": {
+      "contentHash": "09d7eae64d6b9b62",
+      "mtimeMs": 1769896687376.254,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/ui/card.tsx": {
+      "contentHash": "7ed2d1523e0340ed",
+      "mtimeMs": 1769896687375.232,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/apps/test-app/app/components/ui/button.tsx": {
+      "contentHash": "272169f7404747ce",
+      "mtimeMs": 1769896687375.77,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/Inspector/index.ts": {
+      "contentHash": "3eac0af2344d9811",
+      "mtimeMs": 1769331126347.736,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/Inspector/SourceViewer.tsx": {
+      "contentHash": "e24ed8f6ec8cbdc9",
+      "mtimeMs": 1769331110953.1758,
+      "chunkIds": [
+        "70bf205e",
+        "e1720082",
+        "28c28a22"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/Inspector/ResizeHandle.tsx": {
+      "contentHash": "1d25244028f70fb3",
+      "mtimeMs": 1769325340853.6494,
+      "chunkIds": [
+        "ccd6f372",
+        "f40efb11",
+        "06cc5d62"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/Inspector/IssueDetail.tsx": {
+      "contentHash": "30672d6686f92296",
+      "mtimeMs": 1769490150573.0715,
+      "chunkIds": [
+        "cd5868c8",
+        "0540679e"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/Inspector/InspectorSidebar.tsx": {
+      "contentHash": "3bdc1b35c2303edc",
+      "mtimeMs": 1769894152743.4941,
+      "chunkIds": [
+        "f8e50361",
+        "1b420845",
+        "14ea6dcc",
+        "a6447ae6",
+        "57be80a8"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/Inspector/ElementDetail.tsx": {
+      "contentHash": "5935c6ee66ffd79b",
+      "mtimeMs": 1769490150571.5857,
+      "chunkIds": [
+        "4087364d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/CommandPalette/useScrollSelectedIntoView.ts": {
+      "contentHash": "6aa0edc64f009528",
+      "mtimeMs": 1769894533868.626,
+      "chunkIds": [
+        "fbdb36ea",
+        "66ff7069"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/CommandPalette/index.ts": {
+      "contentHash": "c997300195af71b7",
+      "mtimeMs": 1769297394148.3293,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/CommandPalette/SearchInput.tsx": {
+      "contentHash": "6aa672ec201e1404",
+      "mtimeMs": 1769894359254.1064,
+      "chunkIds": [
+        "871319c6",
+        "30bd4986",
+        "ea358386",
+        "59d728d2"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/CommandPalette/RuleItem.tsx": {
+      "contentHash": "9dd072488610b9d5",
+      "mtimeMs": 1769894344283.264,
+      "chunkIds": [
+        "7e321759",
+        "a0a605c6",
+        "dd042888",
+        "95fe81c7",
+        "0a6e82a7",
+        "a80dd448"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/CommandPalette/ResultItem.tsx": {
+      "contentHash": "94d357f8dd5fcd61",
+      "mtimeMs": 1769894370590.0996,
+      "chunkIds": [
+        "93c58731"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/CommandPalette/MobileCategoryTabs.tsx": {
+      "contentHash": "033bdb79a2eed51b",
+      "mtimeMs": 1769879513103.131,
+      "chunkIds": [
+        "8e8b6f4f",
+        "2fdea629",
+        "c81fa6e1",
+        "f9c21160"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/CommandPalette/IssuesSummaryCard.tsx": {
+      "contentHash": "14fa4b1e93678adc",
+      "mtimeMs": 1769894392356.8474,
+      "chunkIds": [
+        "a0b362b8",
+        "b1de96e7",
+        "d45298ce",
+        "c49d8cc0"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/CommandPalette/FileHeader.tsx": {
+      "contentHash": "2515479087f6e766",
+      "mtimeMs": 1769328792203.0564,
+      "chunkIds": [
+        "f182590c"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/CommandPalette/CommandPalette.tsx": {
+      "contentHash": "b43bb3b964d46537",
+      "mtimeMs": 1769890720607.366,
+      "chunkIds": [
+        "3296d204",
+        "f0894808",
+        "fea0b001",
+        "83600b9f",
+        "aad85917",
+        "bb6e7d69",
+        "ebf659dd",
+        "af691859",
+        "372787fe",
+        "e6550e99",
+        "9a98affe",
+        "45d88450"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/CommandPalette/CategorySidebar.tsx": {
+      "contentHash": "a06d563bd1c8b7be",
+      "mtimeMs": 1769879513101.8794,
+      "chunkIds": [
+        "e22ec9b0",
+        "3c044d97",
+        "385a7af1",
+        "0a2fcb4e",
+        "ad903d39",
+        "8d86a4c5",
+        "08926f99",
+        "b839ed73",
+        "c46c7476",
+        "39186085",
+        "077efa7b"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/ui/components/CommandPalette/AnimatedListItem.tsx": {
+      "contentHash": "7824057182df5b8c",
+      "mtimeMs": 1769894408796.3982,
+      "chunkIds": [
+        "dbf5f3b1",
+        "2b31c6ef",
+        "7307fc60"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/semantic/panels/useDiffHighlights.ts": {
+      "contentHash": "6359a51ce9a0dc8b",
+      "mtimeMs": 1769895430382.8806,
+      "chunkIds": [
+        "1ea6d3db",
+        "188af508",
+        "19fa5af6",
+        "4f6dd4d0"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/semantic/panels/index.ts": {
+      "contentHash": "da2c73bac6050b9f",
+      "mtimeMs": 1769895430382.3435,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/semantic/panels/ScrollableCodeSection.tsx": {
+      "contentHash": "e651b4fffd223163",
+      "mtimeMs": 1769895430381.8442,
+      "chunkIds": [
+        "63f63932",
+        "949a5016",
+        "8b082dfe",
+        "307c3fad"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/semantic/panels/DuplicatesInspectorPanel.tsx": {
+      "contentHash": "5e20403cb0c74827",
+      "mtimeMs": 1769895430381.4712,
+      "chunkIds": [
+        "06764cd2",
+        "9e29a268",
+        "ff258329",
+        "ae36fb9b",
+        "29e34621",
+        "5f4c6d2a",
+        "e8243e8f",
+        "ed27e42f",
+        "092b3689",
+        "d2265983",
+        "a6f78b63",
+        "d0dc7b67"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/semantic/panels/DuplicateSimilarityBadge.tsx": {
+      "contentHash": "3aaaba9598d8ad86",
+      "mtimeMs": 1769895430380.819,
+      "chunkIds": [
+        "5f5315ef",
+        "6e2b782b",
+        "710ae58b"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/eslint/panels/index.ts": {
+      "contentHash": "68f60a5b615a230d",
+      "mtimeMs": 1769323192142.6052,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-react/src/plugins/eslint/panels/RulePanel.tsx": {
+      "contentHash": "80c56b2e6c6a9f2c",
+      "mtimeMs": 1769579040574.2034,
+      "chunkIds": [
+        "f249804a",
+        "71017dcc",
+        "2de361fc",
+        "661c4962",
+        "04b0e0af",
+        "b6df7e70",
+        "4221cf55"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/semantic/lib/styleguide-loader.ts": {
+      "contentHash": "8731a6ce59b1ec5b",
+      "mtimeMs": 1768885365486.709,
+      "chunkIds": [
+        "c2493ed9",
+        "fe44b52a",
+        "96c1db64",
+        "67e4d8d1",
+        "df633604"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/semantic/lib/cache.ts": {
+      "contentHash": "c8450f120551b763",
+      "mtimeMs": 1768885349573.0881,
+      "chunkIds": [
+        "e30fe1f2",
+        "253773f2",
+        "590e0896",
+        "9a788794",
+        "ed334c6b",
+        "98b72908",
+        "e0f8c9e4",
+        "27c4b148",
+        "0d644fea",
+        "36b7489d",
+        "7f193a6e"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/require-test-coverage/lib/jsx-coverage-analyzer.ts": {
+      "contentHash": "4ffad8b63ddfbfad",
+      "mtimeMs": 1768885733531.4087,
+      "chunkIds": [
+        "4716ab0b",
+        "5c734a05",
+        "636cc24d",
+        "73641692",
+        "d20ab80a",
+        "5c9f0f2f",
+        "443104b5",
+        "d4f58c3a",
+        "6fe653a8",
+        "48e2f781",
+        "9f55a2fd",
+        "d53194a6",
+        "584612fc",
+        "ce952ddf",
+        "670e4029",
+        "217da245",
+        "2b926dd8",
+        "2d6062f3"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/require-test-coverage/lib/file-categorizer.ts": {
+      "contentHash": "7fa7768efafee577",
+      "mtimeMs": 1768885560861.9907,
+      "chunkIds": [
+        "d5dcf4f4",
+        "ee281f2c",
+        "85e13dc5",
+        "ba110f50",
+        "725562ae",
+        "ecdf49ee"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/require-test-coverage/lib/export-resolver.ts": {
+      "contentHash": "962c2a8a98ec36bd",
+      "mtimeMs": 1768885560046.44,
+      "chunkIds": [
+        "7e2d56a0",
+        "79d97d06",
+        "5ae3436b",
+        "c1b8dcba",
+        "3d41b2c4",
+        "1639be23",
+        "85d258f0",
+        "4d5c5746"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/require-test-coverage/lib/dependency-graph.ts": {
+      "contentHash": "4c8850be0f76981b",
+      "mtimeMs": 1768885615239.9194,
+      "chunkIds": [
+        "5789155b",
+        "2269353a",
+        "d3a09d7a",
+        "df78dd4b",
+        "8b1c601b",
+        "3c488da5",
+        "fb6c3b48",
+        "0b02d3f9"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/require-test-coverage/lib/coverage-aggregator.ts": {
+      "contentHash": "693e8e7fe23ebfa0",
+      "mtimeMs": 1768885616078.4321,
+      "chunkIds": [
+        "eb29a1dd",
+        "b5dbd604",
+        "d0b05452",
+        "25577899"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/require-test-coverage/lib/chunk-analyzer.ts": {
+      "contentHash": "002e446ac5e9146e",
+      "mtimeMs": 1769131730804.1423,
+      "chunkIds": [
+        "68574672",
+        "b6e1119f",
+        "0122274e",
+        "4c3034ee",
+        "17da40f7",
+        "c4cff453",
+        "c644e782",
+        "b7665994",
+        "40a3c218"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/no-mixed-component-libraries/lib/import-graph.ts": {
+      "contentHash": "4d73c59be27c5862",
+      "mtimeMs": 1768885184304.7395,
+      "chunkIds": [
+        "728d6ab1",
+        "35e3464a",
+        "30ef330e",
+        "0c428296",
+        "c696a5c8"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/no-mixed-component-libraries/lib/export-resolver.ts": {
+      "contentHash": "962c2a8a98ec36bd",
+      "mtimeMs": 1768885256225.9778,
+      "chunkIds": [
+        "9d251d12",
+        "fe3cf9f4",
+        "e877a659",
+        "d77b8a08",
+        "5ec57276",
+        "5ef7cbd1",
+        "e3e80e02",
+        "49627774"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/no-mixed-component-libraries/lib/component-parser.ts": {
+      "contentHash": "331b2988d840db30",
+      "mtimeMs": 1768885221400.14,
+      "chunkIds": [
+        "beb2f38b",
+        "364fe92c",
+        "589b2901",
+        "42bc10be",
+        "e2c857b6",
+        "36e9f1f3",
+        "9488c251",
+        "c30840a2"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/validation/validatePhone.ts": {
+      "contentHash": "21de3f84f33ae9e5",
+      "mtimeMs": 1768700377468.3687,
+      "chunkIds": [
+        "663456a2",
+        "25bd3c25"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/validation/validateEmail.ts": {
+      "contentHash": "a4436b275e2dd65e",
+      "mtimeMs": 1768700377397.7178,
+      "chunkIds": [
+        "f23181d1"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/validation/isValidEmail.ts": {
+      "contentHash": "50b39841b138bb8d",
+      "mtimeMs": 1768700377446.2744,
+      "chunkIds": [
+        "5ddf8dbd"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/validation/checkEmailFormat.ts": {
+      "contentHash": "4e2b1f976996edd1",
+      "mtimeMs": 1768700377420.3755,
+      "chunkIds": [
+        "da36ab47"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/hooks/useUserData.tsx": {
+      "contentHash": "2e4baa1422999490",
+      "mtimeMs": 1768700377297.1096,
+      "chunkIds": [
+        "d2a89496",
+        "4e026a71"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/hooks/useLocalStorage.tsx": {
+      "contentHash": "b74994cc9eda6350",
+      "mtimeMs": 1768700377375.768,
+      "chunkIds": [
+        "c6249e45"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/hooks/useFetchProfile.tsx": {
+      "contentHash": "8d76ce87cb62df98",
+      "mtimeMs": 1768700377342.526,
+      "chunkIds": [
+        "68ae218b"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/large-components/SmallCard.tsx": {
+      "contentHash": "7fc366cb3909373d",
+      "mtimeMs": 1768704019941.508,
+      "chunkIds": [
+        "acd4f3b8"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/large-components/ProductDetailPage.tsx": {
+      "contentHash": "05c7a641e06c977d",
+      "mtimeMs": 1768704014007.0886,
+      "chunkIds": [
+        "8c5f9c4e",
+        "973eddd1",
+        "196f846a",
+        "65624043",
+        "096ce5d7",
+        "48e2f01f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/large-components/DashboardPage.tsx": {
+      "contentHash": "575609c71a696115",
+      "mtimeMs": 1768703971322.7556,
+      "chunkIds": [
+        "7b7d4928",
+        "e2e2d026",
+        "97062c68",
+        "88169893",
+        "0dda6b75",
+        "3d119e40",
+        "074963cf"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/forms/SignInForm.tsx": {
+      "contentHash": "a1e0ad099ceae66d",
+      "mtimeMs": 1768700377517.943,
+      "chunkIds": [
+        "6752971d",
+        "f34cb249",
+        "c6e5d919"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/forms/RegistrationForm.tsx": {
+      "contentHash": "9368c6561038838d",
+      "mtimeMs": 1768700377538.615,
+      "chunkIds": [
+        "023373bc",
+        "d970f1ba",
+        "423cea24",
+        "ed2280ab",
+        "27c14498",
+        "41aa05dd",
+        "bd909ee6",
+        "223b5a0f",
+        "629c76eb",
+        "973d6c5d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/forms/LoginForm.tsx": {
+      "contentHash": "e3cd9728816cde5f",
+      "mtimeMs": 1768700377493.598,
+      "chunkIds": [
+        "dccf1ffe",
+        "4ead7d05",
+        "62c2dcb5"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/components/UserCard.tsx": {
+      "contentHash": "31367d59d2a9084a",
+      "mtimeMs": 1768700377200.1313,
+      "chunkIds": [
+        "e8bb894b"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/components/UnrelatedWidget.tsx": {
+      "contentHash": "076851ec2e5571b1",
+      "mtimeMs": 1768700377272.4639,
+      "chunkIds": [
+        "8559a9e9"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/components/ProfileCard.tsx": {
+      "contentHash": "d12836913629b8c4",
+      "mtimeMs": 1768700377226.6052,
+      "chunkIds": [
+        "73835cf9"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-duplicates/test/fixtures/semantic-duplicates/components/MemberCard.tsx": {
+      "contentHash": "e6413357d40fae8e",
+      "mtimeMs": 1768700377249.3645,
+      "chunkIds": [
+        "ab83d4d6"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/not-nextjs/src/index.ts": {
+      "contentHash": "5aba3f12ad75adb5",
+      "mtimeMs": 1769230722620.636,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/nextjs-app-use-client/app/layout.tsx": {
+      "contentHash": "606e3f63b0a0321a",
+      "mtimeMs": 1769230722617.5579,
+      "chunkIds": [
+        "fd01da33"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/nextjs-with-uilint-overlay/app/layout.tsx": {
+      "contentHash": "8fc10af289ea5d6f",
+      "mtimeMs": 1769230722622.5227,
+      "chunkIds": [
+        "7eff8824"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/has-eslint-vite/src/main.tsx": {
+      "contentHash": "a32a22c2996939f2",
+      "mtimeMs": 1769230722621.608,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/has-eslint-vite/src/App.tsx": {
+      "contentHash": "c1e165fa29029663",
+      "mtimeMs": 1769230722621.2244,
+      "chunkIds": [
+        "7e5a5ec4"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/has-eslint-flat-js/src/App.jsx": {
+      "contentHash": "597cce1bac3dc897",
+      "mtimeMs": 1768356050588.6707,
+      "chunkIds": [
+        "c2511e0d"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/fresh-vite-react-app/src/main.tsx": {
+      "contentHash": "a32a22c2996939f2",
+      "mtimeMs": 1769230722617.3047,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/fresh-vite-react-app/src/App.tsx": {
+      "contentHash": "c556b9832465551d",
+      "mtimeMs": 1769230722617.079,
+      "chunkIds": [
+        "c5e49cb2"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/coverage-detection/vitest-with-coverage/vitest.config.ts": {
+      "contentHash": "87e72f6fd0c08532",
+      "mtimeMs": 1769230722622.0713,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/coverage-detection/vitest-no-coverage/vitest.config.ts": {
+      "contentHash": "bc6bb105fdabfe2b",
+      "mtimeMs": 1769230722622.2983,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/coverage-detection/coverage-v8/vitest.config.ts": {
+      "contentHash": "995ceed4c06678e5",
+      "mtimeMs": 1769230722621.8516,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/fresh-nextjs-app/app/page.tsx": {
+      "contentHash": "9607d3892a6db5cd",
+      "mtimeMs": 1769230722619.1145,
+      "chunkIds": [
+        "bd9554dd"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/fresh-nextjs-app/app/layout.tsx": {
+      "contentHash": "8fc10af289ea5d6f",
+      "mtimeMs": 1769230722618.2214,
+      "chunkIds": [
+        "76828c99"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/remove/components/RemoveApp.tsx": {
+      "contentHash": "7e9f7766996fef30",
+      "mtimeMs": 1769297165619.8887,
+      "chunkIds": [
+        "883d61e1",
+        "97f7ec01",
+        "37cc1323",
+        "4459b7d5",
+        "ec55bfcb",
+        "13d7cb2e",
+        "b80c7029",
+        "e18cc6d6",
+        "32597dab",
+        "91a52a5b"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/installers/vite-overlay.ts": {
+      "contentHash": "44e07b42ff73353f",
+      "mtimeMs": 1769296666991.3352,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/installers/types.ts": {
+      "contentHash": "49e25f5a32897299",
+      "mtimeMs": 1769296591031.2734,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/installers/skill.ts": {
+      "contentHash": "d82176cb94e9d9c6",
+      "mtimeMs": 1769296667431.5625,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/installers/registry.ts": {
+      "contentHash": "3a1728b5e6bdc057",
+      "mtimeMs": 1768633907306.8538,
+      "chunkIds": [
+        "49b9f4e7",
+        "76e3f9b7",
+        "388765aa",
+        "0b9934ef"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/installers/next-overlay.ts": {
+      "contentHash": "8921593d0ec2515a",
+      "mtimeMs": 1769296666520.4114,
+      "chunkIds": [
+        "c6d36c0e"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/installers/index.ts": {
+      "contentHash": "3a32676ccff84856",
+      "mtimeMs": 1769381925766.4307,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/installers/genstyleguide.ts": {
+      "contentHash": "8a67a0e99526abb0",
+      "mtimeMs": 1769296667815.2004,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/installers/eslint.ts": {
+      "contentHash": "43718702d7853088",
+      "mtimeMs": 1769759064387.6592,
+      "chunkIds": [
+        "1d86a4bb",
+        "e30bf78d",
+        "ddf3aaca",
+        "f07e3d4b",
+        "d65f757f",
+        "513d2d03"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/installers/ai-hooks.ts": {
+      "contentHash": "11e02d58581ced85",
+      "mtimeMs": 1769381925765.1575,
+      "chunkIds": [
+        "62b050c9",
+        "c76206d3",
+        "e61d1ce6",
+        "e7c368f4",
+        "00655bde"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/hooks/useProjectScan.ts": {
+      "contentHash": "d8888a671f793ffe",
+      "mtimeMs": 1768633907562.0464,
+      "chunkIds": [
+        "252fd2f3",
+        "d1e30a35"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/hooks/index.ts": {
+      "contentHash": "bb8254c4cb2c6c4e",
+      "mtimeMs": 1768633907521.0042,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/components/index.ts": {
+      "contentHash": "3eeb7edd1b17facf",
+      "mtimeMs": 1769320719238.206,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/components/TaskComponents.tsx": {
+      "contentHash": "09cf0edcc83a30dc",
+      "mtimeMs": 1768633907504.0557,
+      "chunkIds": [
+        "bd00cae2",
+        "55f3389f",
+        "94f7ae2e"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/components/Spinner.tsx": {
+      "contentHash": "9abea2d8d7c388b5",
+      "mtimeMs": 1768372784940.6584,
+      "chunkIds": [
+        "1336eea5"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/components/RuleSelector.tsx": {
+      "contentHash": "91127e3592d10543",
+      "mtimeMs": 1769063172523.1182,
+      "chunkIds": [
+        "1ea3a7ac",
+        "8b8c8d02",
+        "455c43c6",
+        "ae3ebb25",
+        "e48f5ec0",
+        "f5352c1c",
+        "27b54234",
+        "dcfcf82a",
+        "89ed34c0",
+        "32898c51",
+        "07ccaaea",
+        "1b02c718",
+        "09fd187c",
+        "fae04d52",
+        "68330c58",
+        "8ae9ab95",
+        "4493811c",
+        "406f5731",
+        "6b150d52",
+        "16d9ee73"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/components/ProjectSummary.tsx": {
+      "contentHash": "d5176e27014c75fc",
+      "mtimeMs": 1768633907493.3604,
+      "chunkIds": [
+        "e46b1221"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/components/ProjectSelector.tsx": {
+      "contentHash": "5242ee6c5f328bb0",
+      "mtimeMs": 1768512129956.774,
+      "chunkIds": [
+        "0ae7e653",
+        "d4ca28a3",
+        "a3e83af0"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/components/ProgressList.tsx": {
+      "contentHash": "557c6cafdacbb4e0",
+      "mtimeMs": 1768633907493.362,
+      "chunkIds": [
+        "56bdeb44",
+        "9869356c",
+        "69dfd5a9",
+        "b677184e",
+        "529ff7fd",
+        "27a97806"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/components/OptionField.tsx": {
+      "contentHash": "895bd6ec5d980686",
+      "mtimeMs": 1769064862232.9302,
+      "chunkIds": [
+        "8e94e590",
+        "ce8f8c40",
+        "cbf4e3fb",
+        "08df8dd7",
+        "c733fbc6",
+        "8a8d2938",
+        "f9cf0c8e"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/components/MultiSelect.tsx": {
+      "contentHash": "1994d5a3d60fd2a6",
+      "mtimeMs": 1769296623814.5173,
+      "chunkIds": [
+        "b27fcf8e",
+        "206d9623",
+        "610bf43b",
+        "3c4c9a02",
+        "f9dce900",
+        "19d49bb9"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/components/InstallApp.tsx": {
+      "contentHash": "9e5630b928548cbf",
+      "mtimeMs": 1769296591904.5923,
+      "chunkIds": [
+        "df20b5be",
+        "89e7fd2f",
+        "c8df601a",
+        "fe0c5bef",
+        "8a0f429c",
+        "173bd57b",
+        "6c404992",
+        "c5dc1e2e",
+        "c41ced92",
+        "8a010f66",
+        "88d11dcf",
+        "d7ede8cf",
+        "e7d58827",
+        "fd115d51",
+        "22ff91d5",
+        "bcda0ba0",
+        "ec71afed"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/components/InjectionPointSelector.tsx": {
+      "contentHash": "26de452d9601941c",
+      "mtimeMs": 1768534559481.7908,
+      "chunkIds": [
+        "061544c1"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/src/commands/init/components/CompletionSummary.tsx": {
+      "contentHash": "e6bca054815cb578",
+      "mtimeMs": 1768633907504.0364,
+      "chunkIds": [
+        "d722f192",
+        "52b0c76a",
+        "d83406a3",
+        "eee26038",
+        "e0ce9a92"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/utils/__fixtures__/dep-graph/simple/utils.ts": {
+      "contentHash": "d357d4fa1a394e16",
+      "mtimeMs": 1768771587070.616,
+      "chunkIds": [
+        "d8aedd18"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/utils/__fixtures__/dep-graph/simple/hook.ts": {
+      "contentHash": "2b6f13bffeb290b1",
+      "mtimeMs": 1768771577455.884,
+      "chunkIds": [
+        "7e823a06"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/utils/__fixtures__/dep-graph/simple/component.tsx": {
+      "contentHash": "b9d53d310cf34f92",
+      "mtimeMs": 1768771572148.4182,
+      "chunkIds": [
+        "b75c4750"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/utils/__fixtures__/dep-graph/simple/api.ts": {
+      "contentHash": "c28ecf8a69c5d835",
+      "mtimeMs": 1768771582171.911,
+      "chunkIds": [
+        "57ca2207"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/utils/__fixtures__/dep-graph/re-exports/index.ts": {
+      "contentHash": "496d28c209e6e663",
+      "mtimeMs": 1768771611286.016,
+      "chunkIds": []
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/utils/__fixtures__/dep-graph/re-exports/consumer.tsx": {
+      "contentHash": "85659b4352a8f929",
+      "mtimeMs": 1768771622058.6738,
+      "chunkIds": [
+        "9b88ebae"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/utils/__fixtures__/dep-graph/re-exports/button.tsx": {
+      "contentHash": "7ee5e9db9c5d5812",
+      "mtimeMs": 1768771616224.3677,
+      "chunkIds": [
+        "1bd300b9"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/utils/__fixtures__/dep-graph/circular/b.ts": {
+      "contentHash": "7d97b628ac30f566",
+      "mtimeMs": 1768771596674.7903,
+      "chunkIds": [
+        "76f59018"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/utils/__fixtures__/dep-graph/circular/a.ts": {
+      "contentHash": "6cd825aecc2efbbf",
+      "mtimeMs": 1768771592051.0645,
+      "chunkIds": [
+        "d9af0e18"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/utils/__fixtures__/dep-graph/external/local.ts": {
+      "contentHash": "f667039477f983de",
+      "mtimeMs": 1768771606636.9373,
+      "chunkIds": [
+        "eb9e006a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/utils/__fixtures__/dep-graph/external/component.tsx": {
+      "contentHash": "9529bb8aee3d891f",
+      "mtimeMs": 1768771601607.0266,
+      "chunkIds": [
+        "6e497a24"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-partial-coverage/src/uncovered.ts": {
+      "contentHash": "3e2d663180ee4977",
+      "mtimeMs": 1768765597868.9922,
+      "chunkIds": [
+        "c3fb2ffc",
+        "6a8ebee1",
+        "35dbcbd1",
+        "1a1bd3f7"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-partial-coverage/src/covered.ts": {
+      "contentHash": "6e6236bff2f96ab8",
+      "mtimeMs": 1768765595884.2559,
+      "chunkIds": [
+        "e99edb36",
+        "1088db1f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-no-tests/src/noTest.ts": {
+      "contentHash": "da9c1d9370187baa",
+      "mtimeMs": 1768765631867.2793,
+      "chunkIds": [
+        "49cd7463",
+        "61544f43"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-no-tests/src/hasTest.ts": {
+      "contentHash": "6635f9a1e94fae7f",
+      "mtimeMs": 1768765630407.9294,
+      "chunkIds": [
+        "194c4a64"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-no-coverage-data/src/utils.ts": {
+      "contentHash": "d7e70387c4dd5b4a",
+      "mtimeMs": 1768765632582.7898,
+      "chunkIds": [
+        "70468d60"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-git-changes/src/modified.ts": {
+      "contentHash": "f1b3ff1deaabae18",
+      "mtimeMs": 1768765633250.1982,
+      "chunkIds": [
+        "8766bb49",
+        "f32d86b3",
+        "b245ef04"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-jsx-coverage/src/WellTestedComponent.tsx": {
+      "contentHash": "3222241b68a6bbd4",
+      "mtimeMs": 1768806214295.6953,
+      "chunkIds": [
+        "bb099593",
+        "44dbaa1e"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-jsx-coverage/src/ComponentWithHandlers.tsx": {
+      "contentHash": "66fdac6177d2b567",
+      "mtimeMs": 1768806189916.9072,
+      "chunkIds": [
+        "2d90dc55",
+        "fa6718bc",
+        "426575ea",
+        "e10d2a03"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-full-coverage/src/utils.ts": {
+      "contentHash": "92ff28d23c66f082",
+      "mtimeMs": 1768765580001.754,
+      "chunkIds": [
+        "26311655",
+        "7fb426ea",
+        "bf32480e"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-chunk-coverage/src/utils.ts": {
+      "contentHash": "ecbad9535ef12b3a",
+      "mtimeMs": 1769057466592.7314,
+      "chunkIds": [
+        "4ce46805",
+        "52f16c15",
+        "a6e6c883",
+        "576087f7"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-chunk-coverage/src/useCounter.ts": {
+      "contentHash": "1e15bcee62a5695d",
+      "mtimeMs": 1769057483850.7163,
+      "chunkIds": [
+        "033e3954"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-chunk-coverage/src/Button.tsx": {
+      "contentHash": "46566ddc24390307",
+      "mtimeMs": 1769057478503.4412,
+      "chunkIds": [
+        "2fb25db5",
+        "1d878e53"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-aggregate-coverage/src/utils.ts": {
+      "contentHash": "1aea24a1f5785e56",
+      "mtimeMs": 1768772037013.245,
+      "chunkIds": [
+        "f5e6f415",
+        "7fb22659"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-aggregate-coverage/src/useHook.ts": {
+      "contentHash": "1487e1e27cec8711",
+      "mtimeMs": 1768772036989.7798,
+      "chunkIds": [
+        "99d7a8b2",
+        "3e40d405",
+        "a55168cd"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-aggregate-coverage/src/WellTestedComponent.tsx": {
+      "contentHash": "5a849a9d8b09db00",
+      "mtimeMs": 1768772037036.3086,
+      "chunkIds": [
+        "e4d0015f"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-aggregate-coverage/src/NonJsxFile.tsx": {
+      "contentHash": "3809bfc446e273e4",
+      "mtimeMs": 1768772037083.6045,
+      "chunkIds": [
+        "055bc027"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint-eslint/src/rules/__fixtures__/coverage/with-aggregate-coverage/src/Component.tsx": {
+      "contentHash": "5572bfad1edd1800",
+      "mtimeMs": 1768772036934.2542,
+      "chunkIds": [
+        "04b8e36c"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/monorepo-multi-app/apps/web/app/layout.tsx": {
+      "contentHash": "cd3b3e497b8776ba",
+      "mtimeMs": 1769230722619.7136,
+      "chunkIds": [
+        "828a083a"
+      ]
+    },
+    "/Users/petersuggate/code/me/uilint/packages/uilint/test/fixtures/monorepo-multi-app/apps/admin/app/layout.tsx": {
+      "contentHash": "1079c05fc50ca188",
+      "mtimeMs": 1769230722619.9592,
+      "chunkIds": [
+        "390f5e2c"
+      ]
+    }
+  }
+}

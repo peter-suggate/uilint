@@ -5,6 +5,7 @@
  * Handles lazy loading with priority-based scheduling, caching, and item aggregation.
  */
 
+import { devWarn, devError } from "uilint-core";
 import type {
   CategoryProvider,
   CategoryItem,
@@ -105,7 +106,7 @@ export class CategoryRegistry {
    */
   registerProvider(provider: CategoryProvider): void {
     if (this.providers.has(provider.id)) {
-      console.warn(
+      devWarn(
         `[CategoryRegistry] Provider "${provider.id}" already registered. Skipping.`
       );
       return;
@@ -198,12 +199,12 @@ export class CategoryRegistry {
     }
 
     if (!provider) {
-      console.warn(`[CategoryRegistry] Unknown provider: ${providerId}`);
+      devWarn(`[CategoryRegistry] Unknown provider: ${providerId}`);
       return [];
     }
 
     if (!this.services) {
-      console.warn("[CategoryRegistry] Services not initialized");
+      devWarn("[CategoryRegistry] Services not initialized");
       return [];
     }
 
@@ -288,7 +289,7 @@ export class CategoryRegistry {
       });
 
       this.notifyListeners();
-      console.error(
+      devError(
         `[CategoryRegistry] Failed to load items for "${providerId}":`,
         error
       );
@@ -317,7 +318,7 @@ export class CategoryRegistry {
         this.notifyListeners();
         return count;
       } catch (error) {
-        console.error(
+        devError(
           `[CategoryRegistry] Failed to get count for "${providerId}":`,
           error
         );
