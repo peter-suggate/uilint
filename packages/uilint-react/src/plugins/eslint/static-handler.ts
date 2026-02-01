@@ -29,10 +29,8 @@ function convertManifestIssue(issue: ManifestIssue, rules: ManifestRuleMeta[]): 
   const { filePath } = parseDataLoc(issue.dataLoc);
   const ruleId = issue.ruleId || "unknown";
 
-  // Look up severity from rule metadata
-  const rule = rules.find(
-    (r) => `uilint/${r.id}` === ruleId || r.id === ruleId
-  );
+  // Look up severity from rule metadata (rule IDs are always full form: "uilint/...")
+  const rule = rules.find((r) => r.id === ruleId);
   const severityStr = rule?.currentSeverity ?? rule?.defaultSeverity ?? "warn";
   const severity = severityStr === "error" ? "error" : "warning";
 

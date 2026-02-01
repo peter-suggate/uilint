@@ -58,10 +58,10 @@ function SeverityToggle({
 export function RulePanel({ data }: InspectorPanelProps) {
   const ruleId = data?.ruleId as string | undefined;
 
-  // Get rule data from store
+  // Get rule data from store (rule IDs are always full form: "uilint/...")
   const rule = useComposedStore((s) => {
     const eslintState = s.plugins?.eslint as ESLintPluginSlice | undefined;
-    if (!eslintState?.availableRules) return null;
+    if (!eslintState?.availableRules || !ruleId) return null;
     return eslintState.availableRules.find((r: AvailableRule) => r.id === ruleId);
   });
 

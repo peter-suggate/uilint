@@ -1891,6 +1891,7 @@ export async function serve(options: ServeOptions): Promise<void> {
 
     // Send installed rules metadata (only rules that exist in the ESLint config)
     // Include current severities from the ESLint config so UI reflects saved state
+    // Use full rule IDs (uilint/...) for consistency with ESLint output
     sendMessage(ws, {
       type: "rules:metadata",
       rules: ruleRegistry
@@ -1898,7 +1899,7 @@ export async function serve(options: ServeOptions): Promise<void> {
         .map((rule) => {
           const currentConfig = currentRuleConfigs.get(rule.id);
           return {
-            id: rule.id,
+            id: `uilint/${rule.id}`,
             name: rule.name,
             description: rule.description,
             category: rule.category,

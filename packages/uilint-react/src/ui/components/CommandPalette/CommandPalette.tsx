@@ -101,8 +101,10 @@ export function CommandPalette() {
 
       const { provider } = providerEntry;
 
-      // Check if we're at terminal state
-      if (isTerminal && provider.getInspectorData) {
+      // Check if we're at terminal state OR if this item would make it terminal
+      // (e.g., a file tile that already has ruleId in metadata)
+      const itemIsTerminal = item.metadata?.isFile && item.metadata?.ruleId;
+      if ((isTerminal || itemIsTerminal) && provider.getInspectorData) {
         const inspectorData = provider.getInspectorData(item);
         openInspector(inspectorData.panelId, inspectorData.data);
         closeCommandPalette();

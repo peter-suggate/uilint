@@ -83,12 +83,14 @@ function buildRuleMetadata(appRoot: string): ManifestRuleMeta[] {
     : new Map<string, { severity: "error" | "warn" | "off"; options?: Record<string, unknown> }>();
 
   // Only include rules that are configured in the ESLint config
+  // Use full rule IDs (uilint/...) for consistency with ESLint output
   return ruleRegistry
-    .filter((rule) => currentRuleConfigs.has(rule.id))
+    .filter((rule) => currentRuleConfigs.has(`uilint/${rule.id}`))
     .map((rule) => {
-      const currentConfig = currentRuleConfigs.get(rule.id);
+      const fullId = `uilint/${rule.id}`;
+      const currentConfig = currentRuleConfigs.get(fullId);
       return {
-        id: rule.id,
+        id: fullId,
         name: rule.name,
         description: rule.description,
         category: rule.category,
@@ -196,8 +198,8 @@ export async function generateManifest(
     // Count by severity
     for (const issue of manifestIssues) {
       if (issue.ruleId) {
-        // Check rule config for severity
-        const rule = rules.find((r) => `uilint/${r.id}` === issue.ruleId || r.id === issue.ruleId);
+        // Check rule config for severity (rules now have full IDs)
+        const rule = rules.find((r) => r.id === issue.ruleId);
         const severity = rule?.currentSeverity ?? rule?.defaultSeverity ?? "warn";
         if (severity === "error") {
           errorCount++;

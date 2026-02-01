@@ -116,7 +116,7 @@ function createSampleManifest(overrides: Partial<LintManifest> = {}): LintManife
     ],
     rules: [
       {
-        id: "color-consistency",
+        id: "uilint/color-consistency",
         name: "Color Consistency",
         description: "Ensure colors are from design tokens",
         category: "static",
@@ -124,7 +124,7 @@ function createSampleManifest(overrides: Partial<LintManifest> = {}): LintManife
         currentSeverity: "error",
       },
       {
-        id: "spacing-scale",
+        id: "uilint/spacing-scale",
         name: "Spacing Scale",
         description: "Ensure spacing values are on the scale",
         category: "static",
@@ -199,8 +199,8 @@ describe("processManifest", () => {
     processManifest(services, manifest);
 
     expect(state.availableRules).toHaveLength(2);
-    expect(state.availableRules.map((r) => r.id)).toContain("color-consistency");
-    expect(state.availableRules.map((r) => r.id)).toContain("spacing-scale");
+    expect(state.availableRules.map((r) => r.id)).toContain("uilint/color-consistency");
+    expect(state.availableRules.map((r) => r.id)).toContain("uilint/spacing-scale");
   });
 
   it("populates ruleConfigs from manifest", () => {
@@ -210,8 +210,8 @@ describe("processManifest", () => {
     processManifest(services, manifest);
 
     expect(state.ruleConfigs.size).toBe(2);
-    expect(state.ruleConfigs.get("color-consistency")?.severity).toBe("error");
-    expect(state.ruleConfigs.get("spacing-scale")?.severity).toBe("warn");
+    expect(state.ruleConfigs.get("uilint/color-consistency")?.severity).toBe("error");
+    expect(state.ruleConfigs.get("uilint/spacing-scale")?.severity).toBe("warn");
   });
 
   it("sets workspaceRoot from manifest", () => {
