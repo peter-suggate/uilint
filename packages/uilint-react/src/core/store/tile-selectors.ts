@@ -6,8 +6,7 @@
  */
 
 import type { CoreSlice } from "./core-slice";
-import type { TileItem, TileFilter, CategoryProvider } from "../plugin-system/types";
-import { pluginRegistry } from "../plugin-system/registry";
+import type { TileItem } from "../plugin-system/types";
 
 // ============================================================================
 // Helper Functions
@@ -92,62 +91,4 @@ export function selectRawTileItems(state: CoreSlice): TileItem[] {
  */
 export function selectTileItemsLoading(state: CoreSlice): boolean {
   return state.commandPalette.tileItemsLoading;
-}
-
-/**
- * Selector to check if current filters represent a terminal state.
- * Terminal state means no more drill-down is possible.
- *
- * @param filters - Current tile filters
- * @param selectedCategoryIds - Set of selected category IDs
- * @returns Selector function
- */
-export function selectIsTerminalFilter(
-  filters: TileFilter[],
-  selectedCategoryIds: Set<string>
-) {
-  return (_state: CoreSlice): boolean => {
-    // Get active providers based on selection
-    const allProviders = pluginRegistry.getAllCategoryProviders();
-    let activeProviders: CategoryProvider[];
-
-    if (selectedCategoryIds.size === 0) {
-      activeProviders = allProviders.filter((provider) => provider.getTileItems !== undefined);
-    } else {
-      activeProviders = allProviders.filter(
-        (provider) =>
-          selectedCategoryIds.has(provider.id) && provider.getTileItems !== undefined
-      );
-    }
-
-    // Check if any active provider indicates terminal state
-    for (const provider of activeProviders) {
-      if (provider.isTerminal && provider.isTerminal(filters)) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-}
-
-/**
- * Selector to get active category providers based on selection.
- *
- * @param selectedCategoryIds - Set of selected category IDs
- * @returns Array of active CategoryProvider objects
- */
-export function selectActiveProviders(
-  selectedCategoryIds: Set<string>
-): CategoryProvider[] {
-  const allProviders = pluginRegistry.getAllCategoryProviders();
-
-  if (selectedCategoryIds.size === 0) {
-    return allProviders.filter((provider) => provider.getTileItems !== undefined);
-  }
-
-  return allProviders.filter(
-    (provider) =>
-      selectedCategoryIds.has(provider.id) && provider.getTileItems !== undefined
-  );
 }

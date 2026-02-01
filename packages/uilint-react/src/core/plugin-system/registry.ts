@@ -280,22 +280,33 @@ export class PluginRegistry {
   }
 
   /**
-   * Aggregate all category providers from all registered plugins.
-   * Providers are sorted by priority (lower number = higher priority).
+   * Get all tile providers from registered plugins.
+   * These provide tile items for the command palette grid.
    *
-   * @returns Array of all category providers, sorted by priority
+   * @returns Array of tile providers with their plugin IDs
    */
-  getAllCategoryProviders(): CategoryProvider[] {
-    const providers: CategoryProvider[] = [];
+  getAllTileProviders(): Array<{ pluginId: string; provider: NonNullable<Plugin['tileProvider']> }> {
+    const providers: Array<{ pluginId: string; provider: NonNullable<Plugin['tileProvider']> }> = [];
 
-    for (const { plugin } of this.plugins.values()) {
-      if (plugin.categoryProviders) {
-        providers.push(...plugin.categoryProviders);
+    for (const { plugin, initialized } of this.plugins.values()) {
+      if (!initialized) continue;
+
+      if (plugin.tileProvider) {
+        providers.push({
+          pluginId: plugin.id,
+          provider: plugin.tileProvider,
+        });
       }
     }
 
-    // Sort by priority (lower number first)
-    return providers.sort((a, b) => a.priority - b.priority);
+    return providers;
+  }
+
+  /**
+   * @deprecated Use getAllTileProviders() instead
+   */
+  getAllCategoryProviders(): CategoryProvider[] {
+    return [];
   }
 
   /**

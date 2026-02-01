@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, cleanup } from "@testing-library/react";
 import { act } from "react";
-import type { TileItem, TileFilter, CategoryProvider } from "../../core/plugin-system/types";
+import type { TileItem, TileFilter, Plugin } from "../../core/plugin-system/types";
 import {
   selectRawTileItems,
   selectTileItemsLoading,
@@ -22,11 +22,14 @@ import type { CoreSlice } from "../../core/store/core-slice";
 // Mock pluginRegistry for isTerminal tests
 // ============================================================================
 
-const mockGetAllCategoryProviders = vi.fn<() => CategoryProvider[]>(() => []);
+type TileProvider = NonNullable<Plugin['tileProvider']>;
+type TileProviderEntry = { pluginId: string; provider: TileProvider };
+
+const mockGetAllTileProviders = vi.fn<() => TileProviderEntry[]>(() => []);
 
 vi.mock("../../core/plugin-system/registry", () => ({
   pluginRegistry: {
-    getAllCategoryProviders: () => mockGetAllCategoryProviders(),
+    getAllTileProviders: () => mockGetAllTileProviders(),
   },
 }));
 
@@ -51,14 +54,11 @@ function createMockTileItem(overrides: Partial<TileItem> = {}): TileItem {
   };
 }
 
-function createMockCategoryProvider(
-  overrides: Partial<CategoryProvider> = {}
-): CategoryProvider {
+function createMockTileProvider(
+  overrides: Partial<TileProvider> = {}
+): TileProvider {
   return {
-    id: `provider-${Math.random().toString(36).slice(2)}`,
-    label: "Test Provider",
-    priority: 1,
-    getItems: vi.fn(() => []),
+    getTileItems: vi.fn(() => []),
     ...overrides,
   };
 }
@@ -233,7 +233,7 @@ describe("Tile Selectors", () => {
 describe("useTileItems hook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetAllCategoryProviders.mockReturnValue([]);
+    mockGetAllTileProviders.mockReturnValue([]);
   });
 
   afterEach(() => {
@@ -247,7 +247,7 @@ describe("useTileItems hook", () => {
       setupStoreWithTileItems([]);
 
       const { result } = renderHook(() =>
-        useTileItems([], "", new Set<string>())
+        useTileItems([], "")
       );
 
       expect(result.current.items).toEqual([]);
@@ -263,7 +263,7 @@ describe("useTileItems hook", () => {
       setupStoreWithTileItems(items);
 
       const { result } = renderHook(() =>
-        useTileItems([], "", new Set<string>())
+        useTileItems([], "")
       );
 
       expect(result.current.items).toHaveLength(2);
@@ -274,7 +274,7 @@ describe("useTileItems hook", () => {
       setupStoreWithTileItems([], true);
 
       const { result } = renderHook(() =>
-        useTileItems([], "", new Set<string>())
+        useTileItems([], "")
       );
 
       expect(result.current.isLoading).toBe(true);
@@ -290,7 +290,7 @@ describe("useTileItems hook", () => {
       setupStoreWithTileItems(items);
 
       const { result } = renderHook(() =>
-        useTileItems([], "button", new Set<string>())
+        useTileItems([], "button")
       );
 
       expect(result.current.items).toHaveLength(1);
@@ -305,7 +305,7 @@ describe("useTileItems hook", () => {
       setupStoreWithTileItems(items);
 
       const { result } = renderHook(() =>
-        useTileItems([], "", new Set<string>())
+        useTileItems([], "")
       );
 
       expect(result.current.items).toHaveLength(1);
@@ -315,16 +315,16 @@ describe("useTileItems hook", () => {
 
   describe("computes isTerminal from providers", () => {
     it("returns isTerminal from provider", () => {
-      const provider = createMockCategoryProvider({
+      const provider = createMockTileProvider({
         getTileItems: vi.fn(() => []),
         isTerminal: vi.fn(() => true),
       });
-      mockGetAllCategoryProviders.mockReturnValue([provider]);
+      mockGetAllTileProviders.mockReturnValue([{ pluginId: "test-plugin", provider }]);
       setupStoreWithTileItems([]);
 
       const filters: TileFilter[] = [{ type: "rule", id: "rule-1", label: "Rule 1" }];
       const { result } = renderHook(() =>
-        useTileItems(filters, "", new Set<string>())
+        useTileItems(filters, "")
       );
 
       expect(result.current.isTerminal).toBe(true);
@@ -336,7 +336,7 @@ describe("useTileItems hook", () => {
       const api = setupStoreWithTileItems([]);
 
       const { result } = renderHook(() =>
-        useTileItems([], "", new Set<string>())
+        useTileItems([], "")
       );
 
       expect(result.current.items).toHaveLength(0);

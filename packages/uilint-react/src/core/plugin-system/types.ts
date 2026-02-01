@@ -65,12 +65,11 @@ export interface PluginServices {
 }
 
 // ============================================================================
-// Palette Item Types (Keyword-based system)
+// Palette Item Types
 // ============================================================================
 
 /**
  * An item that appears in the command palette.
- * Uses keywords for filtering instead of hierarchical categories.
  */
 export interface PaletteItem {
   /** Unique item identifier */
@@ -93,114 +92,21 @@ export interface PaletteItem {
 }
 
 /**
- * A keyword with its occurrence count, for sidebar display.
- */
-export interface KeywordCount {
-  /** The keyword string */
-  keyword: string;
-  /** Number of items with this keyword */
-  count: number;
-}
-
-// ============================================================================
-// Category Provider Contributions (Legacy - to be removed)
-// ============================================================================
-
-/**
- * Loading state for a category provider.
- * @deprecated Use keyword-based PaletteItem system instead
- */
-export type CategoryLoadingState = "idle" | "loading" | "loaded" | "error";
-
-/**
- * Priority levels for lazy loading categories.
- * Lower numbers load first.
- * @deprecated Use keyword-based PaletteItem system instead
- */
-export type CategoryPriority = 0 | 1 | 2 | 3;
-
-/**
- * An item within a category that can be displayed and executed.
- * @deprecated Use PaletteItem instead
- */
-export interface CategoryItem {
-  /** Unique item identifier */
-  id: string;
-  /** Display title */
-  title: string;
-  /** Optional subtitle for additional context */
-  subtitle?: string;
-  /** Optional icon (React component or emoji string) */
-  icon?: ReactNode;
-  /** Priority within category (lower = higher priority, default: 1) */
-  priority?: CategoryPriority;
-  /** Additional metadata for filtering/grouping */
-  metadata?: Record<string, unknown>;
-  /**
-   * Execute when item is selected
-   * @param services Plugin services for accessing core functionality
-   */
-  execute?: (services: PluginServices) => void | Promise<void>;
-  /** Optional keyboard shortcut hint */
-  shortcut?: string;
-}
-
-/**
- * A category provider that contributes items to the command palette sidebar.
- * Plugins register category providers to expose browsable content.
+ * A tile provider that contributes tiles to the command palette.
+ * Plugins register tile providers to expose browsable content.
  */
 export interface CategoryProvider {
-  /** Unique category identifier (e.g., "eslint:issues") */
+  /** Unique provider identifier (e.g., "eslint:issues") */
   id: string;
-  /** Display label (e.g., "Issues") */
+  /** Display label */
   label: string;
   /** Optional icon (React component or emoji string) */
   icon?: ReactNode;
-  /** Load priority (0 = immediate, 1 = high, 2 = medium, 3 = low/idle) */
-  priority: CategoryPriority;
-  /** Parent plugin ID for nesting in sidebar */
+  /** Parent plugin ID */
   parentId?: string;
-  /**
-   * Whether this is a dynamic category that generates sub-categories.
-   * If true, getSubCategories will be called to get child categories.
-   */
-  isDynamic?: boolean;
-  /**
-   * Get dynamic sub-categories for this category.
-   * Called when isDynamic is true to generate child categories based on current state.
-   * Each sub-category will appear in the sidebar under this category's parent.
-   * @param services Plugin services for accessing state
-   */
-  getSubCategories?: (services: PluginServices) => CategoryProvider[];
-  /**
-   * Get items for this category.
-   * Can be sync or async for lazy loading.
-   * @param services Plugin services for accessing state
-   */
-  getItems: (services: PluginServices) => CategoryItem[] | Promise<CategoryItem[]>;
-  /**
-   * Get the count of items without loading them.
-   * Used for sidebar badges.
-   * @param services Plugin services for accessing state
-   */
-  getItemCount?: (services: PluginServices) => number | Promise<number>;
-  /**
-   * Custom fields to search within items.
-   * Defaults to ["title", "subtitle"].
-   */
-  searchKeys?: string[];
-  /**
-   * Custom filter predicate for searching.
-   * @param item The item to test
-   * @param query The search query
-   */
-  filterPredicate?: (item: CategoryItem, query: string) => boolean;
-
-  // ============ Tile System Extensions ============
 
   /**
    * Get items as tiles for the masonry grid view.
-   * If not provided, tiles are derived from getItems().
    * @param services Plugin services for accessing state
    * @param filters Currently active tile filters
    */
@@ -538,14 +444,7 @@ export interface Plugin<TSlice = unknown> {
   commands?: Command[];
 
   /**
-   * Category providers for command palette sidebar browsing
-   * @deprecated Use getPaletteItems instead
-   */
-  categoryProviders?: CategoryProvider[];
-
-  /**
    * Get items for the command palette.
-   * Each item has keywords for filtering in the sidebar.
    * @param services Plugin services for accessing state
    * @returns Array of palette items (can be async)
    */
@@ -638,6 +537,45 @@ export interface Plugin<TSlice = unknown> {
     config: Record<string, unknown>,
     services: PluginServices
   ) => void;
+
+  /**
+   * Tile provider for generating tiles in the command palette grid.
+   * Plugins that want to contribute tiles should implement this.
+   */
+  tileProvider?: {
+    /**
+     * Get tile items based on current filter state.
+     * @param services Plugin services for state access
+     * @param filters Currently active tile filters
+     * @returns Array of tile items to display
+     */
+    getTileItems: (services: PluginServices, filters: TileFilter[]) => TileItem[];
+
+    /**
+     * Create a filter from a clicked tile (for drill-down navigation).
+     * @param item The clicked tile item
+     * @returns Filter to add to the active filters
+     */
+    createFilter?: (item: TileItem) => TileFilter;
+
+    /**
+     * Check if current filter state is terminal (no more drill-down).
+     * When true, clicking a tile opens inspector instead of adding filter.
+     * @param filters Currently active filters
+     * @returns True if terminal state
+     */
+    isTerminal?: (filters: TileFilter[]) => boolean;
+
+    /**
+     * Get inspector data for opening when clicking a terminal tile.
+     * @param item The clicked tile item
+     * @returns Panel ID and data for the inspector
+     */
+    getInspectorData?: (item: TileItem) => {
+      panelId: string;
+      data: Record<string, unknown>;
+    };
+  };
 }
 
 // ============================================================================

@@ -1,8 +1,8 @@
 /**
- * useTileItems - React hook for computing tile items based on filters and categories
+ * useTileItems - React hook for computing tile items based on filters
  *
  * Uses Zustand store with selectors for derived state.
- * Aggregates tile items from category providers, filters by query text,
+ * Aggregates tile items from providers, filters by query text,
  * and handles loading states. Used by the masonry grid tile view.
  */
 
@@ -30,7 +30,7 @@ export interface UseTileItemsResult {
 }
 
 /**
- * Hook that returns tile items to display based on current filters and categories.
+ * Hook that returns tile items to display based on current filters.
  *
  * This hook uses Zustand selectors to derive state from the store:
  * 1. Gets raw tile items from the store (populated by refreshTileItems action)
@@ -39,11 +39,10 @@ export interface UseTileItemsResult {
  * 4. Determines if the current filter state is terminal
  *
  * Note: The actual data fetching is triggered by the CommandPalette component
- * calling refreshTileItems() when filters or categories change.
+ * calling refreshTileItems() when filters change.
  *
  * @param filters - Currently active tile filters
  * @param query - Search query for filtering items
- * @param selectedCategoryIds - Set of category IDs to include (empty = all)
  * @returns Object containing items, loading state, and terminal state
  *
  * @example
@@ -51,13 +50,8 @@ export interface UseTileItemsResult {
  * function TileGrid() {
  *   const [filters, setFilters] = useState<TileFilter[]>([]);
  *   const [query, setQuery] = useState("");
- *   const [selectedCategories] = useState(new Set<string>());
  *
- *   const { items, isLoading, isTerminal } = useTileItems(
- *     filters,
- *     query,
- *     selectedCategories
- *   );
+ *   const { items, isLoading, isTerminal } = useTileItems(filters, query);
  *
  *   if (isLoading) return <Spinner />;
  *
@@ -77,8 +71,7 @@ export interface UseTileItemsResult {
  */
 export function useTileItems(
   filters: TileFilter[],
-  query: string,
-  selectedCategoryIds: Set<string>
+  query: string
 ): UseTileItemsResult {
   // Get raw state from store using stable selectors
   const rawItems = useComposedStore(selectRawTileItems);
@@ -95,20 +88,15 @@ export function useTileItems(
 
   // Compute isTerminal from providers - this is cheap and doesn't need store state
   const isTerminal = useMemo((): boolean => {
-    const allProviders = pluginRegistry.getAllCategoryProviders();
-    let activeProviders = allProviders.filter((p) => p.getTileItems !== undefined);
+    const tileProviders = pluginRegistry.getAllTileProviders();
 
-    if (selectedCategoryIds.size > 0) {
-      activeProviders = activeProviders.filter((p) => selectedCategoryIds.has(p.id));
-    }
-
-    for (const provider of activeProviders) {
+    for (const { provider } of tileProviders) {
       if (provider.isTerminal && provider.isTerminal(filters)) {
         return true;
       }
     }
     return false;
-  }, [filters, selectedCategoryIds]);
+  }, [filters]);
 
   return {
     items,

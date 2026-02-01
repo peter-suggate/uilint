@@ -17,9 +17,7 @@
 import { create, type StoreApi, type UseBoundStore } from "zustand";
 import { devLog, devWarn, devError } from "uilint-core";
 import { createCoreSlice, type CoreSlice } from "./core-slice";
-import { createCategorySlice, type CategorySlice } from "./category-slice";
 import { createDragSlice, type DragSlice } from "./drag-slice";
-import { createKeywordSlice, type KeywordSlice } from "./keyword-slice";
 import { initializeSubscriptions, type CleanupFn } from "./subscriptions";
 import {
   pluginRegistry,
@@ -90,12 +88,10 @@ export interface PluginSlices {
 /**
  * The composed store state combines:
  * 1. CoreSlice - Core UI state (floating icon, command palette, inspector, etc.)
- * 2. CategorySlice - Category provider state for command palette sidebar (legacy)
- * 3. KeywordSlice - Keyword-based filtering for command palette
- * 4. DragSlice - Unified drag state management
- * 5. PluginSlices - Namespaced plugin state accessible via `plugins.{pluginId}`
+ * 2. DragSlice - Unified drag state management
+ * 3. PluginSlices - Namespaced plugin state accessible via `plugins.{pluginId}`
  */
-export type ComposedState = CoreSlice & CategorySlice & KeywordSlice & DragSlice & PluginSlices;
+export type ComposedState = CoreSlice & DragSlice & PluginSlices;
 
 /**
  * Actions for managing the composed store
@@ -304,22 +300,14 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
       closeInspector: () => {
         get().closeInspector();
       },
-      invalidateCategory: (categoryId?: string) => {
-        get().invalidateCategoryCache(categoryId);
+      invalidateCategory: () => {
+        // No-op: category system removed
       },
     };
 
     // Initialize the core slice with services
     const coreSliceCreator = createCoreSlice(services);
     const coreSlice = coreSliceCreator(set, get, {
-      setState: set,
-      getState: get,
-      getInitialState: () => get(),
-      subscribe: () => () => {},
-    });
-
-    // Initialize the category slice
-    const categorySlice = createCategorySlice(set, get, {
       setState: set,
       getState: get,
       getInitialState: () => get(),
@@ -334,32 +322,12 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
       subscribe: () => () => {},
     });
 
-    // Initialize the keyword slice
-    const keywordSlice = createKeywordSlice(set, get, {
-      setState: set,
-      getState: get,
-      getInitialState: () => get(),
-      subscribe: () => () => {},
-    });
-
     return {
       // Core slice state and actions
       ...coreSlice,
 
-      // Category slice state and actions
-      ...categorySlice,
-
-      // Keyword slice state and actions
-      ...keywordSlice,
-
       // Drag slice state and actions
       ...dragSlice,
-
-      // Override closeCommandPalette to also reset keyword state
-      closeCommandPalette: () => {
-        coreSlice.closeCommandPalette();
-        keywordSlice.resetKeywordState();
-      },
 
       // Plugin slices namespace (empty initially)
       plugins: {},
@@ -615,9 +583,6 @@ export async function initializePlugins(
     `[initializePlugins] Initialization order: ${sortedPlugins.map((p) => p.id).join(" -> ")}`
   );
 
-  // Initialize the category registry slice with services
-  store.getState().initializeCategoryRegistry(pluginServicesInstance);
-
   // First, create slices for all plugins and register them
   for (const plugin of sortedPlugins) {
     if (plugin.createSlice && plugin.id) {
@@ -677,14 +642,6 @@ export async function initializePlugins(
 
         // Mark plugin as initialized in the registry
         registry.markPluginInitialized(plugin.id);
-
-        // Register category providers for command bar sidebar
-        if (plugin.categoryProviders) {
-          store.getState().registerCategoryProvidersFromPlugin(plugin);
-          devLog(
-            `[initializePlugins] Registered ${plugin.categoryProviders.length} category providers from "${plugin.id}"`
-          );
-        }
       } catch (error) {
         devError(
           `[initializePlugins] Failed to initialize plugin ${plugin.id}:`,
@@ -692,15 +649,6 @@ export async function initializePlugins(
         );
         // Continue with other plugins even if one fails
       }
-    }
-  }
-
-  // Load category items for high-priority categories
-  // P0 categories load immediately, others can be loaded on demand
-  const state = store.getState();
-  for (const provider of state.categoryProviders.values()) {
-    if (provider.priority === 0) {
-      state.loadCategoryItems(provider.id);
     }
   }
 

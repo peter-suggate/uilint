@@ -12,10 +12,6 @@ import type {
   RuleMeta,
   ScannedElementInfo,
   RuleDefinition,
-  CategoryProvider,
-  CategoryItem,
-  TileItem,
-  TileFilter,
   PaletteItem,
 } from "../../core/plugin-system/types";
 import { eslintCommands } from "./commands";
@@ -38,10 +34,10 @@ import {
   getManifestMetadata,
 } from "./static-handler";
 import {
-  getTileItems as getTileItemsHelper,
-  createFilter as createFilterHelper,
-  isTerminal as isTerminalHelper,
-  getInspectorData as getInspectorDataHelper,
+  getTileItems,
+  createFilter,
+  isTerminal,
+  getInspectorData,
 } from "./tile-provider";
 
 /** WebSocket message types handled by ESLint plugin */
@@ -106,11 +102,6 @@ export const eslintPlugin: Plugin = {
   commands: eslintCommands,
 
   /**
-   * Category providers for command palette sidebar browsing
-   */
-  categoryProviders: createESLintCategoryProviders(),
-
-  /**
    * Inspector panels contributed by this plugin
    */
   inspectorPanels: [
@@ -122,6 +113,16 @@ export const eslintPlugin: Plugin = {
       priority: 10,
     },
   ],
+
+  /**
+   * Tile provider for ESLint issues in command palette
+   */
+  tileProvider: {
+    getTileItems,
+    createFilter,
+    isTerminal,
+    getInspectorData,
+  },
 
   /**
    * Determine which rules this plugin handles
@@ -658,198 +659,6 @@ function handleWebSocketMessage(
       break;
     }
   }
-}
-
-/**
- * Create category providers for the ESLint plugin.
- *
- * Provides two category types:
- * 1. A static "Commands" category that always shows ESLint commands
- * 2. A dynamic provider that generates categories for rules with issues
- */
-function createESLintCategoryProviders(): CategoryProvider[] {
-  return [
-    // Static provider for ESLint commands - always visible
-    {
-      id: "eslint:commands",
-      label: "Commands",
-      priority: 1,
-      parentId: "eslint",
-
-      // Return ESLint commands as category items
-      getItems: (services: PluginServices): CategoryItem[] => {
-        // Get full state to check command availability
-        const fullState = services.getState<{
-          wsConnected?: boolean;
-          plugins?: {
-            eslint?: {
-              scanStatus?: string;
-              issues?: Map<string, unknown[]>;
-            };
-          };
-        }>();
-
-        // Convert commands to category items, filtering by availability
-        return eslintCommands
-          .filter((cmd) => !cmd.isAvailable || cmd.isAvailable(fullState))
-          .map((cmd): CategoryItem => ({
-            id: cmd.id,
-            title: cmd.title,
-            subtitle: cmd.subtitle,
-            priority: 1,
-            metadata: {
-              category: cmd.category,
-              keywords: cmd.keywords,
-            },
-            execute: (svc) => {
-              cmd.execute(svc);
-            },
-          }));
-      },
-
-      getItemCount: (services: PluginServices): number => {
-        // Get full state to check command availability
-        const fullState = services.getState<{
-          wsConnected?: boolean;
-          plugins?: {
-            eslint?: {
-              scanStatus?: string;
-              issues?: Map<string, unknown[]>;
-            };
-          };
-        }>();
-
-        return eslintCommands.filter(
-          (cmd) => !cmd.isAvailable || cmd.isAvailable(fullState)
-        ).length;
-      },
-
-      searchKeys: ["title", "subtitle"],
-    },
-
-    // Dynamic provider that generates a category for each rule with issues
-    {
-      id: "eslint:dynamic-rules",
-      label: "Issues by Rule",
-      priority: 2,
-      isDynamic: true,
-      parentId: "eslint",
-
-      // Generate sub-categories for each rule that has issues
-      getSubCategories: (services: PluginServices): CategoryProvider[] => {
-        // Access the full store state and get the ESLint plugin slice
-        const fullState = services.getState<{ plugins?: { eslint?: ESLintPluginSlice } }>();
-        const state = fullState?.plugins?.eslint;
-        if (!state?.issues) return [];
-
-        // Group issues by rule
-        const issuesByRule = new Map<string, Issue[]>();
-        for (const issues of state.issues.values()) {
-          for (const issue of issues) {
-            const existing = issuesByRule.get(issue.ruleId) || [];
-            issuesByRule.set(issue.ruleId, [...existing, issue]);
-          }
-        }
-
-        // Create a category provider for each rule with issues
-        const ruleProviders: CategoryProvider[] = [];
-        for (const [ruleId, ruleIssues] of issuesByRule) {
-          const errorCount = ruleIssues.filter((i) => i.severity === "error").length;
-          const totalCount = ruleIssues.length;
-
-          // Extract short rule name (e.g., "no-unused-vars" from "@typescript-eslint/no-unused-vars")
-          const shortName = ruleId.includes("/") ? ruleId.split("/").pop()! : ruleId;
-
-          ruleProviders.push({
-            id: `eslint:rule:${ruleId}`,
-            label: shortName,
-            priority: errorCount > 0 ? 0 : 1,
-            parentId: "eslint",
-
-            // Return the issues for this rule
-            getItems: (): CategoryItem[] => {
-              return ruleIssues.map((issue): CategoryItem => ({
-                id: `eslint:issue:${issue.id}`,
-                title: issue.message,
-                subtitle: `${issue.filePath}:${issue.line}`,
-                priority: issue.severity === "error" ? 0 : 1,
-                metadata: {
-                  issueId: issue.id,
-                  ruleId: issue.ruleId,
-                  severity: issue.severity,
-                  filePath: issue.filePath,
-                  line: issue.line,
-                },
-                execute: (svc) => {
-                  svc.openInspector("issue", { issue });
-                  svc.closeCommandPalette();
-                },
-              }));
-            },
-
-            getItemCount: () => totalCount,
-
-            searchKeys: ["title", "subtitle"],
-          });
-        }
-
-        // Sort by severity (errors first) then by count
-        ruleProviders.sort((a, b) => {
-          // Priority 0 = errors, 1 = warnings
-          if (a.priority !== b.priority) return a.priority - b.priority;
-          // Then by count (need to call getItemCount)
-          const aCount = a.getItemCount?.(services) ?? 0;
-          const bCount = b.getItemCount?.(services) ?? 0;
-          return (bCount as number) - (aCount as number);
-        });
-
-        return ruleProviders;
-      },
-
-      // This provider itself doesn't have items - it's just a container
-      getItems: () => [],
-      getItemCount: () => 0,
-
-      // ============ Tile System Methods ============
-
-      /**
-       * Get tile items for the masonry grid view.
-       * - No filters: return rules as tiles
-       * - Has rule filter: return files for that rule as tiles
-       * - Has rule + file filter: return empty (terminal state)
-       */
-      getTileItems: (
-        services: PluginServices,
-        filters: TileFilter[]
-      ): TileItem[] => {
-        return getTileItemsHelper(services, filters);
-      },
-
-      /**
-       * Create a filter from a clicked tile.
-       * Checks item.metadata to determine if it's a rule or file.
-       */
-      createFilter: (item: TileItem): TileFilter => {
-        return createFilterHelper(item);
-      },
-
-      /**
-       * Check if current filter state is terminal (no more drill-down).
-       * Returns true if filters include both a rule AND a file.
-       */
-      isTerminal: (filters: TileFilter[]): boolean => {
-        return isTerminalHelper(filters);
-      },
-
-      /**
-       * Get inspector data for a terminal tile click.
-       * Returns the panel ID and data needed to open the inspector.
-       */
-      getInspectorData: (item: TileItem): { panelId: string; data: Record<string, unknown> } => {
-        return getInspectorDataHelper(item);
-      },
-    },
-  ];
 }
 
 export default eslintPlugin;

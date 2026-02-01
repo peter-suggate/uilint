@@ -14,7 +14,6 @@
 import type { StoreApi } from "zustand";
 import type { ComposedStore } from "./composed-store";
 import { BREAKPOINTS, type MobileState } from "./core-slice";
-import { selectChildCategoryIds } from "./category-slice";
 import { pluginRegistry } from "../plugin-system/registry";
 import { getPluginServices } from "./composed-store";
 
@@ -35,12 +34,8 @@ export interface SubscriptionOptions {
   enableKeyboardShortcuts?: boolean;
   /** Whether to enable mobile detection (default: true) */
   enableMobileDetection?: boolean;
-  /** Whether to enable category auto-loading (default: true) */
-  enableCategoryAutoLoad?: boolean;
   /** Whether to enable global drag handlers (default: true) */
   enableDragHandlers?: boolean;
-  /** Whether to enable dynamic category tree rebuild (default: true) */
-  enableDynamicCategoryTreeRebuild?: boolean;
 }
 
 // ============================================================================
@@ -332,83 +327,6 @@ export function initializeDragHandlers(
 }
 
 // ============================================================================
-// Category Loading Subscription
-// ============================================================================
-
-/**
- * Initialize category auto-loading behavior.
- *
- * Automatically loads category items when a category is selected in the
- * command palette sidebar. Also loads child categories for parent categories.
- *
- * @param store - The Zustand store API
- * @returns Cleanup function to unsubscribe
- */
-export function initializeCategoryAutoLoad(
-  store: StoreApi<ComposedStore>
-): CleanupFn {
-  let previousCategoryId: string | null = null;
-
-  const unsubscribe = store.subscribe((state) => {
-    const { selectedCategoryId } = state.commandPalette;
-
-    // Only act when category selection changes
-    if (selectedCategoryId !== previousCategoryId) {
-      previousCategoryId = selectedCategoryId;
-
-      if (selectedCategoryId) {
-        // Load the selected category
-        state.loadCategoryItems(selectedCategoryId);
-
-        // Also load child categories if this is a parent
-        const childIds = selectChildCategoryIds(state, selectedCategoryId);
-        for (const childId of childIds) {
-          state.loadCategoryItems(childId);
-        }
-      }
-    }
-  });
-
-  return unsubscribe;
-}
-
-// ============================================================================
-// Dynamic Category Tree Subscription
-// ============================================================================
-
-/**
- * Initialize dynamic category tree rebuild behavior.
- *
- * Watches for changes in plugin data that affects dynamic category providers
- * (like ESLint issues) and rebuilds the category tree when they change.
- * This ensures that dynamic subcategories (e.g., ESLint rule categories)
- * appear in the sidebar when issues are loaded.
- *
- * @param store - The Zustand store API
- * @returns Cleanup function to unsubscribe
- */
-export function initializeDynamicCategoryTreeRebuild(
-  store: StoreApi<ComposedStore>
-): CleanupFn {
-  // Track previous issue count to detect changes
-  let previousIssueCount = 0;
-
-  const unsubscribe = store.subscribe((state) => {
-    // Check ESLint issues - this is what the dynamic provider uses
-    const eslintState = state.plugins?.eslint as { issues?: Map<string, unknown[]> } | undefined;
-    const currentIssueCount = eslintState?.issues?.size ?? 0;
-
-    // Rebuild tree when issue count changes (issues added or removed)
-    if (currentIssueCount !== previousIssueCount) {
-      previousIssueCount = currentIssueCount;
-      state.rebuildCategoryTree();
-    }
-  });
-
-  return unsubscribe;
-}
-
-// ============================================================================
 // Main Initialization
 // ============================================================================
 
@@ -438,9 +356,7 @@ export function initializeSubscriptions(
   const {
     enableKeyboardShortcuts = true,
     enableMobileDetection = true,
-    enableCategoryAutoLoad = true,
     enableDragHandlers = true,
-    enableDynamicCategoryTreeRebuild = true,
   } = options;
 
   const cleanupFns: CleanupFn[] = [];
@@ -454,16 +370,8 @@ export function initializeSubscriptions(
     cleanupFns.push(initializeInspectorAutoUndock(store));
   }
 
-  if (enableCategoryAutoLoad) {
-    cleanupFns.push(initializeCategoryAutoLoad(store));
-  }
-
   if (enableDragHandlers) {
     cleanupFns.push(initializeDragHandlers(store));
-  }
-
-  if (enableDynamicCategoryTreeRebuild) {
-    cleanupFns.push(initializeDynamicCategoryTreeRebuild(store));
   }
 
   // Return combined cleanup function

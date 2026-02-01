@@ -1,14 +1,6 @@
 export { useIssues } from "./useIssues";
 export { useElementRects } from "./useElementRects";
 export { useSourceCode } from "./useSourceCode";
-export {
-  useCategoryRegistry,
-  useCategoryItems,
-  useCategoryItemsDirect,
-  useLoadCategoryItems,
-  useLoadCategoryWithChildren,
-  type UseCategoryRegistryReturn,
-} from "./useCategoryRegistry";
 export { useTileNavigation, type UseTileNavigationReturn } from "./useTileNavigation";
 export { useTileItems, type UseTileItemsResult } from "./useTileItems";
 

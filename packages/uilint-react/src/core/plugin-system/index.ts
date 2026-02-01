@@ -20,9 +20,6 @@ export type {
   PluginMeta,
   ToolbarAction,
   CategoryProvider,
-  CategoryItem,
-  CategoryLoadingState,
-  CategoryPriority,
 } from "./types";
 
 // Registry
@@ -41,12 +38,3 @@ export {
   BUILT_IN_PLUGINS,
   type PluginManifest,
 } from "./loader";
-
-// Category Registry
-export {
-  CategoryRegistry,
-  categoryRegistry,
-  createCategoryRegistry,
-  type CategoryNode,
-  type CategoryRegistryOptions,
-} from "./category-registry";

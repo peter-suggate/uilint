@@ -17,7 +17,6 @@ import {
   initializeKeyboardShortcuts,
   initializeMobileDetection,
   initializeInspectorAutoUndock,
-  initializeCategoryAutoLoad,
   initializeSubscriptions,
 } from "./subscriptions";
 import { BREAKPOINTS, type MobileState } from "./core-slice";
@@ -32,23 +31,19 @@ import type { ComposedStore } from "./composed-store";
  */
 function createMockStore() {
   type MockState = {
-    commandPalette: { open: boolean; selectedCategoryId: string | null };
+    commandPalette: { open: boolean };
     inspector: { open: boolean; docked: boolean };
     mobile: MobileState;
     altKeyHeld: boolean;
-    categoryProviders: Map<string, { id: string; parentId?: string }>;
-    categoryServices: null;
     openCommandPalette: () => void;
     closeCommandPalette: () => void;
     setAltKeyHeld: (held: boolean) => void;
     setMobileState: (state: MobileState) => void;
     toggleInspectorDocked: () => void;
-    loadCategoryItems: (categoryId: string) => Promise<unknown[]>;
-    setSelectedCategory: (categoryId: string | null) => void;
   };
 
-  return create<MockState>()((set, get) => ({
-    commandPalette: { open: false, selectedCategoryId: null },
+  return create<MockState>()((set, _get) => ({
+    commandPalette: { open: false },
     inspector: { open: false, docked: true },
     mobile: {
       isMobile: false,
@@ -57,8 +52,6 @@ function createMockStore() {
       isSmallScreen: false,
     },
     altKeyHeld: false,
-    categoryProviders: new Map(),
-    categoryServices: null,
     openCommandPalette: () =>
       set((state) => ({ commandPalette: { ...state.commandPalette, open: true } })),
     closeCommandPalette: () =>
@@ -68,11 +61,6 @@ function createMockStore() {
     toggleInspectorDocked: () =>
       set((state) => ({
         inspector: { ...state.inspector, docked: !state.inspector.docked },
-      })),
-    loadCategoryItems: vi.fn().mockResolvedValue([]),
-    setSelectedCategory: (categoryId) =>
-      set((state) => ({
-        commandPalette: { ...state.commandPalette, selectedCategoryId: categoryId },
       })),
   }));
 }
@@ -478,69 +466,6 @@ describe("initializeInspectorAutoUndock", () => {
 
     // Should still be docked (subscription was cleaned up)
     expect(store.getState().inspector.docked).toBe(true);
-  });
-});
-
-// ============================================================================
-// initializeCategoryAutoLoad Tests
-// ============================================================================
-
-describe("initializeCategoryAutoLoad", () => {
-  let store: ReturnType<typeof createMockStore>;
-  let cleanup: () => void;
-
-  beforeEach(() => {
-    store = createMockStore();
-    cleanup = initializeCategoryAutoLoad(store as unknown as StoreApi<ComposedStore>);
-  });
-
-  afterEach(() => {
-    cleanup();
-  });
-
-  it("loads category items when category is selected", () => {
-    store.getState().setSelectedCategory("issues");
-
-    expect(store.getState().loadCategoryItems).toHaveBeenCalledWith("issues");
-  });
-
-  it("does not load when category is deselected (set to null)", () => {
-    // First select a category
-    store.getState().setSelectedCategory("issues");
-    vi.mocked(store.getState().loadCategoryItems).mockClear();
-
-    // Then deselect
-    store.getState().setSelectedCategory(null);
-
-    expect(store.getState().loadCategoryItems).not.toHaveBeenCalled();
-  });
-
-  it("loads new category when selection changes", () => {
-    store.getState().setSelectedCategory("issues");
-    vi.mocked(store.getState().loadCategoryItems).mockClear();
-
-    store.getState().setSelectedCategory("captures");
-
-    expect(store.getState().loadCategoryItems).toHaveBeenCalledWith("captures");
-  });
-
-  it("does not load when same category is re-selected", () => {
-    store.getState().setSelectedCategory("issues");
-    vi.mocked(store.getState().loadCategoryItems).mockClear();
-
-    // Re-select same category (no state change would occur, but simulating for test)
-    // In practice this wouldn't trigger because setState with same value doesn't notify
-    // But our subscription checks previousCategoryId
-
-    expect(store.getState().loadCategoryItems).not.toHaveBeenCalled();
-  });
-
-  it("stops listening after cleanup", () => {
-    cleanup();
-
-    store.getState().setSelectedCategory("issues");
-
-    expect(store.getState().loadCategoryItems).not.toHaveBeenCalled();
   });
 });
 

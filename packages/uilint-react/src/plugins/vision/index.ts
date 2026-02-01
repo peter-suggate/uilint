@@ -7,7 +7,7 @@
  */
 
 import React from "react";
-import type { Plugin, PluginServices, IssueContribution, ToolbarAction, ToolbarActionGroup, CategoryProvider, CategoryItem, PaletteItem } from "../../core/plugin-system/types";
+import type { Plugin, PluginServices, IssueContribution, ToolbarAction, ToolbarActionGroup, PaletteItem } from "../../core/plugin-system/types";
 import { visionCommands } from "./commands";
 import type { VisionSlice } from "./slice";
 import { createVisionSlice, createTriggerVisionAnalysis } from "./slice";
@@ -124,145 +124,6 @@ const visionToolbarActionGroup: ToolbarActionGroup = {
 };
 
 /**
- * Create category providers for the vision plugin.
- * Provides categories in the sidebar for vision commands and captures.
- */
-function createVisionCategoryProviders(): CategoryProvider[] {
-  return [
-    // Commands category - always visible
-    {
-      id: "vision:commands",
-      label: "Commands",
-      priority: 1, // Commands shown first
-      parentId: "vision",
-
-      getItems: (services: PluginServices): CategoryItem[] => {
-        // Get full state to pass to isAvailable checks
-        // Commands expect different state shapes for their availability checks
-        const fullState = services.getState<{
-          plugins?: { vision?: VisionSlice };
-          screenshotHistory?: Map<string, unknown>;
-          autoScanSettings?: { vision?: { onRouteChange?: boolean } };
-        }>();
-
-        // Build a unified state object for isAvailable checks
-        // Some commands check fullState.plugins.vision.*, others check fullState.screenshotHistory
-        const unifiedState = {
-          ...fullState,
-          // Pull up vision state properties for commands that expect them at root
-          screenshotHistory: fullState.plugins?.vision?.screenshotHistory ?? new Map(),
-          autoScanSettings: fullState.autoScanSettings ?? { vision: { onRouteChange: false } },
-        };
-
-        // Filter commands based on availability
-        return visionCommands
-          .filter((cmd) => !cmd.isAvailable || cmd.isAvailable(unifiedState))
-          .map((cmd): CategoryItem => ({
-            id: cmd.id,
-            title: cmd.title,
-            subtitle: cmd.subtitle,
-            priority: 1,
-            metadata: {
-              category: cmd.category,
-              keywords: cmd.keywords,
-            },
-            execute: (svc) => {
-              cmd.execute(svc);
-            },
-          }));
-      },
-
-      getItemCount: (services: PluginServices): number => {
-        // Get full state to pass to isAvailable checks
-        const fullState = services.getState<{
-          plugins?: { vision?: VisionSlice };
-          screenshotHistory?: Map<string, unknown>;
-          autoScanSettings?: { vision?: { onRouteChange?: boolean } };
-        }>();
-
-        // Build a unified state object for isAvailable checks
-        const unifiedState = {
-          ...fullState,
-          screenshotHistory: fullState.plugins?.vision?.screenshotHistory ?? new Map(),
-          autoScanSettings: fullState.autoScanSettings ?? { vision: { onRouteChange: false } },
-        };
-
-        return visionCommands.filter(
-          (cmd) => !cmd.isAvailable || cmd.isAvailable(unifiedState)
-        ).length;
-      },
-
-      searchKeys: ["title", "subtitle"],
-    },
-
-    // Captures category - shows screenshot captures
-    {
-      id: "vision:captures",
-      label: "Captures",
-      priority: 2, // Captures shown after commands
-      parentId: "vision",
-
-      getItems: (services: PluginServices): CategoryItem[] => {
-        const fullState = services.getState<{
-          plugins?: { vision?: VisionSlice };
-        }>();
-
-        const screenshotHistory = fullState.plugins?.vision?.screenshotHistory;
-        if (!screenshotHistory || screenshotHistory.size === 0) {
-          return [];
-        }
-
-        // Convert captures to category items
-        const captures = Array.from(screenshotHistory.values()) as ScreenshotCapture[];
-
-        // Sort by timestamp (most recent first)
-        captures.sort((a, b) => b.timestamp - a.timestamp);
-
-        return captures.map((capture): CategoryItem => {
-          const issueCount = capture.issues?.length ?? 0;
-          const hasIssues = issueCount > 0;
-          const subtitle = hasIssues
-            ? `${capture.route} • ${issueCount} issue${issueCount > 1 ? "s" : ""}`
-            : capture.route;
-
-          return {
-            id: `vision:capture:${capture.id}`,
-            title: formatCaptureTitle(capture),
-            subtitle,
-            priority: hasIssues ? 0 : 1, // Captures with issues shown first
-            metadata: {
-              captureId: capture.id,
-              route: capture.route,
-              timestamp: capture.timestamp,
-              type: capture.type,
-              issueCount,
-            },
-            execute: (svc) => {
-              // Select the capture in the gallery
-              const state = svc.getState<{ plugins?: { vision?: VisionSlice } }>();
-              state.plugins?.vision?.setSelectedScreenshotId(capture.id);
-              // Open inspector to show the capture
-              svc.openInspector("capture", { capture });
-              svc.closeCommandPalette();
-            },
-          };
-        });
-      },
-
-      getItemCount: (services: PluginServices): number => {
-        const fullState = services.getState<{
-          plugins?: { vision?: VisionSlice };
-        }>();
-
-        return fullState.plugins?.vision?.screenshotHistory?.size ?? 0;
-      },
-
-      searchKeys: ["title", "subtitle"],
-    },
-  ];
-}
-
-/**
  * Format a capture title for display
  */
 function formatCaptureTitle(capture: ScreenshotCapture): string {
@@ -315,11 +176,6 @@ export const visionPlugin: Plugin<VisionSlice> = {
    * Commands contributed by this plugin
    */
   commands: visionCommands,
-
-  /**
-   * Category providers for command palette sidebar
-   */
-  categoryProviders: createVisionCategoryProviders(),
 
   /**
    * Toolbar action groups contributed by this plugin (shown as dropdown in FloatingIcon)

@@ -7,7 +7,7 @@
 
 import type { StateCreator } from "zustand";
 import { devWarn } from "uilint-core";
-import type { PluginServices, TileFilter, TileItem, CategoryProvider } from "../plugin-system/types";
+import type { PluginServices, TileFilter, TileItem } from "../plugin-system/types";
 import { pluginRegistry } from "../plugin-system/registry";
 
 // ============================================================================
@@ -67,12 +67,6 @@ export interface CommandPaletteState {
   selectedIndex: number;
   /** Active filters (shown as chips) - tile filters for scoping */
   filters: TileFilter[];
-  /** Currently selected category in the sidebar (null = "All") */
-  selectedCategoryId: string | null;
-  /** Selected category IDs for multi-select (empty = all selected) */
-  selectedCategoryIds: Set<string>;
-  /** Whether sidebar is focused (for keyboard navigation) */
-  sidebarFocused: boolean;
   /** Raw tile items from providers (before filtering/dedup) */
   tileItems: TileItem[];
   /** Whether tile items are currently loading */
@@ -171,12 +165,6 @@ export interface CoreSlice {
   removeLastFilter: () => void;
   /** Clear all command palette filters */
   clearFilters: () => void;
-  /** Set the selected category in the sidebar */
-  setSelectedCategory: (categoryId: string | null) => void;
-  /** Toggle a category selection (multi-select mode) */
-  toggleCategory: (categoryId: string) => void;
-  /** Toggle sidebar focus for keyboard navigation */
-  setSidebarFocused: (focused: boolean) => void;
   /** Set tile items and loading state */
   setTileItems: (items: TileItem[], loading: boolean) => void;
   /** Refresh tile items from providers synchronously */
@@ -284,9 +272,6 @@ const DEFAULT_COMMAND_PALETTE_STATE: CommandPaletteState = {
   query: "",
   selectedIndex: 0,
   filters: [],
-  selectedCategoryId: null,
-  selectedCategoryIds: new Set<string>(),
-  sidebarFocused: false,
   tileItems: [],
   tileItemsLoading: false,
 };
@@ -383,7 +368,6 @@ export const createCoreSlice = (
     set({
       commandPalette: {
         ...DEFAULT_COMMAND_PALETTE_STATE,
-        selectedCategoryIds: new Set<string>(),
         open: false,
       },
     });
@@ -452,42 +436,6 @@ export const createCoreSlice = (
     });
   },
 
-  setSelectedCategory: (categoryId) => {
-    set({
-      commandPalette: {
-        ...get().commandPalette,
-        selectedCategoryId: categoryId,
-        selectedIndex: 0,
-      },
-    });
-  },
-
-  toggleCategory: (categoryId) => {
-    const current = get().commandPalette;
-    const newSet = new Set(current.selectedCategoryIds);
-    if (newSet.has(categoryId)) {
-      newSet.delete(categoryId);
-    } else {
-      newSet.add(categoryId);
-    }
-    set({
-      commandPalette: {
-        ...current,
-        selectedCategoryIds: newSet,
-        selectedIndex: 0,
-      },
-    });
-  },
-
-  setSidebarFocused: (focused) => {
-    set({
-      commandPalette: {
-        ...get().commandPalette,
-        sidebarFocused: focused,
-      },
-    });
-  },
-
   setTileItems: (items, loading) => {
     set({
       commandPalette: {
@@ -499,26 +447,13 @@ export const createCoreSlice = (
   },
 
   refreshTileItems: () => {
-    const current = get().commandPalette;
-    const { filters, selectedCategoryIds } = current;
+    const { filters } = get().commandPalette;
 
-    // Get active category providers based on selection
-    const allProviders = pluginRegistry.getAllCategoryProviders();
-    let activeProviders: CategoryProvider[];
+    // Get all tile providers from plugins
+    const tileProviders = pluginRegistry.getAllTileProviders();
 
-    if (selectedCategoryIds.size === 0) {
-      // If no categories selected, use all providers that have getTileItems
-      activeProviders = allProviders.filter((provider) => provider.getTileItems !== undefined);
-    } else {
-      // Filter to only selected categories that have getTileItems
-      activeProviders = allProviders.filter(
-        (provider) =>
-          selectedCategoryIds.has(provider.id) && provider.getTileItems !== undefined
-      );
-    }
-
-    // If no active providers, clear items
-    if (activeProviders.length === 0) {
+    // If no providers, clear items
+    if (tileProviders.length === 0) {
       set({
         commandPalette: {
           ...get().commandPalette,
@@ -540,20 +475,24 @@ export const createCoreSlice = (
     // Collect all items from providers synchronously
     const allItems: TileItem[] = [];
 
-    for (const provider of activeProviders) {
-      if (!provider.getTileItems) continue;
-
+    for (const { pluginId, provider } of tileProviders) {
       try {
         const result = provider.getTileItems(services, filters);
 
-        // Only handle sync results - skip promises
-        if (!(result instanceof Promise)) {
-          allItems.push(...result);
-        }
+        // Add providerId to each item's metadata for filter creation
+        const itemsWithProvider = result.map((item) => ({
+          ...item,
+          metadata: {
+            ...item.metadata,
+            providerId: pluginId,
+          },
+        }));
+
+        allItems.push(...itemsWithProvider);
       } catch (error) {
         // Log error but continue with other providers
         devWarn(
-          `[CoreSlice] Error getting tile items from provider "${provider.id}":`,
+          `[CoreSlice] Error getting tile items from plugin "${pluginId}":`,
           error
         );
       }

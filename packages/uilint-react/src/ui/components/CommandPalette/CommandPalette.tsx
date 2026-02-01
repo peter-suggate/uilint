@@ -2,12 +2,10 @@
  * CommandPalette - Elegant command interface inspired by Spotlight & Raycast
  *
  * Features:
- * - Plugin-based category system for browsable content
- * - Finder-style sidebar for category navigation
  * - Hero search input with glassmorphic styling
- * - Priority-based lazy loading for fast performance
- * - Keyboard navigation between sidebar and results
  * - Tile-based masonry grid for visual item display
+ * - Filter chips for drill-down navigation
+ * - Keyboard navigation for tiles
  *
  * Visual design:
  * - Minimal colors, visual hierarchy through opacity/weight
@@ -16,14 +14,14 @@
  * - shadcn class conventions
  */
 
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { devError } from "uilint-core";
 import { useComposedStore, getPluginServices } from "../../../core/store";
+import { pluginRegistry } from "../../../core/plugin-system/registry";
 import { useTileItems, useTileNavigation } from "../../hooks";
 import { SearchInput } from "./SearchInput";
-import { KeywordSidebar } from "./KeywordSidebar";
 import { TileGrid } from "./TileGrid";
 import { GlassPanel } from "../primitives";
 import type { TileItem } from "../../../core/plugin-system/types";
@@ -37,12 +35,11 @@ const panelTransition = {
 export function CommandPalette() {
   const isOpen = useComposedStore((s) => s.commandPalette.open);
   const query = useComposedStore((s) => s.commandPalette.query);
-  const sidebarFocused = useComposedStore((s) => s.commandPalette.sidebarFocused);
   const filters = useComposedStore((s) => s.commandPalette.filters);
   const closeCommandPalette = useComposedStore((s) => s.closeCommandPalette);
   const setQuery = useComposedStore((s) => s.setCommandPaletteQuery);
-  const setSidebarFocused = useComposedStore((s) => s.setSidebarFocused);
   const openInspector = useComposedStore((s) => s.openInspector);
+  const addFilter = useComposedStore((s) => s.addFilter);
   const removeFilter = useComposedStore((s) => s.removeFilter);
   const removeLastFilter = useComposedStore((s) => s.removeLastFilter);
 
@@ -51,16 +48,11 @@ export function CommandPalette() {
 
   // Mobile detection from store
   const isMobile = useComposedStore((s) => s.mobile.isMobile);
-  const isSmallScreen = useComposedStore((s) => s.mobile.isSmallScreen);
-
-  // Selected category IDs (empty means all)
-  const selectedCategoryIds = useMemo(() => new Set<string>(), []);
 
   // Get tile items using the hook
   const { items: tileItems, isLoading, isTerminal } = useTileItems(
     filters,
-    query,
-    selectedCategoryIds
+    query
   );
 
   // Handle back navigation (backspace with empty query removes last filter)
@@ -71,26 +63,61 @@ export function CommandPalette() {
   // Handle tile click
   const handleTileClick = useCallback(
     async (item: TileItem) => {
+      const services = getPluginServices();
+      if (!services) {
+        devError("[CommandPalette] Plugin services not available");
+        return;
+      }
+
       // Check if item has an execute function in metadata
       const execute = item.metadata?.execute as ((services: unknown) => Promise<void>) | undefined;
       if (execute) {
-        const services = getPluginServices();
-        if (!services) {
-          devError("[CommandPalette] Plugin services not available");
-          return;
-        }
         try {
           await execute(services);
         } catch (error) {
           devError(`[CommandPalette] Error executing tile item "${item.id}":`, error);
         }
-      } else {
-        // Default behavior: open inspector with item details
-        openInspector("tile-item", { item });
+        closeCommandPalette();
+        return;
       }
-      closeCommandPalette();
+
+      // Get the provider for this item
+      const providerId = item.metadata?.providerId as string | undefined;
+      if (!providerId) {
+        // Fallback: open generic inspector
+        openInspector("tile-item", { item });
+        closeCommandPalette();
+        return;
+      }
+
+      const tileProviders = pluginRegistry.getAllTileProviders();
+      const providerEntry = tileProviders.find((p) => p.pluginId === providerId);
+
+      if (!providerEntry) {
+        openInspector("tile-item", { item });
+        closeCommandPalette();
+        return;
+      }
+
+      const { provider } = providerEntry;
+
+      // Check if we're at terminal state
+      if (isTerminal && provider.getInspectorData) {
+        const inspectorData = provider.getInspectorData(item);
+        openInspector(inspectorData.panelId, inspectorData.data);
+        closeCommandPalette();
+      } else if (provider.createFilter) {
+        // Drill down: add filter
+        const filter = provider.createFilter(item);
+        addFilter(filter);
+        refreshTileItems();
+      } else {
+        // Fallback
+        openInspector("tile-item", { item });
+        closeCommandPalette();
+      }
     },
-    [openInspector, closeCommandPalette]
+    [isTerminal, openInspector, closeCommandPalette, addFilter, refreshTileItems]
   );
 
   // Use tile navigation for 2D keyboard navigation
@@ -101,37 +128,13 @@ export function CommandPalette() {
     handleBack
   );
 
-  // Extended keyboard handler that also handles sidebar focus
+  // Keyboard handler for tile navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // Tab to switch between sidebar and results
-      if (e.key === "Tab") {
-        e.preventDefault();
-        setSidebarFocused(!sidebarFocused);
-        return;
-      }
-
-      // If sidebar is focused, handle sidebar navigation separately
-      if (sidebarFocused) {
-        // Left arrow to stay in sidebar, Right to go to tiles
-        if (e.key === "ArrowRight") {
-          e.preventDefault();
-          setSidebarFocused(false);
-        }
-        return;
-      }
-
-      // Left arrow from tiles goes to sidebar
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        setSidebarFocused(true);
-        return;
-      }
-
-      // Delegate to tile navigation for Up/Down/Right/Enter/etc.
+      // Delegate to tile navigation for Up/Down/Left/Right/Enter/etc.
       tileHandleKeyDown(e);
     },
-    [sidebarFocused, setSidebarFocused, tileHandleKeyDown]
+    [tileHandleKeyDown]
   );
 
   // Refresh tile items when command palette opens
@@ -239,32 +242,17 @@ export function CommandPalette() {
                 onRemoveLastFilter={removeLastFilter}
               />
 
-              {/* Content Area: Sidebar + Tile Grid */}
+              {/* Content Area: Tile Grid */}
               <div
                 style={{
-                  display: "flex",
-                  flexDirection: isSmallScreen ? "column" : "row",
                   maxHeight: isMobile ? "none" : 420,
                   flex: isMobile ? 1 : undefined,
                   minHeight: 0,
-                  overflow: "hidden",
+                  overflowY: "auto",
+                  overflowX: "hidden",
+                  WebkitOverflowScrolling: "touch",
                 }}
               >
-                {/* Keyword Sidebar - hidden on small screens */}
-                {!isSmallScreen && (
-                  <KeywordSidebar />
-                )}
-
-                {/* Tile Grid Pane */}
-                <div
-                  style={{
-                    flex: 1,
-                    overflowY: "auto",
-                    overflowX: "hidden",
-                    minHeight: 0,
-                    WebkitOverflowScrolling: "touch",
-                  }}
-                >
                   <AnimatePresence mode={isMobile ? "sync" : "wait"}>
                     {/* Loading state */}
                     {isLoading ? (
@@ -321,7 +309,6 @@ export function CommandPalette() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
               </div>
             </GlassPanel>
           </motion.div>
