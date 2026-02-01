@@ -293,14 +293,16 @@ describe("TileGrid - interactions", () => {
 
     expect(tiles.length).toBe(2);
 
-    // Click the first tile
+    // Click the first tile - tiles are sorted by count (descending),
+    // so tiles[0] is "Second Item" (count: 20)
     fireEvent.click(tiles[0]);
     expect(onTileClick).toHaveBeenCalledTimes(1);
-    expect(onTileClick).toHaveBeenCalledWith(items[0]);
+    expect(onTileClick).toHaveBeenCalledWith(items[1]); // Second Item has highest count
   });
 
   it("calls onTileClick with correct item when different tiles are clicked", () => {
     const onTileClick = vi.fn();
+    // Items sorted by count descending: Third (30), Second (20), First (10)
     const items: TileItem[] = [
       createTestItem("1", 10, "First"),
       createTestItem("2", 20, "Second"),
@@ -325,15 +327,16 @@ describe("TileGrid - interactions", () => {
       }
     });
 
-    // Click each tile and verify correct item is passed
+    // Click each tile - tiles are sorted by count (descending)
+    // tiles[0] = Third (count 30), tiles[1] = Second (count 20), tiles[2] = First (count 10)
     fireEvent.click(tiles[0]);
-    expect(onTileClick).toHaveBeenLastCalledWith(items[0]);
+    expect(onTileClick).toHaveBeenLastCalledWith(items[2]); // Third
 
     fireEvent.click(tiles[1]);
-    expect(onTileClick).toHaveBeenLastCalledWith(items[1]);
+    expect(onTileClick).toHaveBeenLastCalledWith(items[1]); // Second
 
     fireEvent.click(tiles[2]);
-    expect(onTileClick).toHaveBeenLastCalledWith(items[2]);
+    expect(onTileClick).toHaveBeenLastCalledWith(items[0]); // First
 
     expect(onTileClick).toHaveBeenCalledTimes(3);
   });
