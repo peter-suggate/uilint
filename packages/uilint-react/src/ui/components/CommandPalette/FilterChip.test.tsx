@@ -121,7 +121,7 @@ describe("FilterChip - styling", () => {
     expect(container.textContent).toContain("viewport");
   });
 
-  it("applies blue color for scope filter type", () => {
+  it("applies minimal monochrome color for scope filter type", () => {
     const { container } = render(
       <FilterChip filter={scopeFilter} onRemove={vi.fn()} />
     );
@@ -129,11 +129,11 @@ describe("FilterChip - styling", () => {
     const root = container.firstElementChild as HTMLElement;
     const styleAttr = root.getAttribute("style") || "";
 
-    // Scope filters should have blue tint (59, 130, 246 is blue)
-    expect(styleAttr).toContain("rgba(59, 130, 246");
+    // All filter types use minimal monochrome styling
+    expect(styleAttr).toContain("rgba(128, 128, 128, 0.08)");
   });
 
-  it("applies purple color for rule filter type", () => {
+  it("applies minimal monochrome color for rule filter type", () => {
     const { container } = render(
       <FilterChip filter={ruleFilter} onRemove={vi.fn()} />
     );
@@ -141,11 +141,11 @@ describe("FilterChip - styling", () => {
     const root = container.firstElementChild as HTMLElement;
     const styleAttr = root.getAttribute("style") || "";
 
-    // Rule filters should have purple tint (147, 51, 234 is purple)
-    expect(styleAttr).toContain("rgba(147, 51, 234");
+    // All filter types use minimal monochrome styling
+    expect(styleAttr).toContain("rgba(128, 128, 128, 0.08)");
   });
 
-  it("applies green color for file filter type", () => {
+  it("applies minimal monochrome color for file filter type", () => {
     const { container } = render(
       <FilterChip filter={fileFilter} onRemove={vi.fn()} />
     );
@@ -153,11 +153,11 @@ describe("FilterChip - styling", () => {
     const root = container.firstElementChild as HTMLElement;
     const styleAttr = root.getAttribute("style") || "";
 
-    // File filters should have green tint (34, 197, 94 is green)
-    expect(styleAttr).toContain("rgba(34, 197, 94");
+    // All filter types use minimal monochrome styling
+    expect(styleAttr).toContain("rgba(128, 128, 128, 0.08)");
   });
 
-  it("applies amber/yellow color for severity filter type", () => {
+  it("applies minimal monochrome color for severity filter type", () => {
     const { container } = render(
       <FilterChip filter={severityFilter} onRemove={vi.fn()} />
     );
@@ -165,8 +165,8 @@ describe("FilterChip - styling", () => {
     const root = container.firstElementChild as HTMLElement;
     const styleAttr = root.getAttribute("style") || "";
 
-    // Severity filters should have amber/yellow tint (245, 158, 11 is amber)
-    expect(styleAttr).toContain("rgba(245, 158, 11");
+    // All filter types use minimal monochrome styling
+    expect(styleAttr).toContain("rgba(128, 128, 128, 0.08)");
   });
 
   it("applies gray color for category filter type", () => {

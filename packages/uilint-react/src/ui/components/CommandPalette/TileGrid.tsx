@@ -9,6 +9,7 @@
  */
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { Sparkles } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import type { TileItem } from "../../../core/plugin-system/types";
 import { Tile } from "./Tile";
@@ -28,17 +29,17 @@ const crispEase = [0.32, 0.72, 0, 1] as const;
 
 /**
  * Available width for tile grid
- * Command palette: 560px - sidebar: 112px - padding: 32px = 416px
+ * Command palette: 580px - padding: 48px = 532px
  */
-const GRID_AVAILABLE_WIDTH = 416;
+const GRID_AVAILABLE_WIDTH = 532;
 
 /**
  * Gap between tiles
  */
-const GRID_GAP = 12;
+const GRID_GAP = 14;
 
 /**
- * EmptyState - Glassmorphic placeholder when no tiles to display
+ * EmptyState - Minimal placeholder when no tiles to display
  */
 function EmptyState() {
   return (
@@ -48,16 +49,16 @@ function EmptyState() {
       transition={{ duration: 0.2 }}
       className={cn(
         "flex flex-col items-center justify-center",
-        "py-12 px-6 text-center"
+        "py-16 px-8 text-center"
       )}
     >
-      <div className="text-3xl mb-3 opacity-50">
-        {"\u2728"}
+      <div className="mb-4 opacity-30">
+        <Sparkles size={28} strokeWidth={1.5} />
       </div>
-      <div className="text-sm font-normal text-foreground/70 mb-1">
+      <div className="text-sm font-normal text-foreground/60 mb-1">
         No items to display
       </div>
-      <div className="text-xs text-muted-foreground">
+      <div className="text-xs text-muted-foreground/70">
         Try adjusting your filters or search query
       </div>
     </motion.div>
@@ -100,7 +101,7 @@ export function TileGrid({
 
   return (
     <div
-      className="p-3 px-4 relative"
+      className="p-5 px-6 relative"
       style={{
         height: layout.totalHeight,
         minHeight: 200,

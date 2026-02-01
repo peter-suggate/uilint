@@ -10,6 +10,7 @@
 import * as React from "react";
 import { useState } from "react";
 import { motion } from "motion/react";
+import { X } from "lucide-react";
 import type { TileFilter } from "../../../core/plugin-system/types";
 
 // ============================================================================
@@ -33,31 +34,32 @@ type FilterColors = {
   border: string;
 };
 
+// Minimal, monochromatic color scheme - subtle tints only
 const filterColorMap: Record<string, FilterColors> = {
   scope: {
-    background: "rgba(59, 130, 246, 0.12)", // blue tint
-    text: "var(--uilint-info, #3b82f6)",
-    border: "rgba(59, 130, 246, 0.25)",
+    background: "rgba(128, 128, 128, 0.08)",
+    text: "var(--uilint-text-secondary, currentColor)",
+    border: "rgba(128, 128, 128, 0.15)",
   },
   rule: {
-    background: "rgba(147, 51, 234, 0.12)", // purple tint
-    text: "var(--uilint-accent, #9333ea)",
-    border: "rgba(147, 51, 234, 0.25)",
+    background: "rgba(128, 128, 128, 0.08)",
+    text: "var(--uilint-text-secondary, currentColor)",
+    border: "rgba(128, 128, 128, 0.15)",
   },
   file: {
-    background: "rgba(34, 197, 94, 0.12)", // green tint
-    text: "var(--uilint-success, #22c55e)",
-    border: "rgba(34, 197, 94, 0.25)",
+    background: "rgba(128, 128, 128, 0.08)",
+    text: "var(--uilint-text-secondary, currentColor)",
+    border: "rgba(128, 128, 128, 0.15)",
   },
   severity: {
-    background: "rgba(245, 158, 11, 0.12)", // yellow/amber tint
-    text: "var(--uilint-warning, #f59e0b)",
-    border: "rgba(245, 158, 11, 0.25)",
+    background: "rgba(128, 128, 128, 0.08)",
+    text: "var(--uilint-text-secondary, currentColor)",
+    border: "rgba(128, 128, 128, 0.15)",
   },
   category: {
-    background: "var(--uilint-surface-elevated, rgba(128, 128, 128, 0.12))", // gray tint
-    text: "var(--uilint-text-secondary, #a1a1aa)",
-    border: "var(--uilint-border, rgba(128, 128, 128, 0.25))",
+    background: "rgba(128, 128, 128, 0.08)",
+    text: "var(--uilint-text-secondary, currentColor)",
+    border: "rgba(128, 128, 128, 0.15)",
   },
 };
 
@@ -115,13 +117,13 @@ export function FilterChip({ filter, onRemove }: FilterChipProps) {
   const containerStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
-    gap: 4,
-    padding: "2px 6px 2px 8px",
+    gap: 6,
+    padding: "4px 8px 4px 10px",
     borderRadius: 999, // pill shape
     background: colors.background,
     border: `1px solid ${colors.border}`,
-    fontSize: 11,
-    fontWeight: 500,
+    fontSize: 12,
+    fontWeight: 450,
     lineHeight: 1.2,
     color: colors.text,
     whiteSpace: "nowrap",
@@ -138,22 +140,19 @@ export function FilterChip({ filter, onRemove }: FilterChipProps) {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    width: 14,
-    height: 14,
+    width: 16,
+    height: 16,
     padding: 0,
     margin: 0,
     border: "none",
     background: isRemoveHovered
-      ? "rgba(255, 255, 255, 0.15)"
+      ? "rgba(128, 128, 128, 0.12)"
       : "transparent",
     borderRadius: "50%",
     color: "inherit",
     cursor: "pointer",
-    opacity: isRemoveHovered ? 1 : 0.7,
-    transition: "background 0.1s ease, opacity 0.1s ease",
-    fontSize: 12,
-    lineHeight: 1,
-    fontFamily: "inherit",
+    opacity: isRemoveHovered ? 0.8 : 0.5,
+    transition: "background 0.15s ease, opacity 0.15s ease",
   };
 
   return (
@@ -181,7 +180,7 @@ export function FilterChip({ filter, onRemove }: FilterChipProps) {
         style={removeButtonStyle}
         aria-label={`Remove ${filter.label} filter`}
       >
-        ×
+        <X size={12} strokeWidth={2} />
       </button>
     </motion.span>
   );

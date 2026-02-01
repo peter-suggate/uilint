@@ -159,13 +159,13 @@ export function CommandPalette() {
           style={{
             position: "fixed",
             inset: 0,
-            background: isMobile ? "var(--uilint-surface)" : "rgba(0, 0, 0, 0.35)",
-            backdropFilter: isMobile ? "none" : "blur(8px)",
-            WebkitBackdropFilter: isMobile ? "none" : "blur(8px)",
+            background: isMobile ? "var(--uilint-surface)" : "rgba(0, 0, 0, 0.2)",
+            backdropFilter: isMobile ? "none" : "blur(20px)",
+            WebkitBackdropFilter: isMobile ? "none" : "blur(20px)",
             display: "flex",
             alignItems: isMobile ? "stretch" : "flex-start",
             justifyContent: "center",
-            paddingTop: isMobile ? 0 : 80,
+            paddingTop: isMobile ? 0 : 100,
             zIndex: 99998,
             pointerEvents: "auto",
           }}
@@ -186,9 +186,9 @@ export function CommandPalette() {
               shadow={isMobile ? undefined : "lg"}
               animate={false}
               style={{
-                width: isMobile ? "100%" : 560,
+                width: isMobile ? "100%" : 580,
                 height: isMobile ? "100%" : "auto",
-                borderRadius: isMobile ? 0 : 16,
+                borderRadius: isMobile ? 0 : 20,
                 overflow: "hidden",
                 display: isMobile ? "flex" : "block",
                 flexDirection: isMobile ? "column" : undefined,
@@ -247,7 +247,7 @@ export function CommandPalette() {
               {/* Content Area: Tile Grid */}
               <div
                 style={{
-                  maxHeight: isMobile ? "none" : 420,
+                  maxHeight: isMobile ? "none" : 440,
                   flex: isMobile ? 1 : undefined,
                   minHeight: 0,
                   overflowY: "auto",
