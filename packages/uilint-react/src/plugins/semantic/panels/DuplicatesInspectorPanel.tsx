@@ -230,7 +230,7 @@ export function DuplicatesInspectorPanel({ data, services }: InspectorPanelProps
     (sourceFilePath && sourceLine ? {
       filePath: sourceFilePath,
       startLine: sourceCodeResult.context?.startLine || sourceLine,
-      endLine: sourceCodeResult.context?.endLine || sourceLine,
+      endLine: sourceLine,
       startColumn: 0,
       endColumn: 0,
     } : undefined);
@@ -239,7 +239,7 @@ export function DuplicatesInspectorPanel({ data, services }: InspectorPanelProps
     (targetFilePath && targetLine ? {
       filePath: targetFilePath,
       startLine: targetCodeResult.context?.startLine || targetLine,
-      endLine: targetCodeResult.context?.endLine || targetLine,
+      endLine: targetLine,
       startColumn: 0,
       endColumn: 0,
     } : undefined);
