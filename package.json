@@ -18,6 +18,7 @@
     "setup-static-preview": "bash scripts/setup-static-preview.sh",
     "setup-vercel-preview": "bash scripts/setup-vercel-preview.sh",
     "dev": "pnpm --filter test-app dev",
+    "dev:fresh": "pnpm build:packages && pnpm setup-test-app && pnpm dev",
     "build": "pnpm -r build",
     "build:packages": "pnpm --filter uilint-core build && pnpm --filter uilint-react build && pnpm --filter uilint build && pnpm --filter uilint-eslint build && pnpm --filter uilint-duplicates build && pnpm --filter jsx-loc-plugin build",
     "clean": "pnpm -r --workspace-concurrency=1 exec -- sh -c \"rm -rf dist tsconfig.tsbuildinfo .turbo .next coverage node_modules/.cache || true\"",
