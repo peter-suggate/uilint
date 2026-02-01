@@ -1,6 +1,12 @@
 /**
  * HeatmapOverlay - Renders colored borders around elements with issues
- * Shows issue count on hover when Alt key is held
+ *
+ * Key interaction model:
+ * - Element rectangles are click-through (pointerEvents: none) to allow
+ *   interaction with the underlying application
+ * - Only the inset badge (square, top-right corner) is clickable
+ * - Clicking the badge adds a file filter to the unified filter model
+ * - Alt+hover on badge shows tooltip with issue details
  *
  * The heatmap automatically reflects the current tile filters:
  * - No filters: show all issues
@@ -26,10 +32,11 @@ interface OverlayItemProps {
   isHovered: boolean;
   isSelected: boolean;
   showDetails: boolean;
-  onClick: () => void;
+  onBadgeClick: () => void;
+  onBadgeHover: (hovered: boolean) => void;
 }
 
-function OverlayItem({ rect, issues, isHovered, isSelected, showDetails, onClick }: OverlayItemProps) {
+function OverlayItem({ rect, issues, isHovered, isSelected, showDetails, onBadgeClick, onBadgeHover }: OverlayItemProps) {
   // Get highest severity for border color
   const severity = useMemo(() => {
     if (issues.some(i => i.severity === "error")) return "error";
@@ -42,7 +49,6 @@ function OverlayItem({ rect, issues, isHovered, isSelected, showDetails, onClick
 
   return (
     <div
-      onClick={onClick}
       style={{
         position: "fixed",
         left: rect.left - 2,
@@ -51,44 +57,60 @@ function OverlayItem({ rect, issues, isHovered, isSelected, showDetails, onClick
         height: rect.height + 4,
         border: `${isSelected ? 3 : 2}px solid ${color}`,
         borderRadius: 4,
-        pointerEvents: "auto",
-        cursor: "pointer",
+        pointerEvents: "none", // Click-through - allows underlying app interaction
         opacity: isHovered || isSelected ? 1 : 0.6,
         transition: "opacity 0.15s, border-width 0.15s",
         zIndex: isSelected ? 99991 : 99990,
         boxShadow: isSelected ? `0 0 0 2px ${color}40, 0 0 12px ${color}60` : undefined,
       }}
     >
-      {/* Issue count badge */}
+      {/* Issue count badge - inset square, only clickable element */}
       <span
+        onClick={(e) => {
+          e.stopPropagation();
+          onBadgeClick();
+        }}
+        onMouseEnter={() => onBadgeHover(true)}
+        onMouseLeave={() => onBadgeHover(false)}
         style={{
           position: "absolute",
-          top: -10,
-          right: -10,
-          minWidth: 18,
-          height: 18,
-          borderRadius: 9,
+          top: 0,
+          right: 0,
+          minWidth: 14,
+          height: 14,
+          borderRadius: 2,
           background: color,
           color: "white",
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: 600,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "0 4px",
+          padding: "0 3px",
+          pointerEvents: "auto", // Only badge is clickable
+          cursor: "pointer",
+          boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
+          transition: "transform 0.1s, box-shadow 0.1s",
+        }}
+        onMouseOver={(e) => {
+          (e.currentTarget as HTMLElement).style.transform = "scale(1.1)";
+          (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 6px rgba(0,0,0,0.4)";
+        }}
+        onMouseOut={(e) => {
+          (e.currentTarget as HTMLElement).style.transform = "scale(1)";
+          (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 3px rgba(0,0,0,0.3)";
         }}
       >
         {count}
       </span>
 
-      {/* Tooltip on Alt+hover */}
+      {/* Tooltip on Alt+hover badge */}
       {showDetails && isHovered && (
         <div
           style={{
             position: "absolute",
-            top: "100%",
-            left: 0,
-            marginTop: 8,
+            top: 18,
+            right: 0,
             padding: "8px 12px",
             background: "#1f2937",
             color: "white",
@@ -97,7 +119,8 @@ function OverlayItem({ rect, issues, isHovered, isSelected, showDetails, onClick
             maxWidth: 300,
             whiteSpace: "pre-wrap",
             boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-            zIndex: 99991,
+            zIndex: 99992,
+            pointerEvents: "none",
           }}
         >
           <strong>{count} issue{count !== 1 ? "s" : ""}</strong>
@@ -124,6 +147,7 @@ export function HeatmapOverlay() {
   const openInspectorPanel = useComposedStore((s) => s.openInspectorPanel);
   const expandFile = useComposedStore((s) => s.expandFile);
   const selectIssue = useComposedStore((s) => s.selectIssue);
+  const addFilter = useComposedStore((s) => s.addFilter);
   const hoveredElementId = useComposedStore((s) => s.hoveredElementId);
   const setHoveredElementId = useComposedStore((s) => s.setHoveredElementId);
   const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
@@ -158,19 +182,33 @@ export function HeatmapOverlay() {
     return entries.filter(([dataLoc]) => dataLocSet.has(dataLoc));
   }, [elementRects, heatmapDataLocs, hasActiveTileFilters]);
 
-  // Handle clicking an overlay item
-  // Opens the unified inspector panel and expands the file containing the clicked element
-  const handleClick = (dataLoc: string) => {
+  // Handle clicking the badge on an overlay item
+  // Adds a file filter to the unified model and opens the inspector
+  const handleBadgeClick = (dataLoc: string) => {
     const elementIssues = issues.get(dataLoc) || [];
     if (elementIssues.length > 0) {
-      // Expand the file containing this element
       const firstIssue = elementIssues[0];
+
+      // Add file filter to the unified filter model
+      const fileName = firstIssue.filePath.split("/").pop() || firstIssue.filePath;
+      addFilter({
+        type: "file",
+        id: firstIssue.filePath,
+        label: fileName,
+      });
+
+      // Expand the file containing this element
       expandFile(firstIssue.filePath);
       // Select the first issue to highlight it
       selectIssue(firstIssue.id);
     }
     // Open the inspector panel
     openInspectorPanel();
+  };
+
+  // Handle badge hover - updates hovered element for visual feedback
+  const handleBadgeHover = (dataLoc: string, hovered: boolean) => {
+    setHoveredElementId(hovered ? dataLoc : null);
   };
 
   // Determine if a dataLoc contains the currently selected issue
@@ -202,12 +240,6 @@ export function HeatmapOverlay() {
         pointerEvents: "none",
         zIndex: 99990,
       }}
-      onMouseMove={(e) => {
-        // Find element under cursor
-        const target = e.target as HTMLElement;
-        const dataLoc = target.getAttribute?.("data-loc");
-        setHoveredElementId(dataLoc || null);
-      }}
     >
       {filteredEntries.map(([dataLoc, { rect }]) => {
         const elementIssues = issues.get(dataLoc) || [];
@@ -222,7 +254,8 @@ export function HeatmapOverlay() {
             isHovered={hoveredElementId === dataLoc || hasActiveTileFilters}
             isSelected={getSelectedDataLoc === dataLoc}
             showDetails={altKeyHeld}
-            onClick={() => handleClick(dataLoc)}
+            onBadgeClick={() => handleBadgeClick(dataLoc)}
+            onBadgeHover={(hovered) => handleBadgeHover(dataLoc, hovered)}
           />
         );
       })}
