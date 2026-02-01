@@ -718,8 +718,7 @@ export function CommandPalette() {
               shadow={isMobile ? undefined : "lg"}
               animate={false}
               style={{
-                width: "100%",
-                maxWidth: isMobile ? "100%" : 680,
+                width: isMobile ? "100%" : 560,
                 height: isMobile ? "100%" : "auto",
                 borderRadius: isMobile ? 0 : 16,
                 overflow: "hidden",

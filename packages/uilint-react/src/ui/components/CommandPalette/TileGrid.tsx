@@ -27,9 +27,10 @@ interface TileGridProps {
 const crispEase = [0.32, 0.72, 0, 1] as const;
 
 /**
- * Available width for tile grid (fixed command palette width minus padding)
+ * Available width for tile grid
+ * Command palette: 560px - sidebar: 112px - padding: 32px = 416px
  */
-const GRID_AVAILABLE_WIDTH = 500;
+const GRID_AVAILABLE_WIDTH = 416;
 
 /**
  * Gap between tiles

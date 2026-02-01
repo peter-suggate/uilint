@@ -14,10 +14,11 @@ import type {
 } from "./types";
 
 // Default configuration
+// Available width matches command palette content area: 560 - 112 (sidebar) - 32 (padding) = 416
 const DEFAULT_CONFIG: Required<MosaicLayoutConfig> = {
-  availableWidth: 500,
+  availableWidth: 416,
   gap: 12,
-  minTileWidth: 140,
+  minTileWidth: 120,
 };
 
 // Bucket heights in pixels
