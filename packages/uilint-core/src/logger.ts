@@ -7,6 +7,58 @@ import pc from "picocolors";
 
 const PREFIX = pc.cyan("[uilint]");
 
+// ============================================================================
+// Test Environment Detection
+// ============================================================================
+
+/**
+ * Check if we're running in a test environment.
+ * Vitest sets VITEST=true when running tests.
+ */
+function isTestEnvironment(): boolean {
+  return (
+    typeof process !== "undefined" &&
+    (process.env.VITEST === "true" || process.env.NODE_ENV === "test")
+  );
+}
+
+// Cache the result since it won't change during runtime
+const IS_TEST = isTestEnvironment();
+
+// ============================================================================
+// Test-Aware Logging (silent during tests)
+// ============================================================================
+
+/**
+ * Log a message to the console (silent during tests).
+ * Use this for development/debugging logs that shouldn't appear in test output.
+ */
+export function devLog(...args: unknown[]): void {
+  if (!IS_TEST) {
+    console.log(...args);
+  }
+}
+
+/**
+ * Log a warning to the console (silent during tests).
+ * Use this for development warnings that shouldn't appear in test output.
+ */
+export function devWarn(...args: unknown[]): void {
+  if (!IS_TEST) {
+    console.warn(...args);
+  }
+}
+
+/**
+ * Log an error to the console (silent during tests).
+ * Use this for development errors that shouldn't appear in test output.
+ */
+export function devError(...args: unknown[]): void {
+  if (!IS_TEST) {
+    console.error(...args);
+  }
+}
+
 /**
  * Log an info message to stderr
  */

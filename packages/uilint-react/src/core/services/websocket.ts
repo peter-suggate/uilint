@@ -5,6 +5,8 @@
  * with exponential backoff.
  */
 
+import { devLog, devWarn, devError } from "uilint-core";
+
 // Constants
 export const DEFAULT_WS_URL = "ws://localhost:9234";
 export const MAX_RECONNECT_ATTEMPTS = 5;
@@ -78,7 +80,7 @@ export class WebSocketServiceImpl implements WebSocketService {
     // SSR guard - WebSocket is not available during server-side rendering
     // Skip check if a custom createWebSocket factory was provided (e.g., in tests)
     if (typeof WebSocket === "undefined" && !this.options.createWebSocket) {
-      console.warn("[WebSocket] WebSocket is not available in this environment");
+      devWarn("[WebSocket] WebSocket is not available in this environment");
       return;
     }
 
@@ -100,7 +102,7 @@ export class WebSocketServiceImpl implements WebSocketService {
       this.ws = this.createWebSocket(this.url);
       this.setupEventHandlers();
     } catch (error) {
-      console.error("[WebSocket] Failed to create WebSocket:", error);
+      devError("[WebSocket] Failed to create WebSocket:", error);
       this.scheduleReconnect();
     }
   }
@@ -133,14 +135,14 @@ export class WebSocketServiceImpl implements WebSocketService {
    */
   send(message: unknown): void {
     if (!this.ws || !this.isConnected) {
-      console.warn("[WebSocket] Cannot send message: not connected");
+      devWarn("[WebSocket] Cannot send message: not connected");
       return;
     }
 
     try {
       this.ws.send(JSON.stringify(message));
     } catch (error) {
-      console.error("[WebSocket] Failed to send message:", error);
+      devError("[WebSocket] Failed to send message:", error);
     }
   }
 
@@ -191,14 +193,14 @@ export class WebSocketServiceImpl implements WebSocketService {
     if (!this.ws) return;
 
     this.ws.onopen = () => {
-      console.log(`[WebSocket] Connected to ${this.url}`);
+      devLog(`[WebSocket] Connected to ${this.url}`);
       this.isConnected = true;
       this.reconnectAttempts = 0;
       this.notifyConnectionChange(true);
     };
 
     this.ws.onclose = (event) => {
-      console.log(`[WebSocket] Disconnected from ${this.url} (code: ${event?.code ?? 'unknown'}, reason: ${event?.reason || 'none'})`);
+      devLog(`[WebSocket] Disconnected from ${this.url} (code: ${event?.code ?? 'unknown'}, reason: ${event?.reason || 'none'})`);
       this.isConnected = false;
       this.notifyConnectionChange(false);
 
@@ -208,7 +210,7 @@ export class WebSocketServiceImpl implements WebSocketService {
     };
 
     this.ws.onerror = (event) => {
-      console.error("[WebSocket] Connection error:", event);
+      devError("[WebSocket] Connection error:", event);
     };
 
     this.ws.onmessage = (event) => {
@@ -216,7 +218,7 @@ export class WebSocketServiceImpl implements WebSocketService {
         const message = JSON.parse(event.data);
         const type = message.type as string | undefined;
 
-        console.log(`[WebSocket] Received message: ${type || 'unknown'}`, message);
+        devLog(`[WebSocket] Received message: ${type || 'unknown'}`, message);
 
         if (type) {
           this.dispatch(type, message);
@@ -225,7 +227,7 @@ export class WebSocketServiceImpl implements WebSocketService {
           this.dispatch("*", message);
         }
       } catch (error) {
-        console.error("[WebSocket] Failed to parse message:", error);
+        devError("[WebSocket] Failed to parse message:", error);
       }
     };
   }
@@ -243,7 +245,7 @@ export class WebSocketServiceImpl implements WebSocketService {
         try {
           handler(data);
         } catch (error) {
-          console.error(`[WebSocket] Handler error for type "${type}":`, error);
+          devError(`[WebSocket] Handler error for type "${type}":`, error);
         }
       });
     }
@@ -256,7 +258,7 @@ export class WebSocketServiceImpl implements WebSocketService {
           try {
             handler(data);
           } catch (error) {
-            console.error("[WebSocket] Wildcard handler error:", error);
+            devError("[WebSocket] Wildcard handler error:", error);
           }
         });
       }
@@ -272,7 +274,7 @@ export class WebSocketServiceImpl implements WebSocketService {
       try {
         handler(connected);
       } catch (error) {
-        console.error("[WebSocket] Connection handler error:", error);
+        devError("[WebSocket] Connection handler error:", error);
       }
     });
   }
@@ -286,7 +288,7 @@ export class WebSocketServiceImpl implements WebSocketService {
     }
 
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.warn(
+      devWarn(
         `[WebSocket] Max reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached`
       );
       return;
@@ -301,7 +303,7 @@ export class WebSocketServiceImpl implements WebSocketService {
     const delay = RECONNECT_BASE_DELAY * Math.pow(2, this.reconnectAttempts);
     this.reconnectAttempts++;
 
-    console.log(
+    devLog(
       `[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
     );
 

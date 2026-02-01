@@ -18,6 +18,7 @@
 import React, { useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
+import { devError } from "uilint-core";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
 import { useIssues, useCategoryRegistry, useCategoryItems } from "../../hooks";
@@ -477,13 +478,13 @@ export function CommandPalette() {
   const handleExecuteCommand = useCallback(async (command: Command) => {
     const services = getPluginServices();
     if (!services) {
-      console.error("[CommandPalette] Plugin services not available");
+      devError("[CommandPalette] Plugin services not available");
       return;
     }
     try {
       await command.execute(services);
     } catch (error) {
-      console.error(`[CommandPalette] Error executing command "${command.id}":`, error);
+      devError(`[CommandPalette] Error executing command "${command.id}":`, error);
     }
   }, []);
 
@@ -493,14 +494,14 @@ export function CommandPalette() {
 
     const services = getPluginServices();
     if (!services) {
-      console.error("[CommandPalette] Plugin services not available");
+      devError("[CommandPalette] Plugin services not available");
       return;
     }
     try {
       await item.execute(services);
       closeCommandPalette();
     } catch (error) {
-      console.error(`[CommandPalette] Error executing category item "${item.id}":`, error);
+      devError(`[CommandPalette] Error executing category item "${item.id}":`, error);
     }
   }, [closeCommandPalette]);
 

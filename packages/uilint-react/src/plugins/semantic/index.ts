@@ -5,6 +5,7 @@
  * Handles the semantic rule and duplicates detection.
  */
 
+import { devLog, devError } from "uilint-core";
 import type { Plugin } from "../../core/plugin-system/types";
 import { semanticCommands } from "./commands";
 import { createSemanticPluginSlice, type SemanticPluginSlice } from "./slice";
@@ -110,7 +111,7 @@ export const semanticPlugin: Plugin<SemanticPluginSlice> = {
    * Initialize the plugin
    */
   initialize: (services) => {
-    console.log("[SemanticPlugin] Initializing...");
+    devLog("[SemanticPlugin] Initializing...");
 
     // Subscribe to duplicates:indexing:* messages
     const unsubscribeStart = services.websocket.on(
@@ -122,7 +123,7 @@ export const semanticPlugin: Plugin<SemanticPluginSlice> = {
           duplicatesIndexProgress: null,
           duplicatesIndexError: null,
         });
-        console.log("[SemanticPlugin] Duplicates indexing started");
+        devLog("[SemanticPlugin] Duplicates indexing started");
       }
     );
 
@@ -167,7 +168,7 @@ export const semanticPlugin: Plugin<SemanticPluginSlice> = {
             duration: msg.duration,
           },
         });
-        console.log(
+        devLog(
           `[SemanticPlugin] Duplicates index ready: ${msg.totalChunks} chunks ` +
             `(${msg.added} added, ${msg.modified} modified, ${msg.deleted} deleted) ` +
             `in ${msg.duration}ms`
@@ -185,11 +186,11 @@ export const semanticPlugin: Plugin<SemanticPluginSlice> = {
           duplicatesIndexProgress: null,
           duplicatesIndexError: msg.error,
         });
-        console.error("[SemanticPlugin] Duplicates indexing error:", msg.error);
+        devError("[SemanticPlugin] Duplicates indexing error:", msg.error);
       }
     );
 
-    console.log("[SemanticPlugin] Initialized successfully");
+    devLog("[SemanticPlugin] Initialized successfully");
 
     // Return cleanup function
     return () => {
@@ -197,7 +198,7 @@ export const semanticPlugin: Plugin<SemanticPluginSlice> = {
       unsubscribeProgress();
       unsubscribeComplete();
       unsubscribeError();
-      console.log("[SemanticPlugin] Disposed");
+      devLog("[SemanticPlugin] Disposed");
     };
   },
 };

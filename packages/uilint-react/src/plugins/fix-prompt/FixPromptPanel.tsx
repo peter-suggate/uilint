@@ -7,6 +7,7 @@
 
 /* eslint-disable uilint/consistent-dark-mode -- theming handled via CSS custom properties */
 import React, { useMemo, useState, useCallback } from "react";
+import { devError } from "uilint-core";
 import type { InspectorPanelProps } from "../../core/plugin-system/types";
 import type { Issue } from "../../ui/types";
 
@@ -142,7 +143,7 @@ function CopyButton({ text, onCopy }: { text: string; onCopy: () => void }) {
       onCopy();
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error("Failed to copy:", err);
+      devError("Failed to copy:", err);
     }
   }, [text, onCopy]);
 

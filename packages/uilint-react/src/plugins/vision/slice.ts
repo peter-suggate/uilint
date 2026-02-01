@@ -5,6 +5,7 @@
  * Manages screenshot capture, vision analysis, and results display.
  */
 
+import { devWarn } from "uilint-core";
 import type {
   VisionIssue,
   ScreenshotCapture,
@@ -150,7 +151,7 @@ export function loadVisionAutoScanSettings(): VisionAutoScanSettings {
       return { ...DEFAULT_VISION_AUTO_SCAN_SETTINGS, ...parsed };
     }
   } catch (e) {
-    console.warn("[Vision Plugin] Failed to load auto-scan settings:", e);
+    devWarn("[Vision Plugin] Failed to load auto-scan settings:", e);
   }
   return DEFAULT_VISION_AUTO_SCAN_SETTINGS;
 }
@@ -163,7 +164,7 @@ export function saveVisionAutoScanSettings(settings: VisionAutoScanSettings): vo
   try {
     localStorage.setItem(VISION_AUTO_SCAN_SETTINGS_KEY, JSON.stringify(settings));
   } catch (e) {
-    console.warn("[Vision Plugin] Failed to save auto-scan settings:", e);
+    devWarn("[Vision Plugin] Failed to save auto-scan settings:", e);
   }
 }
 
@@ -194,7 +195,7 @@ export function createVisionSlice(
 
     triggerVisionAnalysis: async () => {
       // Implementation would be provided by the plugin when integrated with services
-      console.warn("[Vision Plugin] triggerVisionAnalysis called without integration");
+      devWarn("[Vision Plugin] triggerVisionAnalysis called without integration");
     },
 
     clearVisionResults: () =>
@@ -256,7 +257,7 @@ export function createVisionSlice(
       try {
         const response = await fetch("/api/.uilint/screenshots?list=true");
         if (!response.ok) {
-          console.warn("[Vision Plugin] Failed to fetch screenshots:", response.statusText);
+          devWarn("[Vision Plugin] Failed to fetch screenshots:", response.statusText);
           return;
         }
 
@@ -313,7 +314,7 @@ export function createVisionSlice(
           visionIssuesCache: newVisionCache,
         } as Partial<VisionSlice>);
       } catch (error) {
-        console.warn("[Vision Plugin] Error fetching persisted screenshots:", error);
+        devWarn("[Vision Plugin] Error fetching persisted screenshots:", error);
       } finally {
         set({
           loadingPersistedScreenshots: false,

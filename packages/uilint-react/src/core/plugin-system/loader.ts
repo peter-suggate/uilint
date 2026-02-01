@@ -1,3 +1,4 @@
+import { devWarn, devError } from "uilint-core";
 import type { Plugin } from "./types";
 import { sortByDependencies } from "./registry";
 
@@ -53,7 +54,7 @@ export async function loadPlugin(
     const module = await manifest.load();
     return module.default;
   } catch (error) {
-    console.error(`Failed to load plugin "${manifest.id}":`, error);
+    devError(`Failed to load plugin "${manifest.id}":`, error);
     return null;
   }
 }
@@ -92,7 +93,7 @@ export async function loadPlugins(
     }
 
     if (!plugin.id) {
-      console.warn("Plugin missing id, skipping:", plugin);
+      devWarn("Plugin missing id, skipping:", plugin);
       return false;
     }
 
