@@ -1,8 +1,8 @@
 /**
  * Tests for Tile component styling and behavior
  *
- * The Tile component uses glassmorphic styling with rgba colors
- * for a modern iOS-like appearance.
+ * The Tile component uses shadcn-style Tailwind classes with cva variants
+ * for a modern glassmorphic appearance.
  *
  * @vitest-environment jsdom
  */
@@ -50,7 +50,7 @@ describe("Tile - styling", () => {
     cleanup();
   });
 
-  it("uses inline styles instead of Tailwind className for the root element", () => {
+  it("uses Tailwind className with cva variants for styling", () => {
     const { container } = render(
       <Tile
         item={createTestItem()}
@@ -63,19 +63,15 @@ describe("Tile - styling", () => {
     const root = container.firstElementChild as HTMLElement;
     expect(root).toBeTruthy();
 
-    // Should have inline styles for layout
-    expect(root.style.padding).toBeTruthy();
-    expect(root.style.cursor).toBe("pointer");
-    expect(root.style.display).toBe("flex");
-    expect(root.style.borderRadius).toBeTruthy();
-
-    // Should NOT have Tailwind utility classes
+    // Should have Tailwind/cva classes for glassmorphic styling
     const classAttr = root.getAttribute("class") || "";
-    const hasTailwindClasses = /\b(px-|py-|gap-|flex|items-|border-|bg-|cursor-|text-\[)\b/.test(classAttr);
-    expect(hasTailwindClasses).toBe(false);
+    expect(classAttr).toContain("cursor-pointer");
+    expect(classAttr).toContain("rounded-2xl");
+    expect(classAttr).toContain("flex");
+    expect(classAttr).toContain("flex-col");
   });
 
-  it("uses glassmorphic styling with rgba colors", () => {
+  it("uses glassmorphic styling classes with backdrop blur", () => {
     const { container } = render(
       <Tile
         item={createTestItem()}
@@ -86,14 +82,15 @@ describe("Tile - styling", () => {
     );
 
     const root = container.firstElementChild as HTMLElement;
-    const style = root.getAttribute("style") || "";
+    const classAttr = root.getAttribute("class") || "";
 
-    // Should use rgba for glassmorphic effect
-    expect(style).toContain("rgba(255, 255, 255");
-    // Should have semi-transparent background
-    expect(style).toContain("0.08)");
-    // Should have border radius for glass card look
-    expect(style).toContain("border-radius: 16px");
+    // Should have backdrop blur for glassmorphic effect
+    expect(classAttr).toContain("backdrop-blur");
+    expect(classAttr).toContain("backdrop-saturate");
+    // Should have glass background classes
+    expect(classAttr).toContain("bg-glass");
+    // Should have border for glass card look
+    expect(classAttr).toContain("border");
   });
 });
 
@@ -130,13 +127,13 @@ describe("Tile - rendering", () => {
       />
     );
 
-    // Look for severity dot indicators (6px circles)
+    // Look for severity dot indicators (w-1.5 h-1.5 rounded-full with color classes)
     const allElements = container.querySelectorAll("*");
     let severityDotsFound = false;
 
     allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      if (style && style.includes("width: 6px") && style.includes("border-radius: 50%")) {
+      const classAttr = el.getAttribute("class") || "";
+      if (classAttr.includes("rounded-full") && classAttr.includes("bg-")) {
         severityDotsFound = true;
       }
     });
@@ -154,13 +151,13 @@ describe("Tile - rendering", () => {
       />
     );
 
-    // Look for severity dot indicators
+    // Look for severity dot indicator classes
     const allElements = container.querySelectorAll("*");
     let severityDotsFound = false;
 
     allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      if (style && style.includes("#ff6b6b") || style?.includes("#ffd93d") || style?.includes("#74b9ff")) {
+      const classAttr = el.getAttribute("class") || "";
+      if (classAttr.includes("bg-error") || classAttr.includes("bg-warning") || classAttr.includes("bg-info")) {
         severityDotsFound = true;
       }
     });
@@ -224,12 +221,13 @@ describe("Tile - selected state", () => {
     );
 
     const root = container.firstElementChild as HTMLElement;
-    const style = root.getAttribute("style") || "";
+    const classAttr = root.getAttribute("class") || "";
 
-    // Selected state should have brighter background (0.15 vs 0.08)
-    expect(style).toContain("rgba(255, 255, 255, 0.15)");
-    // And brighter border (0.3 vs 0.1)
-    expect(style).toContain("rgba(255, 255, 255, 0.3)");
+    // Selected state should have bg-glass-medium class (not light)
+    expect(classAttr).toContain("bg-glass-medium");
+    // And full border opacity
+    expect(classAttr).toContain("border-glass-border");
+    expect(classAttr).not.toContain("border-glass-border/50");
   });
 
   it("shows non-selected state styling when isSelected=false", () => {
@@ -243,12 +241,12 @@ describe("Tile - selected state", () => {
     );
 
     const root = container.firstElementChild as HTMLElement;
-    const style = root.getAttribute("style") || "";
+    const classAttr = root.getAttribute("class") || "";
 
-    // Non-selected state should have subtle background (0.08)
-    expect(style).toContain("rgba(255, 255, 255, 0.08)");
-    // And subtle border (0.1)
-    expect(style).toContain("rgba(255, 255, 255, 0.1)");
+    // Non-selected state should have bg-glass-light class
+    expect(classAttr).toContain("bg-glass-light");
+    // And subtle border with opacity
+    expect(classAttr).toContain("border-glass-border/50");
   });
 });
 
@@ -279,7 +277,7 @@ describe("Tile - bucket styling", () => {
     cleanup();
   });
 
-  it("uses height: 100% since parent controls height", () => {
+  it("uses h-full class since parent controls height", () => {
     const { container } = render(
       <Tile
         item={createTestItem()}
@@ -290,10 +288,11 @@ describe("Tile - bucket styling", () => {
     );
 
     const root = container.firstElementChild as HTMLElement;
-    expect(root.style.height).toBe("100%");
+    const classAttr = root.getAttribute("class") || "";
+    expect(classAttr).toContain("h-full");
   });
 
-  it("applies compact padding for xs bucket", () => {
+  it("applies compact padding class for xs bucket", () => {
     const { container } = render(
       <Tile
         item={createTestItem()}
@@ -304,10 +303,11 @@ describe("Tile - bucket styling", () => {
     );
 
     const root = container.firstElementChild as HTMLElement;
-    expect(root.style.padding).toBe("12px 14px");
+    const classAttr = root.getAttribute("class") || "";
+    expect(classAttr).toContain("p-3");
   });
 
-  it("applies compact padding for sm bucket", () => {
+  it("applies compact padding class for sm bucket", () => {
     const { container } = render(
       <Tile
         item={createTestItem()}
@@ -318,10 +318,11 @@ describe("Tile - bucket styling", () => {
     );
 
     const root = container.firstElementChild as HTMLElement;
-    expect(root.style.padding).toBe("12px 14px");
+    const classAttr = root.getAttribute("class") || "";
+    expect(classAttr).toContain("p-3.5");
   });
 
-  it("applies standard padding for md bucket", () => {
+  it("applies standard padding class for md bucket", () => {
     const { container } = render(
       <Tile
         item={createTestItem()}
@@ -332,10 +333,11 @@ describe("Tile - bucket styling", () => {
     );
 
     const root = container.firstElementChild as HTMLElement;
-    expect(root.style.padding).toBe("16px 20px");
+    const classAttr = root.getAttribute("class") || "";
+    expect(classAttr).toContain("p-4");
   });
 
-  it("applies standard padding for lg bucket", () => {
+  it("applies larger padding class for lg bucket", () => {
     const { container } = render(
       <Tile
         item={createTestItem()}
@@ -346,6 +348,7 @@ describe("Tile - bucket styling", () => {
     );
 
     const root = container.firstElementChild as HTMLElement;
-    expect(root.style.padding).toBe("16px 20px");
+    const classAttr = root.getAttribute("class") || "";
+    expect(classAttr).toContain("p-5");
   });
 });

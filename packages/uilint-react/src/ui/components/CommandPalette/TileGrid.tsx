@@ -5,10 +5,11 @@
  * - True masonry layout with absolute positioning
  * - Places largest tiles first, fills vertical gaps
  * - Staggered entrance animations
- * - Empty state handling
+ * - Glassmorphic empty state with proper light/dark mode support
  */
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { cn } from "../../../lib/utils";
 import type { TileItem } from "../../../core/plugin-system/types";
 import { Tile } from "./Tile";
 import { calculateMosaicLayout } from "./layout";
@@ -36,7 +37,7 @@ const GRID_AVAILABLE_WIDTH = 500;
 const GRID_GAP = 12;
 
 /**
- * EmptyState - Placeholder when no tiles to display
+ * EmptyState - Glassmorphic placeholder when no tiles to display
  */
 function EmptyState() {
   return (
@@ -44,41 +45,18 @@ function EmptyState() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "48px 24px",
-        textAlign: "center",
-        color: "rgba(255, 255, 255, 0.5)",
-      }}
+      className={cn(
+        "flex flex-col items-center justify-center",
+        "py-12 px-6 text-center"
+      )}
     >
-      <div
-        style={{
-          fontSize: 32,
-          marginBottom: 12,
-          opacity: 0.5,
-        }}
-      >
+      <div className="text-3xl mb-3 opacity-50">
         {"\u2728"}
       </div>
-      <div
-        style={{
-          fontSize: 14,
-          fontWeight: 400,
-          color: "rgba(255, 255, 255, 0.7)",
-          marginBottom: 4,
-        }}
-      >
+      <div className="text-sm font-normal text-foreground/70 mb-1">
         No items to display
       </div>
-      <div
-        style={{
-          fontSize: 12,
-          color: "rgba(255, 255, 255, 0.4)",
-        }}
-      >
+      <div className="text-xs text-muted-foreground">
         Try adjusting your filters or search query
       </div>
     </motion.div>
@@ -126,9 +104,8 @@ export function TileGrid({
 
   return (
     <div
+      className="p-3 px-4 relative"
       style={{
-        padding: "12px 16px",
-        position: "relative",
         height: layout.totalHeight,
         minHeight: 200,
       }}
@@ -151,8 +128,8 @@ export function TileGrid({
                 ease: crispEase,
                 delay: Math.min(animIndex * 0.03, 0.2),
               }}
+              className="absolute"
               style={{
-                position: "absolute",
                 left: tileLayout.x,
                 top: tileLayout.y,
                 width: tileLayout.width,

@@ -64,15 +64,15 @@ describe("TileGrid - rendering", () => {
       />
     );
 
-    // Each tile has a specific structure - look for elements with cursor: pointer
-    // which are the tile root elements
+    // Each tile wrapper has absolute positioning with height style
+    // Tiles themselves have cursor-pointer class
     const allElements = container.querySelectorAll("*");
     let tileCount = 0;
 
     allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      // Tiles have cursor: pointer and specific height values
-      if (style && style.includes("cursor: pointer") && style.includes("height:")) {
+      const classAttr = el.getAttribute("class") || "";
+      // Tiles have cursor-pointer and rounded-2xl classes
+      if (classAttr.includes("cursor-pointer") && classAttr.includes("rounded-2xl")) {
         tileCount++;
       }
     });
@@ -137,7 +137,8 @@ describe("TileGrid - bucket sizing", () => {
       />
     );
 
-    // Find all tile elements by looking for elements with height styles
+    // Find all tile wrapper elements by looking for elements with height styles
+    // (wrapper divs have absolute positioning with height)
     const allElements = container.querySelectorAll("*");
     const tileHeights: number[] = [];
 
@@ -208,14 +209,14 @@ describe("TileGrid - selection", () => {
       />
     );
 
-    // Find tiles with glassmorphic selected styling (brighter background)
+    // Find tiles with selected glassmorphic styling (bg-glass-medium class)
     const allElements = container.querySelectorAll("*");
     let selectedTileFound = false;
 
     allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      // Selected tile has rgba(255, 255, 255, 0.15) background and 0.3 border
-      if (style && style.includes("rgba(255, 255, 255, 0.15)") && style.includes("cursor: pointer")) {
+      const classAttr = el.getAttribute("class") || "";
+      // Selected tile has bg-glass-medium class without the /50 border opacity
+      if (classAttr.includes("bg-glass-medium") && classAttr.includes("cursor-pointer")) {
         selectedTileFound = true;
       }
     });
@@ -237,18 +238,22 @@ describe("TileGrid - selection", () => {
       />
     );
 
-    // No tile should have selected styling (0.15 opacity background)
+    // No tile should have selected styling (bg-glass-medium without hover)
+    // All tiles should have bg-glass-light
     const allElements = container.querySelectorAll("*");
-    let selectedTileFound = false;
+    let allHaveLightBackground = true;
 
     allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      if (style && style.includes("rgba(255, 255, 255, 0.15)") && style.includes("cursor: pointer")) {
-        selectedTileFound = true;
+      const classAttr = el.getAttribute("class") || "";
+      if (classAttr.includes("cursor-pointer") && classAttr.includes("rounded-2xl")) {
+        // This is a tile - it should have glass-light, not glass-medium
+        if (classAttr.includes("bg-glass-medium") && !classAttr.includes("hover:bg-glass-medium")) {
+          allHaveLightBackground = false;
+        }
       }
     });
 
-    expect(selectedTileFound).toBe(false);
+    expect(allHaveLightBackground).toBe(true);
   });
 });
 
@@ -272,13 +277,13 @@ describe("TileGrid - interactions", () => {
       />
     );
 
-    // Find tile elements and click the first one
+    // Find tile elements by their class
     const allElements = container.querySelectorAll("*");
     const tiles: HTMLElement[] = [];
 
     allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      if (style && style.includes("cursor: pointer") && style.includes("height:")) {
+      const classAttr = el.getAttribute("class") || "";
+      if (classAttr.includes("cursor-pointer") && classAttr.includes("rounded-2xl")) {
         tiles.push(el as HTMLElement);
       }
     });
@@ -313,8 +318,8 @@ describe("TileGrid - interactions", () => {
     const tiles: HTMLElement[] = [];
 
     allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      if (style && style.includes("cursor: pointer") && style.includes("height:")) {
+      const classAttr = el.getAttribute("class") || "";
+      if (classAttr.includes("cursor-pointer") && classAttr.includes("rounded-2xl")) {
         tiles.push(el as HTMLElement);
       }
     });
