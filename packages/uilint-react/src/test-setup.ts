@@ -1,14 +1,8 @@
 /**
  * Global test setup for vitest
  *
- * This file is loaded before all tests and sets up global mocks.
+ * The uilint-core logging functions (devLog, devWarn, devError) are already
+ * test-aware and silently skip logging when VITEST=true. No mocking needed.
  */
 
-import { vi } from "vitest";
-
-// Mock uilint-core logging functions globally for all tests
-vi.mock("uilint-core", () => ({
-  devLog: vi.fn(),
-  devWarn: vi.fn(),
-  devError: vi.fn(),
-}));
+// This file is intentionally minimal - uilint-core handles test detection automatically
