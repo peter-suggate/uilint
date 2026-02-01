@@ -65,22 +65,63 @@ export interface PluginServices {
 }
 
 // ============================================================================
-// Category Provider Contributions
+// Palette Item Types (Keyword-based system)
+// ============================================================================
+
+/**
+ * An item that appears in the command palette.
+ * Uses keywords for filtering instead of hierarchical categories.
+ */
+export interface PaletteItem {
+  /** Unique item identifier */
+  id: string;
+  /** Display title */
+  title: string;
+  /** Optional subtitle for additional context */
+  subtitle?: string;
+  /** Optional icon (React component or emoji string) */
+  icon?: ReactNode;
+  /** Keywords for filtering (e.g., ["Lint", "no-unused-vars", "Button.tsx"]) */
+  keywords: string[];
+  /**
+   * Execute when item is selected
+   * @param services Plugin services for accessing core functionality
+   */
+  execute?: (services: PluginServices) => void | Promise<void>;
+  /** Additional metadata for inspector, etc. */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * A keyword with its occurrence count, for sidebar display.
+ */
+export interface KeywordCount {
+  /** The keyword string */
+  keyword: string;
+  /** Number of items with this keyword */
+  count: number;
+}
+
+// ============================================================================
+// Category Provider Contributions (Legacy - to be removed)
 // ============================================================================
 
 /**
  * Loading state for a category provider.
+ * @deprecated Use keyword-based PaletteItem system instead
  */
 export type CategoryLoadingState = "idle" | "loading" | "loaded" | "error";
 
 /**
  * Priority levels for lazy loading categories.
  * Lower numbers load first.
+ * @deprecated Use keyword-based PaletteItem system instead
  */
 export type CategoryPriority = 0 | 1 | 2 | 3;
 
 /**
  * An item within a category that can be displayed and executed.
+ * @deprecated Use PaletteItem instead
  */
 export interface CategoryItem {
   /** Unique item identifier */
@@ -496,8 +537,19 @@ export interface Plugin<TSlice = unknown> {
   /** Commands contributed by this plugin */
   commands?: Command[];
 
-  /** Category providers for command palette sidebar browsing */
+  /**
+   * Category providers for command palette sidebar browsing
+   * @deprecated Use getPaletteItems instead
+   */
   categoryProviders?: CategoryProvider[];
+
+  /**
+   * Get items for the command palette.
+   * Each item has keywords for filtering in the sidebar.
+   * @param services Plugin services for accessing state
+   * @returns Array of palette items (can be async)
+   */
+  getPaletteItems?: (services: PluginServices) => PaletteItem[] | Promise<PaletteItem[]>;
 
   /** Inspector panels contributed by this plugin */
   inspectorPanels?: InspectorPanel[];

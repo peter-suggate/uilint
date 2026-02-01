@@ -16,6 +16,7 @@ import type {
   CategoryItem,
   TileItem,
   TileFilter,
+  PaletteItem,
 } from "../../core/plugin-system/types";
 import { eslintCommands } from "./commands";
 import {
@@ -163,6 +164,73 @@ export const eslintPlugin: Plugin = {
       pluginId: "eslint",
       issues: pluginIssues,
     };
+  },
+
+  /**
+   * Get palette items for the command palette (keyword-based system).
+   * Returns both issues and commands as PaletteItems.
+   */
+  getPaletteItems: (services: PluginServices): PaletteItem[] => {
+    const items: PaletteItem[] = [];
+
+    // Get the full store state to check command availability and get issues
+    const fullState = services.getState<{
+      wsConnected?: boolean;
+      plugins?: {
+        eslint?: ESLintPluginSlice;
+      };
+    }>();
+
+    const eslintState = fullState?.plugins?.eslint;
+
+    // Add issues as palette items
+    if (eslintState?.issues) {
+      for (const [, issueList] of eslintState.issues) {
+        for (const issue of issueList) {
+          const fileName = issue.filePath.split("/").pop() || issue.filePath;
+          const shortRuleId = issue.ruleId.includes("/")
+            ? issue.ruleId.split("/").pop()!
+            : issue.ruleId;
+
+          items.push({
+            id: `eslint:issue:${issue.id}`,
+            title: issue.message,
+            subtitle: `${fileName}:${issue.line}`,
+            keywords: [
+              "Lint",
+              issue.ruleId,
+              shortRuleId,
+              fileName,
+              issue.severity,
+            ].filter((kw, i, arr) => arr.indexOf(kw) === i), // dedupe
+            execute: (svc) => {
+              svc.openInspector("issue", { issue });
+              svc.closeCommandPalette();
+            },
+            metadata: { issue, providerId: "eslint" },
+          });
+        }
+      }
+    }
+
+    // Add commands as palette items
+    for (const cmd of eslintCommands) {
+      // Check if command is available
+      if (cmd.isAvailable && !cmd.isAvailable(fullState)) {
+        continue;
+      }
+
+      items.push({
+        id: cmd.id,
+        title: cmd.title,
+        subtitle: cmd.subtitle,
+        keywords: ["Command", "ESLint", ...cmd.keywords],
+        execute: cmd.execute,
+        metadata: { isCommand: true },
+      });
+    }
+
+    return items;
   },
 
   /**

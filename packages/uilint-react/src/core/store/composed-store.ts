@@ -19,6 +19,7 @@ import { devLog, devWarn, devError } from "uilint-core";
 import { createCoreSlice, type CoreSlice } from "./core-slice";
 import { createCategorySlice, type CategorySlice } from "./category-slice";
 import { createDragSlice, type DragSlice } from "./drag-slice";
+import { createKeywordSlice, type KeywordSlice } from "./keyword-slice";
 import { initializeSubscriptions, type CleanupFn } from "./subscriptions";
 import {
   pluginRegistry,
@@ -89,11 +90,12 @@ export interface PluginSlices {
 /**
  * The composed store state combines:
  * 1. CoreSlice - Core UI state (floating icon, command palette, inspector, etc.)
- * 2. CategorySlice - Category provider state for command palette sidebar
- * 3. DragSlice - Unified drag state management
- * 4. PluginSlices - Namespaced plugin state accessible via `plugins.{pluginId}`
+ * 2. CategorySlice - Category provider state for command palette sidebar (legacy)
+ * 3. KeywordSlice - Keyword-based filtering for command palette
+ * 4. DragSlice - Unified drag state management
+ * 5. PluginSlices - Namespaced plugin state accessible via `plugins.{pluginId}`
  */
-export type ComposedState = CoreSlice & CategorySlice & DragSlice & PluginSlices;
+export type ComposedState = CoreSlice & CategorySlice & KeywordSlice & DragSlice & PluginSlices;
 
 /**
  * Actions for managing the composed store
@@ -332,6 +334,14 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
       subscribe: () => () => {},
     });
 
+    // Initialize the keyword slice
+    const keywordSlice = createKeywordSlice(set, get, {
+      setState: set,
+      getState: get,
+      getInitialState: () => get(),
+      subscribe: () => () => {},
+    });
+
     return {
       // Core slice state and actions
       ...coreSlice,
@@ -339,8 +349,17 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
       // Category slice state and actions
       ...categorySlice,
 
+      // Keyword slice state and actions
+      ...keywordSlice,
+
       // Drag slice state and actions
       ...dragSlice,
+
+      // Override closeCommandPalette to also reset keyword state
+      closeCommandPalette: () => {
+        coreSlice.closeCommandPalette();
+        keywordSlice.resetKeywordState();
+      },
 
       // Plugin slices namespace (empty initially)
       plugins: {},

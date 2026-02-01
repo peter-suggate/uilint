@@ -7,7 +7,7 @@
  */
 
 import React from "react";
-import type { Plugin, PluginServices, IssueContribution, ToolbarAction, ToolbarActionGroup, CategoryProvider, CategoryItem } from "../../core/plugin-system/types";
+import type { Plugin, PluginServices, IssueContribution, ToolbarAction, ToolbarActionGroup, CategoryProvider, CategoryItem, PaletteItem } from "../../core/plugin-system/types";
 import { visionCommands } from "./commands";
 import type { VisionSlice } from "./slice";
 import { createVisionSlice, createTriggerVisionAnalysis } from "./slice";
@@ -393,6 +393,92 @@ export const visionPlugin: Plugin<VisionSlice> = {
       pluginId: "vision",
       issues,
     };
+  },
+
+  /**
+   * Get palette items for the command palette (keyword-based system).
+   * Returns commands and captures as PaletteItems.
+   */
+  getPaletteItems: (services: PluginServices): PaletteItem[] => {
+    const items: PaletteItem[] = [];
+
+    // Get the full store state
+    const fullState = services.getState<{
+      plugins?: { vision?: VisionSlice };
+      screenshotHistory?: Map<string, unknown>;
+      autoScanSettings?: { vision?: { onRouteChange?: boolean } };
+    }>();
+
+    const visionState = fullState.plugins?.vision;
+
+    // Build unified state for command availability checks
+    const unifiedState = {
+      ...fullState,
+      screenshotHistory: visionState?.screenshotHistory ?? new Map(),
+      autoScanSettings: fullState.autoScanSettings ?? { vision: { onRouteChange: false } },
+    };
+
+    // Add commands as palette items
+    for (const cmd of visionCommands) {
+      if (cmd.isAvailable && !cmd.isAvailable(unifiedState)) {
+        continue;
+      }
+
+      items.push({
+        id: cmd.id,
+        title: cmd.title,
+        subtitle: cmd.subtitle,
+        keywords: ["Command", "Vision", ...cmd.keywords],
+        execute: cmd.execute,
+        metadata: { isCommand: true },
+      });
+    }
+
+    // Add captures as palette items
+    const screenshotHistory = visionState?.screenshotHistory;
+    if (screenshotHistory && screenshotHistory.size > 0) {
+      const captures = Array.from(screenshotHistory.values()) as ScreenshotCapture[];
+
+      // Sort by timestamp (most recent first)
+      captures.sort((a, b) => b.timestamp - a.timestamp);
+
+      for (const capture of captures) {
+        const issueCount = capture.issues?.length ?? 0;
+        const hasIssues = issueCount > 0;
+        const subtitle = hasIssues
+          ? `${capture.route} • ${issueCount} issue${issueCount > 1 ? "s" : ""}`
+          : capture.route;
+
+        items.push({
+          id: `vision:capture:${capture.id}`,
+          title: formatCaptureTitle(capture),
+          subtitle,
+          keywords: [
+            "Vision",
+            "Capture",
+            capture.type === "region" ? "Region" : "Full Page",
+            capture.route,
+            ...(hasIssues ? ["Issues"] : []),
+          ],
+          execute: (svc) => {
+            const state = svc.getState<{ plugins?: { vision?: VisionSlice } }>();
+            state.plugins?.vision?.setSelectedScreenshotId(capture.id);
+            svc.openInspector("capture", { capture });
+            svc.closeCommandPalette();
+          },
+          metadata: {
+            captureId: capture.id,
+            route: capture.route,
+            timestamp: capture.timestamp,
+            type: capture.type,
+            issueCount,
+            providerId: "vision",
+          },
+        });
+      }
+    }
+
+    return items;
   },
 
   /**

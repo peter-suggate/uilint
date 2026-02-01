@@ -24,6 +24,18 @@ export {
   dedupeItems,
 } from "./tile-selectors";
 
+// Keyword slice and selectors
+export {
+  createKeywordSlice,
+  selectFilteredPaletteItems,
+  selectKeywordCounts,
+  selectIsKeywordSelected,
+  selectHasKeywordFilters,
+  selectSelectedKeywordCount,
+  selectItemsFilteredByQuery,
+  type KeywordSlice,
+} from "./keyword-slice";
+
 // Composed store - unified store with plugin slices
 export {
   // Store creation and hooks
