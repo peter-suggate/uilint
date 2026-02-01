@@ -1,10 +1,20 @@
 /**
  * HeatmapOverlay - Renders colored borders around elements with issues
  * Shows issue count on hover when Alt key is held
+ *
+ * The heatmap automatically reflects the current tile filters:
+ * - No filters: show all issues
+ * - Rule filter: show only issues for that rule
+ * - Rule + File filter: show only issues for that rule in that file
  */
 import React, { useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useComposedStore } from "../../core/store";
+import {
+  useComposedStore,
+  selectIssuesMap,
+  selectHeatmapDataLocs,
+  selectHasActiveTileFilters,
+} from "../../core/store";
 import { useElementRects } from "../hooks/useElementRects";
 import { severityToColor } from "../types";
 import type { Issue } from "../types";
@@ -113,29 +123,35 @@ export function HeatmapOverlay() {
   const hoveredElementId = useComposedStore((s) => s.hoveredElementId);
   const setHoveredElementId = useComposedStore((s) => s.setHoveredElementId);
 
-  // Get heatmap filter state
-  const heatmapFilter = useComposedStore((s) => s.heatmapFilter);
-
-  // Get issues from store
-  const issues = useComposedStore((s) => s.plugins?.eslint?.issues);
+  // Use selectors for issues and heatmap filter state
+  const issues = useComposedStore(selectIssuesMap);
+  const heatmapDataLocs = useComposedStore(selectHeatmapDataLocs);
+  const hasActiveTileFilters = useComposedStore(selectHasActiveTileFilters);
 
   // Track element positions
   const elementRects = useElementRects(issues);
 
-  // Filter elements based on heatmap filter
+  // Filter elements based on tile filters (derived via selector)
+  // When heatmapDataLocs is empty and no filters, show all
+  // When heatmapDataLocs is empty but filters exist, show nothing (no matches)
+  // When heatmapDataLocs has values, show only those
   const filteredEntries = useMemo(() => {
     const entries = Array.from(elementRects.entries());
 
-    // If filter mode is "all", show everything
-    if (heatmapFilter.mode === "all" || heatmapFilter.highlightedLocs.length === 0) {
+    // No filters active = show all issues
+    if (!hasActiveTileFilters) {
       return entries;
     }
 
-    // Filter to only show highlighted locations
-    return entries.filter(([dataLoc]) =>
-      heatmapFilter.highlightedLocs.some((loc) => dataLoc.includes(loc) || loc.includes(dataLoc))
-    );
-  }, [elementRects, heatmapFilter]);
+    // Filters active but no matching dataLocs = show nothing
+    if (heatmapDataLocs.length === 0) {
+      return [];
+    }
+
+    // Filter to only dataLocs that match the tile filters
+    const dataLocSet = new Set(heatmapDataLocs);
+    return entries.filter(([dataLoc]) => dataLocSet.has(dataLoc));
+  }, [elementRects, heatmapDataLocs, hasActiveTileFilters]);
 
   // Handle clicking an overlay item
   const handleClick = (dataLoc: string) => {
@@ -171,18 +187,13 @@ export function HeatmapOverlay() {
         const elementIssues = issues.get(dataLoc) || [];
         if (elementIssues.length === 0) return null;
 
-        // Check if this element is specifically highlighted (part of filter)
-        const isHighlighted =
-          heatmapFilter.mode === "related-only" &&
-          heatmapFilter.highlightedLocs.length > 0;
-
         return (
           <OverlayItem
             key={dataLoc}
             dataLoc={dataLoc}
             rect={rect}
             issues={elementIssues}
-            isHovered={hoveredElementId === dataLoc || isHighlighted}
+            isHovered={hoveredElementId === dataLoc || hasActiveTileFilters}
             showDetails={altKeyHeld}
             onClick={() => handleClick(dataLoc)}
           />

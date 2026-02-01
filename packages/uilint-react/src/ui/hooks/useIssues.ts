@@ -1,57 +1,40 @@
-import { useMemo, useCallback } from "react";
-import { useComposedStore } from "../../core/store";
+import { useCallback } from "react";
+import {
+  useComposedStore,
+  selectIssuesMap,
+  selectAllIssues,
+  selectIssuesByFile,
+  selectTotalIssueCount,
+  selectSeverityCounts,
+} from "../../core/store";
 import type { Issue } from "../types";
 
 /**
- * Hook that aggregates issues from all plugin slices
+ * Hook that aggregates issues from all plugin slices.
+ *
+ * Uses Zustand selectors for derived state - all filtering and aggregation
+ * is performed in the store selectors, not in this hook.
  */
 export function useIssues() {
-  // Get issues from ESLint plugin (Map<dataLoc, Issue[]>)
-  const eslintIssues = useComposedStore((s) => s.plugins?.eslint?.issues);
+  // Use store selectors for all derived state
+  const allIssues = useComposedStore(selectAllIssues);
+  const byFile = useComposedStore(selectIssuesByFile);
+  const byDataLoc = useComposedStore(selectIssuesMap);
+  const totalCount = useComposedStore(selectTotalIssueCount);
+  const countBySeverity = useComposedStore(selectSeverityCounts);
 
-  // Flatten all issues into array
-  const allIssues = useMemo(() => {
-    const result: Issue[] = [];
-    eslintIssues?.forEach((issues) => result.push(...issues));
-    return result;
-  }, [eslintIssues]);
-
-  // Group by file path
-  const byFile = useMemo(() => {
-    const map = new Map<string, Issue[]>();
-    for (const issue of allIssues) {
-      const existing = map.get(issue.filePath) || [];
-      existing.push(issue);
-      map.set(issue.filePath, existing);
-    }
-    return map;
-  }, [allIssues]);
-
-  // Get issues for a specific dataLoc
+  // Keep getIssuesForDataLoc as callback for direct lookup
   const getIssuesForDataLoc = useCallback(
     (dataLoc: string): Issue[] => {
-      return eslintIssues?.get(dataLoc) || [];
+      return byDataLoc.get(dataLoc) || [];
     },
-    [eslintIssues]
-  );
-
-  // Total count
-  const totalCount = allIssues.length;
-
-  // Count by severity
-  const countBySeverity = useMemo(
-    () => ({
-      error: allIssues.filter((i) => i.severity === "error").length,
-      warning: allIssues.filter((i) => i.severity === "warning").length,
-      info: allIssues.filter((i) => i.severity === "info").length,
-    }),
-    [allIssues]
+    [byDataLoc]
   );
 
   return {
     allIssues,
     byFile,
-    byDataLoc: eslintIssues ?? new Map(),
+    byDataLoc,
     getIssuesForDataLoc,
     totalCount,
     countBySeverity,

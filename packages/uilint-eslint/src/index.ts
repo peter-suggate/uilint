@@ -22,6 +22,7 @@ import noSemanticDuplicates from "./rules/no-semantic-duplicates.js";
 import requireTestCoverage from "./rules/require-test-coverage/index.js";
 import preferTailwind from "./rules/prefer-tailwind.js";
 import noUnsafeTypeCasts from "./rules/no-unsafe-type-casts.js";
+import preferStoreSelectors from "./rules/prefer-store-selectors.js";
 
 /**
  * All available rules
@@ -43,6 +44,7 @@ const rules = {
   "require-test-coverage": requireTestCoverage,
   "prefer-tailwind": preferTailwind,
   "no-unsafe-type-casts": noUnsafeTypeCasts,
+  "prefer-store-selectors": preferStoreSelectors,
 };
 
 // Package version (injected at build time or fallback)
@@ -220,6 +222,11 @@ const recommendedConfig: Linter.Config = {
           "allowedTypes": []
         }
       ]],
+    "uilint/prefer-store-selectors": ["warn", ...[
+        {
+          "storeHookPattern": "^use.*Store$"
+        }
+      ]],
   },
 };
 
@@ -385,6 +392,11 @@ const strictConfig: Linter.Config = {
           "allowInTestFiles": true,
           "allowInCatchBlocks": true,
           "allowedTypes": []
+        }
+      ]],
+    "uilint/prefer-store-selectors": ["warn", ...[
+        {
+          "storeHookPattern": "^use.*Store$"
         }
       ]],
   },

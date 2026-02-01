@@ -40,6 +40,7 @@ import { meta as noPropDrillingDepth } from "./rules/no-prop-drilling-depth.js";
 import { meta as noSemanticDuplicates } from "./rules/no-semantic-duplicates.js";
 import { meta as preferTailwind } from "./rules/prefer-tailwind.js";
 import { meta as noUnsafeTypeCasts } from "./rules/no-unsafe-type-casts.js";
+import { meta as preferStoreSelectors } from "./rules/prefer-store-selectors.js";
 
 // Directory-based rules (complex rules with colocated utilities)
 import { meta as noMixedComponentLibraries } from "./rules/no-mixed-component-libraries/index.js";
@@ -81,6 +82,8 @@ export const ruleRegistry: RuleMeta[] = [
   preferTailwind,
   // Type safety
   noUnsafeTypeCasts,
+  // Zustand best practices
+  preferStoreSelectors,
 ];
 
 /**

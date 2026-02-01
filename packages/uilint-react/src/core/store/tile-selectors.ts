@@ -52,31 +52,72 @@ export function dedupeItems(items: TileItem[]): TileItem[] {
 const EMPTY_TILE_ITEMS: TileItem[] = [];
 
 // ============================================================================
+// Memoization Cache for Filtered Tile Items
+// ============================================================================
+
+// Cache for selectFilteredTileItems to ensure stable references
+let cachedRawItems: TileItem[] | null = null;
+let cachedQuery: string | null = null;
+let cachedResult: TileItem[] = EMPTY_TILE_ITEMS;
+
+/**
+ * Clear the tile items cache. Call this when the store is reset.
+ */
+export function clearTileItemsCache(): void {
+  cachedRawItems = null;
+  cachedQuery = null;
+  cachedResult = EMPTY_TILE_ITEMS;
+}
+
+// ============================================================================
 // Selectors
 // ============================================================================
 
 /**
  * Selector to get filtered and deduplicated tile items.
- * Returns a selector function that can be used with useComposedStore.
- *
- * @param query - Search query for filtering items
- * @returns Selector function
+ * Uses the query from commandPalette.query in the store.
+ * Results are memoized to ensure stable references for React.
  *
  * @example
  * ```tsx
- * const items = useComposedStore(selectTileItems("search text"));
+ * const items = useComposedStore(selectFilteredTileItems);
  * ```
  */
-export function selectTileItems(query: string) {
-  return (state: CoreSlice): TileItem[] => {
-    const rawItems = state.commandPalette.tileItems;
-    if (rawItems.length === 0) {
-      return EMPTY_TILE_ITEMS;
-    }
+export function selectFilteredTileItems(state: CoreSlice): TileItem[] {
+  const rawItems = state.commandPalette.tileItems;
+  const query = state.commandPalette.query;
 
-    const filtered = filterByQuery(rawItems, query);
-    return dedupeItems(filtered);
-  };
+  // Return cached result if inputs haven't changed
+  if (rawItems === cachedRawItems && query === cachedQuery) {
+    return cachedResult;
+  }
+
+  // Update cache
+  cachedRawItems = rawItems;
+  cachedQuery = query;
+
+  if (rawItems.length === 0) {
+    cachedResult = EMPTY_TILE_ITEMS;
+    return cachedResult;
+  }
+
+  const filtered = filterByQuery(rawItems, query);
+  cachedResult = dedupeItems(filtered);
+  return cachedResult;
+}
+
+/**
+ * Selector to get the current command palette query.
+ */
+export function selectTileQuery(state: CoreSlice): string {
+  return state.commandPalette.query;
+}
+
+/**
+ * Selector to get the current tile filters.
+ */
+export function selectTileFilters(state: CoreSlice): CoreSlice["commandPalette"]["filters"] {
+  return state.commandPalette.filters;
 }
 
 /**
@@ -92,3 +133,4 @@ export function selectRawTileItems(state: CoreSlice): TileItem[] {
 export function selectTileItemsLoading(state: CoreSlice): boolean {
   return state.commandPalette.tileItemsLoading;
 }
+

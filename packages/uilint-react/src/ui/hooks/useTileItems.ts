@@ -1,19 +1,18 @@
 /**
- * useTileItems - React hook for computing tile items based on filters
+ * useTileItems - React hook for accessing filtered tile items
  *
- * Uses Zustand store with selectors for derived state.
- * Aggregates tile items from providers, filters by query text,
- * and handles loading states. Used by the masonry grid tile view.
+ * Uses Zustand store selectors for derived state.
+ * All filtering and deduplication is performed in the store selectors,
+ * keeping React code focused on presentation.
  */
 
 import { useMemo } from "react";
-import { useComposedStore } from "../../core/store";
 import {
-  selectRawTileItems,
+  useComposedStore,
+  selectFilteredTileItems,
+  selectTileFilters,
   selectTileItemsLoading,
-  filterByQuery,
-  dedupeItems,
-} from "../../core/store/tile-selectors";
+} from "../../core/store";
 import { pluginRegistry } from "../../core/plugin-system/registry";
 import type { TileItem, TileFilter } from "../../core/plugin-system/types";
 
@@ -32,26 +31,23 @@ export interface UseTileItemsResult {
 /**
  * Hook that returns tile items to display based on current filters.
  *
- * This hook uses Zustand selectors to derive state from the store:
- * 1. Gets raw tile items from the store (populated by refreshTileItems action)
- * 2. Filters results by query text (matching label and subtitle)
- * 3. Deduplicates items by id
- * 4. Determines if the current filter state is terminal
+ * This hook uses Zustand selectors for all derived state:
+ * 1. Gets filtered and deduplicated tile items via selectFilteredTileItems
+ * 2. Gets loading state via selectTileItemsLoading
+ * 3. Determines if the current filter state is terminal (from plugin registry)
  *
- * Note: The actual data fetching is triggered by the CommandPalette component
- * calling refreshTileItems() when filters change.
+ * Note: The query parameter is ignored - filtering uses commandPalette.query
+ * from the store. This parameter is kept for API compatibility but will be
+ * removed in a future version.
  *
- * @param filters - Currently active tile filters
- * @param query - Search query for filtering items
+ * @param _filters - Deprecated: filters come from the store
+ * @param _query - Deprecated: query comes from the store
  * @returns Object containing items, loading state, and terminal state
  *
  * @example
  * ```tsx
  * function TileGrid() {
- *   const [filters, setFilters] = useState<TileFilter[]>([]);
- *   const [query, setQuery] = useState("");
- *
- *   const { items, isLoading, isTerminal } = useTileItems(filters, query);
+ *   const { items, isLoading, isTerminal } = useTileItems();
  *
  *   if (isLoading) return <Spinner />;
  *
@@ -70,23 +66,16 @@ export interface UseTileItemsResult {
  * ```
  */
 export function useTileItems(
-  filters: TileFilter[],
-  query: string
+  _filters?: TileFilter[],
+  _query?: string
 ): UseTileItemsResult {
-  // Get raw state from store using stable selectors
-  const rawItems = useComposedStore(selectRawTileItems);
+  // Use stable selectors from the store
+  const items = useComposedStore(selectFilteredTileItems);
   const isLoading = useComposedStore(selectTileItemsLoading);
+  const filters = useComposedStore(selectTileFilters);
 
-  // Filter and dedupe items - derived from raw items and query
-  const items = useMemo((): TileItem[] => {
-    if (rawItems.length === 0) {
-      return rawItems; // Return same empty array reference
-    }
-    const filtered = filterByQuery(rawItems, query);
-    return dedupeItems(filtered);
-  }, [rawItems, query]);
-
-  // Compute isTerminal from providers - this is cheap and doesn't need store state
+  // Compute isTerminal from providers - this queries the plugin registry
+  // which is external to the store
   const isTerminal = useMemo((): boolean => {
     const tileProviders = pluginRegistry.getAllTileProviders();
 

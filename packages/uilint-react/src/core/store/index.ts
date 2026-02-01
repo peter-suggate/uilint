@@ -15,12 +15,39 @@ export {
 
 // Tile selectors
 export {
-  selectTileItems,
+  selectFilteredTileItems,
+  selectTileQuery,
+  selectTileFilters,
   selectRawTileItems,
   selectTileItemsLoading,
   filterByQuery,
   dedupeItems,
+  clearTileItemsCache,
 } from "./tile-selectors";
+
+// Heatmap selectors
+export {
+  selectHeatmapFilter,
+  selectHeatmapFilterLabel,
+  selectIsHeatmapFiltered,
+  selectHighlightedLocs,
+  selectHighlightedLocsCount,
+  selectHeatmapDataLocs,
+  selectHasActiveTileFilters,
+  clearHeatmapDataLocsCache,
+} from "./heatmap-selectors";
+
+// Issues selectors
+export {
+  selectIssuesMap,
+  selectAllIssues,
+  selectIssuesByFile,
+  selectTotalIssueCount,
+  selectSeverityCounts,
+  selectHasIssues,
+  selectHasErrors,
+  type SeverityCounts,
+} from "./issues-selectors";
 
 // Composed store - unified store with plugin slices
 export {

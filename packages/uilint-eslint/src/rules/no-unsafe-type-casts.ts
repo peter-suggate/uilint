@@ -276,10 +276,15 @@ function getTypeName(typeAnnotation: TSESTree.TypeNode): string | null {
  * Get the full qualified name (e.g., "React.FC")
  */
 function getQualifiedName(node: TSESTree.TSQualifiedName): string {
-  const left =
-    node.left.type === "Identifier"
-      ? node.left.name
-      : getQualifiedName(node.left);
+  let left: string;
+  if (node.left.type === "Identifier") {
+    left = node.left.name;
+  } else if (node.left.type === "TSQualifiedName") {
+    left = getQualifiedName(node.left);
+  } else {
+    // ThisExpression
+    left = "this";
+  }
   return `${left}.${node.right.name}`;
 }
 

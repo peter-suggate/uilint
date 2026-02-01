@@ -15,6 +15,7 @@ import {
   selectTileItemsLoading,
   filterByQuery,
   dedupeItems,
+  clearTileItemsCache,
 } from "../../core/store/tile-selectors";
 import type { CoreSlice } from "../../core/store/core-slice";
 
@@ -70,11 +71,12 @@ function createMockTileProvider(
 function createTestState(overrides: {
   tileItems?: TileItem[];
   tileItemsLoading?: boolean;
+  query?: string;
 } = {}): CoreSlice {
   return {
     commandPalette: {
       open: false,
-      query: "",
+      query: overrides.query ?? "",
       selectedIndex: 0,
       filters: [],
       selectedCategoryIds: new Set(),
@@ -96,7 +98,7 @@ function createTestState(overrides: {
  * Set up the composed store with specific tile items state.
  * Returns store API for direct state manipulation in tests.
  */
-function setupStoreWithTileItems(items: TileItem[], loading = false) {
+function setupStoreWithTileItems(items: TileItem[], options: { loading?: boolean; query?: string } = {}) {
   // Create a fresh store
   createComposedStore({
     websocket: {
@@ -124,7 +126,8 @@ function setupStoreWithTileItems(items: TileItem[], loading = false) {
       commandPalette: {
         ...state.commandPalette,
         tileItems: items,
-        tileItemsLoading: loading,
+        tileItemsLoading: options.loading ?? false,
+        query: options.query ?? "",
       },
     }));
   }
@@ -234,11 +237,13 @@ describe("useTileItems hook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetAllTileProviders.mockReturnValue([]);
+    clearTileItemsCache();
   });
 
   afterEach(() => {
     cleanup();
     resetStore();
+    clearTileItemsCache();
     vi.resetAllMocks();
   });
 
@@ -246,9 +251,7 @@ describe("useTileItems hook", () => {
     it("returns empty items when store is empty", () => {
       setupStoreWithTileItems([]);
 
-      const { result } = renderHook(() =>
-        useTileItems([], "")
-      );
+      const { result } = renderHook(() => useTileItems());
 
       expect(result.current.items).toEqual([]);
       expect(result.current.isLoading).toBe(false);
@@ -262,36 +265,31 @@ describe("useTileItems hook", () => {
       ];
       setupStoreWithTileItems(items);
 
-      const { result } = renderHook(() =>
-        useTileItems([], "")
-      );
+      const { result } = renderHook(() => useTileItems());
 
       expect(result.current.items).toHaveLength(2);
       expect(result.current.items[0].id).toBe("item-1");
     });
 
     it("returns loading state from store", () => {
-      setupStoreWithTileItems([], true);
+      setupStoreWithTileItems([], { loading: true });
 
-      const { result } = renderHook(() =>
-        useTileItems([], "")
-      );
+      const { result } = renderHook(() => useTileItems());
 
       expect(result.current.isLoading).toBe(true);
     });
   });
 
   describe("filters and deduplicates items", () => {
-    it("filters items by query", () => {
+    it("filters items by query from store", () => {
       const items = [
         createMockTileItem({ id: "1", label: "Button Component" }),
         createMockTileItem({ id: "2", label: "Input Field" }),
       ];
-      setupStoreWithTileItems(items);
+      // Set query in the store, not as parameter
+      setupStoreWithTileItems(items, { query: "button" });
 
-      const { result } = renderHook(() =>
-        useTileItems([], "button")
-      );
+      const { result } = renderHook(() => useTileItems());
 
       expect(result.current.items).toHaveLength(1);
       expect(result.current.items[0].label).toBe("Button Component");
@@ -304,9 +302,7 @@ describe("useTileItems hook", () => {
       ];
       setupStoreWithTileItems(items);
 
-      const { result } = renderHook(() =>
-        useTileItems([], "")
-      );
+      const { result } = renderHook(() => useTileItems());
 
       expect(result.current.items).toHaveLength(1);
       expect(result.current.items[0].label).toBe("First");
@@ -320,12 +316,19 @@ describe("useTileItems hook", () => {
         isTerminal: vi.fn(() => true),
       });
       mockGetAllTileProviders.mockReturnValue([{ pluginId: "test-plugin", provider }]);
-      setupStoreWithTileItems([]);
 
+      // Set up store with filters
+      const api = setupStoreWithTileItems([]);
       const filters: TileFilter[] = [{ type: "rule", id: "rule-1", label: "Rule 1" }];
-      const { result } = renderHook(() =>
-        useTileItems(filters, "")
-      );
+      api?.setState((state) => ({
+        ...state,
+        commandPalette: {
+          ...state.commandPalette,
+          filters,
+        },
+      }));
+
+      const { result } = renderHook(() => useTileItems());
 
       expect(result.current.isTerminal).toBe(true);
     });
@@ -335,9 +338,7 @@ describe("useTileItems hook", () => {
     it("updates when store state changes", () => {
       const api = setupStoreWithTileItems([]);
 
-      const { result } = renderHook(() =>
-        useTileItems([], "")
-      );
+      const { result } = renderHook(() => useTileItems());
 
       expect(result.current.items).toHaveLength(0);
 
