@@ -1,11 +1,16 @@
 name: Preview Deployment
 
 on:
-  # Automatic deployment after successful publish to npm
+  # Automatic production deployment after successful publish to npm
   workflow_run:
     workflows: ["Publish"]
     types: [completed]
     branches: [main]
+
+  # Preview deployment on push to any branch (except main, which uses workflow_run)
+  push:
+    branches-ignore:
+      - main
 
   # Manual deployment - deploy any branch without publishing to npm
   workflow_dispatch:
@@ -21,8 +26,8 @@ on:
 
 jobs:
   preview:
-    # Run if: manual trigger OR publish succeeded
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    # Run if: push to branch, manual trigger, OR publish succeeded
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -36,13 +41,23 @@ jobs:
         with:
           node-version: 20
 
-      # For manual deployments: build packages from source
+      # For branch pushes and manual deployments: build packages from source
       - name: Build packages from source
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.use_npm != 'true' }}
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.use_npm != 'true') }}
         run: |
           echo "Building packages from source (branch: ${{ github.ref_name }})"
           pnpm install
           pnpm build:packages
+
+          # Pack packages as tarballs for proper installation (symlinks don't resolve subpath exports correctly)
+          echo "Packing packages as tarballs..."
+          mkdir -p /tmp/packages
+          cd packages/uilint-core && pnpm pack --pack-destination /tmp/packages && cd ../..
+          cd packages/uilint && pnpm pack --pack-destination /tmp/packages && cd ../..
+          cd packages/uilint-react && pnpm pack --pack-destination /tmp/packages && cd ../..
+          cd packages/uilint-eslint && pnpm pack --pack-destination /tmp/packages && cd ../..
+          cd packages/jsx-loc-plugin && pnpm pack --pack-destination /tmp/packages && cd ../..
+          ls -la /tmp/packages/
 
       - name: Prepare test-app
         run: |
@@ -53,25 +68,38 @@ jobs:
           # Install dependencies (now isolated from monorepo workspace)
           pnpm install
 
-          # For manual deployment with local packages: link built packages
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.use_npm }}" != "true" ]; then
-            echo "Linking locally built packages..."
+          # Determine if we should use local packages (push events or manual with use_npm=false)
+          USE_LOCAL="false"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            USE_LOCAL="true"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.use_npm }}" != "true" ]; then
+            USE_LOCAL="true"
+          fi
 
-            # Install the locally built packages
-            pnpm add ${{ github.workspace }}/packages/uilint
-            pnpm add ${{ github.workspace }}/packages/uilint-react
-            pnpm add ${{ github.workspace }}/packages/uilint-eslint
-            pnpm add ${{ github.workspace }}/packages/jsx-loc-plugin
+          if [ "$USE_LOCAL" = "true" ]; then
+            echo "Using locally built packages from tarballs..."
 
-            # Run uilint init with the local version
+            # Install uilint CLI from tarball so we can run init
+            pnpm add /tmp/packages/uilint-*.tgz
+
+            # Run uilint init to set up the project (this adds deps to package.json)
             npx uilint init --react --eslint
+
+            # Now install all local packages from tarballs (after init modified package.json)
+            # Installing from tarballs ensures subpath exports resolve correctly
+            echo "Installing local packages from tarballs..."
+            pnpm add /tmp/packages/uilint-core-*.tgz
+            pnpm add /tmp/packages/uilint-[0-9]*.tgz
+            pnpm add /tmp/packages/uilint-react-*.tgz
+            pnpm add /tmp/packages/uilint-eslint-*.tgz
+            pnpm add /tmp/packages/jsx-loc-plugin-*.tgz
           else
-            # Use published npm version (after automatic publish)
+            # Use published npm version (after automatic publish on main)
             echo "Using published npm packages..."
             npx uilint@latest init --react --eslint
           fi
 
-          # Re-install to ensure uilint-react is installed after init modified package.json
+          # Final install to ensure all dependencies are resolved
           pnpm install
 
           # Configure static mode for production deployment
@@ -104,19 +132,51 @@ jobs:
           mkdir -p .vercel
           echo '{"orgId":"'$VERCEL_ORG_ID'","projectId":"'$VERCEL_PROJECT_ID'"}' > .vercel/project.json
 
-          # Build and deploy
+          # Determine if this is a production deployment (only after successful publish on main)
+          IS_PROD="false"
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            IS_PROD="true"
+          fi
+
+          # Build the app
           pnpm build
-          vercel build --prod --yes --token=$VERCEL_TOKEN
-          DEPLOY_OUTPUT=$(vercel deploy --prebuilt --prod --yes --token=$VERCEL_TOKEN 2>&1)
+
+          # Deploy with or without --prod flag
+          if [ "$IS_PROD" = "true" ]; then
+            echo "Deploying to PRODUCTION..."
+            vercel build --prod --yes --token=$VERCEL_TOKEN
+            DEPLOY_OUTPUT=$(vercel deploy --prebuilt --prod --yes --token=$VERCEL_TOKEN 2>&1)
+          else
+            echo "Deploying PREVIEW for branch: ${{ github.ref_name }}..."
+            vercel build --yes --token=$VERCEL_TOKEN
+            DEPLOY_OUTPUT=$(vercel deploy --prebuilt --yes --token=$VERCEL_TOKEN 2>&1)
+          fi
           echo "$DEPLOY_OUTPUT"
 
           DEPLOYMENT_URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | tail -1)
           echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          echo "is_production=$IS_PROD" >> $GITHUB_OUTPUT
 
       - name: Log deployment URL
         run: |
-          echo "🚀 Preview deployed!"
+          if [ "${{ steps.deploy.outputs.is_production }}" = "true" ]; then
+            echo "🚀 Production deployed!"
+          else
+            echo "🔍 Preview deployed!"
+          fi
           echo "   Branch: ${{ github.ref_name }}"
           echo "   URL: ${{ steps.deploy.outputs.url }}"
-          echo "   Trigger: ${{ github.event_name == 'workflow_dispatch' && 'Manual' || 'Automatic (after publish)' }}"
-          echo "   Packages: ${{ github.event_name == 'workflow_dispatch' && inputs.use_npm != 'true' && 'Built from source' || 'Published npm packages' }}"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "   Trigger: Push to branch"
+            echo "   Packages: Built from source"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "   Trigger: Manual"
+            if [ "${{ inputs.use_npm }}" = "true" ]; then
+              echo "   Packages: Published npm packages"
+            else
+              echo "   Packages: Built from source"
+            fi
+          else
+            echo "   Trigger: Automatic (after publish)"
+            echo "   Packages: Published npm packages"
+          fi
