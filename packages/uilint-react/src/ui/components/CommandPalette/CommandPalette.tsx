@@ -39,6 +39,7 @@ export function CommandPalette() {
   const closeCommandPalette = useComposedStore((s) => s.closeCommandPalette);
   const setQuery = useComposedStore((s) => s.setCommandPaletteQuery);
   const openInspector = useComposedStore((s) => s.openInspector);
+  const openInspectorPanel = useComposedStore((s) => s.openInspectorPanel);
   const addFilter = useComposedStore((s) => s.addFilter);
   const removeFilter = useComposedStore((s) => s.removeFilter);
   const removeLastFilter = useComposedStore((s) => s.removeLastFilter);
@@ -61,6 +62,7 @@ export function CommandPalette() {
   }, [removeLastFilter]);
 
   // Handle tile click
+  // With unified model: clicking tiles adds filters and opens the inspector
   const handleTileClick = useCallback(
     async (item: TileItem) => {
       const services = getPluginServices();
@@ -69,7 +71,7 @@ export function CommandPalette() {
         return;
       }
 
-      // Check if item has an execute function in metadata
+      // Check if item has an execute function in metadata (commands)
       const execute = item.metadata?.execute as ((services: unknown) => Promise<void>) | undefined;
       if (execute) {
         try {
@@ -84,8 +86,8 @@ export function CommandPalette() {
       // Get the provider for this item
       const providerId = item.metadata?.providerId as string | undefined;
       if (!providerId) {
-        // Fallback: open generic inspector
-        openInspector("tile-item", { item });
+        // Fallback: open unified inspector panel
+        openInspectorPanel();
         closeCommandPalette();
         return;
       }
@@ -94,32 +96,39 @@ export function CommandPalette() {
       const providerEntry = tileProviders.find((p) => p.pluginId === providerId);
 
       if (!providerEntry) {
-        openInspector("tile-item", { item });
+        openInspectorPanel();
         closeCommandPalette();
         return;
       }
 
       const { provider } = providerEntry;
 
-      // Check if we're at terminal state OR if this item would make it terminal
-      // (e.g., a file tile that already has ruleId in metadata)
-      const itemIsTerminal = item.metadata?.isFile && item.metadata?.ruleId;
-      if ((isTerminal || itemIsTerminal) && provider.getInspectorData) {
-        const inspectorData = provider.getInspectorData(item);
-        openInspector(inspectorData.panelId, inspectorData.data);
+      // Check if this is a file tile (terminal state)
+      const isFileTile = item.metadata?.isFile === true;
+
+      if (isFileTile) {
+        // File tile: add filter, open inspector, close command palette
+        if (provider.createFilter) {
+          const filter = provider.createFilter(item);
+          addFilter(filter);
+          refreshTileItems();
+        }
+        openInspectorPanel();
         closeCommandPalette();
       } else if (provider.createFilter) {
-        // Drill down: add filter
+        // Rule tile: add filter, stay open for further filtering
         const filter = provider.createFilter(item);
         addFilter(filter);
         refreshTileItems();
+        // Also open inspector to show filtered results
+        openInspectorPanel();
       } else {
         // Fallback
-        openInspector("tile-item", { item });
+        openInspectorPanel();
         closeCommandPalette();
       }
     },
-    [isTerminal, openInspector, closeCommandPalette, addFilter, refreshTileItems]
+    [openInspectorPanel, closeCommandPalette, addFilter, refreshTileItems]
   );
 
   // Use tile navigation for 2D keyboard navigation
@@ -159,9 +168,7 @@ export function CommandPalette() {
           style={{
             position: "fixed",
             inset: 0,
-            background: isMobile ? "var(--uilint-surface)" : "rgba(0, 0, 0, 0.2)",
-            backdropFilter: isMobile ? "none" : "blur(20px)",
-            WebkitBackdropFilter: isMobile ? "none" : "blur(20px)",
+            background: isMobile ? "var(--uilint-surface)" : "transparent",
             display: "flex",
             alignItems: isMobile ? "stretch" : "flex-start",
             justifyContent: "center",

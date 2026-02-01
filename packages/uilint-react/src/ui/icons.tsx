@@ -16,7 +16,9 @@ export {
   File as FileIcon,
   List as RuleIcon,
   ChevronRight as ChevronRightIcon,
+  ChevronRight as ChevronIcon,
   ChevronDown as ChevronDownIcon,
+  ExternalLink as ExternalLinkIcon,
   // Settings and actions
   Settings as SettingsIcon,
   Check as CheckIcon,

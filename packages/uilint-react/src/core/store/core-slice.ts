@@ -79,9 +79,9 @@ export interface CommandPaletteState {
 export interface InspectorState {
   /** Whether the inspector is open */
   open: boolean;
-  /** Which plugin panel is currently shown (null if none) */
+  /** Which plugin panel is currently shown (null if none) - DEPRECATED: use unified view */
   panelId: string | null;
-  /** Data passed to the panel */
+  /** Data passed to the panel - DEPRECATED: use unified view */
   data: Record<string, unknown> | null;
   /** Whether inspector is docked (participates in layout) or floating */
   docked: boolean;
@@ -91,6 +91,12 @@ export interface InspectorState {
   floatingPosition: { x: number; y: number } | null;
   /** Size when floating */
   floatingSize: { width: number; height: number } | null;
+  /** File paths that are expanded in the issues list */
+  expandedFiles: string[];
+  /** Currently selected issue ID (for heatmap highlight sync) */
+  selectedIssueId: string | null;
+  /** Whether the rule config section is expanded */
+  ruleConfigExpanded: boolean;
 }
 
 /**
@@ -173,8 +179,10 @@ export interface CoreSlice {
   // ============ Inspector ============
   /** Inspector sidebar state */
   inspector: InspectorState;
-  /** Open the inspector with a specific panel */
+  /** Open the inspector with a specific panel - DEPRECATED: use openInspectorPanel */
   openInspector: (panelId: string, data?: Record<string, unknown>) => void;
+  /** Open the inspector (unified view) */
+  openInspectorPanel: () => void;
   /** Close the inspector */
   closeInspector: () => void;
   /** Toggle between docked and floating mode */
@@ -185,6 +193,16 @@ export interface CoreSlice {
   setInspectorFloatingPosition: (position: { x: number; y: number }) => void;
   /** Set inspector size (floating mode) */
   setInspectorFloatingSize: (size: { width: number; height: number }) => void;
+  /** Toggle a file's expanded state in the issues list */
+  toggleFileExpanded: (filePath: string) => void;
+  /** Expand a specific file in the issues list */
+  expandFile: (filePath: string) => void;
+  /** Collapse a specific file in the issues list */
+  collapseFile: (filePath: string) => void;
+  /** Select an issue (for heatmap highlight sync) */
+  selectIssue: (issueId: string | null) => void;
+  /** Toggle the rule config section */
+  toggleRuleConfig: () => void;
 
   // ============ Connection (delegated from websocket service) ============
   /** Whether connected to the WebSocket server */
@@ -304,6 +322,9 @@ function loadInitialInspectorState(): InspectorState {
     width: getStorageValue(STORAGE_KEYS.inspectorWidth, DEFAULT_INSPECTOR_WIDTH),
     floatingPosition: getStorageValue(STORAGE_KEYS.inspectorFloatingPosition, null),
     floatingSize: getStorageValue(STORAGE_KEYS.inspectorFloatingSize, null),
+    expandedFiles: [],
+    selectedIssueId: null,
+    ruleConfigExpanded: false,
   };
 }
 
@@ -365,10 +386,14 @@ export const createCoreSlice = (
   },
 
   closeCommandPalette: () => {
+    // Preserve filters when closing - unified model keeps filters active
+    const current = get().commandPalette;
     set({
       commandPalette: {
-        ...DEFAULT_COMMAND_PALETTE_STATE,
+        ...current,
         open: false,
+        query: "",
+        selectedIndex: 0,
       },
     });
   },
@@ -522,6 +547,15 @@ export const createCoreSlice = (
     });
   },
 
+  openInspectorPanel: () => {
+    set({
+      inspector: {
+        ...get().inspector,
+        open: true,
+      },
+    });
+  },
+
   closeInspector: () => {
     set({
       inspector: {
@@ -529,6 +563,7 @@ export const createCoreSlice = (
         open: false,
         panelId: null,
         data: null,
+        selectedIssueId: null,
       },
     });
   },
@@ -571,6 +606,59 @@ export const createCoreSlice = (
       inspector: {
         ...get().inspector,
         floatingSize: size,
+      },
+    });
+  },
+
+  toggleFileExpanded: (filePath) => {
+    const current = get().inspector;
+    const isExpanded = current.expandedFiles.includes(filePath);
+    set({
+      inspector: {
+        ...current,
+        expandedFiles: isExpanded
+          ? current.expandedFiles.filter((f) => f !== filePath)
+          : [...current.expandedFiles, filePath],
+      },
+    });
+  },
+
+  expandFile: (filePath) => {
+    const current = get().inspector;
+    if (current.expandedFiles.includes(filePath)) return;
+    set({
+      inspector: {
+        ...current,
+        expandedFiles: [...current.expandedFiles, filePath],
+      },
+    });
+  },
+
+  collapseFile: (filePath) => {
+    const current = get().inspector;
+    set({
+      inspector: {
+        ...current,
+        expandedFiles: current.expandedFiles.filter((f) => f !== filePath),
+      },
+    });
+  },
+
+  selectIssue: (issueId) => {
+    set({
+      inspector: {
+        ...get().inspector,
+        selectedIssueId: issueId,
+      },
+    });
+  },
+
+  toggleRuleConfig: () => {
+    const current = get().inspector;
+    set({
+      inspector: {
+        ...current,
+        ruleConfigExpanded: !current.ruleConfigExpanded,
       },
     });
   },
