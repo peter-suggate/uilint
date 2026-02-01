@@ -24,11 +24,12 @@ interface OverlayItemProps {
   rect: DOMRect;
   issues: Issue[];
   isHovered: boolean;
+  isSelected: boolean;
   showDetails: boolean;
   onClick: () => void;
 }
 
-function OverlayItem({ rect, issues, isHovered, showDetails, onClick }: OverlayItemProps) {
+function OverlayItem({ rect, issues, isHovered, isSelected, showDetails, onClick }: OverlayItemProps) {
   // Get highest severity for border color
   const severity = useMemo(() => {
     if (issues.some(i => i.severity === "error")) return "error";
@@ -48,13 +49,14 @@ function OverlayItem({ rect, issues, isHovered, showDetails, onClick }: OverlayI
         top: rect.top - 2,
         width: rect.width + 4,
         height: rect.height + 4,
-        border: `2px solid ${color}`,
+        border: `${isSelected ? 3 : 2}px solid ${color}`,
         borderRadius: 4,
         pointerEvents: "auto",
         cursor: "pointer",
-        opacity: isHovered ? 1 : 0.6,
-        transition: "opacity 0.15s",
-        zIndex: 99990,
+        opacity: isHovered || isSelected ? 1 : 0.6,
+        transition: "opacity 0.15s, border-width 0.15s",
+        zIndex: isSelected ? 99991 : 99990,
+        boxShadow: isSelected ? `0 0 0 2px ${color}40, 0 0 12px ${color}60` : undefined,
       }}
     >
       {/* Issue count badge */}
@@ -119,9 +121,12 @@ function OverlayItem({ rect, issues, isHovered, showDetails, onClick }: OverlayI
 
 export function HeatmapOverlay() {
   const altKeyHeld = useComposedStore((s) => s.altKeyHeld);
-  const openInspector = useComposedStore((s) => s.openInspector);
+  const openInspectorPanel = useComposedStore((s) => s.openInspectorPanel);
+  const expandFile = useComposedStore((s) => s.expandFile);
+  const selectIssue = useComposedStore((s) => s.selectIssue);
   const hoveredElementId = useComposedStore((s) => s.hoveredElementId);
   const setHoveredElementId = useComposedStore((s) => s.setHoveredElementId);
+  const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
 
   // Use selectors for issues and heatmap filter state
   const issues = useComposedStore(selectIssuesMap);
@@ -154,9 +159,30 @@ export function HeatmapOverlay() {
   }, [elementRects, heatmapDataLocs, hasActiveTileFilters]);
 
   // Handle clicking an overlay item
+  // Opens the unified inspector panel and expands the file containing the clicked element
   const handleClick = (dataLoc: string) => {
-    openInspector("element", { dataLoc });
+    const elementIssues = issues.get(dataLoc) || [];
+    if (elementIssues.length > 0) {
+      // Expand the file containing this element
+      const firstIssue = elementIssues[0];
+      expandFile(firstIssue.filePath);
+      // Select the first issue to highlight it
+      selectIssue(firstIssue.id);
+    }
+    // Open the inspector panel
+    openInspectorPanel();
   };
+
+  // Determine if a dataLoc contains the currently selected issue
+  const getSelectedDataLoc = useMemo(() => {
+    if (!selectedIssueId) return null;
+    for (const [dataLoc, dataLocIssues] of issues.entries()) {
+      if (dataLocIssues.some(i => i.id === selectedIssueId)) {
+        return dataLoc;
+      }
+    }
+    return null;
+  }, [selectedIssueId, issues]);
 
   // Don't render if no issues
   if (!issues || issues.size === 0) {
@@ -194,6 +220,7 @@ export function HeatmapOverlay() {
             rect={rect}
             issues={elementIssues}
             isHovered={hoveredElementId === dataLoc || hasActiveTileFilters}
+            isSelected={getSelectedDataLoc === dataLoc}
             showDetails={altKeyHeld}
             onClick={() => handleClick(dataLoc)}
           />

@@ -89,7 +89,8 @@ describe("InspectorSidebar", () => {
       render(<InspectorSidebar />);
 
       // Should not find inspector elements when closed
-      expect(screen.queryByText("Inspector")).toBeNull();
+      // Title is now "Issues" for the unified view
+      expect(screen.queryByText("Issues")).toBeNull();
     });
 
     it("renders when opened", () => {
@@ -214,7 +215,8 @@ describe("InspectorSidebar", () => {
 
       // Find the header by looking for the title text's parent container
       // In floating mode, the header is the element that contains the title and has mouseDown handler
-      const titleElement = screen.getByText("Inspector");
+      // Title is now "Issues" for the unified view (or "Issue Details" if opening with issue panel)
+      const titleElement = screen.getByText("Issues");
       const header = titleElement.parentElement as HTMLElement;
       expect(header).toBeTruthy();
 

@@ -1,11 +1,15 @@
 /**
- * InspectorSidebar - Docked or floating panel showing issue/element details
+ * InspectorSidebar - Docked or floating panel showing issues
  *
  * Two modes:
  * - Docked: Fixed to right edge, pushes page content via document margin
  * - Floating: Draggable, resizable popup window
  *
- * Supports both built-in panels (issue, element) and plugin-contributed panels.
+ * Now uses the unified IssuesList component as the primary content,
+ * with the same filter model as tiles and heatmap.
+ *
+ * Legacy panel support (issue, element, plugin panels) is preserved
+ * for backwards compatibility but deprecated.
  *
  * Drag state is managed by the centralized drag-slice in the store.
  * Auto-undock on mobile is handled by the subscription system (initializeInspectorAutoUndock).
@@ -15,6 +19,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
+import { IssuesList } from "./IssuesList";
 import { IssueDetail } from "./IssueDetail";
 import { ElementDetail } from "./ElementDetail";
 import { ResizeHandle } from "./ResizeHandle";
@@ -64,11 +69,12 @@ export function InspectorSidebar() {
   }, [openInspector]);
 
   // Determine which view to show
+  // Default is now the unified IssuesList, with legacy panel support for backwards compatibility
   const { content, title } = useMemo(() => {
     let content: React.ReactNode = null;
-    let title = "Inspector";
+    let title = "Issues";
 
-    // Check for plugin panel first
+    // Check for legacy plugin panel first (backwards compatibility)
     const pluginPanel = pluginPanels.find((p) => p.id === panelId);
     if (pluginPanel) {
       const services = getPluginServices();
@@ -85,8 +91,8 @@ export function InspectorSidebar() {
         </div>
       );
     } else if (panelId === "issue" && panelData?.issue) {
+      // Legacy: single issue detail view
       const issue = panelData.issue as Issue;
-      // Check if the issue's rule has a custom inspector panel
       const ruleContribution = issue.ruleId
         ? pluginRegistry.getRuleContribution(issue.ruleId) ||
           pluginRegistry.getRuleContribution(issue.ruleId.replace("uilint/", ""))
@@ -108,6 +114,7 @@ export function InspectorSidebar() {
         content = <IssueDetail issue={issue} />;
       }
     } else if (panelId === "element" && panelData?.dataLoc) {
+      // Legacy: element detail view
       title = "Element Issues";
       content = (
         <ElementDetail
@@ -116,11 +123,9 @@ export function InspectorSidebar() {
         />
       );
     } else {
-      content = (
-        <div style={{ padding: 16, color: "var(--uilint-text-muted)", textAlign: "center" }}>
-          Select an issue or element to inspect
-        </div>
-      );
+      // Default: Unified issues list (new primary view)
+      title = "Issues";
+      content = <IssuesList />;
     }
 
     return { content, title };
