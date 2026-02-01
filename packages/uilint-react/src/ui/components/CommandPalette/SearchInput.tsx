@@ -26,16 +26,16 @@ import type { TileFilter } from "../../../core/plugin-system/types";
 // ============================================================================
 
 const searchContainerVariants = cva(
-  "flex items-center gap-3 border-b transition-all duration-150",
+  "flex items-center gap-4 border-b transition-all duration-150",
   {
     variants: {
       size: {
-        default: "px-4 py-3",
-        large: "px-5 py-4",
+        default: "px-5 py-4",
+        large: "px-6 py-5",
       },
       state: {
-        default: "bg-transparent border-border/30",
-        focused: "bg-muted/30 border-border/50",
+        default: "bg-transparent border-foreground/[0.06]",
+        focused: "bg-foreground/[0.02] border-foreground/[0.08]",
       },
     },
     defaultVariants: {
@@ -65,8 +65,8 @@ const searchInputVariants = cva(
 // ============================================================================
 
 const iconMotionVariants = {
-  default: { scale: 1, opacity: 0.4 },
-  focused: { scale: 1.05, opacity: 0.7 },
+  default: { scale: 1, opacity: 0.35 },
+  focused: { scale: 1, opacity: 0.5 },
 };
 
 const clearButtonMotionVariants = {
@@ -165,10 +165,8 @@ export function SearchInput({
       transition={{ duration: 0.1 }}
       className={cn(searchContainerVariants({ size, state }), className)}
       style={{
-        // Subtle glow on focus
-        boxShadow: isFocused
-          ? "0 1px 0 0 var(--uilint-border), inset 0 1px 0 0 rgba(255,255,255,0.02)"
-          : "none",
+        // Minimal styling - no extra visual noise
+        boxShadow: "none",
       }}
     >
       {/* Search icon */}
@@ -183,7 +181,7 @@ export function SearchInput({
       </motion.div>
 
       {/* Filter chips and input container - allows chips to wrap */}
-      <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
+      <div className="flex-1 flex flex-wrap items-center gap-2 min-w-0">
         {/* Filter chips */}
         <AnimatePresence mode="popLayout">
           {filters.map((filter, index) => (

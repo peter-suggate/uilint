@@ -107,26 +107,26 @@ function getGlassStyles(
   bordered: boolean | null | undefined,
   customStyle?: React.CSSProperties
 ): React.CSSProperties {
-  // Blur values mapping to CSS variables with fallbacks
+  // Blur values mapping to CSS variables with fallbacks - increased for more frosted effect
   const blurValues = {
-    light: "var(--uilint-glass-blur-light, 8px)",
-    medium: "var(--uilint-glass-blur-medium, 16px)",
-    heavy: "var(--uilint-glass-blur-heavy, 24px)",
+    light: "var(--uilint-glass-blur-light, 12px)",
+    medium: "var(--uilint-glass-blur-medium, 24px)",
+    heavy: "var(--uilint-glass-blur-heavy, 40px)",
   };
 
-  // Background values mapping to CSS variables with fallbacks
+  // Background values - more transparent for cleaner look
   const backgroundValues = {
-    light: "var(--uilint-glass-light, rgba(255, 255, 255, 0.5))",
-    medium: "var(--uilint-glass-medium, rgba(255, 255, 255, 0.7))",
-    heavy: "var(--uilint-glass-heavy, rgba(255, 255, 255, 0.85))",
+    light: "var(--uilint-glass-light, rgba(255, 255, 255, 0.4))",
+    medium: "var(--uilint-glass-medium, rgba(255, 255, 255, 0.55))",
+    heavy: "var(--uilint-glass-heavy, rgba(255, 255, 255, 0.7))",
   };
 
-  // Shadow values mapping to CSS variables with fallbacks
+  // Shadow values - softer, more diffused shadows
   const shadowValues = {
     none: "none",
-    sm: "var(--uilint-card-shadow, 0 1px 3px rgba(0, 0, 0, 0.04))",
-    md: "var(--uilint-shadow, 0 4px 20px rgba(0, 0, 0, 0.1))",
-    lg: "var(--uilint-shadow-lg, 0 8px 32px rgba(0, 0, 0, 0.15))",
+    sm: "var(--uilint-card-shadow, 0 2px 8px rgba(0, 0, 0, 0.03))",
+    md: "var(--uilint-shadow, 0 8px 32px rgba(0, 0, 0, 0.06))",
+    lg: "var(--uilint-shadow-lg, 0 16px 48px rgba(0, 0, 0, 0.08))",
   };
 
   const blurKey = blur ?? "medium";
@@ -135,12 +135,11 @@ function getGlassStyles(
   const shadowValue = shadowValues[shadowKey];
   const backgroundValue = backgroundValues[blurKey];
 
-  // Build box-shadow combining the shadow variant with optional inset highlight
+  // Build box-shadow - more subtle inset highlights
   const boxShadowParts: string[] = [];
 
-  // Add inset highlight for glass effect (top edge shine)
-  boxShadowParts.push("inset 0 1px 0 0 var(--uilint-glass-highlight, rgba(255, 255, 255, 0.4))");
-  boxShadowParts.push("inset 0 0 0 1px var(--uilint-glass-highlight, rgba(255, 255, 255, 0.2))");
+  // Subtle inset highlight for glass effect (top edge shine)
+  boxShadowParts.push("inset 0 1px 0 0 var(--uilint-glass-highlight, rgba(255, 255, 255, 0.25))");
 
   // Add external shadow
   if (shadowValue !== "none") {
@@ -149,11 +148,11 @@ function getGlassStyles(
 
   return {
     background: backgroundValue,
-    backdropFilter: `blur(${blurValue}) saturate(180%)`,
-    WebkitBackdropFilter: `blur(${blurValue}) saturate(180%)`,
+    backdropFilter: `blur(${blurValue}) saturate(150%)`,
+    WebkitBackdropFilter: `blur(${blurValue}) saturate(150%)`,
     boxShadow: boxShadowParts.join(", "),
     border: bordered !== false
-      ? "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.25))"
+      ? "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.15))"
       : "none",
     ...customStyle,
   };

@@ -27,15 +27,15 @@ const tileVariants = cva(
   {
     variants: {
       selected: {
-        true: "bg-foreground/[0.06] border border-foreground/15",
-        false: "border border-foreground/[0.06] hover:bg-foreground/[0.04] hover:border-foreground/10",
+        true: "bg-foreground/[0.04] border border-foreground/12",
+        false: "border border-foreground/[0.04] hover:bg-foreground/[0.03] hover:border-foreground/[0.08]",
       },
       size: {
-        xs: "p-3",
-        sm: "p-3.5",
-        md: "p-4",
-        lg: "p-5",
-        xl: "p-5",
+        xs: "p-4",
+        sm: "p-4",
+        md: "p-5",
+        lg: "p-6",
+        xl: "p-6",
       },
     },
     defaultVariants: {
@@ -71,7 +71,7 @@ const titleVariants = cva(
 const countVariants = cva(
   [
     "font-extralight leading-none tracking-tighter",
-    "text-foreground/90",
+    "text-foreground/70",
   ],
   {
     variants: {
@@ -125,16 +125,16 @@ function SeverityDot({
   if (count === 0) return null;
 
   const colorClasses = {
-    error: "bg-error",
-    warning: "bg-warning",
-    info: "bg-info",
+    error: "bg-error/70",
+    warning: "bg-warning/70",
+    info: "bg-info/70",
   };
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       <div className={cn("w-1.5 h-1.5 rounded-full", colorClasses[type])} />
       {showCount && (
-        <span className="text-[11px] font-normal text-muted-foreground">
+        <span className="text-[11px] font-normal text-muted-foreground/70">
           {count}
         </span>
       )}
@@ -162,7 +162,7 @@ function SeverityIndicators({
   if (!hasAny) return null;
 
   return (
-    <div className="flex items-center gap-1.5 pb-1">
+    <div className="flex items-center gap-2">
       <SeverityDot type="error" count={severityCounts.error} showCount={showCounts} />
       <SeverityDot type="warning" count={severityCounts.warning} showCount={showCounts} />
       <SeverityDot type="info" count={severityCounts.info} showCount={showCounts} />
@@ -179,7 +179,7 @@ function HoverOverlay({ isHovered }: { isHovered: boolean }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: isHovered ? 1 : 0 }}
       transition={{ duration: 0.15 }}
-      className="absolute inset-0 rounded-2xl pointer-events-none bg-gradient-to-br from-foreground/[0.04] to-transparent"
+      className="absolute inset-0 rounded-2xl pointer-events-none bg-gradient-to-br from-foreground/[0.02] to-transparent"
     />
   );
 }
@@ -213,14 +213,14 @@ export function Tile({ item, bucket, isSelected, onClick }: TileProps) {
 
         {/* Subtitle - path or description */}
         {item.subtitle && !isCompact && (
-          <div className="mt-1.5 text-xs font-normal text-muted-foreground truncate tracking-wide">
+          <div className="mt-2 text-xs font-normal text-muted-foreground/60 truncate tracking-wide">
             {item.subtitle}
           </div>
         )}
       </div>
 
       {/* Bottom section: Count and severity */}
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex items-end justify-between gap-4">
         {/* Large count number */}
         <span className={cn(countVariants({ size: bucket }))}>
           {item.count}

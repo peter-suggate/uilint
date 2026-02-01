@@ -1,11 +1,12 @@
 /**
- * EmptyState - Beautiful empty state component for the CommandPalette
+ * EmptyState - Minimal empty state component for the CommandPalette
  *
  * Displays elegant illustrations and messaging when there are no tiles to show.
- * Uses pure CSS shapes for illustrations (no emoji or icon fonts).
+ * Uses lucide icons for clean, consistent visuals.
  */
 import React from "react";
 import { motion } from "motion/react";
+import { Search, CheckCircle, Filter, X } from "lucide-react";
 
 interface EmptyStateProps {
   variant: "no-results" | "no-issues" | "filtered-empty";
@@ -17,293 +18,106 @@ interface EmptyStateProps {
 const crispEase = [0.32, 0.72, 0, 1] as const;
 
 /**
- * NoResultsIllustration - Subtle search icon made of CSS shapes
+ * NoResultsIllustration - Clean search icon with lucide
  */
 function NoResultsIllustration() {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3, ease: crispEase }}
+      transition={{ duration: 0.25, ease: crispEase }}
       style={{
-        position: "relative",
-        width: 64,
-        height: 64,
-        marginBottom: 20,
+        marginBottom: 24,
+        opacity: 0.3,
       }}
     >
-      {/* Magnifying glass circle */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1, duration: 0.3 }}
-        style={{
-          position: "absolute",
-          top: 4,
-          left: 4,
-          width: 36,
-          height: 36,
-          borderRadius: "50%",
-          border: "2.5px solid var(--uilint-text-disabled)",
-          background: "transparent",
-        }}
-      />
-      {/* Handle of magnifying glass */}
-      <motion.div
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: 1 }}
-        transition={{ delay: 0.2, duration: 0.25, ease: crispEase }}
-        style={{
-          position: "absolute",
-          top: 38,
-          left: 34,
-          width: 20,
-          height: 2.5,
-          background: "var(--uilint-text-disabled)",
-          borderRadius: 2,
-          transform: "rotate(45deg)",
-          transformOrigin: "left center",
-        }}
-      />
-      {/* Decorative dots - scattered around */}
-      {[
-        { top: 0, right: 8, size: 4, delay: 0.3 },
-        { top: 12, right: 2, size: 3, delay: 0.35 },
-        { bottom: 12, left: 0, size: 3, delay: 0.4 },
-      ].map((dot, i) => (
-        <motion.div
-          key={i}
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 0.4, scale: 1 }}
-          transition={{ delay: dot.delay, duration: 0.2 }}
-          style={{
-            position: "absolute",
-            top: dot.top,
-            right: dot.right,
-            bottom: dot.bottom,
-            left: dot.left,
-            width: dot.size,
-            height: dot.size,
-            borderRadius: "50%",
-            background: "var(--uilint-text-muted)",
-          }}
-        />
-      ))}
+      <Search size={36} strokeWidth={1.5} />
     </motion.div>
   );
 }
 
 /**
- * NoIssuesIllustration - Celebratory checkmark with concentric circles
+ * NoIssuesIllustration - Clean checkmark icon with lucide
  */
 function NoIssuesIllustration() {
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.8 }}
+      initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4, ease: crispEase }}
+      transition={{ duration: 0.25, ease: crispEase }}
       style={{
-        position: "relative",
-        width: 72,
-        height: 72,
-        marginBottom: 20,
+        marginBottom: 24,
+        color: "var(--uilint-success)",
+        opacity: 0.5,
       }}
     >
-      {/* Outer ring */}
-      <motion.div
-        initial={{ scale: 0.5, opacity: 0 }}
-        animate={{ scale: 1, opacity: 0.15 }}
-        transition={{ delay: 0.1, duration: 0.4, ease: crispEase }}
-        style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: "50%",
-          border: "1.5px solid var(--uilint-success)",
-        }}
-      />
-      {/* Middle ring */}
-      <motion.div
-        initial={{ scale: 0.5, opacity: 0 }}
-        animate={{ scale: 1, opacity: 0.3 }}
-        transition={{ delay: 0.15, duration: 0.35, ease: crispEase }}
-        style={{
-          position: "absolute",
-          inset: 8,
-          borderRadius: "50%",
-          border: "1.5px solid var(--uilint-success)",
-        }}
-      />
-      {/* Inner filled circle */}
-      <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.2, duration: 0.3, ease: crispEase }}
-        style={{
-          position: "absolute",
-          inset: 18,
-          borderRadius: "50%",
-          background: "var(--uilint-success-bg)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {/* Checkmark using CSS */}
-        <motion.div
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: 1 }}
-          transition={{ delay: 0.35, duration: 0.25 }}
-          style={{
-            position: "relative",
-            width: 16,
-            height: 16,
-          }}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            style={{ width: "100%", height: "100%" }}
-          >
-            <motion.path
-              d="M5 13l4 4L19 7"
-              stroke="var(--uilint-success)"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              initial={{ pathLength: 0 }}
-              animate={{ pathLength: 1 }}
-              transition={{ delay: 0.4, duration: 0.3, ease: crispEase }}
-            />
-          </svg>
-        </motion.div>
-      </motion.div>
+      <CheckCircle size={36} strokeWidth={1.5} />
     </motion.div>
   );
 }
 
 /**
- * FilteredEmptyIllustration - Simple filter/funnel shape
+ * FilteredEmptyIllustration - Clean filter icon with lucide
  */
 function FilteredEmptyIllustration() {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: crispEase }}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.25, ease: crispEase }}
       style={{
         position: "relative",
-        width: 56,
-        height: 56,
-        marginBottom: 20,
+        marginBottom: 24,
+        opacity: 0.3,
       }}
     >
-      {/* Filter/funnel shape using stacked lines */}
-      {[
-        { width: 48, top: 8 },
-        { width: 36, top: 20 },
-        { width: 24, top: 32 },
-        { width: 8, top: 44 },
-      ].map((line, i) => (
-        <motion.div
-          key={i}
-          initial={{ scaleX: 0, opacity: 0 }}
-          animate={{ scaleX: 1, opacity: 0.6 - i * 0.1 }}
-          transition={{ delay: 0.1 + i * 0.05, duration: 0.25, ease: crispEase }}
-          style={{
-            position: "absolute",
-            top: line.top,
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: line.width,
-            height: 3,
-            borderRadius: 2,
-            background: "var(--uilint-text-disabled)",
-          }}
-        />
-      ))}
-      {/* X mark overlay */}
+      <Filter size={36} strokeWidth={1.5} />
       <motion.div
-        initial={{ opacity: 0, scale: 0.5, rotate: -90 }}
-        animate={{ opacity: 1, scale: 1, rotate: 0 }}
-        transition={{ delay: 0.3, duration: 0.25, ease: crispEase }}
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.15, duration: 0.2, ease: crispEase }}
         style={{
           position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          bottom: -4,
+          right: -4,
+          background: "var(--uilint-surface, #fff)",
+          borderRadius: "50%",
+          padding: 2,
         }}
       >
-        <div
-          style={{
-            position: "relative",
-            width: 20,
-            height: 20,
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              width: 20,
-              height: 2,
-              background: "var(--uilint-text-muted)",
-              borderRadius: 1,
-              transform: "translate(-50%, -50%) rotate(45deg)",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              width: 20,
-              height: 2,
-              background: "var(--uilint-text-muted)",
-              borderRadius: 1,
-              transform: "translate(-50%, -50%) rotate(-45deg)",
-            }}
-          />
-        </div>
+        <X size={14} strokeWidth={2} />
       </motion.div>
     </motion.div>
   );
 }
 
 /**
- * ClearFiltersButton - Styled button for clearing filters
+ * ClearFiltersButton - Minimal styled button for clearing filters
  */
 function ClearFiltersButton({ onClick }: { onClick: () => void }) {
   const [isHovered, setIsHovered] = React.useState(false);
-  const [isPressed, setIsPressed] = React.useState(false);
 
   return (
     <motion.button
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false);
-        setIsPressed(false);
-      }}
-      onMouseDown={() => setIsPressed(true)}
-      onMouseUp={() => setIsPressed(false)}
+      onMouseLeave={() => setIsHovered(false)}
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
       transition={{ duration: 0.15, ease: crispEase }}
       style={{
-        marginTop: 16,
-        padding: "8px 16px",
+        marginTop: 20,
+        padding: "10px 20px",
         fontSize: 13,
-        fontWeight: 500,
-        color: "var(--uilint-accent)",
+        fontWeight: 450,
+        color: "var(--uilint-text-secondary)",
         background: isHovered
-          ? "var(--uilint-hover)"
+          ? "rgba(128, 128, 128, 0.08)"
           : "transparent",
-        border: "1px solid var(--uilint-border)",
-        borderRadius: "var(--uilint-radius-sm, 8px)",
+        border: "1px solid rgba(128, 128, 128, 0.15)",
+        borderRadius: 10,
         cursor: "pointer",
         transition: "background 0.15s ease, border-color 0.15s ease",
         outline: "none",
@@ -352,9 +166,9 @@ export function EmptyState({ variant, query, onClearFilters }: EmptyStateProps) 
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "48px 24px",
+        padding: "56px 32px",
         textAlign: "center",
-        minHeight: 200,
+        minHeight: 220,
       }}
     >
       {content.illustration}
@@ -362,12 +176,12 @@ export function EmptyState({ variant, query, onClearFilters }: EmptyStateProps) 
       <motion.h3
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15, duration: 0.25, ease: crispEase }}
+        transition={{ delay: 0.1, duration: 0.2, ease: crispEase }}
         style={{
           margin: 0,
-          fontSize: 15,
-          fontWeight: 600,
-          color: "var(--uilint-text-primary)",
+          fontSize: 14,
+          fontWeight: 500,
+          color: "var(--uilint-text-secondary)",
           letterSpacing: "-0.01em",
         }}
       >
@@ -378,11 +192,12 @@ export function EmptyState({ variant, query, onClearFilters }: EmptyStateProps) 
         <motion.p
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.25, ease: crispEase }}
+          transition={{ delay: 0.15, duration: 0.2, ease: crispEase }}
           style={{
-            margin: "6px 0 0 0",
+            margin: "8px 0 0 0",
             fontSize: 13,
             color: "var(--uilint-text-muted)",
+            opacity: 0.7,
             lineHeight: 1.5,
           }}
         >
