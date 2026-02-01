@@ -154,6 +154,42 @@ export interface CategoryProvider {
    * @param query The search query
    */
   filterPredicate?: (item: CategoryItem, query: string) => boolean;
+
+  // ============ Tile System Extensions ============
+
+  /**
+   * Get items as tiles for the masonry grid view.
+   * If not provided, tiles are derived from getItems().
+   * @param services Plugin services for accessing state
+   * @param filters Currently active tile filters
+   */
+  getTileItems?: (
+    services: PluginServices,
+    filters: TileFilter[]
+  ) => TileItem[] | Promise<TileItem[]>;
+
+  /**
+   * Create a filter from a clicked tile.
+   * Called when user clicks a tile to drill down.
+   * @param item The clicked tile item
+   */
+  createFilter?: (item: TileItem) => TileFilter;
+
+  /**
+   * Check if current filter state is terminal (no more drill-down).
+   * When true, clicking a tile opens the inspector instead of adding a filter.
+   * @param filters Currently active filters
+   */
+  isTerminal?: (filters: TileFilter[]) => boolean;
+
+  /**
+   * Get inspector data for a terminal tile click.
+   * @param item The clicked tile item
+   */
+  getInspectorData?: (item: TileItem) => {
+    panelId: string;
+    data: Record<string, unknown>;
+  };
 }
 
 // ============================================================================
@@ -550,6 +586,66 @@ export interface Plugin<TSlice = unknown> {
     config: Record<string, unknown>,
     services: PluginServices
   ) => void;
+}
+
+// ============================================================================
+// Tile System Types
+// ============================================================================
+
+/**
+ * Size bucket for tiles in the masonry grid.
+ * Determined by normalized count relative to siblings.
+ */
+export type TileBucket = "xs" | "sm" | "md" | "lg" | "xl";
+
+/**
+ * Severity counts for visual breakdown in tiles.
+ */
+export interface TileSeverityCounts {
+  error: number;
+  warning: number;
+  info: number;
+}
+
+/**
+ * A tile item that can be displayed in the masonry grid.
+ * Tiles represent aggregated data (rules, files, etc.) with drill-down capability.
+ */
+export interface TileItem {
+  /** Unique identifier for this tile */
+  id: string;
+  /** Primary display label */
+  label: string;
+  /** Optional secondary text */
+  subtitle?: string;
+  /** Optional icon (React component or emoji) */
+  icon?: ReactNode;
+  /** Count for bucket sizing (e.g., number of issues) */
+  count: number;
+  /** Optional severity breakdown for visual indicator */
+  severityCounts?: TileSeverityCounts;
+  /** Additional metadata for filtering/identification */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Filter type for scoping tile views.
+ * Used as chips in the search bar to narrow displayed tiles.
+ */
+export type TileFilterType = "scope" | "rule" | "file" | "severity" | "category";
+
+/**
+ * A filter chip that scopes the tile view.
+ */
+export interface TileFilter {
+  /** Filter type (determines color coding and behavior) */
+  type: TileFilterType;
+  /** Unique identifier for the filter target */
+  id: string;
+  /** Display label for the chip */
+  label: string;
+  /** Provider/plugin that owns this filter */
+  providerId?: string;
 }
 
 // ============================================================================

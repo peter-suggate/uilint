@@ -6,7 +6,7 @@
  */
 
 import type { StateCreator } from "zustand";
-import type { PluginServices } from "../plugin-system/types";
+import type { PluginServices, TileFilter } from "../plugin-system/types";
 
 // ============================================================================
 // Types
@@ -45,7 +45,7 @@ export interface MobileState {
 
 /**
  * Filter chip for the command palette search.
- * Allows filtering by rule, issue, loc (source location), file, capture, or plugin.
+ * @deprecated Use TileFilter from plugin-system/types instead
  */
 export interface CommandPaletteFilter {
   type: "rule" | "issue" | "loc" | "file" | "capture" | "plugin";
@@ -63,10 +63,12 @@ export interface CommandPaletteState {
   query: string;
   /** Currently selected index for keyboard navigation */
   selectedIndex: number;
-  /** Active filters (shown as chips) */
-  filters: CommandPaletteFilter[];
+  /** Active filters (shown as chips) - tile filters for scoping */
+  filters: TileFilter[];
   /** Currently selected category in the sidebar (null = "All") */
   selectedCategoryId: string | null;
+  /** Selected category IDs for multi-select (empty = all selected) */
+  selectedCategoryIds: Set<string>;
   /** Whether sidebar is focused (for keyboard navigation) */
   sidebarFocused: boolean;
 }
@@ -156,13 +158,17 @@ export interface CoreSlice {
   /** Set the selected index for keyboard navigation */
   setCommandPaletteSelectedIndex: (index: number) => void;
   /** Add a filter to the command palette */
-  addFilter: (filter: CommandPaletteFilter) => void;
+  addFilter: (filter: TileFilter) => void;
   /** Remove a filter at the specified index */
   removeFilter: (index: number) => void;
+  /** Remove the last filter (for backspace behavior) */
+  removeLastFilter: () => void;
   /** Clear all command palette filters */
   clearFilters: () => void;
   /** Set the selected category in the sidebar */
   setSelectedCategory: (categoryId: string | null) => void;
+  /** Toggle a category selection (multi-select mode) */
+  toggleCategory: (categoryId: string) => void;
   /** Toggle sidebar focus for keyboard navigation */
   setSidebarFocused: (focused: boolean) => void;
 
@@ -269,6 +275,7 @@ const DEFAULT_COMMAND_PALETTE_STATE: CommandPaletteState = {
   selectedIndex: 0,
   filters: [],
   selectedCategoryId: null,
+  selectedCategoryIds: new Set<string>(),
   sidebarFocused: false,
 };
 
@@ -364,6 +371,7 @@ export const createCoreSlice = (
     set({
       commandPalette: {
         ...DEFAULT_COMMAND_PALETTE_STATE,
+        selectedCategoryIds: new Set<string>(),
         open: false,
       },
     });
@@ -410,6 +418,18 @@ export const createCoreSlice = (
     });
   },
 
+  removeLastFilter: () => {
+    const current = get().commandPalette;
+    if (current.filters.length === 0) return;
+    set({
+      commandPalette: {
+        ...current,
+        filters: current.filters.slice(0, -1),
+        selectedIndex: 0,
+      },
+    });
+  },
+
   clearFilters: () => {
     set({
       commandPalette: {
@@ -425,6 +445,23 @@ export const createCoreSlice = (
       commandPalette: {
         ...get().commandPalette,
         selectedCategoryId: categoryId,
+        selectedIndex: 0,
+      },
+    });
+  },
+
+  toggleCategory: (categoryId) => {
+    const current = get().commandPalette;
+    const newSet = new Set(current.selectedCategoryIds);
+    if (newSet.has(categoryId)) {
+      newSet.delete(categoryId);
+    } else {
+      newSet.add(categoryId);
+    }
+    set({
+      commandPalette: {
+        ...current,
+        selectedCategoryIds: newSet,
         selectedIndex: 0,
       },
     });

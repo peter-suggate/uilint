@@ -13,6 +13,8 @@ import type {
   RuleDefinition,
   CategoryProvider,
   CategoryItem,
+  TileItem,
+  TileFilter,
 } from "../../core/plugin-system/types";
 import { eslintCommands } from "./commands";
 import {
@@ -33,6 +35,12 @@ import {
   clearStaticMode,
   getManifestMetadata,
 } from "./static-handler";
+import {
+  getTileItems as getTileItemsHelper,
+  createFilter as createFilterHelper,
+  isTerminal as isTerminalHelper,
+  getInspectorData as getInspectorDataHelper,
+} from "./tile-provider";
 
 /** WebSocket message types handled by ESLint plugin */
 const ESLINT_WS_MESSAGE_TYPES = [
@@ -732,6 +740,45 @@ function createESLintCategoryProviders(): CategoryProvider[] {
       // This provider itself doesn't have items - it's just a container
       getItems: () => [],
       getItemCount: () => 0,
+
+      // ============ Tile System Methods ============
+
+      /**
+       * Get tile items for the masonry grid view.
+       * - No filters: return rules as tiles
+       * - Has rule filter: return files for that rule as tiles
+       * - Has rule + file filter: return empty (terminal state)
+       */
+      getTileItems: (
+        services: PluginServices,
+        filters: TileFilter[]
+      ): TileItem[] => {
+        return getTileItemsHelper(services, filters);
+      },
+
+      /**
+       * Create a filter from a clicked tile.
+       * Checks item.metadata to determine if it's a rule or file.
+       */
+      createFilter: (item: TileItem): TileFilter => {
+        return createFilterHelper(item);
+      },
+
+      /**
+       * Check if current filter state is terminal (no more drill-down).
+       * Returns true if filters include both a rule AND a file.
+       */
+      isTerminal: (filters: TileFilter[]): boolean => {
+        return isTerminalHelper(filters);
+      },
+
+      /**
+       * Get inspector data for a terminal tile click.
+       * Returns the panel ID and data needed to open the inspector.
+       */
+      getInspectorData: (item: TileItem): { panelId: string; data: Record<string, unknown> } => {
+        return getInspectorDataHelper(item);
+      },
     },
   ];
 }
@@ -753,3 +800,14 @@ export {
 
 // Export for testing - allows direct testing of message handling logic
 export { handleWebSocketMessage as _handleWebSocketMessageForTesting };
+
+// Tile provider exports
+export {
+  aggregateByRule,
+  aggregateByFile,
+  countSeverities,
+  getTileItems as getEslintTileItems,
+  createFilter as createEslintTileFilter,
+  isTerminal as isEslintTileTerminal,
+  getInspectorData as getEslintInspectorData,
+} from "./tile-provider";

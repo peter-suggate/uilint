@@ -7,6 +7,7 @@
  * - Hero search input with glassmorphic styling
  * - Priority-based lazy loading for fast performance
  * - Keyboard navigation between sidebar and results
+ * - Tile-based masonry grid for visual item display
  *
  * Visual design:
  * - Minimal colors, visual hierarchy through opacity/weight
@@ -20,7 +21,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
-import { useIssues, useCategoryRegistry, useCategoryItems } from "../../hooks";
+import { useIssues, useCategoryRegistry, useCategoryItems, useTileItems, useTileNavigation } from "../../hooks";
 import { SearchInput } from "./SearchInput";
 import { MobileCategoryTabs } from "./MobileCategoryTabs";
 import { ResultItem } from "./ResultItem";
@@ -29,11 +30,13 @@ import { FileHeader } from "./FileHeader";
 import { IssuesSummaryCard, TopIssuesPreview } from "./IssuesSummaryCard";
 import { AnimatedListItem, AnimatedSection, SelectionIndicator } from "./AnimatedListItem";
 import { CategorySidebar } from "./CategorySidebar";
+import { TileGrid } from "./TileGrid";
+import { EmptyState } from "./EmptyState";
 import { PlayIcon, StopIcon, RefreshIcon } from "../../icons";
 import { GlassPanel, Kbd } from "../primitives";
 import { useScrollSelectedIntoView, ScrollSelectedContext } from "./useScrollSelectedIntoView";
 import type { Issue } from "../../types";
-import type { Command, RuleDefinition, CategoryItem } from "../../../core/plugin-system/types";
+import type { Command, RuleDefinition, CategoryItem, TileFilter, TileItem } from "../../../core/plugin-system/types";
 
 /**
  * Unified result item type for the command palette
@@ -301,16 +304,85 @@ export function CommandPalette() {
   const selectedIndex = useComposedStore((s) => s.commandPalette.selectedIndex);
   const selectedCategoryId = useComposedStore((s) => s.commandPalette.selectedCategoryId);
   const sidebarFocused = useComposedStore((s) => s.commandPalette.sidebarFocused);
+  const filters = useComposedStore((s) => s.commandPalette.filters);
+  const selectedCategoryIds = useComposedStore((s) => s.commandPalette.selectedCategoryIds);
   const closeCommandPalette = useComposedStore((s) => s.closeCommandPalette);
   const setQuery = useComposedStore((s) => s.setCommandPaletteQuery);
   const setSelectedIndex = useComposedStore((s) => s.setCommandPaletteSelectedIndex);
   const setSelectedCategory = useComposedStore((s) => s.setSelectedCategory);
   const setSidebarFocused = useComposedStore((s) => s.setSidebarFocused);
   const openInspector = useComposedStore((s) => s.openInspector);
+  const addFilter = useComposedStore((s) => s.addFilter);
+  const removeFilter = useComposedStore((s) => s.removeFilter);
+  const removeLastFilter = useComposedStore((s) => s.removeLastFilter);
+  const clearFilters = useComposedStore((s) => s.clearFilters);
+  const toggleCategory = useComposedStore((s) => s.toggleCategory);
 
   // Mobile detection from store
   const isMobile = useComposedStore((s) => s.mobile.isMobile);
   const isSmallScreen = useComposedStore((s) => s.mobile.isSmallScreen);
+  const isTablet = useComposedStore((s) => s.mobile.isTablet);
+
+  // Calculate responsive column count for tile grid
+  const columnCount = useMemo(() => {
+    if (isMobile) return 1;
+    if (isTablet) return 2;
+    return 3;
+  }, [isMobile, isTablet]);
+
+  // Use tile items hook for masonry grid
+  const { items: tileItems, isLoading: isTileLoading, isTerminal } = useTileItems(
+    filters,
+    query,
+    selectedCategoryIds
+  );
+
+  // Handle tile click
+  const handleTileClick = useCallback((item: TileItem) => {
+    // Find the category provider that owns this item
+    const providerId = item.metadata?.providerId as string | undefined;
+    const provider = providerId
+      ? pluginRegistry.getAllCategoryProviders().find((p) => p.id === providerId)
+      : null;
+
+    if (isTerminal) {
+      // Terminal state: open inspector with item data
+      if (provider?.getInspectorData) {
+        const { panelId, data } = provider.getInspectorData(item);
+        openInspector(panelId, data);
+      } else {
+        // Fallback: open generic inspector
+        openInspector("tile", { item });
+      }
+      closeCommandPalette();
+    } else {
+      // Non-terminal: create and add filter
+      if (provider?.createFilter) {
+        const filter = provider.createFilter(item);
+        addFilter(filter);
+      } else {
+        // Fallback: create a generic filter
+        addFilter({
+          type: "category",
+          id: item.id,
+          label: item.label,
+          providerId: providerId,
+        });
+      }
+    }
+  }, [isTerminal, openInspector, closeCommandPalette, addFilter]);
+
+  // Handle back navigation (backspace with empty query)
+  const handleBack = useCallback(() => {
+    removeLastFilter();
+  }, [removeLastFilter]);
+
+  // Use tile navigation hook for keyboard navigation
+  const {
+    selectedIndex: tileSelectedIndex,
+    setSelectedIndex: setTileSelectedIndex,
+    handleKeyDown: handleTileKeyDown,
+  } = useTileNavigation(tileItems, columnCount, handleTileClick, handleBack);
 
   const scrollCtx = useScrollSelectedIntoView(selectedIndex);
 
@@ -551,8 +623,8 @@ export function CommandPalette() {
         return;
       }
 
-      // Left/Right arrows to switch focus
-      if (e.key === "ArrowLeft" && !sidebarFocused) {
+      // Left/Right arrows to switch focus (when not in tile grid mode)
+      if (e.key === "ArrowLeft" && !sidebarFocused && tileItems.length === 0) {
         e.preventDefault();
         setSidebarFocused(true);
         return;
@@ -563,7 +635,20 @@ export function CommandPalette() {
         return;
       }
 
-      // Up/Down for navigation
+      // When in tile grid mode, delegate to tile navigation
+      if (tileItems.length > 0 && !sidebarFocused) {
+        handleTileKeyDown(e);
+        return;
+      }
+
+      // Backspace to remove last filter when query is empty
+      if (e.key === "Backspace" && query === "" && filters.length > 0) {
+        e.preventDefault();
+        handleBack();
+        return;
+      }
+
+      // Up/Down for list navigation (fallback when no tiles)
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setSelectedIndex(Math.min(selectedIndex + 1, allResults.length - 1));
@@ -575,7 +660,7 @@ export function CommandPalette() {
         handleSelectResult(allResults[selectedIndex]);
       }
     },
-    [allResults, selectedIndex, handleSelectResult, sidebarFocused, setSidebarFocused]
+    [allResults, selectedIndex, handleSelectResult, sidebarFocused, setSidebarFocused, tileItems, handleTileKeyDown, query, filters, handleBack]
   );
 
   // Note: Reset on query change is handled by setCommandPaletteQuery action (resets selectedIndex to 0)
@@ -674,7 +759,14 @@ export function CommandPalette() {
               )}
 
               {/* Hero Search Input */}
-              <SearchInput value={query} onChange={setQuery} size={isMobile ? "default" : "large"} />
+              <SearchInput
+                value={query}
+                onChange={setQuery}
+                size={isMobile ? "default" : "large"}
+                filters={filters}
+                onRemoveFilter={(index) => removeFilter(index)}
+                onRemoveLastFilter={removeLastFilter}
+              />
 
               {/* Content Area: Sidebar + Results */}
               <div
@@ -693,6 +785,8 @@ export function CommandPalette() {
                     categories={categoryTree}
                     selectedId={selectedCategoryId}
                     onSelect={setSelectedCategory}
+                    selectedCategoryIds={selectedCategoryIds}
+                    onToggleCategory={toggleCategory}
                     isFocused={sidebarFocused}
                   />
                 )}
@@ -717,30 +811,89 @@ export function CommandPalette() {
                   }}
                 >
                   <AnimatePresence mode={isMobile ? "sync" : "wait"}>
-                    {allResults.length === 0 && filteredRules.length === 0 ? (
+                    {/* Loading state */}
+                    {isTileLoading ? (
+                      <motion.div
+                        key="loading"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        style={{
+                          padding: "48px 24px",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: "50%",
+                            border: "2px solid var(--uilint-border)",
+                            borderTopColor: "var(--uilint-accent)",
+                          }}
+                        />
+                        <div
+                          style={{
+                            marginTop: 12,
+                            fontSize: 13,
+                            color: "var(--uilint-text-muted)",
+                          }}
+                        >
+                          Loading...
+                        </div>
+                      </motion.div>
+                    ) : tileItems.length > 0 ? (
+                      /* Tile Grid View */
+                      <motion.div
+                        key="tile-grid"
+                        initial={isMobile ? false : { opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={isMobile ? undefined : { opacity: 0 }}
+                        transition={{ duration: isMobile ? 0 : 0.1 }}
+                      >
+                        <TileGrid
+                          items={tileItems}
+                          onTileClick={handleTileClick}
+                          selectedIndex={tileSelectedIndex}
+                          isTerminal={isTerminal}
+                        />
+                      </motion.div>
+                    ) : tileItems.length === 0 && (query || filters.length > 0) ? (
+                      /* Empty states for tile view */
+                      <motion.div
+                        key="empty-state"
+                        initial={isMobile ? false : { opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={isMobile ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                        transition={{ duration: isMobile ? 0.05 : 0.1 }}
+                      >
+                        {query ? (
+                          <EmptyState variant="no-results" query={query} />
+                        ) : filters.length > 0 ? (
+                          <EmptyState variant="filtered-empty" onClearFilters={clearFilters} />
+                        ) : (
+                          <EmptyState variant="no-issues" />
+                        )}
+                      </motion.div>
+                    ) : allResults.length === 0 && filteredRules.length === 0 ? (
+                      /* Fallback empty state for list view */
                       <motion.div
                         key="empty"
                         initial={isMobile ? false : { opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={isMobile ? { opacity: 0 } : { opacity: 0, y: -4 }}
                         transition={{ duration: isMobile ? 0.05 : 0.1 }}
-                        style={{
-                          padding: "32px 24px",
-                          textAlign: "center",
-                          color: "var(--uilint-text-disabled)",
-                        }}
                       >
-                        <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
-                        <div style={{ fontSize: 13, fontWeight: 500 }}>
-                          {query ? "No results found" : "Start typing to search"}
-                        </div>
-                        <div style={{ fontSize: 12, marginTop: 4, color: "var(--uilint-text-muted)" }}>
-                          {query
-                            ? "Try different keywords"
-                            : "Search issues, rules, and commands"}
-                        </div>
+                        <EmptyState variant="no-issues" />
                       </motion.div>
                     ) : (
+                      /* Fallback: List-based results (commands, issues, rules) */
                       <ScrollSelectedContext.Provider value={scrollCtx}>
                         <motion.div
                           key="results"
