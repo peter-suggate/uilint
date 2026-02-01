@@ -1,256 +1,241 @@
 /**
- * Tile - Individual tile component for masonry grid display
+ * Tile - Glassmorphic tile component for mosaic grid
  *
- * Displays aggregated data (rules, files, etc.) with:
- * - Primary label and count badge
- * - Optional severity breakdown bar (error/warning/info)
- * - Optional subtitle
- * - Hover lift effect with arrow indicator
- * - Selected state highlighting
+ * iOS-style glassmorphic design:
+ * - Translucent background with backdrop blur
+ * - Minimal color palette with proper light/dark mode contrast
+ * - Large, light-weight fonts
+ * - Clean, modern aesthetic using shadcn conventions
  */
 import React from "react";
 import { motion } from "motion/react";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "../../../lib/utils";
 import type { TileItem, TileBucket } from "../../../core/plugin-system/types";
 
-interface TileProps {
+// ============================================================================
+// Variants
+// ============================================================================
+
+const tileVariants = cva(
+  [
+    "h-full cursor-pointer overflow-hidden relative box-border",
+    "flex flex-col justify-between",
+    "rounded-2xl",
+    "backdrop-blur-[20px] backdrop-saturate-[180%]",
+    "transition-colors duration-150",
+  ],
+  {
+    variants: {
+      selected: {
+        true: "bg-glass-medium border border-glass-border",
+        false: "bg-glass-light border border-glass-border/50 hover:bg-glass-medium hover:border-glass-border",
+      },
+      size: {
+        xs: "p-3",
+        sm: "p-3.5",
+        md: "p-4",
+        lg: "p-5",
+        xl: "p-5",
+      },
+    },
+    defaultVariants: {
+      selected: false,
+      size: "md",
+    },
+  }
+);
+
+const titleVariants = cva(
+  [
+    "font-light leading-tight tracking-tight",
+    "text-foreground",
+    "overflow-hidden text-ellipsis",
+    "[-webkit-box-orient:vertical] [-webkit-line-clamp:2] [display:-webkit-box]",
+  ],
+  {
+    variants: {
+      size: {
+        xs: "text-[15px] [-webkit-line-clamp:1]",
+        sm: "text-[17px] [-webkit-line-clamp:1]",
+        md: "text-xl",
+        lg: "text-2xl",
+        xl: "text-[28px]",
+      },
+    },
+    defaultVariants: {
+      size: "md",
+    },
+  }
+);
+
+const countVariants = cva(
+  [
+    "font-extralight leading-none tracking-tighter",
+    "text-foreground/90",
+  ],
+  {
+    variants: {
+      size: {
+        xs: "text-xl",
+        sm: "text-2xl",
+        md: "text-[32px]",
+        lg: "text-[40px]",
+        xl: "text-[52px]",
+      },
+    },
+    defaultVariants: {
+      size: "md",
+    },
+  }
+);
+
+// ============================================================================
+// Types
+// ============================================================================
+
+interface TileProps extends VariantProps<typeof tileVariants> {
   item: TileItem;
   bucket: TileBucket;
   isSelected: boolean;
   onClick: () => void;
 }
 
-/**
- * Map bucket sizes to pixel heights
- */
-const bucketHeights: Record<TileBucket, number> = {
-  xs: 60,
-  sm: 80,
-  md: 110,
-  lg: 150,
-  xl: 200,
-};
+// ============================================================================
+// Animation
+// ============================================================================
 
-/**
- * Crisp easing curve for animations
- */
 const crispEase = [0.32, 0.72, 0, 1] as const;
 
-/**
- * SeverityBar - Horizontal bar showing proportional severity breakdown
- */
-function SeverityBar({
-  error,
-  warning,
-  info,
-}: {
-  error: number;
-  warning: number;
-  info: number;
-}) {
-  const total = error + warning + info;
-  if (total === 0) return null;
+// ============================================================================
+// Sub-components
+// ============================================================================
 
-  const errorPercent = (error / total) * 100;
-  const warningPercent = (warning / total) * 100;
-  const infoPercent = (info / total) * 100;
+/**
+ * Severity indicator dot
+ */
+function SeverityDot({
+  type,
+  count,
+  showCount,
+}: {
+  type: "error" | "warning" | "info";
+  count: number;
+  showCount: boolean;
+}) {
+  if (count === 0) return null;
+
+  const colorClasses = {
+    error: "bg-error",
+    warning: "bg-warning",
+    info: "bg-info",
+  };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: 4,
-        borderRadius: 2,
-        overflow: "hidden",
-        backgroundColor: "var(--uilint-border)",
-        marginTop: 8,
-      }}
-    >
-      {error > 0 && (
-        <div
-          style={{
-            width: `${errorPercent}%`,
-            backgroundColor: "var(--uilint-error)",
-            transition: "width 0.2s ease",
-          }}
-        />
-      )}
-      {warning > 0 && (
-        <div
-          style={{
-            width: `${warningPercent}%`,
-            backgroundColor: "var(--uilint-warning)",
-            transition: "width 0.2s ease",
-          }}
-        />
-      )}
-      {info > 0 && (
-        <div
-          style={{
-            width: `${infoPercent}%`,
-            backgroundColor: "var(--uilint-info)",
-            transition: "width 0.2s ease",
-          }}
-        />
+    <div className="flex items-center gap-1">
+      <div className={cn("w-1.5 h-1.5 rounded-full", colorClasses[type])} />
+      {showCount && (
+        <span className="text-[11px] font-normal text-muted-foreground">
+          {count}
+        </span>
       )}
     </div>
   );
 }
 
+/**
+ * Severity indicators section
+ */
+function SeverityIndicators({
+  severityCounts,
+  showCounts,
+}: {
+  severityCounts: TileItem["severityCounts"];
+  showCounts: boolean;
+}) {
+  if (!severityCounts) return null;
+
+  const hasAny =
+    severityCounts.error > 0 ||
+    severityCounts.warning > 0 ||
+    severityCounts.info > 0;
+
+  if (!hasAny) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 pb-1">
+      <SeverityDot type="error" count={severityCounts.error} showCount={showCounts} />
+      <SeverityDot type="warning" count={severityCounts.warning} showCount={showCounts} />
+      <SeverityDot type="info" count={severityCounts.info} showCount={showCounts} />
+    </div>
+  );
+}
+
+/**
+ * Hover highlight overlay
+ */
+function HoverOverlay({ isHovered }: { isHovered: boolean }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: isHovered ? 1 : 0 }}
+      transition={{ duration: 0.15 }}
+      className="absolute inset-0 rounded-2xl pointer-events-none bg-gradient-to-br from-glass-highlight to-transparent"
+    />
+  );
+}
+
+// ============================================================================
+// Main Component
+// ============================================================================
+
 export function Tile({ item, bucket, isSelected, onClick }: TileProps) {
-  const height = bucketHeights[bucket];
   const [isHovered, setIsHovered] = React.useState(false);
+  const isCompact = bucket === "xs" || bucket === "sm";
 
   return (
     <motion.div
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      whileHover={{ y: -2, scale: 1.01 }}
+      whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       transition={{
         duration: 0.15,
         ease: crispEase,
       }}
-      style={{
-        height,
-        padding: bucket === "xs" ? "10px 12px" : "14px 16px",
-        borderRadius: "var(--uilint-card-radius, 12px)",
-        cursor: "pointer",
-        background: isSelected
-          ? "var(--uilint-info-bg)"
-          : "var(--uilint-surface-elevated)",
-        border: isSelected
-          ? "2px solid var(--uilint-accent)"
-          : "1px solid var(--uilint-border)",
-        boxShadow: isSelected
-          ? "0 0 0 3px var(--uilint-info-bg), var(--uilint-card-shadow)"
-          : "var(--uilint-card-shadow)",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        position: "relative",
-        overflow: "hidden",
-        breakInside: "avoid",
-        marginBottom: 12,
-        boxSizing: "border-box",
-      }}
+      className={cn(tileVariants({ selected: isSelected, size: bucket }))}
     >
-      {/* Top section: Label and count */}
+      {/* Top section: Label */}
       <div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 8,
-          }}
-        >
-          {/* Icon and Label */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              {item.icon && (
-                <span style={{ flexShrink: 0, fontSize: 14 }}>{item.icon}</span>
-              )}
-              <span
-                style={{
-                  fontSize: bucket === "xs" || bucket === "sm" ? 13 : 14,
-                  fontWeight: 600,
-                  color: "var(--uilint-text-primary)",
-                  lineHeight: 1.3,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: bucket === "xs" ? "nowrap" : "normal",
-                  display: "-webkit-box",
-                  WebkitLineClamp: bucket === "xs" ? 1 : 2,
-                  WebkitBoxOrient: "vertical",
-                }}
-              >
-                {item.label}
-              </span>
-            </div>
-          </div>
+        <span className={cn(titleVariants({ size: bucket }))}>
+          {item.label}
+        </span>
 
-          {/* Count badge */}
-          <div
-            style={{
-              flexShrink: 0,
-              padding: "2px 8px",
-              borderRadius: 10,
-              backgroundColor: isSelected
-                ? "var(--uilint-accent)"
-                : "var(--uilint-surface)",
-              color: isSelected
-                ? "white"
-                : "var(--uilint-text-secondary)",
-              fontSize: 12,
-              fontWeight: 600,
-              lineHeight: 1.4,
-            }}
-          >
-            {item.count}
-          </div>
-        </div>
-
-        {/* Subtitle (only for larger tiles) */}
-        {item.subtitle && bucket !== "xs" && (
-          <div
-            style={{
-              fontSize: 12,
-              color: "var(--uilint-text-muted)",
-              marginTop: 4,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: bucket === "sm" ? "nowrap" : "normal",
-              display: "-webkit-box",
-              WebkitLineClamp: bucket === "sm" ? 1 : 2,
-              WebkitBoxOrient: "vertical",
-            }}
-          >
+        {/* Subtitle - path or description */}
+        {item.subtitle && !isCompact && (
+          <div className="mt-1.5 text-xs font-normal text-muted-foreground truncate tracking-wide">
             {item.subtitle}
           </div>
         )}
       </div>
 
-      {/* Bottom section: Severity bar and hover arrow */}
-      <div>
-        {/* Severity breakdown bar */}
-        {item.severityCounts && (
-          <SeverityBar
-            error={item.severityCounts.error}
-            warning={item.severityCounts.warning}
-            info={item.severityCounts.info}
-          />
-        )}
+      {/* Bottom section: Count and severity */}
+      <div className="flex items-end justify-between gap-3">
+        {/* Large count number */}
+        <span className={cn(countVariants({ size: bucket }))}>
+          {item.count}
+        </span>
 
-        {/* Hover arrow indicator */}
-        <motion.div
-          initial={{ opacity: 0, x: -4 }}
-          animate={{
-            opacity: isHovered ? 1 : 0,
-            x: isHovered ? 0 : -4,
-          }}
-          transition={{
-            duration: 0.12,
-            ease: crispEase,
-          }}
-          style={{
-            position: "absolute",
-            bottom: bucket === "xs" ? 10 : 14,
-            right: bucket === "xs" ? 12 : 16,
-            fontSize: 14,
-            color: "var(--uilint-accent)",
-            fontWeight: 500,
-          }}
-        >
-          {"\u2192"}
-        </motion.div>
+        {/* Severity indicators - minimal dots */}
+        <SeverityIndicators
+          severityCounts={item.severityCounts}
+          showCounts={!isCompact}
+        />
       </div>
+
+      {/* Hover highlight overlay */}
+      <HoverOverlay isHovered={isHovered} />
     </motion.div>
   );
 }

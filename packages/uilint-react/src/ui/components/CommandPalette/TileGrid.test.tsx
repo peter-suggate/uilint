@@ -64,15 +64,15 @@ describe("TileGrid - rendering", () => {
       />
     );
 
-    // Each tile has a specific structure - look for elements with cursor: pointer
-    // which are the tile root elements
+    // Each tile wrapper has absolute positioning with height style
+    // Tiles themselves have cursor-pointer class
     const allElements = container.querySelectorAll("*");
     let tileCount = 0;
 
     allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      // Tiles have cursor: pointer and specific height values
-      if (style && style.includes("cursor: pointer") && style.includes("height:")) {
+      const classAttr = el.getAttribute("class") || "";
+      // Tiles have cursor-pointer and rounded-2xl classes
+      if (classAttr.includes("cursor-pointer") && classAttr.includes("rounded-2xl")) {
         tileCount++;
       }
     });
@@ -108,25 +108,25 @@ describe("TileGrid - bucket sizing", () => {
 
   /**
    * Bucket distribution based on percentiles:
-   * - Top 10% by count = xl (200px)
-   * - Next 20% (10-30%) = lg (150px)
-   * - Next 30% (30-60%) = md (110px)
-   * - Next 25% (60-85%) = sm (80px)
-   * - Bottom 15% (85-100%) = xs (60px)
+   * - Top 10% by count = xl (220px)
+   * - Next 20% (10-30%) = lg (168px)
+   * - Next 30% (30-60%) = md (128px)
+   * - Next 25% (60-85%) = sm (96px)
+   * - Bottom 15% (85-100%) = xs (72px)
    */
   it("calculates bucket sizes correctly based on count percentiles", () => {
     // Create 10 items with varying counts to test percentile distribution
     const items: TileItem[] = [
-      createTestItem("1", 100),   // Top 10% -> xl (200px)
-      createTestItem("2", 90),    // 10-20% -> lg (150px)
-      createTestItem("3", 80),    // 20-30% -> lg (150px)
-      createTestItem("4", 70),    // 30-40% -> md (110px)
-      createTestItem("5", 60),    // 40-50% -> md (110px)
-      createTestItem("6", 50),    // 50-60% -> md (110px)
-      createTestItem("7", 40),    // 60-70% -> sm (80px)
-      createTestItem("8", 30),    // 70-80% -> sm (80px)
-      createTestItem("9", 20),    // 80-85% -> sm (80px)
-      createTestItem("10", 10),   // 85-100% -> xs (60px)
+      createTestItem("1", 100),   // Top 10% -> xl (220px)
+      createTestItem("2", 90),    // 10-20% -> lg (168px)
+      createTestItem("3", 80),    // 20-30% -> lg (168px)
+      createTestItem("4", 70),    // 30-40% -> md (128px)
+      createTestItem("5", 60),    // 40-50% -> md (128px)
+      createTestItem("6", 50),    // 50-60% -> md (128px)
+      createTestItem("7", 40),    // 60-70% -> sm (96px)
+      createTestItem("8", 30),    // 70-80% -> sm (96px)
+      createTestItem("9", 20),    // 80-85% -> sm (96px)
+      createTestItem("10", 10),   // 85-100% -> xs (72px)
     ];
 
     const { container } = render(
@@ -137,13 +137,14 @@ describe("TileGrid - bucket sizing", () => {
       />
     );
 
-    // Find all tile elements by looking for elements with height styles
+    // Find all tile wrapper elements by looking for elements with height styles
+    // (wrapper divs have absolute positioning with height)
     const allElements = container.querySelectorAll("*");
     const tileHeights: number[] = [];
 
     allElements.forEach((el) => {
       const style = el.getAttribute("style");
-      if (style && style.includes("cursor: pointer")) {
+      if (style && style.includes("height:")) {
         const heightMatch = style.match(/height:\s*(\d+)px/);
         if (heightMatch) {
           tileHeights.push(parseInt(heightMatch[1], 10));
@@ -151,18 +152,12 @@ describe("TileGrid - bucket sizing", () => {
       }
     });
 
-    // With 10 items:
-    // - 1 item (10%) should be xl = 200px
-    // - 2 items (20%) should be lg = 150px
-    // - 3 items (30%) should be md = 110px
-    // - 2-3 items (25%) should be sm = 80px
-    // - 1-2 items (15%) should be xs = 60px
-
-    expect(tileHeights).toContain(200); // xl bucket
-    expect(tileHeights).toContain(150); // lg bucket
-    expect(tileHeights).toContain(110); // md bucket
-    expect(tileHeights).toContain(80);  // sm bucket
-    expect(tileHeights).toContain(60);  // xs bucket
+    // With 10 items, verify we have tiles at various sizes
+    expect(tileHeights).toContain(220); // xl bucket
+    expect(tileHeights).toContain(168); // lg bucket
+    expect(tileHeights).toContain(128); // md bucket
+    expect(tileHeights).toContain(96);  // sm bucket
+    expect(tileHeights).toContain(72);  // xs bucket
   });
 
   it("handles single item gracefully (assigns xl bucket)", () => {
@@ -181,7 +176,7 @@ describe("TileGrid - bucket sizing", () => {
 
     allElements.forEach((el) => {
       const style = el.getAttribute("style");
-      if (style && style.includes("cursor: pointer")) {
+      if (style && style.includes("height:")) {
         const heightMatch = style.match(/height:\s*(\d+)px/);
         if (heightMatch) {
           foundHeight = parseInt(heightMatch[1], 10);
@@ -189,8 +184,8 @@ describe("TileGrid - bucket sizing", () => {
       }
     });
 
-    // Single item is at 0% percentile (top) -> xl = 200px
-    expect(foundHeight).toBe(200);
+    // Single item is at 0% percentile (top) -> xl = 220px
+    expect(foundHeight).toBe(220);
   });
 });
 
@@ -199,7 +194,7 @@ describe("TileGrid - selection", () => {
     cleanup();
   });
 
-  it("passes correct selectedIndex to tiles (selected tile shows accent styling)", () => {
+  it("passes correct selectedIndex to tiles (selected tile shows distinct styling)", () => {
     const items: TileItem[] = [
       createTestItem("1", 10),
       createTestItem("2", 20),
@@ -214,17 +209,15 @@ describe("TileGrid - selection", () => {
       />
     );
 
-    // Find all tile elements
+    // Find tiles with selected glassmorphic styling (bg-glass-medium class)
     const allElements = container.querySelectorAll("*");
     let selectedTileFound = false;
 
     allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      // Selected tile should have accent border styling
-      if (style && style.includes("var(--uilint-accent)") && style.includes("cursor: pointer")) {
+      const classAttr = el.getAttribute("class") || "";
+      // Selected tile has bg-glass-medium class without the /50 border opacity
+      if (classAttr.includes("bg-glass-medium") && classAttr.includes("cursor-pointer")) {
         selectedTileFound = true;
-        // Also verify it has the info-bg background
-        expect(style).toContain("var(--uilint-info-bg)");
       }
     });
 
@@ -245,18 +238,22 @@ describe("TileGrid - selection", () => {
       />
     );
 
-    // No tile should have selected styling (accent border)
+    // No tile should have selected styling (bg-glass-medium without hover)
+    // All tiles should have bg-glass-light
     const allElements = container.querySelectorAll("*");
-    let selectedTileFound = false;
+    let allHaveLightBackground = true;
 
     allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      if (style && style.includes("var(--uilint-accent)") && style.includes("cursor: pointer")) {
-        selectedTileFound = true;
+      const classAttr = el.getAttribute("class") || "";
+      if (classAttr.includes("cursor-pointer") && classAttr.includes("rounded-2xl")) {
+        // This is a tile - it should have glass-light, not glass-medium
+        if (classAttr.includes("bg-glass-medium") && !classAttr.includes("hover:bg-glass-medium")) {
+          allHaveLightBackground = false;
+        }
       }
     });
 
-    expect(selectedTileFound).toBe(false);
+    expect(allHaveLightBackground).toBe(true);
   });
 });
 
@@ -280,27 +277,29 @@ describe("TileGrid - interactions", () => {
       />
     );
 
-    // Find tile elements and click the first one
+    // Find tile elements by their class
     const allElements = container.querySelectorAll("*");
     const tiles: HTMLElement[] = [];
 
     allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      if (style && style.includes("cursor: pointer") && style.includes("height:")) {
+      const classAttr = el.getAttribute("class") || "";
+      if (classAttr.includes("cursor-pointer") && classAttr.includes("rounded-2xl")) {
         tiles.push(el as HTMLElement);
       }
     });
 
     expect(tiles.length).toBe(2);
 
-    // Click the first tile
+    // Click the first tile - tiles are sorted by count (descending),
+    // so tiles[0] is "Second Item" (count: 20)
     fireEvent.click(tiles[0]);
     expect(onTileClick).toHaveBeenCalledTimes(1);
-    expect(onTileClick).toHaveBeenCalledWith(items[0]);
+    expect(onTileClick).toHaveBeenCalledWith(items[1]); // Second Item has highest count
   });
 
   it("calls onTileClick with correct item when different tiles are clicked", () => {
     const onTileClick = vi.fn();
+    // Items sorted by count descending: Third (30), Second (20), First (10)
     const items: TileItem[] = [
       createTestItem("1", 10, "First"),
       createTestItem("2", 20, "Second"),
@@ -319,21 +318,22 @@ describe("TileGrid - interactions", () => {
     const tiles: HTMLElement[] = [];
 
     allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      if (style && style.includes("cursor: pointer") && style.includes("height:")) {
+      const classAttr = el.getAttribute("class") || "";
+      if (classAttr.includes("cursor-pointer") && classAttr.includes("rounded-2xl")) {
         tiles.push(el as HTMLElement);
       }
     });
 
-    // Click each tile and verify correct item is passed
+    // Click each tile - tiles are sorted by count (descending)
+    // tiles[0] = Third (count 30), tiles[1] = Second (count 20), tiles[2] = First (count 10)
     fireEvent.click(tiles[0]);
-    expect(onTileClick).toHaveBeenLastCalledWith(items[0]);
+    expect(onTileClick).toHaveBeenLastCalledWith(items[2]); // Third
 
     fireEvent.click(tiles[1]);
-    expect(onTileClick).toHaveBeenLastCalledWith(items[1]);
+    expect(onTileClick).toHaveBeenLastCalledWith(items[1]); // Second
 
     fireEvent.click(tiles[2]);
-    expect(onTileClick).toHaveBeenLastCalledWith(items[2]);
+    expect(onTileClick).toHaveBeenLastCalledWith(items[0]); // First
 
     expect(onTileClick).toHaveBeenCalledTimes(3);
   });

@@ -1,17 +1,18 @@
 /**
- * TileGrid - Masonry grid container for tiles
+ * TileGrid - Bin-packing mosaic grid for tiles
  *
  * Features:
- * - CSS columns-based masonry layout
- * - Responsive: 3 cols desktop, 2 cols tablet, 1 col mobile
- * - Normalized percentile-based bucket sizing
+ * - True masonry layout with absolute positioning
+ * - Places largest tiles first, fills vertical gaps
  * - Staggered entrance animations
- * - Empty state handling
+ * - Glassmorphic empty state with proper light/dark mode support
  */
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
-import type { TileItem, TileBucket } from "../../../core/plugin-system/types";
+import { cn } from "../../../lib/utils";
+import type { TileItem } from "../../../core/plugin-system/types";
 import { Tile } from "./Tile";
+import { calculateMosaicLayout } from "./layout";
 
 interface TileGridProps {
   items: TileItem[];
@@ -26,51 +27,18 @@ interface TileGridProps {
 const crispEase = [0.32, 0.72, 0, 1] as const;
 
 /**
- * Calculate bucket size based on normalized percentiles.
- *
- * Distribution:
- * - Top 10% by count = xl
- * - Next 20% = lg
- * - Next 30% = md
- * - Next 25% = sm
- * - Bottom 15% = xs
+ * Available width for tile grid
+ * Command palette: 560px - sidebar: 112px - padding: 32px = 416px
  */
-function calculateBucket(count: number, sortedCounts: number[]): TileBucket {
-  if (sortedCounts.length === 0) return "md";
-
-  // Find the position of this count in the sorted array (descending)
-  const total = sortedCounts.length;
-  const position = sortedCounts.findIndex((c) => count >= c);
-  const percentile = position === -1 ? 1 : position / total;
-
-  // Map percentile to bucket
-  if (percentile < 0.1) return "xl";     // Top 10%
-  if (percentile < 0.3) return "lg";     // Next 20% (10-30%)
-  if (percentile < 0.6) return "md";     // Next 30% (30-60%)
-  if (percentile < 0.85) return "sm";    // Next 25% (60-85%)
-  return "xs";                            // Bottom 15% (85-100%)
-}
+const GRID_AVAILABLE_WIDTH = 416;
 
 /**
- * Calculate buckets for all items
+ * Gap between tiles
  */
-function calculateBuckets(items: TileItem[]): Map<string, TileBucket> {
-  // Sort counts in descending order for percentile calculation
-  const sortedCounts = items
-    .map((item) => item.count)
-    .sort((a, b) => b - a);
-
-  const buckets = new Map<string, TileBucket>();
-
-  for (const item of items) {
-    buckets.set(item.id, calculateBucket(item.count, sortedCounts));
-  }
-
-  return buckets;
-}
+const GRID_GAP = 12;
 
 /**
- * EmptyState - Placeholder when no tiles to display
+ * EmptyState - Glassmorphic placeholder when no tiles to display
  */
 function EmptyState() {
   return (
@@ -78,41 +46,18 @@ function EmptyState() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "48px 24px",
-        textAlign: "center",
-        color: "var(--uilint-text-muted)",
-      }}
+      className={cn(
+        "flex flex-col items-center justify-center",
+        "py-12 px-6 text-center"
+      )}
     >
-      <div
-        style={{
-          fontSize: 32,
-          marginBottom: 12,
-          opacity: 0.5,
-        }}
-      >
+      <div className="text-3xl mb-3 opacity-50">
         {"\u2728"}
       </div>
-      <div
-        style={{
-          fontSize: 14,
-          fontWeight: 500,
-          color: "var(--uilint-text-secondary)",
-          marginBottom: 4,
-        }}
-      >
+      <div className="text-sm font-normal text-foreground/70 mb-1">
         No items to display
       </div>
-      <div
-        style={{
-          fontSize: 12,
-          color: "var(--uilint-text-muted)",
-        }}
-      >
+      <div className="text-xs text-muted-foreground">
         Try adjusting your filters or search query
       </div>
     </motion.div>
@@ -125,74 +70,83 @@ export function TileGrid({
   selectedIndex,
   isTerminal = false,
 }: TileGridProps) {
-  // Calculate buckets based on normalized percentiles
-  const buckets = React.useMemo(() => calculateBuckets(items), [items]);
+  // Calculate layout based on items
+  const layout = React.useMemo(
+    () =>
+      calculateMosaicLayout(items, {
+        availableWidth: GRID_AVAILABLE_WIDTH,
+        gap: GRID_GAP,
+      }),
+    [items]
+  );
 
   // Handle empty state
   if (items.length === 0) {
     return <EmptyState />;
   }
 
+  // Sort items by y position for proper stagger animation
+  const sortedItems = React.useMemo(() => {
+    return [...items].sort((a, b) => {
+      const layoutA = layout.tiles.get(a.id);
+      const layoutB = layout.tiles.get(b.id);
+      const yDiff = (layoutA?.y ?? 0) - (layoutB?.y ?? 0);
+      if (Math.abs(yDiff) > 10) return yDiff;
+      return (layoutA?.x ?? 0) - (layoutB?.x ?? 0);
+    });
+  }, [items, layout]);
+
+  // Build index lookup for selection
+  const itemIndexMap = React.useMemo(() => {
+    const map = new Map<string, number>();
+    sortedItems.forEach((item, index) => map.set(item.id, index));
+    return map;
+  }, [sortedItems]);
+
   return (
     <div
+      className="p-3 px-4 relative"
       style={{
-        padding: "12px 16px",
-        columnCount: 3,
-        columnGap: 12,
-        // Responsive column counts using container queries would be ideal,
-        // but we'll rely on media query-like behavior via CSS variables
+        height: layout.totalHeight,
+        minHeight: 200,
       }}
     >
-      <style>
-        {`
-          @media (max-width: 768px) {
-            .uilint-tile-grid {
-              column-count: 1 !important;
-            }
-          }
-          @media (min-width: 769px) and (max-width: 1024px) {
-            .uilint-tile-grid {
-              column-count: 2 !important;
-            }
-          }
-          @media (min-width: 1025px) {
-            .uilint-tile-grid {
-              column-count: 3 !important;
-            }
-          }
-        `}
-      </style>
-      <div
-        className="uilint-tile-grid"
-        style={{
-          columnCount: 3,
-          columnGap: 12,
-        }}
-      >
-        <AnimatePresence mode="popLayout">
-          {items.map((item, index) => (
+      <AnimatePresence mode="popLayout">
+        {sortedItems.map((item, animIndex) => {
+          const tileLayout = layout.tiles.get(item.id);
+          if (!tileLayout) return null;
+
+          const globalIndex = itemIndexMap.get(item.id) ?? animIndex;
+
+          return (
             <motion.div
               key={item.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{
-                duration: 0.15,
+                duration: 0.2,
                 ease: crispEase,
-                delay: Math.min(index * 0.05, 0.3), // 50ms stagger, max 300ms
+                delay: Math.min(animIndex * 0.03, 0.2),
               }}
-              layout
+              className="absolute"
+              style={{
+                left: tileLayout.x,
+                top: tileLayout.y,
+                width: tileLayout.width,
+                height: tileLayout.height,
+              }}
             >
               <Tile
                 item={item}
-                bucket={buckets.get(item.id) || "md"}
-                isSelected={index === selectedIndex}
+                bucket={tileLayout.bucket}
+                isSelected={globalIndex === selectedIndex}
                 onClick={() => onTileClick(item)}
               />
             </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }
