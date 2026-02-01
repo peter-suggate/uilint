@@ -22,14 +22,13 @@ const tileVariants = cva(
     "h-full cursor-pointer overflow-hidden relative box-border",
     "flex flex-col justify-between",
     "rounded-2xl",
-    "backdrop-blur-[20px] backdrop-saturate-[180%]",
-    "transition-colors duration-150",
+    "transition-all duration-150",
   ],
   {
     variants: {
       selected: {
-        true: "bg-glass-medium border border-glass-border",
-        false: "bg-glass-light border border-glass-border/50 hover:bg-glass-medium hover:border-glass-border",
+        true: "bg-foreground/[0.06] border border-foreground/15",
+        false: "border border-foreground/[0.06] hover:bg-foreground/[0.04] hover:border-foreground/10",
       },
       size: {
         xs: "p-3",
@@ -172,7 +171,7 @@ function SeverityIndicators({
 }
 
 /**
- * Hover highlight overlay
+ * Hover highlight overlay - subtle top-left shine
  */
 function HoverOverlay({ isHovered }: { isHovered: boolean }) {
   return (
@@ -180,7 +179,7 @@ function HoverOverlay({ isHovered }: { isHovered: boolean }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: isHovered ? 1 : 0 }}
       transition={{ duration: 0.15 }}
-      className="absolute inset-0 rounded-2xl pointer-events-none bg-gradient-to-br from-glass-highlight to-transparent"
+      className="absolute inset-0 rounded-2xl pointer-events-none bg-gradient-to-br from-foreground/[0.04] to-transparent"
     />
   );
 }

@@ -14,6 +14,7 @@ import {
   selectKeywordCounts,
   selectHasKeywordFilters,
 } from "../../../core/store/keyword-slice";
+import { selectRawTileItems } from "../../../core/store/tile-selectors";
 import type { KeywordCount } from "../../../core/plugin-system/types";
 
 // ============================================================================
@@ -145,10 +146,10 @@ export function KeywordSidebar({ className }: KeywordSidebarProps) {
   const hasFilters = useComposedStore(selectHasKeywordFilters);
   const toggleKeyword = useComposedStore((s) => s.toggleKeyword);
   const clearKeywords = useComposedStore((s) => s.clearKeywords);
-  const paletteItems = useComposedStore((s) => s.paletteItems);
+  const tileItems = useComposedStore(selectRawTileItems);
 
-  // Total count is the number of items
-  const totalCount = paletteItems.length;
+  // Total count is the number of tile items
+  const totalCount = tileItems.length;
 
   // Check if a keyword is selected
   const isKeywordSelected = React.useCallback(

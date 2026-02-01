@@ -70,38 +70,33 @@ export function TileGrid({
   selectedIndex,
   isTerminal = false,
 }: TileGridProps) {
-  // Calculate layout based on items
-  const layout = React.useMemo(
-    () =>
-      calculateMosaicLayout(items, {
-        availableWidth: GRID_AVAILABLE_WIDTH,
-        gap: GRID_GAP,
-      }),
-    [items]
-  );
-
-  // Handle empty state
+  // Handle empty state early (no hooks needed)
   if (items.length === 0) {
     return <EmptyState />;
   }
 
-  // Sort items by y position for proper stagger animation
-  const sortedItems = React.useMemo(() => {
-    return [...items].sort((a, b) => {
-      const layoutA = layout.tiles.get(a.id);
-      const layoutB = layout.tiles.get(b.id);
+  // Single memoized computation for layout, sorted items, and index map
+  const { layout, sortedItems, itemIndexMap } = React.useMemo(() => {
+    const computedLayout = calculateMosaicLayout(items, {
+      availableWidth: GRID_AVAILABLE_WIDTH,
+      gap: GRID_GAP,
+    });
+
+    // Sort items by y position for proper stagger animation
+    const sorted = [...items].sort((a, b) => {
+      const layoutA = computedLayout.tiles.get(a.id);
+      const layoutB = computedLayout.tiles.get(b.id);
       const yDiff = (layoutA?.y ?? 0) - (layoutB?.y ?? 0);
       if (Math.abs(yDiff) > 10) return yDiff;
       return (layoutA?.x ?? 0) - (layoutB?.x ?? 0);
     });
-  }, [items, layout]);
 
-  // Build index lookup for selection
-  const itemIndexMap = React.useMemo(() => {
-    const map = new Map<string, number>();
-    sortedItems.forEach((item, index) => map.set(item.id, index));
-    return map;
-  }, [sortedItems]);
+    // Build index lookup for selection
+    const indexMap = new Map<string, number>();
+    sorted.forEach((item, index) => indexMap.set(item.id, index));
+
+    return { layout: computedLayout, sortedItems: sorted, itemIndexMap: indexMap };
+  }, [items]);
 
   return (
     <div

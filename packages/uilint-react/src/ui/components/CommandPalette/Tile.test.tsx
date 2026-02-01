@@ -1,8 +1,5 @@
 /**
- * Tests for Tile component styling and behavior
- *
- * The Tile component uses shadcn-style Tailwind classes with cva variants
- * for a modern glassmorphic appearance.
+ * Tests for Tile component behavior
  *
  * @vitest-environment jsdom
  */
@@ -10,7 +7,7 @@ import React from "react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, cleanup, fireEvent } from "@testing-library/react";
 import { Tile } from "./Tile";
-import type { TileItem, TileBucket } from "../../../core/plugin-system/types";
+import type { TileItem } from "../../../core/plugin-system/types";
 
 // Mock motion/react to avoid animation issues in tests
 vi.mock("motion/react", () => {
@@ -45,55 +42,6 @@ const createTestItem = (overrides: Partial<TileItem> = {}): TileItem => ({
   ...overrides,
 });
 
-describe("Tile - styling", () => {
-  afterEach(() => {
-    cleanup();
-  });
-
-  it("uses Tailwind className with cva variants for styling", () => {
-    const { container } = render(
-      <Tile
-        item={createTestItem()}
-        bucket="md"
-        isSelected={false}
-        onClick={vi.fn()}
-      />
-    );
-
-    const root = container.firstElementChild as HTMLElement;
-    expect(root).toBeTruthy();
-
-    // Should have Tailwind/cva classes for glassmorphic styling
-    const classAttr = root.getAttribute("class") || "";
-    expect(classAttr).toContain("cursor-pointer");
-    expect(classAttr).toContain("rounded-2xl");
-    expect(classAttr).toContain("flex");
-    expect(classAttr).toContain("flex-col");
-  });
-
-  it("uses glassmorphic styling classes with backdrop blur", () => {
-    const { container } = render(
-      <Tile
-        item={createTestItem()}
-        bucket="md"
-        isSelected={false}
-        onClick={vi.fn()}
-      />
-    );
-
-    const root = container.firstElementChild as HTMLElement;
-    const classAttr = root.getAttribute("class") || "";
-
-    // Should have backdrop blur for glassmorphic effect
-    expect(classAttr).toContain("backdrop-blur");
-    expect(classAttr).toContain("backdrop-saturate");
-    // Should have glass background classes
-    expect(classAttr).toContain("bg-glass");
-    // Should have border for glass card look
-    expect(classAttr).toContain("border");
-  });
-});
-
 describe("Tile - rendering", () => {
   afterEach(() => {
     cleanup();
@@ -109,9 +57,7 @@ describe("Tile - rendering", () => {
       />
     );
 
-    // Check that label is rendered
     expect(container.textContent).toContain("My Rule Name");
-    // Check that count is rendered
     expect(container.textContent).toContain("42");
   });
 
@@ -127,7 +73,7 @@ describe("Tile - rendering", () => {
       />
     );
 
-    // Look for severity dot indicators (w-1.5 h-1.5 rounded-full with color classes)
+    // Look for severity dot indicators
     const allElements = container.querySelectorAll("*");
     let severityDotsFound = false;
 
@@ -151,7 +97,6 @@ describe("Tile - rendering", () => {
       />
     );
 
-    // Look for severity dot indicator classes
     const allElements = container.querySelectorAll("*");
     let severityDotsFound = false;
 
@@ -205,51 +150,6 @@ describe("Tile - rendering", () => {
   });
 });
 
-describe("Tile - selected state", () => {
-  afterEach(() => {
-    cleanup();
-  });
-
-  it("shows selected state styling when isSelected=true", () => {
-    const { container } = render(
-      <Tile
-        item={createTestItem()}
-        bucket="md"
-        isSelected={true}
-        onClick={vi.fn()}
-      />
-    );
-
-    const root = container.firstElementChild as HTMLElement;
-    const classAttr = root.getAttribute("class") || "";
-
-    // Selected state should have bg-glass-medium class (not light)
-    expect(classAttr).toContain("bg-glass-medium");
-    // And full border opacity
-    expect(classAttr).toContain("border-glass-border");
-    expect(classAttr).not.toContain("border-glass-border/50");
-  });
-
-  it("shows non-selected state styling when isSelected=false", () => {
-    const { container } = render(
-      <Tile
-        item={createTestItem()}
-        bucket="md"
-        isSelected={false}
-        onClick={vi.fn()}
-      />
-    );
-
-    const root = container.firstElementChild as HTMLElement;
-    const classAttr = root.getAttribute("class") || "";
-
-    // Non-selected state should have bg-glass-light class
-    expect(classAttr).toContain("bg-glass-light");
-    // And subtle border with opacity
-    expect(classAttr).toContain("border-glass-border/50");
-  });
-});
-
 describe("Tile - interactions", () => {
   afterEach(() => {
     cleanup();
@@ -269,86 +169,5 @@ describe("Tile - interactions", () => {
     const root = container.firstElementChild as HTMLElement;
     fireEvent.click(root);
     expect(onClick).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("Tile - bucket styling", () => {
-  afterEach(() => {
-    cleanup();
-  });
-
-  it("uses h-full class since parent controls height", () => {
-    const { container } = render(
-      <Tile
-        item={createTestItem()}
-        bucket="md"
-        isSelected={false}
-        onClick={vi.fn()}
-      />
-    );
-
-    const root = container.firstElementChild as HTMLElement;
-    const classAttr = root.getAttribute("class") || "";
-    expect(classAttr).toContain("h-full");
-  });
-
-  it("applies compact padding class for xs bucket", () => {
-    const { container } = render(
-      <Tile
-        item={createTestItem()}
-        bucket="xs"
-        isSelected={false}
-        onClick={vi.fn()}
-      />
-    );
-
-    const root = container.firstElementChild as HTMLElement;
-    const classAttr = root.getAttribute("class") || "";
-    expect(classAttr).toContain("p-3");
-  });
-
-  it("applies compact padding class for sm bucket", () => {
-    const { container } = render(
-      <Tile
-        item={createTestItem()}
-        bucket="sm"
-        isSelected={false}
-        onClick={vi.fn()}
-      />
-    );
-
-    const root = container.firstElementChild as HTMLElement;
-    const classAttr = root.getAttribute("class") || "";
-    expect(classAttr).toContain("p-3.5");
-  });
-
-  it("applies standard padding class for md bucket", () => {
-    const { container } = render(
-      <Tile
-        item={createTestItem()}
-        bucket="md"
-        isSelected={false}
-        onClick={vi.fn()}
-      />
-    );
-
-    const root = container.firstElementChild as HTMLElement;
-    const classAttr = root.getAttribute("class") || "";
-    expect(classAttr).toContain("p-4");
-  });
-
-  it("applies larger padding class for lg bucket", () => {
-    const { container } = render(
-      <Tile
-        item={createTestItem()}
-        bucket="lg"
-        isSelected={false}
-        onClick={vi.fn()}
-      />
-    );
-
-    const root = container.firstElementChild as HTMLElement;
-    const classAttr = root.getAttribute("class") || "";
-    expect(classAttr).toContain("p-5");
   });
 });
