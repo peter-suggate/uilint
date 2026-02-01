@@ -59,6 +59,13 @@ export interface MosaicLayoutConfig {
   gap?: number;
   /** Minimum tile width in pixels (default: 140) */
   minTileWidth?: number;
+  /** Padding around the grid (default: { top: 0, right: 0, bottom: 0, left: 0 }) */
+  padding?: {
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+  };
 }
 
 /**

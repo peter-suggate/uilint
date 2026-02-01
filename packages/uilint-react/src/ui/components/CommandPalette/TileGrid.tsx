@@ -28,14 +28,12 @@ interface TileGridProps {
 const crispEase = [0.32, 0.72, 0, 1] as const;
 
 /**
- * Available width for tile grid
- * Command palette: 580px - padding: 48px = 532px
+ * Command palette width: 580px
+ * Grid padding: 24px on each side
+ * Available width for tiles: 580 - 48 = 532px
  */
+const GRID_PADDING = { top: 20, right: 24, bottom: 20, left: 24 };
 const GRID_AVAILABLE_WIDTH = 532;
-
-/**
- * Gap between tiles
- */
 const GRID_GAP = 14;
 
 /**
@@ -81,6 +79,7 @@ export function TileGrid({
     const computedLayout = calculateMosaicLayout(items, {
       availableWidth: GRID_AVAILABLE_WIDTH,
       gap: GRID_GAP,
+      padding: GRID_PADDING,
     });
 
     // Sort items by y position for proper stagger animation
@@ -101,7 +100,7 @@ export function TileGrid({
 
   return (
     <div
-      className="p-5 px-6 relative"
+      className="relative"
       style={{
         height: layout.totalHeight,
         minHeight: 200,

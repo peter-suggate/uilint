@@ -13,12 +13,16 @@ import type {
   LayoutItem,
 } from "./types";
 
+// Default padding
+const DEFAULT_PADDING = { top: 0, right: 0, bottom: 0, left: 0 };
+
 // Default configuration
 // Available width matches command palette content area: 560 - 112 (sidebar) - 32 (padding) = 416
-const DEFAULT_CONFIG: Required<MosaicLayoutConfig> = {
+const DEFAULT_CONFIG = {
   availableWidth: 416,
   gap: 12,
   minTileWidth: 120,
+  padding: DEFAULT_PADDING,
 };
 
 // Bucket heights in pixels
@@ -167,22 +171,30 @@ export function calculateMosaicLayout(
   items: LayoutItem[],
   config: MosaicLayoutConfig = {}
 ): MosaicLayoutResult {
+  // Merge padding separately to handle partial padding objects
+  const padding = {
+    ...DEFAULT_PADDING,
+    ...config.padding,
+  };
+
   if (items.length === 0) {
     return {
       tiles: new Map(),
       rowCount: 0,
       columnCount: 0,
       pattern: "grid",
-      totalHeight: 0,
+      totalHeight: padding.top + padding.bottom,
     };
   }
 
-  const mergedConfig: Required<MosaicLayoutConfig> = {
+  const mergedConfig = {
     ...DEFAULT_CONFIG,
     ...config,
+    padding,
   };
 
   const { availableWidth, gap, minTileWidth } = mergedConfig;
+  const { top: paddingTop, left: paddingLeft, bottom: paddingBottom } = padding;
   const columnCount = calculateColumnCount(availableWidth, gap, minTileWidth);
   const singleColumnWidth = (availableWidth - gap * (columnCount - 1)) / columnCount;
 
@@ -230,14 +242,14 @@ export function calculateMosaicLayout(
       widthFraction: columnSpan / columnCount,
       bucket,
       isRowStart: columns[0] === 0,
-      // Absolute positioning values
-      x,
-      y,
+      // Absolute positioning values (with padding offset)
+      x: x + paddingLeft,
+      y: y + paddingTop,
       height,
     });
   });
 
-  const totalHeight = Math.max(...columnHeights) - gap; // Remove trailing gap
+  const totalHeight = Math.max(...columnHeights) - gap + paddingTop + paddingBottom; // Remove trailing gap, add padding
 
   // Determine pattern based on item count
   let pattern: MosaicLayoutResult["pattern"] = "grid";

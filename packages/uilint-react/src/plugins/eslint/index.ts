@@ -566,6 +566,24 @@ function handleWebSocketMessage(
     case "lint:progress": {
       const { filePath, phase } = message;
       devLog("[ESLint Plugin] Lint progress:", filePath, phase);
+
+      // Update linting progress state
+      const state = services.getState<ESLintPluginSlice>();
+      const lintingFiles = new Map(state.lintingFiles);
+
+      // Check if linting is complete (phase starts with "Done")
+      if (phase.startsWith("Done")) {
+        lintingFiles.delete(filePath);
+      } else {
+        // Update or add progress for this file
+        const existing = lintingFiles.get(filePath);
+        lintingFiles.set(filePath, {
+          phase,
+          startedAt: existing?.startedAt ?? Date.now(),
+        });
+      }
+
+      services.setState({ lintingFiles });
       break;
     }
 

@@ -22,6 +22,16 @@ export interface WorkspaceCapabilities {
 }
 
 /**
+ * Linting progress info for a file
+ */
+export interface LintingProgress {
+  /** Current phase description from server */
+  phase: string;
+  /** Timestamp when linting started */
+  startedAt: number;
+}
+
+/**
  * ESLint plugin state
  */
 export interface ESLintSlice {
@@ -33,6 +43,8 @@ export interface ESLintSlice {
   requestedFiles: Set<string>;
   /** Current scan status - "scanning" means live scan is active */
   scanStatus: ScanStatus;
+  /** Files currently being linted with their progress info */
+  lintingFiles: Map<string, LintingProgress>;
   /** Available rules from server */
   availableRules: AvailableRule[];
   /** Disabled rules (visual filtering) */
@@ -91,6 +103,7 @@ export const initialESLintState: ESLintSlice = {
   scannedDataLocs: new Set(),
   requestedFiles: new Set(),
   scanStatus: "scanning", // Start scanning by default
+  lintingFiles: new Map(),
   availableRules: [],
   disabledRules: new Set(),
   workspaceRoot: null,

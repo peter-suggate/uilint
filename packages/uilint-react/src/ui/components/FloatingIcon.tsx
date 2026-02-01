@@ -259,6 +259,12 @@ export function FloatingIcon() {
     return count;
   });
 
+  // Check if linting is in progress
+  const isLinting = useComposedStore((s) => {
+    const lintingFiles = s.plugins?.eslint?.lintingFiles;
+    return lintingFiles && lintingFiles.size > 0;
+  });
+
   // Drag state from store (managed by subscription system)
   const activeDrag = useComposedStore((s) => s.activeDrag);
   const startDrag = useComposedStore((s) => s.startDrag);
@@ -493,8 +499,39 @@ export function FloatingIcon() {
             )}
           </button>
 
-          {/* Issue count badge */}
-          {hasIssues && (
+          {/* Linting spinner or issue count badge */}
+          {isLinting ? (
+            <span
+              style={{
+                position: "absolute",
+                top: -4,
+                right: -4,
+                width: 18,
+                height: 18,
+                borderRadius: 9,
+                background: "var(--uilint-glass-heavy, rgba(255, 255, 255, 0.9))",
+                border: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
+                boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  border: "2px solid var(--uilint-border, rgba(0, 0, 0, 0.1))",
+                  borderTopColor: "var(--uilint-accent, #3b82f6)",
+                  animation: "uilint-spin 0.8s linear infinite",
+                }}
+              />
+              <style>
+                {`@keyframes uilint-spin { to { transform: rotate(360deg); } }`}
+              </style>
+            </span>
+          ) : hasIssues ? (
             <span
               style={{
                 position: "absolute",
@@ -518,7 +555,7 @@ export function FloatingIcon() {
             >
               {issueCount > 99 ? "99+" : issueCount}
             </span>
-          )}
+          ) : null}
         </div>
 
         {/* ========== VISION DROPDOWN PILLS (detached) ========== */}
