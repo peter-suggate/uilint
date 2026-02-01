@@ -327,7 +327,7 @@ describe("HeatmapOverlay", () => {
   });
 
   describe("Badge Design", () => {
-    it("badge is positioned inset (top: 4px, right: 4px)", () => {
+    it("badge is positioned flush with corner (top: 0, right: 0)", () => {
       const issuesMap = new Map();
       issuesMap.set("src/App.tsx:10:5", [
         {
@@ -358,11 +358,11 @@ describe("HeatmapOverlay", () => {
       ) as HTMLElement;
 
       expect(badge).not.toBeNull();
-      expect(badge.style.top).toBe("4px");
-      expect(badge.style.right).toBe("4px");
+      expect(badge.style.top).toBe("0px");
+      expect(badge.style.right).toBe("0px");
     });
 
-    it("badge has square border radius (3px)", () => {
+    it("badge has square border radius (2px)", () => {
       const issuesMap = new Map();
       issuesMap.set("src/App.tsx:10:5", [
         {
@@ -393,7 +393,7 @@ describe("HeatmapOverlay", () => {
       ) as HTMLElement;
 
       expect(badge).not.toBeNull();
-      expect(badge.style.borderRadius).toBe("3px");
+      expect(badge.style.borderRadius).toBe("2px");
     });
 
     it("badge displays issue count", () => {

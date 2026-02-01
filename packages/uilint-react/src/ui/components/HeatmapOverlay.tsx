@@ -74,22 +74,22 @@ function OverlayItem({ rect, issues, isHovered, isSelected, showDetails, onBadge
         onMouseLeave={() => onBadgeHover(false)}
         style={{
           position: "absolute",
-          top: 4,
-          right: 4,
-          minWidth: 18,
-          height: 18,
-          borderRadius: 3,
+          top: 0,
+          right: 0,
+          minWidth: 14,
+          height: 14,
+          borderRadius: 2,
           background: color,
           color: "white",
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: 600,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "0 4px",
+          padding: "0 3px",
           pointerEvents: "auto", // Only badge is clickable
           cursor: "pointer",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+          boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
           transition: "transform 0.1s, box-shadow 0.1s",
         }}
         onMouseOver={(e) => {
@@ -109,8 +109,8 @@ function OverlayItem({ rect, issues, isHovered, isSelected, showDetails, onBadge
         <div
           style={{
             position: "absolute",
-            top: 28,
-            right: 4,
+            top: 18,
+            right: 0,
             padding: "8px 12px",
             background: "#1f2937",
             color: "white",
