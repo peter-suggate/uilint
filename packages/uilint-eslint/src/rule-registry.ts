@@ -39,6 +39,7 @@ import { meta as requireInputValidation } from "./rules/require-input-validation
 import { meta as noPropDrillingDepth } from "./rules/no-prop-drilling-depth.js";
 import { meta as noSemanticDuplicates } from "./rules/no-semantic-duplicates.js";
 import { meta as preferTailwind } from "./rules/prefer-tailwind.js";
+import { meta as noUnsafeTypeCasts } from "./rules/no-unsafe-type-casts.js";
 
 // Directory-based rules (complex rules with colocated utilities)
 import { meta as noMixedComponentLibraries } from "./rules/no-mixed-component-libraries/index.js";
@@ -78,6 +79,8 @@ export const ruleRegistry: RuleMeta[] = [
   requireTestCoverage,
   // Style preferences
   preferTailwind,
+  // Type safety
+  noUnsafeTypeCasts,
 ];
 
 /**
