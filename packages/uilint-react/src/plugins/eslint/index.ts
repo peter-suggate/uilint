@@ -14,6 +14,9 @@ import type {
   RuleDefinition,
   CategoryProvider,
   CategoryItem,
+  TileItem,
+  TileFilter,
+  PaletteItem,
 } from "../../core/plugin-system/types";
 import { eslintCommands } from "./commands";
 import {
@@ -34,6 +37,12 @@ import {
   clearStaticMode,
   getManifestMetadata,
 } from "./static-handler";
+import {
+  getTileItems as getTileItemsHelper,
+  createFilter as createFilterHelper,
+  isTerminal as isTerminalHelper,
+  getInspectorData as getInspectorDataHelper,
+} from "./tile-provider";
 
 /** WebSocket message types handled by ESLint plugin */
 const ESLINT_WS_MESSAGE_TYPES = [
@@ -155,6 +164,73 @@ export const eslintPlugin: Plugin = {
       pluginId: "eslint",
       issues: pluginIssues,
     };
+  },
+
+  /**
+   * Get palette items for the command palette (keyword-based system).
+   * Returns both issues and commands as PaletteItems.
+   */
+  getPaletteItems: (services: PluginServices): PaletteItem[] => {
+    const items: PaletteItem[] = [];
+
+    // Get the full store state to check command availability and get issues
+    const fullState = services.getState<{
+      wsConnected?: boolean;
+      plugins?: {
+        eslint?: ESLintPluginSlice;
+      };
+    }>();
+
+    const eslintState = fullState?.plugins?.eslint;
+
+    // Add issues as palette items
+    if (eslintState?.issues) {
+      for (const [, issueList] of eslintState.issues) {
+        for (const issue of issueList) {
+          const fileName = issue.filePath.split("/").pop() || issue.filePath;
+          const shortRuleId = issue.ruleId.includes("/")
+            ? issue.ruleId.split("/").pop()!
+            : issue.ruleId;
+
+          items.push({
+            id: `eslint:issue:${issue.id}`,
+            title: issue.message,
+            subtitle: `${fileName}:${issue.line}`,
+            keywords: [
+              "Lint",
+              issue.ruleId,
+              shortRuleId,
+              fileName,
+              issue.severity,
+            ].filter((kw, i, arr) => arr.indexOf(kw) === i), // dedupe
+            execute: (svc) => {
+              svc.openInspector("issue", { issue });
+              svc.closeCommandPalette();
+            },
+            metadata: { issue, providerId: "eslint" },
+          });
+        }
+      }
+    }
+
+    // Add commands as palette items
+    for (const cmd of eslintCommands) {
+      // Check if command is available
+      if (cmd.isAvailable && !cmd.isAvailable(fullState)) {
+        continue;
+      }
+
+      items.push({
+        id: cmd.id,
+        title: cmd.title,
+        subtitle: cmd.subtitle,
+        keywords: ["Command", "ESLint", ...cmd.keywords],
+        execute: cmd.execute,
+        metadata: { isCommand: true },
+      });
+    }
+
+    return items;
   },
 
   /**
@@ -733,6 +809,45 @@ function createESLintCategoryProviders(): CategoryProvider[] {
       // This provider itself doesn't have items - it's just a container
       getItems: () => [],
       getItemCount: () => 0,
+
+      // ============ Tile System Methods ============
+
+      /**
+       * Get tile items for the masonry grid view.
+       * - No filters: return rules as tiles
+       * - Has rule filter: return files for that rule as tiles
+       * - Has rule + file filter: return empty (terminal state)
+       */
+      getTileItems: (
+        services: PluginServices,
+        filters: TileFilter[]
+      ): TileItem[] => {
+        return getTileItemsHelper(services, filters);
+      },
+
+      /**
+       * Create a filter from a clicked tile.
+       * Checks item.metadata to determine if it's a rule or file.
+       */
+      createFilter: (item: TileItem): TileFilter => {
+        return createFilterHelper(item);
+      },
+
+      /**
+       * Check if current filter state is terminal (no more drill-down).
+       * Returns true if filters include both a rule AND a file.
+       */
+      isTerminal: (filters: TileFilter[]): boolean => {
+        return isTerminalHelper(filters);
+      },
+
+      /**
+       * Get inspector data for a terminal tile click.
+       * Returns the panel ID and data needed to open the inspector.
+       */
+      getInspectorData: (item: TileItem): { panelId: string; data: Record<string, unknown> } => {
+        return getInspectorDataHelper(item);
+      },
     },
   ];
 }
@@ -754,3 +869,14 @@ export {
 
 // Export for testing - allows direct testing of message handling logic
 export { handleWebSocketMessage as _handleWebSocketMessageForTesting };
+
+// Tile provider exports
+export {
+  aggregateByRule,
+  aggregateByFile,
+  countSeverities,
+  getTileItems as getEslintTileItems,
+  createFilter as createEslintTileFilter,
+  isTerminal as isEslintTileTerminal,
+  getInspectorData as getEslintInspectorData,
+} from "./tile-provider";

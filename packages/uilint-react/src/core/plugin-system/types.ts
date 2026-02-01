@@ -65,22 +65,63 @@ export interface PluginServices {
 }
 
 // ============================================================================
-// Category Provider Contributions
+// Palette Item Types (Keyword-based system)
+// ============================================================================
+
+/**
+ * An item that appears in the command palette.
+ * Uses keywords for filtering instead of hierarchical categories.
+ */
+export interface PaletteItem {
+  /** Unique item identifier */
+  id: string;
+  /** Display title */
+  title: string;
+  /** Optional subtitle for additional context */
+  subtitle?: string;
+  /** Optional icon (React component or emoji string) */
+  icon?: ReactNode;
+  /** Keywords for filtering (e.g., ["Lint", "no-unused-vars", "Button.tsx"]) */
+  keywords: string[];
+  /**
+   * Execute when item is selected
+   * @param services Plugin services for accessing core functionality
+   */
+  execute?: (services: PluginServices) => void | Promise<void>;
+  /** Additional metadata for inspector, etc. */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * A keyword with its occurrence count, for sidebar display.
+ */
+export interface KeywordCount {
+  /** The keyword string */
+  keyword: string;
+  /** Number of items with this keyword */
+  count: number;
+}
+
+// ============================================================================
+// Category Provider Contributions (Legacy - to be removed)
 // ============================================================================
 
 /**
  * Loading state for a category provider.
+ * @deprecated Use keyword-based PaletteItem system instead
  */
 export type CategoryLoadingState = "idle" | "loading" | "loaded" | "error";
 
 /**
  * Priority levels for lazy loading categories.
  * Lower numbers load first.
+ * @deprecated Use keyword-based PaletteItem system instead
  */
 export type CategoryPriority = 0 | 1 | 2 | 3;
 
 /**
  * An item within a category that can be displayed and executed.
+ * @deprecated Use PaletteItem instead
  */
 export interface CategoryItem {
   /** Unique item identifier */
@@ -154,6 +195,42 @@ export interface CategoryProvider {
    * @param query The search query
    */
   filterPredicate?: (item: CategoryItem, query: string) => boolean;
+
+  // ============ Tile System Extensions ============
+
+  /**
+   * Get items as tiles for the masonry grid view.
+   * If not provided, tiles are derived from getItems().
+   * @param services Plugin services for accessing state
+   * @param filters Currently active tile filters
+   */
+  getTileItems?: (
+    services: PluginServices,
+    filters: TileFilter[]
+  ) => TileItem[] | Promise<TileItem[]>;
+
+  /**
+   * Create a filter from a clicked tile.
+   * Called when user clicks a tile to drill down.
+   * @param item The clicked tile item
+   */
+  createFilter?: (item: TileItem) => TileFilter;
+
+  /**
+   * Check if current filter state is terminal (no more drill-down).
+   * When true, clicking a tile opens the inspector instead of adding a filter.
+   * @param filters Currently active filters
+   */
+  isTerminal?: (filters: TileFilter[]) => boolean;
+
+  /**
+   * Get inspector data for a terminal tile click.
+   * @param item The clicked tile item
+   */
+  getInspectorData?: (item: TileItem) => {
+    panelId: string;
+    data: Record<string, unknown>;
+  };
 }
 
 // ============================================================================
@@ -460,8 +537,19 @@ export interface Plugin<TSlice = unknown> {
   /** Commands contributed by this plugin */
   commands?: Command[];
 
-  /** Category providers for command palette sidebar browsing */
+  /**
+   * Category providers for command palette sidebar browsing
+   * @deprecated Use getPaletteItems instead
+   */
   categoryProviders?: CategoryProvider[];
+
+  /**
+   * Get items for the command palette.
+   * Each item has keywords for filtering in the sidebar.
+   * @param services Plugin services for accessing state
+   * @returns Array of palette items (can be async)
+   */
+  getPaletteItems?: (services: PluginServices) => PaletteItem[] | Promise<PaletteItem[]>;
 
   /** Inspector panels contributed by this plugin */
   inspectorPanels?: InspectorPanel[];
@@ -550,6 +638,66 @@ export interface Plugin<TSlice = unknown> {
     config: Record<string, unknown>,
     services: PluginServices
   ) => void;
+}
+
+// ============================================================================
+// Tile System Types
+// ============================================================================
+
+/**
+ * Size bucket for tiles in the masonry grid.
+ * Determined by normalized count relative to siblings.
+ */
+export type TileBucket = "xs" | "sm" | "md" | "lg" | "xl";
+
+/**
+ * Severity counts for visual breakdown in tiles.
+ */
+export interface TileSeverityCounts {
+  error: number;
+  warning: number;
+  info: number;
+}
+
+/**
+ * A tile item that can be displayed in the masonry grid.
+ * Tiles represent aggregated data (rules, files, etc.) with drill-down capability.
+ */
+export interface TileItem {
+  /** Unique identifier for this tile */
+  id: string;
+  /** Primary display label */
+  label: string;
+  /** Optional secondary text */
+  subtitle?: string;
+  /** Optional icon (React component or emoji) */
+  icon?: ReactNode;
+  /** Count for bucket sizing (e.g., number of issues) */
+  count: number;
+  /** Optional severity breakdown for visual indicator */
+  severityCounts?: TileSeverityCounts;
+  /** Additional metadata for filtering/identification */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Filter type for scoping tile views.
+ * Used as chips in the search bar to narrow displayed tiles.
+ */
+export type TileFilterType = "scope" | "rule" | "file" | "severity" | "category";
+
+/**
+ * A filter chip that scopes the tile view.
+ */
+export interface TileFilter {
+  /** Filter type (determines color coding and behavior) */
+  type: TileFilterType;
+  /** Unique identifier for the filter target */
+  id: string;
+  /** Display label for the chip */
+  label: string;
+  /** Provider/plugin that owns this filter */
+  providerId?: string;
 }
 
 // ============================================================================

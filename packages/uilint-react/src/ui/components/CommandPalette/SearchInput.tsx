@@ -7,6 +7,7 @@
  * - Glassmorphic background
  * - Minimal color - monochrome with single accent
  * - shadcn class conventions
+ * - Inline filter chips with flex-wrap
  */
 
 import * as React from "react";
@@ -17,6 +18,8 @@ import { SearchIcon, CloseIcon } from "../../icons";
 import { Kbd, IconButton } from "../primitives";
 import { cn } from "../../../lib/utils";
 import { useComposedStore } from "../../../core/store";
+import { FilterChip } from "./FilterChip";
+import type { TileFilter } from "../../../core/plugin-system/types";
 
 // ============================================================================
 // Variants
@@ -96,6 +99,12 @@ export interface SearchInputProps extends VariantProps<typeof searchContainerVar
   autoFocus?: boolean;
   /** Additional class name */
   className?: string;
+  /** Active filters to display as chips */
+  filters?: TileFilter[];
+  /** Callback when a filter chip is removed */
+  onRemoveFilter?: (index: number) => void;
+  /** Callback when backspace is pressed with empty input */
+  onRemoveLastFilter?: () => void;
 }
 
 // ============================================================================
@@ -121,6 +130,9 @@ export function SearchInput({
   autoFocus = true,
   size,
   className,
+  filters = [],
+  onRemoveFilter,
+  onRemoveLastFilter,
 }: SearchInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
@@ -135,6 +147,14 @@ export function SearchInput({
     }, 50);
     return () => clearTimeout(timer);
   }, [autoFocus]);
+
+  // Handle backspace on empty input to remove last filter
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && value === "" && filters.length > 0 && onRemoveLastFilter) {
+      e.preventDefault();
+      onRemoveLastFilter();
+    }
+  };
 
   const state = isFocused ? "focused" : "default";
 
@@ -162,25 +182,40 @@ export function SearchInput({
         <SearchIcon size={size === "large" ? 22 : 18} />
       </motion.div>
 
-      {/* Input */}
-      <input
-        ref={inputRef}
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        placeholder={placeholder}
-        className={cn(searchInputVariants({ size }))}
-        style={{
-          color: "var(--uilint-text-primary)",
-          caretColor: "var(--uilint-accent)",
-        }}
-      />
+      {/* Filter chips and input container - allows chips to wrap */}
+      <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0">
+        {/* Filter chips */}
+        <AnimatePresence mode="popLayout">
+          {filters.map((filter, index) => (
+            <FilterChip
+              key={`${filter.type}-${filter.id}`}
+              filter={filter}
+              onRemove={() => onRemoveFilter?.(index)}
+            />
+          ))}
+        </AnimatePresence>
+
+        {/* Input */}
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          onKeyDown={handleKeyDown}
+          placeholder={filters.length > 0 ? "Add more filters..." : placeholder}
+          className={cn(searchInputVariants({ size }), "min-w-[120px]")}
+          style={{
+            color: "var(--uilint-text-primary)",
+            caretColor: "var(--uilint-accent)",
+          }}
+        />
+      </div>
 
       {/* Clear button / Keyboard hint (desktop only) */}
       <AnimatePresence mode="wait">
-        {value ? (
+        {value || filters.length > 0 ? (
           <motion.div
             key="clear"
             variants={clearButtonMotionVariants}
@@ -192,7 +227,15 @@ export function SearchInput({
             <IconButton
               variant="ghost"
               size="sm"
-              onClick={() => onChange("")}
+              onClick={() => {
+                onChange("");
+                // Also clear all filters if there are any
+                if (filters.length > 0 && onRemoveFilter) {
+                  for (let i = filters.length - 1; i >= 0; i--) {
+                    onRemoveFilter(i);
+                  }
+                }
+              }}
               disableMotion
               style={{
                 color: "var(--uilint-text-muted)",

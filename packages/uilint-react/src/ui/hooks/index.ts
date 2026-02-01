@@ -9,6 +9,8 @@ export {
   useLoadCategoryWithChildren,
   type UseCategoryRegistryReturn,
 } from "./useCategoryRegistry";
+export { useTileNavigation, type UseTileNavigationReturn } from "./useTileNavigation";
+export { useTileItems, type UseTileItemsResult } from "./useTileItems";
 
 // Re-export BREAKPOINTS from core-slice for backward compatibility
 export { BREAKPOINTS } from "../../core/store/core-slice";

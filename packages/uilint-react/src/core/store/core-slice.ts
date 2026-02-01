@@ -7,7 +7,8 @@
 
 import type { StateCreator } from "zustand";
 import { devWarn } from "uilint-core";
-import type { PluginServices } from "../plugin-system/types";
+import type { PluginServices, TileFilter, TileItem, CategoryProvider } from "../plugin-system/types";
+import { pluginRegistry } from "../plugin-system/registry";
 
 // ============================================================================
 // Types
@@ -46,7 +47,7 @@ export interface MobileState {
 
 /**
  * Filter chip for the command palette search.
- * Allows filtering by rule, issue, loc (source location), file, capture, or plugin.
+ * @deprecated Use TileFilter from plugin-system/types instead
  */
 export interface CommandPaletteFilter {
   type: "rule" | "issue" | "loc" | "file" | "capture" | "plugin";
@@ -64,12 +65,18 @@ export interface CommandPaletteState {
   query: string;
   /** Currently selected index for keyboard navigation */
   selectedIndex: number;
-  /** Active filters (shown as chips) */
-  filters: CommandPaletteFilter[];
+  /** Active filters (shown as chips) - tile filters for scoping */
+  filters: TileFilter[];
   /** Currently selected category in the sidebar (null = "All") */
   selectedCategoryId: string | null;
+  /** Selected category IDs for multi-select (empty = all selected) */
+  selectedCategoryIds: Set<string>;
   /** Whether sidebar is focused (for keyboard navigation) */
   sidebarFocused: boolean;
+  /** Raw tile items from providers (before filtering/dedup) */
+  tileItems: TileItem[];
+  /** Whether tile items are currently loading */
+  tileItemsLoading: boolean;
 }
 
 /**
@@ -157,15 +164,23 @@ export interface CoreSlice {
   /** Set the selected index for keyboard navigation */
   setCommandPaletteSelectedIndex: (index: number) => void;
   /** Add a filter to the command palette */
-  addFilter: (filter: CommandPaletteFilter) => void;
+  addFilter: (filter: TileFilter) => void;
   /** Remove a filter at the specified index */
   removeFilter: (index: number) => void;
+  /** Remove the last filter (for backspace behavior) */
+  removeLastFilter: () => void;
   /** Clear all command palette filters */
   clearFilters: () => void;
   /** Set the selected category in the sidebar */
   setSelectedCategory: (categoryId: string | null) => void;
+  /** Toggle a category selection (multi-select mode) */
+  toggleCategory: (categoryId: string) => void;
   /** Toggle sidebar focus for keyboard navigation */
   setSidebarFocused: (focused: boolean) => void;
+  /** Set tile items and loading state */
+  setTileItems: (items: TileItem[], loading: boolean) => void;
+  /** Refresh tile items from providers synchronously */
+  refreshTileItems: () => void;
 
   // ============ Inspector ============
   /** Inspector sidebar state */
@@ -270,7 +285,10 @@ const DEFAULT_COMMAND_PALETTE_STATE: CommandPaletteState = {
   selectedIndex: 0,
   filters: [],
   selectedCategoryId: null,
+  selectedCategoryIds: new Set<string>(),
   sidebarFocused: false,
+  tileItems: [],
+  tileItemsLoading: false,
 };
 
 const DEFAULT_HEATMAP_FILTER_STATE: HeatmapFilterState = {
@@ -365,6 +383,7 @@ export const createCoreSlice = (
     set({
       commandPalette: {
         ...DEFAULT_COMMAND_PALETTE_STATE,
+        selectedCategoryIds: new Set<string>(),
         open: false,
       },
     });
@@ -411,6 +430,18 @@ export const createCoreSlice = (
     });
   },
 
+  removeLastFilter: () => {
+    const current = get().commandPalette;
+    if (current.filters.length === 0) return;
+    set({
+      commandPalette: {
+        ...current,
+        filters: current.filters.slice(0, -1),
+        selectedIndex: 0,
+      },
+    });
+  },
+
   clearFilters: () => {
     set({
       commandPalette: {
@@ -431,11 +462,109 @@ export const createCoreSlice = (
     });
   },
 
+  toggleCategory: (categoryId) => {
+    const current = get().commandPalette;
+    const newSet = new Set(current.selectedCategoryIds);
+    if (newSet.has(categoryId)) {
+      newSet.delete(categoryId);
+    } else {
+      newSet.add(categoryId);
+    }
+    set({
+      commandPalette: {
+        ...current,
+        selectedCategoryIds: newSet,
+        selectedIndex: 0,
+      },
+    });
+  },
+
   setSidebarFocused: (focused) => {
     set({
       commandPalette: {
         ...get().commandPalette,
         sidebarFocused: focused,
+      },
+    });
+  },
+
+  setTileItems: (items, loading) => {
+    set({
+      commandPalette: {
+        ...get().commandPalette,
+        tileItems: items,
+        tileItemsLoading: loading,
+      },
+    });
+  },
+
+  refreshTileItems: () => {
+    const current = get().commandPalette;
+    const { filters, selectedCategoryIds } = current;
+
+    // Get active category providers based on selection
+    const allProviders = pluginRegistry.getAllCategoryProviders();
+    let activeProviders: CategoryProvider[];
+
+    if (selectedCategoryIds.size === 0) {
+      // If no categories selected, use all providers that have getTileItems
+      activeProviders = allProviders.filter((provider) => provider.getTileItems !== undefined);
+    } else {
+      // Filter to only selected categories that have getTileItems
+      activeProviders = allProviders.filter(
+        (provider) =>
+          selectedCategoryIds.has(provider.id) && provider.getTileItems !== undefined
+      );
+    }
+
+    // If no active providers, clear items
+    if (activeProviders.length === 0) {
+      set({
+        commandPalette: {
+          ...get().commandPalette,
+          tileItems: [],
+          tileItemsLoading: false,
+        },
+      });
+      return;
+    }
+
+    // Set loading state
+    set({
+      commandPalette: {
+        ...get().commandPalette,
+        tileItemsLoading: true,
+      },
+    });
+
+    // Collect all items from providers synchronously
+    const allItems: TileItem[] = [];
+
+    for (const provider of activeProviders) {
+      if (!provider.getTileItems) continue;
+
+      try {
+        const result = provider.getTileItems(services, filters);
+
+        // Only handle sync results - skip promises
+        if (!(result instanceof Promise)) {
+          allItems.push(...result);
+        }
+      } catch (error) {
+        // Log error but continue with other providers
+        devWarn(
+          `[CoreSlice] Error getting tile items from provider "${provider.id}":`,
+          error
+        );
+      }
+    }
+
+    // Update state with collected items
+    set({
+      commandPalette: {
+        ...get().commandPalette,
+        tileItems: allItems,
+        tileItemsLoading: false,
       },
     });
   },

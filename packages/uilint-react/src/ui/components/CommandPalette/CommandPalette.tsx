@@ -7,6 +7,7 @@
  * - Hero search input with glassmorphic styling
  * - Priority-based lazy loading for fast performance
  * - Keyboard navigation between sidebar and results
+ * - Tile-based masonry grid for visual item display
  *
  * Visual design:
  * - Minimal colors, visual hierarchy through opacity/weight
@@ -15,13 +16,13 @@
  * - shadcn class conventions
  */
 
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { devError } from "uilint-core";
-import { useComposedStore, getPluginServices } from "../../../core/store";
+import { useComposedStore, getPluginServices, selectFilteredPaletteItems } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
-import { useIssues, useCategoryRegistry, useCategoryItems } from "../../hooks";
+import { useIssues, useTileNavigation } from "../../hooks";
 import { SearchInput } from "./SearchInput";
 import { MobileCategoryTabs } from "./MobileCategoryTabs";
 import { ResultItem } from "./ResultItem";
@@ -29,12 +30,14 @@ import { RuleItem } from "./RuleItem";
 import { FileHeader } from "./FileHeader";
 import { IssuesSummaryCard, TopIssuesPreview } from "./IssuesSummaryCard";
 import { AnimatedListItem, AnimatedSection, SelectionIndicator } from "./AnimatedListItem";
-import { CategorySidebar } from "./CategorySidebar";
+import { KeywordSidebar } from "./KeywordSidebar";
+import { TileGrid } from "./TileGrid";
+import { EmptyState } from "./EmptyState";
 import { PlayIcon, StopIcon, RefreshIcon } from "../../icons";
 import { GlassPanel, Kbd } from "../primitives";
 import { useScrollSelectedIntoView, ScrollSelectedContext } from "./useScrollSelectedIntoView";
 import type { Issue } from "../../types";
-import type { Command, RuleDefinition, CategoryItem } from "../../../core/plugin-system/types";
+import type { Command, RuleDefinition, CategoryItem, TileFilter, TileItem, PaletteItem } from "../../../core/plugin-system/types";
 
 /**
  * Unified result item type for the command palette
@@ -43,7 +46,7 @@ type ResultType =
   | { kind: "command"; command: Command }
   | { kind: "issue"; issue: Issue }
   | { kind: "rule"; rule: RuleDefinition }
-  | { kind: "category-item"; item: CategoryItem }
+  | { kind: "palette-item"; item: PaletteItem }
   | { kind: "summary" };
 
 // Crisp easing for panel motion
@@ -172,15 +175,15 @@ function CommandResultItem({
 }
 
 /**
- * Category item result component
+ * Palette item result component
  */
-function CategoryItemResult({
+function PaletteItemResult({
   item,
   isSelected,
   onClick,
   index,
 }: {
-  item: CategoryItem;
+  item: PaletteItem;
   isSelected: boolean;
   onClick: () => void;
   index: number;
@@ -223,11 +226,8 @@ function CategoryItemResult({
         )}
       </div>
 
-      {/* Keyboard hints - desktop only */}
-      {!isMobile && item.shortcut && (
-        <Kbd animate={false}>{item.shortcut}</Kbd>
-      )}
-      {!isMobile && isSelected && !item.shortcut && (
+      {/* Keyboard hint when selected - desktop only */}
+      {!isMobile && isSelected && (
         <Kbd>↵</Kbd>
       )}
     </div>
@@ -300,170 +300,91 @@ export function CommandPalette() {
   const isOpen = useComposedStore((s) => s.commandPalette.open);
   const query = useComposedStore((s) => s.commandPalette.query);
   const selectedIndex = useComposedStore((s) => s.commandPalette.selectedIndex);
-  const selectedCategoryId = useComposedStore((s) => s.commandPalette.selectedCategoryId);
   const sidebarFocused = useComposedStore((s) => s.commandPalette.sidebarFocused);
+  const filters = useComposedStore((s) => s.commandPalette.filters);
   const closeCommandPalette = useComposedStore((s) => s.closeCommandPalette);
   const setQuery = useComposedStore((s) => s.setCommandPaletteQuery);
   const setSelectedIndex = useComposedStore((s) => s.setCommandPaletteSelectedIndex);
-  const setSelectedCategory = useComposedStore((s) => s.setSelectedCategory);
   const setSidebarFocused = useComposedStore((s) => s.setSidebarFocused);
   const openInspector = useComposedStore((s) => s.openInspector);
+  const removeFilter = useComposedStore((s) => s.removeFilter);
+  const removeLastFilter = useComposedStore((s) => s.removeLastFilter);
+  const clearFilters = useComposedStore((s) => s.clearFilters);
+
+  // Keyword system state
+  const refreshPaletteItems = useComposedStore((s) => s.refreshPaletteItems);
+  const paletteItemsLoading = useComposedStore((s) => s.paletteItemsLoading);
+
+  // Get filtered palette items (by keywords)
+  const keywordFilteredItems = useComposedStore(selectFilteredPaletteItems);
+
+  // Apply query filter on top of keyword filter
+  const filteredPaletteItems = useMemo(() => {
+    if (!query.trim()) return keywordFilteredItems;
+    const lowerQuery = query.toLowerCase();
+    return keywordFilteredItems.filter(
+      (item) =>
+        item.title.toLowerCase().includes(lowerQuery) ||
+        (item.subtitle && item.subtitle.toLowerCase().includes(lowerQuery)) ||
+        item.keywords.some((kw) => kw.toLowerCase().includes(lowerQuery))
+    );
+  }, [keywordFilteredItems, query]);
+
+  // Refresh palette items when command palette opens
+  useEffect(() => {
+    if (isOpen) {
+      refreshPaletteItems();
+    }
+  }, [isOpen, refreshPaletteItems]);
 
   // Mobile detection from store
   const isMobile = useComposedStore((s) => s.mobile.isMobile);
   const isSmallScreen = useComposedStore((s) => s.mobile.isSmallScreen);
+  const isTablet = useComposedStore((s) => s.mobile.isTablet);
 
   const scrollCtx = useScrollSelectedIntoView(selectedIndex);
 
   const { allIssues } = useIssues();
-  const { categoryTree } = useCategoryRegistry();
 
-  // Get category items reactively using selector (aggregates child items for parent categories)
-  const categoryItems = useCategoryItems(selectedCategoryId);
+  // Handle back navigation (backspace with empty query removes last keyword filter)
+  const handleBack = useCallback(() => {
+    removeLastFilter();
+  }, [removeLastFilter]);
 
-  // Get current state for command availability checks
-  const storeState = useComposedStore((s) => s);
-
-  // Note: Category loading is now handled by initializeCategoryAutoLoad subscription
-  // which triggers when selectedCategoryId changes in the store
-
-  // Get available commands from registry
-  const availableCommands = useMemo(() => {
-    const allCommands = pluginRegistry.getAllCommands();
-    return allCommands.filter((cmd) => {
-      if (!cmd.isAvailable) return true;
-      return cmd.isAvailable(storeState);
-    });
-  }, [storeState]);
-
-  // Filter commands by query
-  const filteredCommands = useMemo(() => {
-    // When searching, include all commands (even hidden ones can be found via search)
-    if (query.trim()) {
-      const lowerQuery = query.toLowerCase();
-      return availableCommands.filter(
-        (cmd) =>
-          cmd.title.toLowerCase().includes(lowerQuery) ||
-          cmd.keywords.some((kw) => kw.toLowerCase().includes(lowerQuery)) ||
-          cmd.category.toLowerCase().includes(lowerQuery) ||
-          (cmd.subtitle && cmd.subtitle.toLowerCase().includes(lowerQuery))
-      );
-    }
-    // When not searching, filter out commands hidden from "All" category
-    // These commands are accessible via their category in the sidebar
-    return availableCommands.filter((cmd) => !cmd.hideFromAllCategory);
-  }, [availableCommands, query]);
-
-  // PERFORMANCE: Only show issues when searching or when category is issues-related
-  const isSearching = query.trim().length > 0;
-
-  // Filter issues by query - only compute when searching
-  const filteredIssues = useMemo(() => {
-    if (!isSearching) return [];
-    const lowerQuery = query.toLowerCase();
-    return allIssues
-      .filter(
-        (issue) =>
-          issue.message.toLowerCase().includes(lowerQuery) ||
-          issue.ruleId.toLowerCase().includes(lowerQuery) ||
-          issue.filePath.toLowerCase().includes(lowerQuery)
-      )
-      .slice(0, 30); // Reduced limit for better performance
-  }, [allIssues, query, isSearching]);
-
-  // Get all rules from the registry - reactive to plugin state changes
-  const pluginState = useComposedStore((s) => s.plugins);
-  const allRules = useMemo(() => {
-    return pluginRegistry.getAllRules();
-  }, [pluginState]);
-
-  // Filter rules by query - only show when searching
-  const filteredRules = useMemo(() => {
-    if (!isSearching) return [];
-    const lowerQuery = query.toLowerCase();
-    return allRules.filter(
-      (rule) =>
-        rule.name.toLowerCase().includes(lowerQuery) ||
-        rule.id.toLowerCase().includes(lowerQuery) ||
-        rule.description.toLowerCase().includes(lowerQuery) ||
-        rule.category.toLowerCase().includes(lowerQuery)
-    );
-  }, [allRules, query, isSearching]);
-
-  // Count issues per rule
-  const issueCountByRule = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const issue of allIssues) {
-      const count = counts.get(issue.ruleId) || 0;
-      counts.set(issue.ruleId, count + 1);
-    }
-    return counts;
-  }, [allIssues]);
-
-  // Group issues by file for better organization
-  const issuesByFile = useMemo(() => {
-    const groups: Array<{
-      filePath: string;
-      fileName: string;
-      directory: string;
-      issues: Issue[];
-    }> = [];
-
-    const fileMap = new Map<string, Issue[]>();
-    for (const issue of filteredIssues) {
-      const existing = fileMap.get(issue.filePath) || [];
-      fileMap.set(issue.filePath, [...existing, issue]);
-    }
-
-    for (const [filePath, issues] of fileMap) {
-      const parts = filePath.split("/");
-      const fileName = parts.pop() || filePath;
-      const directory = parts.join("/");
-      groups.push({ filePath, fileName, directory, issues });
-    }
-
-    return groups;
-  }, [filteredIssues]);
-
-  // Combined results for keyboard navigation
+  // Combined results for keyboard navigation - now using palette items
   const allResults: ResultType[] = useMemo(() => {
-    // When a specific category is selected, show category items
-    if (selectedCategoryId && !isSearching) {
-      return categoryItems.map((item) => ({
-        kind: "category-item" as const,
-        item,
-      }));
-    }
-
-    const commands: ResultType[] = filteredCommands.map((command) => ({
-      kind: "command" as const,
-      command,
+    // Convert palette items to result types
+    const paletteResults: ResultType[] = filteredPaletteItems.map((item) => ({
+      kind: "palette-item" as const,
+      item,
     }));
 
+    // When not searching and there are issues, show summary
+    const isSearching = query.trim().length > 0;
     if (!isSearching && allIssues.length > 0) {
-      // Initial state: add summary card and top issues
+      // Find command items (items with "Command" keyword)
+      const commandItems = paletteResults.filter(
+        (r) => r.kind === "palette-item" && r.item.keywords.includes("Command")
+      );
+      const nonCommandItems = paletteResults.filter(
+        (r) => r.kind === "palette-item" && !r.item.keywords.includes("Command")
+      );
+
+      // Top issues for preview
       const topIssues = allIssues
         .filter((i) => i.severity === "error" || i.severity === "warning")
         .slice(0, 3);
 
       return [
-        ...commands,
+        ...commandItems,
         { kind: "summary" as const },
         ...topIssues.map((issue) => ({ kind: "issue" as const, issue })),
+        ...nonCommandItems.slice(0, 10), // Limit non-command items in initial view
       ];
     }
 
-    // When searching: commands + filtered issues + filtered rules
-    const issues: ResultType[] = filteredIssues.map((issue) => ({
-      kind: "issue" as const,
-      issue,
-    }));
-    const rules: ResultType[] = filteredRules.map((rule) => ({
-      kind: "rule" as const,
-      rule,
-    }));
-    return [...commands, ...issues, ...rules];
-  }, [filteredCommands, filteredIssues, filteredRules, allIssues, isSearching, selectedCategoryId, categoryItems]);
+    return paletteResults;
+  }, [filteredPaletteItems, allIssues, query]);
 
   // Handle selecting an issue
   const handleSelectIssue = useCallback(
@@ -488,8 +409,8 @@ export function CommandPalette() {
     }
   }, []);
 
-  // Handle executing a category item
-  const handleExecuteCategoryItem = useCallback(async (item: CategoryItem) => {
+  // Handle executing a palette item
+  const handleExecutePaletteItem = useCallback(async (item: PaletteItem) => {
     if (!item.execute) return;
 
     const services = getPluginServices();
@@ -499,11 +420,11 @@ export function CommandPalette() {
     }
     try {
       await item.execute(services);
-      closeCommandPalette();
+      // Note: closeCommandPalette is typically called within execute for items that need it
     } catch (error) {
-      devError(`[CommandPalette] Error executing category item "${item.id}":`, error);
+      devError(`[CommandPalette] Error executing palette item "${item.id}":`, error);
     }
-  }, [closeCommandPalette]);
+  }, []);
 
   // Handle rule severity change
   const handleRuleSeverityChange = useCallback(
@@ -532,14 +453,14 @@ export function CommandPalette() {
         handleSelectIssue(result.issue);
       } else if (result.kind === "rule") {
         handleSelectRule(result.rule);
-      } else if (result.kind === "category-item") {
-        handleExecuteCategoryItem(result.item);
+      } else if (result.kind === "palette-item") {
+        handleExecutePaletteItem(result.item);
       } else if (result.kind === "summary") {
         // Focus search input to encourage searching
         setQuery("");
       }
     },
-    [handleExecuteCommand, handleSelectIssue, handleSelectRule, handleExecuteCategoryItem]
+    [handleExecuteCommand, handleSelectIssue, handleSelectRule, handleExecutePaletteItem, setQuery]
   );
 
   // Handle keyboard navigation
@@ -564,7 +485,7 @@ export function CommandPalette() {
         return;
       }
 
-      // Up/Down for navigation
+      // Up/Down for list navigation
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setSelectedIndex(Math.min(selectedIndex + 1, allResults.length - 1));
@@ -576,7 +497,7 @@ export function CommandPalette() {
         handleSelectResult(allResults[selectedIndex]);
       }
     },
-    [allResults, selectedIndex, handleSelectResult, sidebarFocused, setSidebarFocused]
+    [allResults, selectedIndex, handleSelectResult, sidebarFocused, setSidebarFocused, setSelectedIndex]
   );
 
   // Note: Reset on query change is handled by setCommandPaletteQuery action (resets selectedIndex to 0)
@@ -584,8 +505,10 @@ export function CommandPalette() {
 
   const portalRoot = document.getElementById("uilint-portal") || document.body;
 
-  // Calculate index for summary card and top issues
-  const summaryIndex = filteredCommands.length;
+  // Calculate index for summary card (after command items)
+  const summaryIndex = useMemo(() => {
+    return filteredPaletteItems.filter((item) => item.keywords.includes("Command")).length;
+  }, [filteredPaletteItems]);
 
   return createPortal(
     <AnimatePresence>
@@ -675,7 +598,14 @@ export function CommandPalette() {
               )}
 
               {/* Hero Search Input */}
-              <SearchInput value={query} onChange={setQuery} size={isMobile ? "default" : "large"} />
+              <SearchInput
+                value={query}
+                onChange={setQuery}
+                size={isMobile ? "default" : "large"}
+                filters={filters}
+                onRemoveFilter={(index) => removeFilter(index)}
+                onRemoveLastFilter={removeLastFilter}
+              />
 
               {/* Content Area: Sidebar + Results */}
               <div
@@ -688,23 +618,9 @@ export function CommandPalette() {
                   overflow: "hidden",
                 }}
               >
-                {/* Category Sidebar - hidden on small screens */}
+                {/* Keyword Sidebar - hidden on small screens */}
                 {!isSmallScreen && (
-                  <CategorySidebar
-                    categories={categoryTree}
-                    selectedId={selectedCategoryId}
-                    onSelect={setSelectedCategory}
-                    isFocused={sidebarFocused}
-                  />
-                )}
-
-                {/* Mobile Category Tabs - shown on small screens */}
-                {isSmallScreen && (
-                  <MobileCategoryTabs
-                    categories={categoryTree}
-                    selectedId={selectedCategoryId}
-                    onSelect={setSelectedCategory}
-                  />
+                  <KeywordSidebar />
                 )}
 
                 {/* Results Pane */}
@@ -718,30 +634,56 @@ export function CommandPalette() {
                   }}
                 >
                   <AnimatePresence mode={isMobile ? "sync" : "wait"}>
-                    {allResults.length === 0 && filteredRules.length === 0 ? (
+                    {/* Loading state */}
+                    {paletteItemsLoading ? (
+                      <motion.div
+                        key="loading"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        style={{
+                          padding: "48px 24px",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: "50%",
+                            border: "2px solid var(--uilint-border)",
+                            borderTopColor: "var(--uilint-accent)",
+                          }}
+                        />
+                        <div
+                          style={{
+                            marginTop: 12,
+                            fontSize: 13,
+                            color: "var(--uilint-text-muted)",
+                          }}
+                        >
+                          Loading...
+                        </div>
+                      </motion.div>
+                    ) : allResults.length === 0 ? (
+                      /* Empty state */
                       <motion.div
                         key="empty"
                         initial={isMobile ? false : { opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={isMobile ? { opacity: 0 } : { opacity: 0, y: -4 }}
                         transition={{ duration: isMobile ? 0.05 : 0.1 }}
-                        style={{
-                          padding: "32px 24px",
-                          textAlign: "center",
-                          color: "var(--uilint-text-disabled)",
-                        }}
                       >
-                        <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
-                        <div style={{ fontSize: 13, fontWeight: 500 }}>
-                          {query ? "No results found" : "Start typing to search"}
-                        </div>
-                        <div style={{ fontSize: 12, marginTop: 4, color: "var(--uilint-text-muted)" }}>
-                          {query
-                            ? "Try different keywords"
-                            : "Search issues, rules, and commands"}
-                        </div>
+                        <EmptyState variant="no-issues" />
                       </motion.div>
                     ) : (
+                      /* Results list */
                       <ScrollSelectedContext.Provider value={scrollCtx}>
                         <motion.div
                           key="results"
@@ -750,129 +692,52 @@ export function CommandPalette() {
                           exit={isMobile ? undefined : { opacity: 0 }}
                           transition={{ duration: isMobile ? 0 : 0.1 }}
                         >
-                          {/* Category items when a specific category is selected */}
-                          {selectedCategoryId && !isSearching && categoryItems.length > 0 && (
-                            <>
-                              {categoryItems.map((item, index) => (
-                                <CategoryItemResult
-                                  key={item.id}
-                                  item={item}
+                          {allResults.map((result, index) => {
+                            if (result.kind === "palette-item") {
+                              return (
+                                <PaletteItemResult
+                                  key={result.item.id}
+                                  item={result.item}
                                   isSelected={index === selectedIndex}
-                                  onClick={() => handleExecuteCategoryItem(item)}
+                                  onClick={() => handleExecutePaletteItem(result.item)}
                                   index={index}
                                 />
-                              ))}
-                            </>
-                          )}
+                              );
+                            }
 
-                          {/* Commands section - show when "All" is selected or searching */}
-                          {(!selectedCategoryId || isSearching) && filteredCommands.length > 0 && (
-                            <>
-                              <SectionHeader count={filteredCommands.length}>
-                                Commands
-                              </SectionHeader>
-                              {filteredCommands.map((command, index) => (
-                                <CommandResultItem
-                                  key={command.id}
-                                  command={command}
-                                  isSelected={index === selectedIndex}
-                                  onClick={() => handleExecuteCommand(command)}
-                                  index={index}
-                                />
-                              ))}
-                            </>
-                          )}
-
-                          {/* Initial state: Summary card + Top issues */}
-                          {!isSearching && !selectedCategoryId && allIssues.length > 0 && (
-                            <>
-                              <SectionHeader>Overview</SectionHeader>
-                              <IssuesSummaryCard
-                                issues={allIssues}
-                                isSelected={summaryIndex === selectedIndex}
-                                resultIndex={summaryIndex}
-                                onClick={() => {
-                                  // Focus on the search input
-                                }}
-                              />
-                              <TopIssuesPreview
-                                issues={allIssues}
-                                onSelectIssue={handleSelectIssue}
-                                startIndex={summaryIndex + 1}
-                                selectedIndex={selectedIndex}
-                              />
-                            </>
-                          )}
-
-                          {/* Search results: Issues grouped by file */}
-                          {isSearching && issuesByFile.length > 0 && (
-                            <>
-                              <SectionHeader count={filteredIssues.length}>
-                                Issues
-                              </SectionHeader>
-                              {issuesByFile.map((fileGroup, groupIndex) => {
-                                let startIndex = filteredCommands.length;
-                                for (let i = 0; i < groupIndex; i++) {
-                                  startIndex += issuesByFile[i].issues.length;
-                                }
-
-                                return (
-                                  <AnimatedListItem
-                                    key={fileGroup.filePath}
-                                    index={filteredCommands.length + groupIndex}
+                            if (result.kind === "issue") {
+                              return (
+                                <AnimatedListItem key={result.issue.id} index={index}>
+                                  <SelectionIndicator
+                                    isSelected={index === selectedIndex}
+                                    variant="issue"
+                                    resultIndex={index}
                                   >
-                                    <FileHeader
-                                      fileName={fileGroup.fileName}
-                                      directory={fileGroup.directory}
-                                      count={fileGroup.issues.length}
+                                    <ResultItem
+                                      issue={result.issue}
+                                      isSelected={index === selectedIndex}
+                                      onClick={() => handleSelectIssue(result.issue)}
                                     />
-                                    {fileGroup.issues.map((issue, issueIndex) => (
-                                      <SelectionIndicator
-                                        key={issue.id}
-                                        isSelected={startIndex + issueIndex === selectedIndex}
-                                        variant="issue"
-                                        resultIndex={startIndex + issueIndex}
-                                      >
-                                        <ResultItem
-                                          issue={issue}
-                                          isSelected={startIndex + issueIndex === selectedIndex}
-                                          onClick={() => handleSelectIssue(issue)}
-                                        />
-                                      </SelectionIndicator>
-                                    ))}
-                                  </AnimatedListItem>
-                                );
-                              })}
-                            </>
-                          )}
+                                  </SelectionIndicator>
+                                </AnimatedListItem>
+                              );
+                            }
 
-                          {/* Rules section - only when searching */}
-                          {isSearching && filteredRules.length > 0 && (
-                            <>
-                              <SectionHeader count={filteredRules.length}>
-                                Rules
-                              </SectionHeader>
-                              {filteredRules.map((rule, index) => (
-                                <AnimatedListItem
-                                  key={rule.id}
-                                  index={filteredCommands.length + filteredIssues.length + index}
-                                >
-                                  <RuleItem
-                                    rule={rule}
-                                    issueCount={issueCountByRule.get(rule.id) ?? 0}
-                                    isSelected={
-                                      filteredCommands.length +
-                                        filteredIssues.length +
-                                        index ===
-                                      selectedIndex
-                                    }
-                                    onSeverityChange={handleRuleSeverityChange}
-                                    onClick={() => handleSelectRule(rule)}
+                            if (result.kind === "summary") {
+                              return (
+                                <AnimatedListItem key="summary" index={index}>
+                                  <IssuesSummaryCard
+                                    issues={allIssues}
+                                    isSelected={index === selectedIndex}
+                                    resultIndex={index}
+                                    onClick={() => setQuery("")}
                                   />
                                 </AnimatedListItem>
-                              ))}
-                            </>
-                          )}
+                              );
+                            }
+
+                            return null;
+                          })}
                         </motion.div>
                       </ScrollSelectedContext.Provider>
                     )}
