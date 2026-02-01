@@ -1,6 +1,6 @@
 {
   "name": "uilint-eslint",
-  "version": "0.2.100",
+  "version": "0.2.101",
   "description": "ESLint plugin for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
