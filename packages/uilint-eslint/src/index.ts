@@ -21,6 +21,7 @@ import requireInputValidation from "./rules/require-input-validation.js";
 import noSemanticDuplicates from "./rules/no-semantic-duplicates.js";
 import requireTestCoverage from "./rules/require-test-coverage/index.js";
 import preferTailwind from "./rules/prefer-tailwind.js";
+import noUnsafeTypeCasts from "./rules/no-unsafe-type-casts.js";
 
 /**
  * All available rules
@@ -41,6 +42,7 @@ const rules = {
   "no-semantic-duplicates": noSemanticDuplicates,
   "require-test-coverage": requireTestCoverage,
   "prefer-tailwind": preferTailwind,
+  "no-unsafe-type-casts": noUnsafeTypeCasts,
 };
 
 // Package version (injected at build time or fallback)
@@ -208,6 +210,16 @@ const recommendedConfig: Linter.Config = {
           "allowedHardCodedColors": []
         }
       ]],
+    "uilint/no-unsafe-type-casts": ["error", ...[
+        {
+          "reportAsAny": true,
+          "reportAsUnknown": false,
+          "reportDoubleCast": true,
+          "allowInTestFiles": true,
+          "allowInCatchBlocks": true,
+          "allowedTypes": []
+        }
+      ]],
   },
 };
 
@@ -363,6 +375,16 @@ const strictConfig: Linter.Config = {
           "ignoreComponents": [],
           "preferSemanticColors": true,
           "allowedHardCodedColors": []
+        }
+      ]],
+    "uilint/no-unsafe-type-casts": ["error", ...[
+        {
+          "reportAsAny": true,
+          "reportAsUnknown": false,
+          "reportDoubleCast": true,
+          "allowInTestFiles": true,
+          "allowInCatchBlocks": true,
+          "allowedTypes": []
         }
       ]],
   },
