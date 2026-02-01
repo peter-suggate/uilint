@@ -1,10 +1,9 @@
 /**
- * TileGrid - Flexbox-based mosaic grid for tiles
+ * TileGrid - Bin-packing mosaic grid for tiles
  *
  * Features:
- * - Special layouts for 1-4 items (hero, pair, trio, quad)
- * - Responsive grid for 5+ items
- * - Percentile-based bucket sizing for tile heights
+ * - True masonry layout with absolute positioning
+ * - Places largest tiles first, fills vertical gaps
  * - Staggered entrance animations
  * - Empty state handling
  */
@@ -12,11 +11,7 @@ import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { TileItem } from "../../../core/plugin-system/types";
 import { Tile } from "./Tile";
-import {
-  calculateMosaicLayout,
-  groupTilesByRow,
-  type MosaicLayoutResult,
-} from "./layout";
+import { calculateMosaicLayout } from "./layout";
 
 interface TileGridProps {
   items: TileItem[];
@@ -56,7 +51,7 @@ function EmptyState() {
         justifyContent: "center",
         padding: "48px 24px",
         textAlign: "center",
-        color: "var(--uilint-text-muted)",
+        color: "rgba(255, 255, 255, 0.5)",
       }}
     >
       <div
@@ -71,8 +66,8 @@ function EmptyState() {
       <div
         style={{
           fontSize: 14,
-          fontWeight: 500,
-          color: "var(--uilint-text-secondary)",
+          fontWeight: 400,
+          color: "rgba(255, 255, 255, 0.7)",
           marginBottom: 4,
         }}
       >
@@ -81,71 +76,12 @@ function EmptyState() {
       <div
         style={{
           fontSize: 12,
-          color: "var(--uilint-text-muted)",
+          color: "rgba(255, 255, 255, 0.4)",
         }}
       >
         Try adjusting your filters or search query
       </div>
     </motion.div>
-  );
-}
-
-/**
- * TileRow - Renders a single row of tiles
- */
-function TileRow({
-  items,
-  layout,
-  onTileClick,
-  selectedIndex,
-  startIndex,
-}: {
-  items: TileItem[];
-  layout: MosaicLayoutResult;
-  onTileClick: (item: TileItem) => void;
-  selectedIndex: number;
-  startIndex: number;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "row",
-        gap: GRID_GAP,
-        marginBottom: GRID_GAP,
-      }}
-    >
-      {items.map((item, indexInRow) => {
-        const tileLayout = layout.tiles.get(item.id);
-        const globalIndex = startIndex + indexInRow;
-
-        return (
-          <motion.div
-            key={item.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{
-              duration: 0.15,
-              ease: crispEase,
-              delay: Math.min(globalIndex * 0.05, 0.3),
-            }}
-            layout
-            style={{
-              width: tileLayout?.width ?? "100%",
-              flexShrink: 0,
-            }}
-          >
-            <Tile
-              item={item}
-              bucket={tileLayout?.bucket ?? "md"}
-              isSelected={globalIndex === selectedIndex}
-              onClick={() => onTileClick(item)}
-            />
-          </motion.div>
-        );
-      })}
-    </div>
   );
 }
 
@@ -165,40 +101,71 @@ export function TileGrid({
     [items]
   );
 
-  // Group items by row for rendering
-  const rows = React.useMemo(
-    () => groupTilesByRow(items, layout),
-    [items, layout]
-  );
-
   // Handle empty state
   if (items.length === 0) {
     return <EmptyState />;
   }
 
-  // Track cumulative index for selection highlighting
-  let cumulativeIndex = 0;
+  // Sort items by y position for proper stagger animation
+  const sortedItems = React.useMemo(() => {
+    return [...items].sort((a, b) => {
+      const layoutA = layout.tiles.get(a.id);
+      const layoutB = layout.tiles.get(b.id);
+      const yDiff = (layoutA?.y ?? 0) - (layoutB?.y ?? 0);
+      if (Math.abs(yDiff) > 10) return yDiff;
+      return (layoutA?.x ?? 0) - (layoutB?.x ?? 0);
+    });
+  }, [items, layout]);
+
+  // Build index lookup for selection
+  const itemIndexMap = React.useMemo(() => {
+    const map = new Map<string, number>();
+    sortedItems.forEach((item, index) => map.set(item.id, index));
+    return map;
+  }, [sortedItems]);
 
   return (
     <div
       style={{
         padding: "12px 16px",
+        position: "relative",
+        height: layout.totalHeight,
+        minHeight: 200,
       }}
     >
       <AnimatePresence mode="popLayout">
-        {rows.map((rowItems, rowIndex) => {
-          const startIndex = cumulativeIndex;
-          cumulativeIndex += rowItems.length;
+        {sortedItems.map((item, animIndex) => {
+          const tileLayout = layout.tiles.get(item.id);
+          if (!tileLayout) return null;
+
+          const globalIndex = itemIndexMap.get(item.id) ?? animIndex;
 
           return (
-            <TileRow
-              key={`row-${rowIndex}`}
-              items={rowItems}
-              layout={layout}
-              onTileClick={onTileClick}
-              selectedIndex={selectedIndex}
-              startIndex={startIndex}
-            />
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{
+                duration: 0.2,
+                ease: crispEase,
+                delay: Math.min(animIndex * 0.03, 0.2),
+              }}
+              style={{
+                position: "absolute",
+                left: tileLayout.x,
+                top: tileLayout.y,
+                width: tileLayout.width,
+                height: tileLayout.height,
+              }}
+            >
+              <Tile
+                item={item}
+                bucket={tileLayout.bucket}
+                isSelected={globalIndex === selectedIndex}
+                onClick={() => onTileClick(item)}
+              />
+            </motion.div>
           );
         })}
       </AnimatePresence>

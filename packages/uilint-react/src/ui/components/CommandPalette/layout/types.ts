@@ -1,7 +1,8 @@
 /**
  * Layout Types for Tile Mosaic
  *
- * Defines types for calculating tile positions in a flexbox-based mosaic grid.
+ * Defines types for calculating tile positions using bin-packing algorithm.
+ * Uses absolute positioning for true masonry layout.
  */
 
 import type { TileBucket, TileItem } from "../../../../core/plugin-system/types";
@@ -12,11 +13,11 @@ import type { TileBucket, TileItem } from "../../../../core/plugin-system/types"
 export interface TileLayout {
   /** Tile ID */
   id: string;
-  /** Row index (0-based) */
+  /** Row index (0-based) - legacy, not used for absolute positioning */
   row: number;
   /** Column index within row (0-based) */
   column: number;
-  /** CSS width value (e.g., "calc(50% - 6px)") */
+  /** CSS width value (e.g., "158px") */
   width: string;
   /** Width as fraction (0.5, 0.333, etc.) */
   widthFraction: number;
@@ -24,6 +25,12 @@ export interface TileLayout {
   bucket: TileBucket;
   /** Whether this tile starts a new row */
   isRowStart: boolean;
+  /** Absolute X position in pixels */
+  x: number;
+  /** Absolute Y position in pixels */
+  y: number;
+  /** Height in pixels */
+  height: number;
 }
 
 /**
@@ -32,12 +39,14 @@ export interface TileLayout {
 export interface MosaicLayoutResult {
   /** Map of tile ID to layout info */
   tiles: Map<string, TileLayout>;
-  /** Total number of rows */
+  /** Total number of rows (approximate) */
   rowCount: number;
-  /** Number of columns (for grid patterns) */
+  /** Number of columns */
   columnCount: number;
   /** Layout pattern used */
   pattern: "single" | "pair" | "trio" | "quad" | "grid";
+  /** Total height of the layout in pixels */
+  totalHeight: number;
 }
 
 /**

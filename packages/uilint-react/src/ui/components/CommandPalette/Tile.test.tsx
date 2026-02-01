@@ -1,9 +1,8 @@
 /**
  * Tests for Tile component styling and behavior
  *
- * The Tile component uses inline styles with CSS variables (var(--uilint-*))
- * instead of Tailwind classes to ensure proper styling in the devtools overlay
- * where Tailwind is not available.
+ * The Tile component uses glassmorphic styling with rgba colors
+ * for a modern iOS-like appearance.
  *
  * @vitest-environment jsdom
  */
@@ -76,7 +75,7 @@ describe("Tile - styling", () => {
     expect(hasTailwindClasses).toBe(false);
   });
 
-  it("uses CSS variables for colors (var(--uilint-*))", () => {
+  it("uses glassmorphic styling with rgba colors", () => {
     const { container } = render(
       <Tile
         item={createTestItem()}
@@ -86,17 +85,15 @@ describe("Tile - styling", () => {
       />
     );
 
-    // Collect all style attributes in the tree
-    const allElements = container.querySelectorAll("*");
-    const styleStrings: string[] = [];
-    allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      if (style) styleStrings.push(style);
-    });
+    const root = container.firstElementChild as HTMLElement;
+    const style = root.getAttribute("style") || "";
 
-    // At least some elements should use CSS variables for theming
-    const usesCSSVars = styleStrings.some((s) => s.includes("var(--uilint-"));
-    expect(usesCSSVars).toBe(true);
+    // Should use rgba for glassmorphic effect
+    expect(style).toContain("rgba(255, 255, 255");
+    // Should have semi-transparent background
+    expect(style).toContain("0.08)");
+    // Should have border radius for glass card look
+    expect(style).toContain("border-radius: 16px");
   });
 });
 
@@ -121,7 +118,7 @@ describe("Tile - rendering", () => {
     expect(container.textContent).toContain("42");
   });
 
-  it("renders severity bar when severityCounts provided", () => {
+  it("renders severity dots when severityCounts provided", () => {
     const { container } = render(
       <Tile
         item={createTestItem({
@@ -133,24 +130,21 @@ describe("Tile - rendering", () => {
       />
     );
 
-    // Look for the severity bar container (height: 4px)
+    // Look for severity dot indicators (6px circles)
     const allElements = container.querySelectorAll("*");
-    let severityBarFound = false;
+    let severityDotsFound = false;
 
     allElements.forEach((el) => {
       const style = el.getAttribute("style");
-      if (style && style.includes("height: 4px") || style?.includes("height:4px")) {
-        severityBarFound = true;
-        // Check that it contains colored segments using CSS variables
-        const children = el.querySelectorAll("div");
-        expect(children.length).toBeGreaterThan(0);
+      if (style && style.includes("width: 6px") && style.includes("border-radius: 50%")) {
+        severityDotsFound = true;
       }
     });
 
-    expect(severityBarFound).toBe(true);
+    expect(severityDotsFound).toBe(true);
   });
 
-  it("does not render severity bar when severityCounts not provided", () => {
+  it("does not render severity indicators when severityCounts not provided", () => {
     const { container } = render(
       <Tile
         item={createTestItem({ severityCounts: undefined })}
@@ -160,21 +154,21 @@ describe("Tile - rendering", () => {
       />
     );
 
-    // Look for the severity bar container (height: 4px)
+    // Look for severity dot indicators
     const allElements = container.querySelectorAll("*");
-    let severityBarFound = false;
+    let severityDotsFound = false;
 
     allElements.forEach((el) => {
       const style = el.getAttribute("style");
-      if (style && (style.includes("height: 4px") || style.includes("height:4px"))) {
-        severityBarFound = true;
+      if (style && style.includes("#ff6b6b") || style?.includes("#ffd93d") || style?.includes("#74b9ff")) {
+        severityDotsFound = true;
       }
     });
 
-    expect(severityBarFound).toBe(false);
+    expect(severityDotsFound).toBe(false);
   });
 
-  it("renders subtitle when provided for non-xs bucket", () => {
+  it("renders subtitle when provided for non-compact bucket", () => {
     const { container } = render(
       <Tile
         item={createTestItem({ subtitle: "Additional info here" })}
@@ -200,17 +194,17 @@ describe("Tile - rendering", () => {
     expect(container.textContent).not.toContain("Hidden subtitle");
   });
 
-  it("renders icon when provided", () => {
+  it("does not render subtitle for sm bucket even when provided", () => {
     const { container } = render(
       <Tile
-        item={createTestItem({ icon: "🔥" })}
-        bucket="md"
+        item={createTestItem({ subtitle: "Hidden subtitle" })}
+        bucket="sm"
         isSelected={false}
         onClick={vi.fn()}
       />
     );
 
-    expect(container.textContent).toContain("🔥");
+    expect(container.textContent).not.toContain("Hidden subtitle");
   });
 });
 
@@ -232,9 +226,10 @@ describe("Tile - selected state", () => {
     const root = container.firstElementChild as HTMLElement;
     const style = root.getAttribute("style") || "";
 
-    // Selected state should have accent border and info-bg background
-    expect(style).toContain("var(--uilint-accent)");
-    expect(style).toContain("var(--uilint-info-bg)");
+    // Selected state should have brighter background (0.15 vs 0.08)
+    expect(style).toContain("rgba(255, 255, 255, 0.15)");
+    // And brighter border (0.3 vs 0.1)
+    expect(style).toContain("rgba(255, 255, 255, 0.3)");
   });
 
   it("shows non-selected state styling when isSelected=false", () => {
@@ -250,9 +245,10 @@ describe("Tile - selected state", () => {
     const root = container.firstElementChild as HTMLElement;
     const style = root.getAttribute("style") || "";
 
-    // Non-selected state should have surface-elevated background
-    expect(style).toContain("var(--uilint-surface-elevated)");
-    expect(style).toContain("var(--uilint-border)");
+    // Non-selected state should have subtle background (0.08)
+    expect(style).toContain("rgba(255, 255, 255, 0.08)");
+    // And subtle border (0.1)
+    expect(style).toContain("rgba(255, 255, 255, 0.1)");
   });
 });
 
@@ -278,38 +274,27 @@ describe("Tile - interactions", () => {
   });
 });
 
-describe("Tile - bucket sizes", () => {
+describe("Tile - bucket styling", () => {
   afterEach(() => {
     cleanup();
   });
 
-  const bucketHeights: Record<TileBucket, number> = {
-    xs: 60,
-    sm: 80,
-    md: 110,
-    lg: 150,
-    xl: 200,
-  };
+  it("uses height: 100% since parent controls height", () => {
+    const { container } = render(
+      <Tile
+        item={createTestItem()}
+        bucket="md"
+        isSelected={false}
+        onClick={vi.fn()}
+      />
+    );
 
-  it.each(Object.entries(bucketHeights))(
-    "applies correct height for bucket size %s (%dpx)",
-    (bucket, expectedHeight) => {
-      const { container } = render(
-        <Tile
-          item={createTestItem()}
-          bucket={bucket as TileBucket}
-          isSelected={false}
-          onClick={vi.fn()}
-        />
-      );
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.style.height).toBe("100%");
+  });
 
-      const root = container.firstElementChild as HTMLElement;
-      expect(root.style.height).toBe(`${expectedHeight}px`);
-    }
-  );
-
-  it("applies smaller padding for xs bucket", () => {
-    const { container: xsContainer } = render(
+  it("applies compact padding for xs bucket", () => {
+    const { container } = render(
       <Tile
         item={createTestItem()}
         bucket="xs"
@@ -318,21 +303,49 @@ describe("Tile - bucket sizes", () => {
       />
     );
 
-    const { container: mdContainer } = render(
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.style.padding).toBe("12px 14px");
+  });
+
+  it("applies compact padding for sm bucket", () => {
+    const { container } = render(
       <Tile
-        item={createTestItem({ id: "test-tile-2" })}
+        item={createTestItem()}
+        bucket="sm"
+        isSelected={false}
+        onClick={vi.fn()}
+      />
+    );
+
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.style.padding).toBe("12px 14px");
+  });
+
+  it("applies standard padding for md bucket", () => {
+    const { container } = render(
+      <Tile
+        item={createTestItem()}
         bucket="md"
         isSelected={false}
         onClick={vi.fn()}
       />
     );
 
-    const xsRoot = xsContainer.firstElementChild as HTMLElement;
-    const mdRoot = mdContainer.firstElementChild as HTMLElement;
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.style.padding).toBe("16px 20px");
+  });
 
-    // xs should have "10px 12px" padding
-    expect(xsRoot.style.padding).toBe("10px 12px");
-    // md should have "14px 16px" padding
-    expect(mdRoot.style.padding).toBe("14px 16px");
+  it("applies standard padding for lg bucket", () => {
+    const { container } = render(
+      <Tile
+        item={createTestItem()}
+        bucket="lg"
+        isSelected={false}
+        onClick={vi.fn()}
+      />
+    );
+
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.style.padding).toBe("16px 20px");
   });
 });

@@ -9,6 +9,7 @@ export {
   calculateBucket,
   calculateBuckets,
   groupTilesByRow,
+  getBucketHeight,
 } from "./mosaic-layout";
 
 export type {

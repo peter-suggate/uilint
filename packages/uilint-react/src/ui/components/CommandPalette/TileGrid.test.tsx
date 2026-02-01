@@ -108,25 +108,25 @@ describe("TileGrid - bucket sizing", () => {
 
   /**
    * Bucket distribution based on percentiles:
-   * - Top 10% by count = xl (200px)
-   * - Next 20% (10-30%) = lg (150px)
-   * - Next 30% (30-60%) = md (110px)
-   * - Next 25% (60-85%) = sm (80px)
-   * - Bottom 15% (85-100%) = xs (60px)
+   * - Top 10% by count = xl (220px)
+   * - Next 20% (10-30%) = lg (168px)
+   * - Next 30% (30-60%) = md (128px)
+   * - Next 25% (60-85%) = sm (96px)
+   * - Bottom 15% (85-100%) = xs (72px)
    */
   it("calculates bucket sizes correctly based on count percentiles", () => {
     // Create 10 items with varying counts to test percentile distribution
     const items: TileItem[] = [
-      createTestItem("1", 100),   // Top 10% -> xl (200px)
-      createTestItem("2", 90),    // 10-20% -> lg (150px)
-      createTestItem("3", 80),    // 20-30% -> lg (150px)
-      createTestItem("4", 70),    // 30-40% -> md (110px)
-      createTestItem("5", 60),    // 40-50% -> md (110px)
-      createTestItem("6", 50),    // 50-60% -> md (110px)
-      createTestItem("7", 40),    // 60-70% -> sm (80px)
-      createTestItem("8", 30),    // 70-80% -> sm (80px)
-      createTestItem("9", 20),    // 80-85% -> sm (80px)
-      createTestItem("10", 10),   // 85-100% -> xs (60px)
+      createTestItem("1", 100),   // Top 10% -> xl (220px)
+      createTestItem("2", 90),    // 10-20% -> lg (168px)
+      createTestItem("3", 80),    // 20-30% -> lg (168px)
+      createTestItem("4", 70),    // 30-40% -> md (128px)
+      createTestItem("5", 60),    // 40-50% -> md (128px)
+      createTestItem("6", 50),    // 50-60% -> md (128px)
+      createTestItem("7", 40),    // 60-70% -> sm (96px)
+      createTestItem("8", 30),    // 70-80% -> sm (96px)
+      createTestItem("9", 20),    // 80-85% -> sm (96px)
+      createTestItem("10", 10),   // 85-100% -> xs (72px)
     ];
 
     const { container } = render(
@@ -143,7 +143,7 @@ describe("TileGrid - bucket sizing", () => {
 
     allElements.forEach((el) => {
       const style = el.getAttribute("style");
-      if (style && style.includes("cursor: pointer")) {
+      if (style && style.includes("height:")) {
         const heightMatch = style.match(/height:\s*(\d+)px/);
         if (heightMatch) {
           tileHeights.push(parseInt(heightMatch[1], 10));
@@ -151,18 +151,12 @@ describe("TileGrid - bucket sizing", () => {
       }
     });
 
-    // With 10 items:
-    // - 1 item (10%) should be xl = 200px
-    // - 2 items (20%) should be lg = 150px
-    // - 3 items (30%) should be md = 110px
-    // - 2-3 items (25%) should be sm = 80px
-    // - 1-2 items (15%) should be xs = 60px
-
-    expect(tileHeights).toContain(200); // xl bucket
-    expect(tileHeights).toContain(150); // lg bucket
-    expect(tileHeights).toContain(110); // md bucket
-    expect(tileHeights).toContain(80);  // sm bucket
-    expect(tileHeights).toContain(60);  // xs bucket
+    // With 10 items, verify we have tiles at various sizes
+    expect(tileHeights).toContain(220); // xl bucket
+    expect(tileHeights).toContain(168); // lg bucket
+    expect(tileHeights).toContain(128); // md bucket
+    expect(tileHeights).toContain(96);  // sm bucket
+    expect(tileHeights).toContain(72);  // xs bucket
   });
 
   it("handles single item gracefully (assigns xl bucket)", () => {
@@ -181,7 +175,7 @@ describe("TileGrid - bucket sizing", () => {
 
     allElements.forEach((el) => {
       const style = el.getAttribute("style");
-      if (style && style.includes("cursor: pointer")) {
+      if (style && style.includes("height:")) {
         const heightMatch = style.match(/height:\s*(\d+)px/);
         if (heightMatch) {
           foundHeight = parseInt(heightMatch[1], 10);
@@ -189,8 +183,8 @@ describe("TileGrid - bucket sizing", () => {
       }
     });
 
-    // Single item is at 0% percentile (top) -> xl = 200px
-    expect(foundHeight).toBe(200);
+    // Single item is at 0% percentile (top) -> xl = 220px
+    expect(foundHeight).toBe(220);
   });
 });
 
@@ -199,7 +193,7 @@ describe("TileGrid - selection", () => {
     cleanup();
   });
 
-  it("passes correct selectedIndex to tiles (selected tile shows accent styling)", () => {
+  it("passes correct selectedIndex to tiles (selected tile shows distinct styling)", () => {
     const items: TileItem[] = [
       createTestItem("1", 10),
       createTestItem("2", 20),
@@ -214,17 +208,15 @@ describe("TileGrid - selection", () => {
       />
     );
 
-    // Find all tile elements
+    // Find tiles with glassmorphic selected styling (brighter background)
     const allElements = container.querySelectorAll("*");
     let selectedTileFound = false;
 
     allElements.forEach((el) => {
       const style = el.getAttribute("style");
-      // Selected tile should have accent border styling
-      if (style && style.includes("var(--uilint-accent)") && style.includes("cursor: pointer")) {
+      // Selected tile has rgba(255, 255, 255, 0.15) background and 0.3 border
+      if (style && style.includes("rgba(255, 255, 255, 0.15)") && style.includes("cursor: pointer")) {
         selectedTileFound = true;
-        // Also verify it has the info-bg background
-        expect(style).toContain("var(--uilint-info-bg)");
       }
     });
 
@@ -245,13 +237,13 @@ describe("TileGrid - selection", () => {
       />
     );
 
-    // No tile should have selected styling (accent border)
+    // No tile should have selected styling (0.15 opacity background)
     const allElements = container.querySelectorAll("*");
     let selectedTileFound = false;
 
     allElements.forEach((el) => {
       const style = el.getAttribute("style");
-      if (style && style.includes("var(--uilint-accent)") && style.includes("cursor: pointer")) {
+      if (style && style.includes("rgba(255, 255, 255, 0.15)") && style.includes("cursor: pointer")) {
         selectedTileFound = true;
       }
     });
