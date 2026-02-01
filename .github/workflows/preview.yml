@@ -49,6 +49,16 @@ jobs:
           pnpm install
           pnpm build:packages
 
+          # Pack packages as tarballs for proper installation (symlinks don't resolve subpath exports correctly)
+          echo "Packing packages as tarballs..."
+          mkdir -p /tmp/packages
+          cd packages/uilint-core && pnpm pack --pack-destination /tmp/packages && cd ../..
+          cd packages/uilint && pnpm pack --pack-destination /tmp/packages && cd ../..
+          cd packages/uilint-react && pnpm pack --pack-destination /tmp/packages && cd ../..
+          cd packages/uilint-eslint && pnpm pack --pack-destination /tmp/packages && cd ../..
+          cd packages/jsx-loc-plugin && pnpm pack --pack-destination /tmp/packages && cd ../..
+          ls -la /tmp/packages/
+
       - name: Prepare test-app
         run: |
           # Copy template to /tmp to avoid pnpm workspace hoisting
@@ -67,20 +77,22 @@ jobs:
           fi
 
           if [ "$USE_LOCAL" = "true" ]; then
-            echo "Using locally built packages..."
+            echo "Using locally built packages from tarballs..."
 
-            # First, add uilint CLI so we can run init
-            pnpm add ${{ github.workspace }}/packages/uilint
+            # Install uilint CLI from tarball so we can run init
+            pnpm add /tmp/packages/uilint-*.tgz
 
             # Run uilint init to set up the project (this adds deps to package.json)
             npx uilint init --react --eslint
 
-            # Now override with local packages (after init modified package.json)
-            echo "Linking local packages..."
-            pnpm add ${{ github.workspace }}/packages/uilint
-            pnpm add ${{ github.workspace }}/packages/uilint-react
-            pnpm add ${{ github.workspace }}/packages/uilint-eslint
-            pnpm add ${{ github.workspace }}/packages/jsx-loc-plugin
+            # Now install all local packages from tarballs (after init modified package.json)
+            # Installing from tarballs ensures subpath exports resolve correctly
+            echo "Installing local packages from tarballs..."
+            pnpm add /tmp/packages/uilint-core-*.tgz
+            pnpm add /tmp/packages/uilint-[0-9]*.tgz
+            pnpm add /tmp/packages/uilint-react-*.tgz
+            pnpm add /tmp/packages/uilint-eslint-*.tgz
+            pnpm add /tmp/packages/jsx-loc-plugin-*.tgz
           else
             # Use published npm version (after automatic publish on main)
             echo "Using published npm packages..."
