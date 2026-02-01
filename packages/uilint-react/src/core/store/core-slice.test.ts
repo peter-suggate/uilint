@@ -303,7 +303,7 @@ describe("Core Slice - Command Palette Actions", () => {
       expect(getState().commandPalette.open).toBe(false);
     });
 
-    it("resets to default state", () => {
+    it("resets query and index but preserves filters", () => {
       const { getState } = createTestSlice();
 
       // Set up various state
@@ -317,7 +317,10 @@ describe("Core Slice - Command Palette Actions", () => {
       expect(getState().commandPalette.open).toBe(false);
       expect(getState().commandPalette.query).toBe("");
       expect(getState().commandPalette.selectedIndex).toBe(0);
-      expect(getState().commandPalette.filters).toEqual([]);
+      // Unified model: filters persist when closing command palette
+      expect(getState().commandPalette.filters).toEqual([
+        { type: "rule", value: "test", label: "Test" },
+      ]);
     });
   });
 

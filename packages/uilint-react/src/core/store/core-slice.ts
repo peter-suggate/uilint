@@ -386,10 +386,14 @@ export const createCoreSlice = (
   },
 
   closeCommandPalette: () => {
+    // Preserve filters when closing - unified model keeps filters active
+    const current = get().commandPalette;
     set({
       commandPalette: {
-        ...DEFAULT_COMMAND_PALETTE_STATE,
+        ...current,
         open: false,
+        query: "",
+        selectedIndex: 0,
       },
     });
   },

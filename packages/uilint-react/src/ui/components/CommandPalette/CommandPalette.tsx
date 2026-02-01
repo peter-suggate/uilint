@@ -168,9 +168,7 @@ export function CommandPalette() {
           style={{
             position: "fixed",
             inset: 0,
-            background: isMobile ? "var(--uilint-surface)" : "rgba(0, 0, 0, 0.2)",
-            backdropFilter: isMobile ? "none" : "blur(20px)",
-            WebkitBackdropFilter: isMobile ? "none" : "blur(20px)",
+            background: isMobile ? "var(--uilint-surface)" : "transparent",
             display: "flex",
             alignItems: isMobile ? "stretch" : "flex-start",
             justifyContent: "center",
