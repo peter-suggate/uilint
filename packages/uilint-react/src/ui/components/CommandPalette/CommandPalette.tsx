@@ -864,8 +864,8 @@ export function CommandPalette() {
                           isTerminal={isTerminal}
                         />
                       </motion.div>
-                    ) : tileItems.length === 0 && (query || filters.length > 0) ? (
-                      /* Empty states for tile view */
+                    ) : tileItems.length === 0 && filters.length > 0 && allResults.length === 0 && filteredRules.length === 0 ? (
+                      /* Empty state for filtered tile view - only when no list results either */
                       <motion.div
                         key="empty-state"
                         initial={isMobile ? false : { opacity: 0, y: 6 }}
@@ -873,13 +873,7 @@ export function CommandPalette() {
                         exit={isMobile ? { opacity: 0 } : { opacity: 0, y: -4 }}
                         transition={{ duration: isMobile ? 0.05 : 0.1 }}
                       >
-                        {query ? (
-                          <EmptyState variant="no-results" query={query} />
-                        ) : filters.length > 0 ? (
-                          <EmptyState variant="filtered-empty" onClearFilters={clearFilters} />
-                        ) : (
-                          <EmptyState variant="no-issues" />
-                        )}
+                        <EmptyState variant="filtered-empty" onClearFilters={clearFilters} />
                       </motion.div>
                     ) : allResults.length === 0 && filteredRules.length === 0 ? (
                       /* Fallback empty state for list view */
