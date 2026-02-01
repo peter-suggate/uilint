@@ -5,6 +5,7 @@
  * Handles duplicates indexing status and semantic analysis state.
  */
 
+import { devLog, devError } from "uilint-core";
 import type {
   SemanticPluginState,
   DuplicatesIndexStatus,
@@ -96,7 +97,7 @@ export function createSemanticPluginSlice(
         duplicatesIndexProgress: null,
         duplicatesIndexError: null,
       });
-      console.log("[SemanticPlugin] Duplicates indexing started");
+      devLog("[SemanticPlugin] Duplicates indexing started");
     },
 
     handleDuplicatesIndexingProgress: (data) => {
@@ -125,7 +126,7 @@ export function createSemanticPluginSlice(
           duration,
         },
       });
-      console.log(
+      devLog(
         `[SemanticPlugin] Duplicates index ready: ${totalChunks} chunks ` +
           `(${added} added, ${modified} modified, ${deleted} deleted) in ${duration}ms`
       );
@@ -139,7 +140,7 @@ export function createSemanticPluginSlice(
         duplicatesIndexProgress: null,
         duplicatesIndexError: error,
       });
-      console.error("[SemanticPlugin] Duplicates indexing error:", error);
+      devError("[SemanticPlugin] Duplicates indexing error:", error);
     },
 
     resetDuplicatesIndexState: () => {

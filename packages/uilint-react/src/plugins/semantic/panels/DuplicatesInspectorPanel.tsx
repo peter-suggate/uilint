@@ -11,6 +11,7 @@
  * the panel parses the ESLint message to extract target info and fetches code dynamically.
  */
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { devLog } from "uilint-core";
 import type { InspectorPanelProps } from "../../../core/plugin-system/types";
 import { useComposedStore } from "../../../core/store";
 import { DuplicateSimilarityBadge } from "./DuplicateSimilarityBadge";
@@ -346,14 +347,14 @@ export function DuplicatesInspectorPanel({ data, services }: InspectorPanelProps
   // Handle file navigation
   const handleNavigateToSource = () => {
     if (sourceLocation) {
-      console.log("[DuplicatesInspectorPanel] Navigate to source", sourceLocation);
+      devLog("[DuplicatesInspectorPanel] Navigate to source", sourceLocation);
       // Could integrate with IDE via existing navigation mechanism
     }
   };
 
   const handleNavigateToTarget = () => {
     if (targetLocation) {
-      console.log("[DuplicatesInspectorPanel] Navigate to target", targetLocation);
+      devLog("[DuplicatesInspectorPanel] Navigate to target", targetLocation);
       // Could integrate with IDE via existing navigation mechanism
     }
   };

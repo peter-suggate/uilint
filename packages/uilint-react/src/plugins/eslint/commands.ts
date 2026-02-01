@@ -4,6 +4,7 @@
  * Commands for the command palette related to ESLint functionality.
  */
 
+import { devWarn } from "uilint-core";
 import type { Command, PluginServices } from "../../core/plugin-system/types";
 import type { ScanStatus } from "./slice";
 
@@ -31,7 +32,7 @@ const toggleScanCommand: Command = {
 
     const eslint = state.plugins.eslint;
     if (!eslint) {
-      console.warn("[ESLint Command] ESLint plugin slice not found");
+      devWarn("[ESLint Command] ESLint plugin slice not found");
       return;
     }
 
@@ -102,7 +103,7 @@ const startScanCommand: Command = {
 
     const eslint = state.plugins.eslint;
     if (!eslint) {
-      console.warn("[ESLint Command] ESLint plugin slice not found");
+      devWarn("[ESLint Command] ESLint plugin slice not found");
       return;
     }
 
@@ -139,7 +140,7 @@ const stopScanCommand: Command = {
 
     const eslint = state.plugins.eslint;
     if (!eslint) {
-      console.warn("[ESLint Command] ESLint plugin slice not found");
+      devWarn("[ESLint Command] ESLint plugin slice not found");
       return;
     }
 
@@ -175,7 +176,7 @@ const clearAndRescanCommand: Command = {
 
     const eslint = state.plugins.eslint;
     if (!eslint) {
-      console.warn("[ESLint Command] ESLint plugin slice not found");
+      devWarn("[ESLint Command] ESLint plugin slice not found");
       return;
     }
 

@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
+import { devLog, devWarn } from "uilint-core";
 import { UILint } from "./ui";
 import { websocket } from "./core/services/websocket";
 import { domObserver } from "./core/services/dom-observer";
@@ -74,7 +75,7 @@ export function DevTool({
 
   // Validate props
   if (mode === "static" && !manifestUrl) {
-    console.warn("[DevTool] Static mode requires manifestUrl prop");
+    devWarn("[DevTool] Static mode requires manifestUrl prop");
   }
 
   /**
@@ -135,7 +136,7 @@ export function DevTool({
     async function init() {
       // Configure static mode BEFORE plugin initialization
       if (isStaticMode) {
-        console.log("[DevTool] Configuring static mode with manifest:", manifestUrl);
+        devLog("[DevTool] Configuring static mode with manifest:", manifestUrl);
         configureStaticMode(manifestUrl);
       } else {
         // Ensure static mode is cleared if switching modes
@@ -149,7 +150,7 @@ export function DevTool({
         pluginRegistry.register(fixPromptPlugin);
         await initializePlugins({ websocket, domObserver });
         pluginsInitialized = true;
-        console.log("[DevTool] Plugins initialized in", isStaticMode ? "static" : "websocket", "mode");
+        devLog("[DevTool] Plugins initialized in", isStaticMode ? "static" : "websocket", "mode");
       }
 
       // Mark as ready so UI can render
@@ -157,7 +158,7 @@ export function DevTool({
 
       if (isStaticMode) {
         // Static mode: Start DOM observer immediately (no WebSocket needed)
-        console.log("[DevTool] Static mode: starting DOM observer");
+        devLog("[DevTool] Static mode: starting DOM observer");
         domObserver.start();
       } else {
         // WebSocket mode: Connect and wait for connection before starting observer
@@ -165,10 +166,10 @@ export function DevTool({
 
         unsubscribeConnection = websocket.onConnectionChange((connected) => {
           if (connected) {
-            console.log("[DevTool] WebSocket connected, starting DOM observer");
+            devLog("[DevTool] WebSocket connected, starting DOM observer");
             domObserver.start();
           } else {
-            console.log(
+            devLog(
               "[DevTool] WebSocket disconnected, stopping DOM observer"
             );
             domObserver.stop();

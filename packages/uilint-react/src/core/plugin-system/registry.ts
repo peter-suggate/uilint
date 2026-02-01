@@ -6,6 +6,7 @@
  * plugin contributions (commands, analyzers, inspector panels, etc.).
  */
 
+import { devLog, devWarn, devError } from "uilint-core";
 import type {
   Plugin,
   PluginServices,
@@ -108,11 +109,11 @@ export class PluginRegistry {
    * @throws Warning if plugin dependencies are not registered
    */
   register(plugin: Plugin): void {
-    console.log(`[PluginRegistry] Registering plugin: ${plugin.id}`);
+    devLog(`[PluginRegistry] Registering plugin: ${plugin.id}`);
 
     // Check for duplicate
     if (this.plugins.has(plugin.id)) {
-      console.warn(
+      devWarn(
         `[PluginRegistry] Plugin "${plugin.id}" is already registered. Skipping duplicate registration.`
       );
       return;
@@ -128,7 +129,7 @@ export class PluginRegistry {
     }
 
     if (missingDeps.length > 0) {
-      console.warn(
+      devWarn(
         `[PluginRegistry] Plugin "${plugin.id}" has unregistered dependencies: ${missingDeps.join(", ")}. ` +
           `These plugins should be registered first for proper initialization order.`
       );
@@ -140,7 +141,7 @@ export class PluginRegistry {
       initialized: false,
     });
 
-    console.log(
+    devLog(
       `[PluginRegistry] Plugin "${plugin.id}" registered successfully`
     );
   }
@@ -305,7 +306,7 @@ export class PluginRegistry {
    */
   getAllRules(): RuleDefinition[] {
     if (!this.services) {
-      console.warn("[PluginRegistry] Cannot get rules: services not initialized");
+      devWarn("[PluginRegistry] Cannot get rules: services not initialized");
       return [];
     }
 
@@ -319,7 +320,7 @@ export class PluginRegistry {
           const pluginRules = plugin.getRules(this.services);
           rules.push(...pluginRules);
         } catch (error) {
-          console.error(
+          devError(
             `[PluginRegistry] Error getting rules from plugin "${plugin.id}":`,
             error
           );
@@ -339,7 +340,7 @@ export class PluginRegistry {
    */
   setRuleSeverity(ruleId: string, severity: "error" | "warning" | "off"): void {
     if (!this.services) {
-      console.warn("[PluginRegistry] Cannot set rule severity: services not initialized");
+      devWarn("[PluginRegistry] Cannot set rule severity: services not initialized");
       return;
     }
 
@@ -363,7 +364,7 @@ export class PluginRegistry {
       }
     }
 
-    console.warn(`[PluginRegistry] No plugin found to handle rule: ${ruleId}`);
+    devWarn(`[PluginRegistry] No plugin found to handle rule: ${ruleId}`);
   }
 
   /**
@@ -374,7 +375,7 @@ export class PluginRegistry {
    */
   getRuleConfig(ruleId: string): Record<string, unknown> | undefined {
     if (!this.services) {
-      console.warn("[PluginRegistry] Cannot get rule config: services not initialized");
+      devWarn("[PluginRegistry] Cannot get rule config: services not initialized");
       return undefined;
     }
 
@@ -401,7 +402,7 @@ export class PluginRegistry {
    */
   setRuleConfig(ruleId: string, config: Record<string, unknown>): void {
     if (!this.services) {
-      console.warn("[PluginRegistry] Cannot set rule config: services not initialized");
+      devWarn("[PluginRegistry] Cannot set rule config: services not initialized");
       return;
     }
 
@@ -419,7 +420,7 @@ export class PluginRegistry {
       }
     }
 
-    console.warn(`[PluginRegistry] No plugin found to configure rule: ${ruleId}`);
+    devWarn(`[PluginRegistry] No plugin found to configure rule: ${ruleId}`);
   }
 
   /**
@@ -510,7 +511,7 @@ export class PluginRegistry {
    * Calls dispose on each plugin in reverse initialization order.
    */
   disposeAll(): void {
-    console.log("[PluginRegistry] Disposing all plugins...");
+    devLog("[PluginRegistry] Disposing all plugins...");
 
     // Get all plugins and sort by dependencies (reverse order for disposal)
     const allPlugins = Array.from(this.plugins.values()).map((rp) => rp.plugin);
@@ -521,18 +522,18 @@ export class PluginRegistry {
       if (!registered || !registered.initialized) continue;
 
       try {
-        console.log(`[PluginRegistry] Disposing plugin: ${plugin.id}`);
+        devLog(`[PluginRegistry] Disposing plugin: ${plugin.id}`);
 
         if (plugin.dispose && this.services) {
           plugin.dispose(this.services);
         }
 
         registered.initialized = false;
-        console.log(
+        devLog(
           `[PluginRegistry] Plugin "${plugin.id}" disposed successfully`
         );
       } catch (error) {
-        console.error(
+        devError(
           `[PluginRegistry] Failed to dispose plugin "${plugin.id}":`,
           error
         );
@@ -542,7 +543,7 @@ export class PluginRegistry {
     // Clear services reference
     this.services = null;
 
-    console.log("[PluginRegistry] All plugins disposed");
+    devLog("[PluginRegistry] All plugins disposed");
   }
 
   /**
@@ -579,7 +580,7 @@ export class PluginRegistry {
    * Useful for testing or resetting the registry.
    */
   clear(): void {
-    console.log("[PluginRegistry] Clearing all plugins");
+    devLog("[PluginRegistry] Clearing all plugins");
     this.disposeAll();
     this.plugins.clear();
   }

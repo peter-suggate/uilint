@@ -6,6 +6,7 @@
  */
 
 import type { StateCreator } from "zustand";
+import { devWarn, devError } from "uilint-core";
 import type {
   CategoryProvider,
   CategoryItem,
@@ -246,7 +247,7 @@ export const createCategorySlice: StateCreator<CategorySlice> = (set, get) => ({
     const { categoryProviders, categoryCache, categoryServices } = get();
 
     if (categoryProviders.has(provider.id)) {
-      console.warn(
+      devWarn(
         `[CategorySlice] Provider "${provider.id}" already registered. Skipping.`
       );
       return;
@@ -317,12 +318,12 @@ export const createCategorySlice: StateCreator<CategorySlice> = (set, get) => ({
     }
 
     if (!provider) {
-      console.warn(`[CategorySlice] Unknown provider: ${categoryId}`);
+      devWarn(`[CategorySlice] Unknown provider: ${categoryId}`);
       return [];
     }
 
     if (!categoryServices) {
-      console.warn("[CategorySlice] Services not initialized");
+      devWarn("[CategorySlice] Services not initialized");
       return [];
     }
 
@@ -406,7 +407,7 @@ export const createCategorySlice: StateCreator<CategorySlice> = (set, get) => ({
           categoryTree: buildCategoryTree(currentProviders, updatedCache, currentServices),
         });
 
-        console.error(
+        devError(
           `[CategorySlice] Failed to load items for "${categoryId}":`,
           error
         );

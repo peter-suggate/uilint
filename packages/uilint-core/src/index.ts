@@ -100,3 +100,6 @@ export {
 } from "./consistency/index.js";
 
 // NOTE: rule-based code validation/linting was removed in favor of scan/analyze flows.
+
+// Logger (test-aware logging utilities)
+export { devLog, devWarn, devError } from "./logger.js";

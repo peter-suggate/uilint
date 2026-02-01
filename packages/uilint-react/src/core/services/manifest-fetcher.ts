@@ -5,6 +5,7 @@
  * Used in static/remote mode as an alternative to the WebSocket connection.
  */
 
+import { devLog, devError } from "uilint-core";
 import type { LintManifest } from "./manifest-types";
 
 /**
@@ -90,7 +91,7 @@ export function createManifestFetcher(
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         if (attempt > 0) {
-          console.log(
+          devLog(
             `[ManifestFetcher] Retry attempt ${attempt}/${retries}...`
           );
           await sleep(retryDelay * attempt); // Exponential backoff
@@ -121,7 +122,7 @@ export function createManifestFetcher(
       } catch (error) {
         lastError =
           error instanceof Error ? error : new Error(String(error));
-        console.error(
+        devError(
           `[ManifestFetcher] Fetch failed (attempt ${attempt + 1}):`,
           lastError.message
         );
@@ -149,7 +150,7 @@ export function createManifestFetcher(
 
       fetchPromise = (async () => {
         try {
-          console.log(
+          devLog(
             `[ManifestFetcher] Fetching manifest from ${manifestUrl}...`
           );
           const manifest = await fetchWithRetries();
@@ -157,7 +158,7 @@ export function createManifestFetcher(
           cached = manifest;
           cachedAt = Date.now();
 
-          console.log(
+          devLog(
             `[ManifestFetcher] Loaded manifest: ${manifest.summary.totalIssues} issues in ${manifest.summary.filesWithIssues} files`
           );
 
@@ -181,7 +182,7 @@ export function createManifestFetcher(
     invalidate(): void {
       cached = null;
       cachedAt = null;
-      console.log("[ManifestFetcher] Cache invalidated");
+      devLog("[ManifestFetcher] Cache invalidated");
     },
 
     isFetching(): boolean {

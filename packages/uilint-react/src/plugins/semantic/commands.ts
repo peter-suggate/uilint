@@ -4,6 +4,7 @@
  * Command palette commands for semantic analysis and duplicates detection.
  */
 
+import { devLog } from "uilint-core";
 import type { Command } from "../../core/plugin-system/types";
 
 /**
@@ -17,7 +18,7 @@ const runSemanticAnalysisCommand: Command = {
   subtitle: "Analyze current file with LLM",
   icon: "\uD83E\uDDE0", // brain emoji
   execute: async (services) => {
-    console.log("[SemanticPlugin] Running semantic analysis...");
+    devLog("[SemanticPlugin] Running semantic analysis...");
 
     // Send message to server to trigger semantic analysis
     services.websocket.send({
@@ -41,7 +42,7 @@ const rebuildDuplicatesIndexCommand: Command = {
   subtitle: "Re-index codebase for duplicate detection",
   icon: "\uD83D\uDD0D", // magnifying glass emoji
   execute: async (services) => {
-    console.log("[SemanticPlugin] Rebuilding duplicates index...");
+    devLog("[SemanticPlugin] Rebuilding duplicates index...");
 
     // Send message to server to rebuild the duplicates index
     services.websocket.send({
@@ -79,16 +80,16 @@ const showDuplicatesIndexStatusCommand: Command = {
     const { duplicatesIndexStatus, duplicatesIndexStats, duplicatesIndexError } = state;
 
     if (duplicatesIndexStatus === "error" && duplicatesIndexError) {
-      console.log(`[SemanticPlugin] Duplicates index error: ${duplicatesIndexError}`);
+      devLog(`[SemanticPlugin] Duplicates index error: ${duplicatesIndexError}`);
     } else if (duplicatesIndexStatus === "ready" && duplicatesIndexStats) {
-      console.log(
+      devLog(
         `[SemanticPlugin] Duplicates index ready: ${duplicatesIndexStats.totalChunks} chunks, ` +
           `last updated in ${duplicatesIndexStats.duration}ms`
       );
     } else if (duplicatesIndexStatus === "indexing") {
-      console.log("[SemanticPlugin] Duplicates index is currently building...");
+      devLog("[SemanticPlugin] Duplicates index is currently building...");
     } else {
-      console.log("[SemanticPlugin] Duplicates index is idle (not built)");
+      devLog("[SemanticPlugin] Duplicates index is idle (not built)");
     }
 
     // Close command palette after execution
@@ -112,7 +113,7 @@ const findSimilarCodeCommand: Command = {
     return s.duplicatesIndexStatus === "ready";
   },
   execute: async (services) => {
-    console.log("[SemanticPlugin] Finding similar code...");
+    devLog("[SemanticPlugin] Finding similar code...");
 
     // Send message to server to find similar code
     services.websocket.send({
@@ -135,7 +136,7 @@ const clearSemanticCacheCommand: Command = {
   subtitle: "Clear cached LLM analysis results",
   icon: "\uD83D\uDDD1\uFE0F", // wastebasket emoji
   execute: async (services) => {
-    console.log("[SemanticPlugin] Clearing semantic cache...");
+    devLog("[SemanticPlugin] Clearing semantic cache...");
 
     // Send message to server to clear the semantic cache
     services.websocket.send({

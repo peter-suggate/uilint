@@ -2,6 +2,7 @@
  * Client for fetching source code from the dev API
  */
 
+import { devWarn, devError } from "uilint-core";
 import type { SourceApiResponse, CachedSource, SourceLocation } from "./types";
 
 // Cache for fetched source files
@@ -36,7 +37,7 @@ export async function fetchSource(
     );
 
     if (!response.ok) {
-      console.warn(`[UILint] Failed to fetch source: ${response.statusText}`);
+      devWarn(`[UILint] Failed to fetch source: ${response.statusText}`);
       return null;
     }
 
@@ -50,7 +51,7 @@ export async function fetchSource(
 
     return data;
   } catch (error) {
-    console.error("[UILint] Error fetching source:", error);
+    devError("[UILint] Error fetching source:", error);
     return null;
   }
 }
