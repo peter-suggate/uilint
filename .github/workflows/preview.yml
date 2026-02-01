@@ -67,23 +67,27 @@ jobs:
           fi
 
           if [ "$USE_LOCAL" = "true" ]; then
-            echo "Linking locally built packages..."
+            echo "Using locally built packages..."
 
-            # Install the locally built packages
+            # First, add uilint CLI so we can run init
+            pnpm add ${{ github.workspace }}/packages/uilint
+
+            # Run uilint init to set up the project (this adds deps to package.json)
+            npx uilint init --react --eslint
+
+            # Now override with local packages (after init modified package.json)
+            echo "Linking local packages..."
             pnpm add ${{ github.workspace }}/packages/uilint
             pnpm add ${{ github.workspace }}/packages/uilint-react
             pnpm add ${{ github.workspace }}/packages/uilint-eslint
             pnpm add ${{ github.workspace }}/packages/jsx-loc-plugin
-
-            # Run uilint init with the local version
-            npx uilint init --react --eslint
           else
             # Use published npm version (after automatic publish on main)
             echo "Using published npm packages..."
             npx uilint@latest init --react --eslint
           fi
 
-          # Re-install to ensure uilint-react is installed after init modified package.json
+          # Final install to ensure all dependencies are resolved
           pnpm install
 
           # Configure static mode for production deployment
