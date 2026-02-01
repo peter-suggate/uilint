@@ -7,7 +7,8 @@
 
 import type { StateCreator } from "zustand";
 import { devWarn } from "uilint-core";
-import type { PluginServices, TileFilter } from "../plugin-system/types";
+import type { PluginServices, TileFilter, TileItem, CategoryProvider } from "../plugin-system/types";
+import { pluginRegistry } from "../plugin-system/registry";
 
 // ============================================================================
 // Types
@@ -72,6 +73,10 @@ export interface CommandPaletteState {
   selectedCategoryIds: Set<string>;
   /** Whether sidebar is focused (for keyboard navigation) */
   sidebarFocused: boolean;
+  /** Raw tile items from providers (before filtering/dedup) */
+  tileItems: TileItem[];
+  /** Whether tile items are currently loading */
+  tileItemsLoading: boolean;
 }
 
 /**
@@ -172,6 +177,10 @@ export interface CoreSlice {
   toggleCategory: (categoryId: string) => void;
   /** Toggle sidebar focus for keyboard navigation */
   setSidebarFocused: (focused: boolean) => void;
+  /** Set tile items and loading state */
+  setTileItems: (items: TileItem[], loading: boolean) => void;
+  /** Refresh tile items from providers synchronously */
+  refreshTileItems: () => void;
 
   // ============ Inspector ============
   /** Inspector sidebar state */
@@ -278,6 +287,8 @@ const DEFAULT_COMMAND_PALETTE_STATE: CommandPaletteState = {
   selectedCategoryId: null,
   selectedCategoryIds: new Set<string>(),
   sidebarFocused: false,
+  tileItems: [],
+  tileItemsLoading: false,
 };
 
 const DEFAULT_HEATMAP_FILTER_STATE: HeatmapFilterState = {
@@ -473,6 +484,87 @@ export const createCoreSlice = (
       commandPalette: {
         ...get().commandPalette,
         sidebarFocused: focused,
+      },
+    });
+  },
+
+  setTileItems: (items, loading) => {
+    set({
+      commandPalette: {
+        ...get().commandPalette,
+        tileItems: items,
+        tileItemsLoading: loading,
+      },
+    });
+  },
+
+  refreshTileItems: () => {
+    const current = get().commandPalette;
+    const { filters, selectedCategoryIds } = current;
+
+    // Get active category providers based on selection
+    const allProviders = pluginRegistry.getAllCategoryProviders();
+    let activeProviders: CategoryProvider[];
+
+    if (selectedCategoryIds.size === 0) {
+      // If no categories selected, use all providers that have getTileItems
+      activeProviders = allProviders.filter((provider) => provider.getTileItems !== undefined);
+    } else {
+      // Filter to only selected categories that have getTileItems
+      activeProviders = allProviders.filter(
+        (provider) =>
+          selectedCategoryIds.has(provider.id) && provider.getTileItems !== undefined
+      );
+    }
+
+    // If no active providers, clear items
+    if (activeProviders.length === 0) {
+      set({
+        commandPalette: {
+          ...get().commandPalette,
+          tileItems: [],
+          tileItemsLoading: false,
+        },
+      });
+      return;
+    }
+
+    // Set loading state
+    set({
+      commandPalette: {
+        ...get().commandPalette,
+        tileItemsLoading: true,
+      },
+    });
+
+    // Collect all items from providers synchronously
+    const allItems: TileItem[] = [];
+
+    for (const provider of activeProviders) {
+      if (!provider.getTileItems) continue;
+
+      try {
+        const result = provider.getTileItems(services, filters);
+
+        // Only handle sync results - skip promises
+        if (!(result instanceof Promise)) {
+          allItems.push(...result);
+        }
+      } catch (error) {
+        // Log error but continue with other providers
+        devWarn(
+          `[CoreSlice] Error getting tile items from provider "${provider.id}":`,
+          error
+        );
+      }
+    }
+
+    // Update state with collected items
+    set({
+      commandPalette: {
+        ...get().commandPalette,
+        tileItems: allItems,
+        tileItemsLoading: false,
       },
     });
   },

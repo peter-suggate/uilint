@@ -13,6 +13,17 @@ export {
   type HeatmapFilterState,
 } from "./core-slice";
 
+// Tile selectors
+export {
+  selectTileItems,
+  selectRawTileItems,
+  selectTileItemsLoading,
+  selectIsTerminalFilter,
+  selectActiveProviders,
+  filterByQuery,
+  dedupeItems,
+} from "./tile-selectors";
+
 // Composed store - unified store with plugin slices
 export {
   // Store creation and hooks

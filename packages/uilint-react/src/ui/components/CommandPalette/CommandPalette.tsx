@@ -16,7 +16,7 @@
  * - shadcn class conventions
  */
 
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { devError } from "uilint-core";
@@ -318,6 +318,14 @@ export function CommandPalette() {
   const removeLastFilter = useComposedStore((s) => s.removeLastFilter);
   const clearFilters = useComposedStore((s) => s.clearFilters);
   const toggleCategory = useComposedStore((s) => s.toggleCategory);
+  const refreshTileItems = useComposedStore((s) => s.refreshTileItems);
+
+  // Refresh tile items when filters or categories change
+  useEffect(() => {
+    if (isOpen) {
+      refreshTileItems();
+    }
+  }, [isOpen, filters, selectedCategoryIds, refreshTileItems]);
 
   // Mobile detection from store
   const isMobile = useComposedStore((s) => s.mobile.isMobile);

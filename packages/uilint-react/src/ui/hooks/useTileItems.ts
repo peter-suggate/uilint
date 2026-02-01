@@ -1,14 +1,21 @@
 /**
  * useTileItems - React hook for computing tile items based on filters and categories
  *
+ * Uses Zustand store with selectors for derived state.
  * Aggregates tile items from category providers, filters by query text,
- * and handles async loading states. Used by the masonry grid tile view.
+ * and handles loading states. Used by the masonry grid tile view.
  */
 
-import { useMemo, useState, useEffect } from "react";
-import { getPluginServices } from "../../core/store";
+import { useMemo } from "react";
+import { useComposedStore } from "../../core/store";
+import {
+  selectRawTileItems,
+  selectTileItemsLoading,
+  filterByQuery,
+  dedupeItems,
+} from "../../core/store/tile-selectors";
 import { pluginRegistry } from "../../core/plugin-system/registry";
-import type { TileItem, TileFilter, CategoryProvider } from "../../core/plugin-system/types";
+import type { TileItem, TileFilter } from "../../core/plugin-system/types";
 
 /**
  * Return type for the useTileItems hook
@@ -23,57 +30,16 @@ export interface UseTileItemsResult {
 }
 
 /**
- * Filter tile items by query text.
- * Matches against label and subtitle (case-insensitive).
+ * Hook that returns tile items to display based on current filters and categories.
  *
- * @param items - Tile items to filter
- * @param query - Search query string
- * @returns Filtered items matching the query
- */
-function filterByQuery(items: TileItem[], query: string): TileItem[] {
-  if (!query.trim()) {
-    return items;
-  }
-
-  const normalizedQuery = query.toLowerCase().trim();
-
-  return items.filter((item) => {
-    const label = item.label?.toLowerCase() ?? "";
-    const subtitle = item.subtitle?.toLowerCase() ?? "";
-
-    return label.includes(normalizedQuery) || subtitle.includes(normalizedQuery);
-  });
-}
-
-/**
- * Deduplicate tile items by id, keeping the first occurrence.
+ * This hook uses Zustand selectors to derive state from the store:
+ * 1. Gets raw tile items from the store (populated by refreshTileItems action)
+ * 2. Filters results by query text (matching label and subtitle)
+ * 3. Deduplicates items by id
+ * 4. Determines if the current filter state is terminal
  *
- * @param items - Tile items to deduplicate
- * @returns Deduplicated items
- */
-function dedupeItems(items: TileItem[]): TileItem[] {
-  const seen = new Set<string>();
-  const result: TileItem[] = [];
-
-  for (const item of items) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      result.push(item);
-    }
-  }
-
-  return result;
-}
-
-/**
- * Hook that computes tile items to display based on current filters and categories.
- *
- * This hook:
- * 1. Gets active category providers from the plugin registry
- * 2. Calls getTileItems on each provider with the current filters
- * 3. Filters results by query text (matching label and subtitle)
- * 4. Merges and deduplicates items by id
- * 5. Determines if the current filter state is terminal
+ * Note: The actual data fetching is triggered by the CommandPalette component
+ * calling refreshTileItems() when filters or categories change.
  *
  * @param filters - Currently active tile filters
  * @param query - Search query for filtering items
@@ -114,108 +80,35 @@ export function useTileItems(
   query: string,
   selectedCategoryIds: Set<string>
 ): UseTileItemsResult {
-  const [asyncItems, setAsyncItems] = useState<TileItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  // Get raw state from store using stable selectors
+  const rawItems = useComposedStore(selectRawTileItems);
+  const isLoading = useComposedStore(selectTileItemsLoading);
 
-  // Get active category providers based on selection
-  const activeProviders = useMemo((): CategoryProvider[] => {
+  // Filter and dedupe items - derived from raw items and query
+  const items = useMemo((): TileItem[] => {
+    if (rawItems.length === 0) {
+      return rawItems; // Return same empty array reference
+    }
+    const filtered = filterByQuery(rawItems, query);
+    return dedupeItems(filtered);
+  }, [rawItems, query]);
+
+  // Compute isTerminal from providers - this is cheap and doesn't need store state
+  const isTerminal = useMemo((): boolean => {
     const allProviders = pluginRegistry.getAllCategoryProviders();
+    let activeProviders = allProviders.filter((p) => p.getTileItems !== undefined);
 
-    // If no categories selected, use all providers that have getTileItems
-    if (selectedCategoryIds.size === 0) {
-      return allProviders.filter((provider) => provider.getTileItems !== undefined);
+    if (selectedCategoryIds.size > 0) {
+      activeProviders = activeProviders.filter((p) => selectedCategoryIds.has(p.id));
     }
 
-    // Filter to only selected categories that have getTileItems
-    return allProviders.filter(
-      (provider) =>
-        selectedCategoryIds.has(provider.id) && provider.getTileItems !== undefined
-    );
-  }, [selectedCategoryIds]);
-
-  // Check if current filter state is terminal
-  const isTerminal = useMemo((): boolean => {
-    // Check if any active provider indicates terminal state
     for (const provider of activeProviders) {
       if (provider.isTerminal && provider.isTerminal(filters)) {
         return true;
       }
     }
     return false;
-  }, [activeProviders, filters]);
-
-  // Fetch tile items from all active providers
-  useEffect(() => {
-    const services = getPluginServices();
-    if (!services) {
-      // Services not initialized yet
-      setAsyncItems([]);
-      setIsLoading(false);
-      return;
-    }
-
-    if (activeProviders.length === 0) {
-      setAsyncItems([]);
-      setIsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setIsLoading(true);
-
-    // Collect all items from providers (sync and async)
-    const fetchAllItems = async (): Promise<TileItem[]> => {
-      const allItems: TileItem[] = [];
-
-      // Call getTileItems on each provider
-      const promises = activeProviders.map(async (provider: CategoryProvider) => {
-        if (!provider.getTileItems) return [];
-
-        try {
-          const result = provider.getTileItems(services, filters);
-
-          // Handle both sync and async results
-          if (result instanceof Promise) {
-            return await result;
-          }
-          return result;
-        } catch (error) {
-          console.error(
-            `[useTileItems] Error getting tile items from provider "${provider.id}":`,
-            error
-          );
-          return [];
-        }
-      });
-
-      // Wait for all providers to complete
-      const results = await Promise.all(promises);
-
-      // Merge all items
-      for (const items of results) {
-        allItems.push(...items);
-      }
-
-      return allItems;
-    };
-
-    fetchAllItems().then((items) => {
-      if (!cancelled) {
-        setAsyncItems(items);
-        setIsLoading(false);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeProviders, filters]);
-
-  // Filter by query and dedupe
-  const items = useMemo((): TileItem[] => {
-    const filtered = filterByQuery(asyncItems, query);
-    return dedupeItems(filtered);
-  }, [asyncItems, query]);
+  }, [filters, selectedCategoryIds]);
 
   return {
     items,

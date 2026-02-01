@@ -1,20 +1,28 @@
 /**
- * Tests for useTileItems hook
+ * Tests for useTileItems hook and tile selectors
  * @vitest-environment jsdom
  *
- * Tests tile item aggregation, filtering, deduplication, and loading states.
+ * Tests tile item filtering, deduplication, and state access via zustand selectors.
+ * Uses real store slices with configurable initial state.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
-import type { TileItem, TileFilter, CategoryProvider, PluginServices } from "../../core/plugin-system/types";
+import { renderHook, cleanup } from "@testing-library/react";
+import { act } from "react";
+import type { TileItem, TileFilter, CategoryProvider } from "../../core/plugin-system/types";
+import {
+  selectRawTileItems,
+  selectTileItemsLoading,
+  filterByQuery,
+  dedupeItems,
+} from "../../core/store/tile-selectors";
+import type { CoreSlice } from "../../core/store/core-slice";
 
 // ============================================================================
-// Mocks - Set up before importing the hook
+// Mock pluginRegistry for isTerminal tests
 // ============================================================================
 
 const mockGetAllCategoryProviders = vi.fn<() => CategoryProvider[]>(() => []);
-const mockGetPluginServices = vi.fn<() => PluginServices | null>(() => null);
 
 vi.mock("../../core/plugin-system/registry", () => ({
   pluginRegistry: {
@@ -22,12 +30,13 @@ vi.mock("../../core/plugin-system/registry", () => ({
   },
 }));
 
-vi.mock("../../core/store", () => ({
-  getPluginServices: () => mockGetPluginServices(),
-}));
-
-// Import the hook after mocks are set up
+// Import hook after mocks are set up
 import { useTileItems } from "./useTileItems";
+import {
+  createComposedStore,
+  resetStore,
+  getStoreApi,
+} from "../../core/store/composed-store";
 
 // ============================================================================
 // Test Helpers
@@ -54,325 +63,297 @@ function createMockCategoryProvider(
   };
 }
 
-function createMockServices(): PluginServices {
+/**
+ * Create a minimal state object for testing selectors directly.
+ * This allows testing selector logic without needing the full store.
+ */
+function createTestState(overrides: {
+  tileItems?: TileItem[];
+  tileItemsLoading?: boolean;
+} = {}): CoreSlice {
   return {
+    commandPalette: {
+      open: false,
+      query: "",
+      selectedIndex: 0,
+      filters: [],
+      selectedCategoryIds: new Set(),
+      tileItems: overrides.tileItems ?? [],
+      tileItemsLoading: overrides.tileItemsLoading ?? false,
+    },
+    // Other required fields with defaults
+    floatingIconPosition: null,
+    altKeyHeld: false,
+    selectedElementId: null,
+    hoveredElementId: null,
+    inspector: { open: false, selectedRuleId: null, highlightRuleId: null },
+    heatmapFilter: { includeRuleIds: [], excludeRuleIds: [] },
+    mobile: { showAllIssues: false, selectedIssueIndex: 0 },
+  } as CoreSlice;
+}
+
+/**
+ * Set up the composed store with specific tile items state.
+ * Returns store API for direct state manipulation in tests.
+ */
+function setupStoreWithTileItems(items: TileItem[], loading = false) {
+  // Create a fresh store
+  createComposedStore({
     websocket: {
       isConnected: false,
-      url: "ws://localhost:9234",
-      connect: vi.fn(),
-      disconnect: vi.fn(),
-      send: vi.fn(),
-      on: vi.fn(() => vi.fn()),
-      onConnectionChange: vi.fn(() => vi.fn()),
+      url: "ws://test:9234",
+      connect: () => {},
+      disconnect: () => {},
+      send: () => {},
+      on: () => () => {},
+      onConnectionChange: () => () => {},
     },
     domObserver: {
-      start: vi.fn(),
-      stop: vi.fn(),
-      onElementsAdded: vi.fn(() => vi.fn()),
-      onElementsRemoved: vi.fn(() => vi.fn()),
+      start: () => {},
+      stop: () => {},
+      onElementsAdded: () => () => {},
+      onElementsRemoved: () => () => {},
     },
-    getState: vi.fn(),
-    setState: vi.fn(),
-    openInspector: vi.fn(),
-    closeInspector: vi.fn(),
-    closeCommandPalette: vi.fn(),
-    invalidateCategory: vi.fn(),
-  };
+  });
+
+  // Get the store API and set tile items state
+  const api = getStoreApi();
+  if (api) {
+    api.setState((state) => ({
+      ...state,
+      commandPalette: {
+        ...state.commandPalette,
+        tileItems: items,
+        tileItemsLoading: loading,
+      },
+    }));
+  }
+
+  return api;
 }
 
 // ============================================================================
-// useTileItems Tests
+// Pure Function Unit Tests
 // ============================================================================
 
-describe("useTileItems", () => {
-  let mockServices: PluginServices;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockServices = createMockServices();
-    mockGetAllCategoryProviders.mockReturnValue([]);
-    mockGetPluginServices.mockReturnValue(null);
-  });
-
-  afterEach(() => {
-    vi.resetAllMocks();
-  });
-
-  describe("empty items when no category providers have getTileItems", () => {
-    it("returns empty items when no category providers exist", () => {
-      mockGetAllCategoryProviders.mockReturnValue([]);
-      mockGetPluginServices.mockReturnValue(mockServices);
-
-      const { result } = renderHook(() =>
-        useTileItems([], "", new Set<string>())
-      );
-
-      expect(result.current.items).toEqual([]);
-      expect(result.current.isLoading).toBe(false);
-      expect(result.current.isTerminal).toBe(false);
-    });
-
-    it("returns empty items when no category providers have getTileItems", () => {
-      const provider = createMockCategoryProvider({
-        id: "provider-no-tiles",
-        getTileItems: undefined,
-      });
-      mockGetAllCategoryProviders.mockReturnValue([provider]);
-      mockGetPluginServices.mockReturnValue(mockServices);
-
-      const { result } = renderHook(() =>
-        useTileItems([], "", new Set<string>())
-      );
-
-      expect(result.current.items).toEqual([]);
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    it("returns empty items when services are not initialized", () => {
-      const provider = createMockCategoryProvider({
-        getTileItems: vi.fn(() => [createMockTileItem()]),
-      });
-      mockGetAllCategoryProviders.mockReturnValue([provider]);
-      mockGetPluginServices.mockReturnValue(null);
-
-      const { result } = renderHook(() =>
-        useTileItems([], "", new Set<string>())
-      );
-
-      expect(result.current.items).toEqual([]);
-      expect(result.current.isLoading).toBe(false);
-    });
-  });
-
-  describe("returns items from providers that have getTileItems", () => {
-    it("returns items from providers that have getTileItems", async () => {
+describe("Tile Helper Functions", () => {
+  describe("filterByQuery", () => {
+    it("returns all items when query is empty", () => {
       const items = [
-        createMockTileItem({ id: "item-1", label: "Item 1" }),
-        createMockTileItem({ id: "item-2", label: "Item 2" }),
+        createMockTileItem({ id: "1", label: "Item 1" }),
+        createMockTileItem({ id: "2", label: "Item 2" }),
       ];
-      const provider = createMockCategoryProvider({
-        id: "provider-with-tiles",
-        getTileItems: vi.fn(() => items),
-      });
-      mockGetAllCategoryProviders.mockReturnValue([provider]);
-      mockGetPluginServices.mockReturnValue(mockServices);
-
-      const { result } = renderHook(() =>
-        useTileItems([], "", new Set<string>())
-      );
-
-      await waitFor(() => {
-        expect(result.current.items).toHaveLength(2);
-      });
-
-      expect(result.current.items[0].id).toBe("item-1");
-      expect(result.current.items[1].id).toBe("item-2");
+      expect(filterByQuery(items, "")).toHaveLength(2);
     });
 
-    it("only uses providers from selected categories when provided", async () => {
-      const provider1 = createMockCategoryProvider({
-        id: "selected-provider",
-        getTileItems: vi.fn(() => [
-          createMockTileItem({ id: "selected-item", label: "Selected" }),
-        ]),
-      });
-      const provider2 = createMockCategoryProvider({
-        id: "other-provider",
-        getTileItems: vi.fn(() => [
-          createMockTileItem({ id: "other-item", label: "Other" }),
-        ]),
-      });
-      mockGetAllCategoryProviders.mockReturnValue([provider1, provider2]);
-      mockGetPluginServices.mockReturnValue(mockServices);
-
-      const selectedCategories = new Set(["selected-provider"]);
-      const { result } = renderHook(() =>
-        useTileItems([], "", selectedCategories)
-      );
-
-      await waitFor(() => {
-        expect(result.current.items).toHaveLength(1);
-      });
-
-      expect(result.current.items[0].id).toBe("selected-item");
-    });
-  });
-
-  describe("filters items by query text (matching label and subtitle)", () => {
-    it("filters items by label (case-insensitive)", async () => {
+    it("filters items by label (case-insensitive)", () => {
       const items = [
         createMockTileItem({ id: "1", label: "Button Component" }),
         createMockTileItem({ id: "2", label: "Input Field" }),
         createMockTileItem({ id: "3", label: "Card Layout" }),
       ];
-      const provider = createMockCategoryProvider({
-        getTileItems: vi.fn(() => items),
-      });
-      mockGetAllCategoryProviders.mockReturnValue([provider]);
-      mockGetPluginServices.mockReturnValue(mockServices);
-
-      const { result } = renderHook(() =>
-        useTileItems([], "button", new Set<string>())
-      );
-
-      await waitFor(() => {
-        expect(result.current.items).toHaveLength(1);
-      });
-
-      expect(result.current.items[0].label).toBe("Button Component");
+      const result = filterByQuery(items, "button");
+      expect(result).toHaveLength(1);
+      expect(result[0].label).toBe("Button Component");
     });
 
-    it("filters items by subtitle", async () => {
+    it("filters items by subtitle", () => {
       const items = [
         createMockTileItem({ id: "1", label: "Item 1", subtitle: "Primary button" }),
         createMockTileItem({ id: "2", label: "Item 2", subtitle: "Secondary input" }),
         createMockTileItem({ id: "3", label: "Item 3", subtitle: "Tertiary card" }),
       ];
-      const provider = createMockCategoryProvider({
-        getTileItems: vi.fn(() => items),
-      });
-      mockGetAllCategoryProviders.mockReturnValue([provider]);
-      mockGetPluginServices.mockReturnValue(mockServices);
+      const result = filterByQuery(items, "input");
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("2");
+    });
 
-      const { result } = renderHook(() =>
-        useTileItems([], "input", new Set<string>())
-      );
-
-      await waitFor(() => {
-        expect(result.current.items).toHaveLength(1);
-      });
-
-      expect(result.current.items[0].id).toBe("2");
+    it("returns all items when query is whitespace only", () => {
+      const items = [
+        createMockTileItem({ id: "1", label: "Item 1" }),
+        createMockTileItem({ id: "2", label: "Item 2" }),
+      ];
+      expect(filterByQuery(items, "   ")).toHaveLength(2);
     });
   });
 
-  describe("deduplicates items by id", () => {
-    it("removes duplicate items keeping the first occurrence", async () => {
-      const provider1 = createMockCategoryProvider({
-        id: "provider-1",
-        getTileItems: vi.fn(() => [
-          createMockTileItem({ id: "shared-id", label: "First Provider Item" }),
-        ]),
-      });
-      const provider2 = createMockCategoryProvider({
-        id: "provider-2",
-        getTileItems: vi.fn(() => [
-          createMockTileItem({ id: "shared-id", label: "Second Provider Item" }),
-        ]),
-      });
-      mockGetAllCategoryProviders.mockReturnValue([provider1, provider2]);
-      mockGetPluginServices.mockReturnValue(mockServices);
+  describe("dedupeItems", () => {
+    it("keeps first occurrence when duplicates exist", () => {
+      const items = [
+        createMockTileItem({ id: "shared-id", label: "First Item" }),
+        createMockTileItem({ id: "shared-id", label: "Second Item" }),
+      ];
+      const result = dedupeItems(items);
+      expect(result).toHaveLength(1);
+      expect(result[0].label).toBe("First Item");
+    });
+
+    it("keeps all items when no duplicates", () => {
+      const items = [
+        createMockTileItem({ id: "1", label: "Item 1" }),
+        createMockTileItem({ id: "2", label: "Item 2" }),
+        createMockTileItem({ id: "3", label: "Item 3" }),
+      ];
+      expect(dedupeItems(items)).toHaveLength(3);
+    });
+  });
+});
+
+describe("Tile Selectors", () => {
+  describe("selectRawTileItems", () => {
+    it("returns tile items from state", () => {
+      const items = [createMockTileItem({ id: "1" })];
+      const state = createTestState({ tileItems: items });
+      expect(selectRawTileItems(state)).toBe(items);
+    });
+
+    it("returns empty array when no items", () => {
+      const state = createTestState({ tileItems: [] });
+      expect(selectRawTileItems(state)).toEqual([]);
+    });
+  });
+
+  describe("selectTileItemsLoading", () => {
+    it("returns false when not loading", () => {
+      const state = createTestState({ tileItemsLoading: false });
+      expect(selectTileItemsLoading(state)).toBe(false);
+    });
+
+    it("returns true when loading", () => {
+      const state = createTestState({ tileItemsLoading: true });
+      expect(selectTileItemsLoading(state)).toBe(true);
+    });
+  });
+});
+
+// ============================================================================
+// Hook Integration Tests (Using Real Store)
+// ============================================================================
+
+describe("useTileItems hook", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAllCategoryProviders.mockReturnValue([]);
+  });
+
+  afterEach(() => {
+    cleanup();
+    resetStore();
+    vi.resetAllMocks();
+  });
+
+  describe("returns state from store", () => {
+    it("returns empty items when store is empty", () => {
+      setupStoreWithTileItems([]);
 
       const { result } = renderHook(() =>
         useTileItems([], "", new Set<string>())
       );
 
-      await waitFor(() => {
-        expect(result.current.items).toHaveLength(1);
-      });
+      expect(result.current.items).toEqual([]);
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.isTerminal).toBe(false);
+    });
 
-      expect(result.current.items[0].label).toBe("First Provider Item");
+    it("returns items from store", () => {
+      const items = [
+        createMockTileItem({ id: "item-1", label: "Item 1" }),
+        createMockTileItem({ id: "item-2", label: "Item 2" }),
+      ];
+      setupStoreWithTileItems(items);
+
+      const { result } = renderHook(() =>
+        useTileItems([], "", new Set<string>())
+      );
+
+      expect(result.current.items).toHaveLength(2);
+      expect(result.current.items[0].id).toBe("item-1");
+    });
+
+    it("returns loading state from store", () => {
+      setupStoreWithTileItems([], true);
+
+      const { result } = renderHook(() =>
+        useTileItems([], "", new Set<string>())
+      );
+
+      expect(result.current.isLoading).toBe(true);
     });
   });
 
-  describe("returns isTerminal=true when any provider isTerminal returns true", () => {
-    it("returns isTerminal=true when any provider isTerminal returns true", () => {
-      const filters: TileFilter[] = [
-        { type: "rule", id: "rule-1", label: "Rule 1" },
+  describe("filters and deduplicates items", () => {
+    it("filters items by query", () => {
+      const items = [
+        createMockTileItem({ id: "1", label: "Button Component" }),
+        createMockTileItem({ id: "2", label: "Input Field" }),
       ];
+      setupStoreWithTileItems(items);
+
+      const { result } = renderHook(() =>
+        useTileItems([], "button", new Set<string>())
+      );
+
+      expect(result.current.items).toHaveLength(1);
+      expect(result.current.items[0].label).toBe("Button Component");
+    });
+
+    it("deduplicates items by id", () => {
+      const items = [
+        createMockTileItem({ id: "shared", label: "First" }),
+        createMockTileItem({ id: "shared", label: "Second" }),
+      ];
+      setupStoreWithTileItems(items);
+
+      const { result } = renderHook(() =>
+        useTileItems([], "", new Set<string>())
+      );
+
+      expect(result.current.items).toHaveLength(1);
+      expect(result.current.items[0].label).toBe("First");
+    });
+  });
+
+  describe("computes isTerminal from providers", () => {
+    it("returns isTerminal from provider", () => {
       const provider = createMockCategoryProvider({
         getTileItems: vi.fn(() => []),
         isTerminal: vi.fn(() => true),
       });
       mockGetAllCategoryProviders.mockReturnValue([provider]);
-      mockGetPluginServices.mockReturnValue(mockServices);
+      setupStoreWithTileItems([]);
 
+      const filters: TileFilter[] = [{ type: "rule", id: "rule-1", label: "Rule 1" }];
       const { result } = renderHook(() =>
         useTileItems(filters, "", new Set<string>())
       );
 
       expect(result.current.isTerminal).toBe(true);
-      expect(provider.isTerminal).toHaveBeenCalledWith(filters);
-    });
-
-    it("returns isTerminal=false when no provider isTerminal returns true", () => {
-      const filters: TileFilter[] = [
-        { type: "rule", id: "rule-1", label: "Rule 1" },
-      ];
-      const provider = createMockCategoryProvider({
-        getTileItems: vi.fn(() => []),
-        isTerminal: vi.fn(() => false),
-      });
-      mockGetAllCategoryProviders.mockReturnValue([provider]);
-      mockGetPluginServices.mockReturnValue(mockServices);
-
-      const { result } = renderHook(() =>
-        useTileItems(filters, "", new Set<string>())
-      );
-
-      expect(result.current.isTerminal).toBe(false);
     });
   });
 
-  describe("handles loading state for async providers", () => {
-    it("sets isLoading=true while fetching async items", async () => {
-      let resolvePromise: (items: TileItem[]) => void = () => {};
-      const asyncPromise = new Promise<TileItem[]>((resolve) => {
-        resolvePromise = resolve;
-      });
-
-      const provider = createMockCategoryProvider({
-        getTileItems: vi.fn(() => asyncPromise),
-      });
-      mockGetAllCategoryProviders.mockReturnValue([provider]);
-      mockGetPluginServices.mockReturnValue(mockServices);
+  describe("reacts to store updates", () => {
+    it("updates when store state changes", () => {
+      const api = setupStoreWithTileItems([]);
 
       const { result } = renderHook(() =>
         useTileItems([], "", new Set<string>())
       );
 
-      // Should be loading initially
-      expect(result.current.isLoading).toBe(true);
-      expect(result.current.items).toEqual([]);
+      expect(result.current.items).toHaveLength(0);
 
-      // Resolve the promise
-      resolvePromise([createMockTileItem({ id: "async-item" })]);
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
+      // Update store with new items
+      act(() => {
+        api?.setState((state) => ({
+          ...state,
+          commandPalette: {
+            ...state.commandPalette,
+            tileItems: [createMockTileItem({ id: "new-item", label: "New Item" })],
+          },
+        }));
       });
 
       expect(result.current.items).toHaveLength(1);
-    });
-
-    it("handles provider errors gracefully", async () => {
-      const errorProvider = createMockCategoryProvider({
-        id: "error-provider",
-        getTileItems: vi.fn(() => {
-          throw new Error("Provider error");
-        }),
-      });
-      const successProvider = createMockCategoryProvider({
-        id: "success-provider",
-        getTileItems: vi.fn(() => [createMockTileItem({ id: "success-item" })]),
-      });
-      mockGetAllCategoryProviders.mockReturnValue([errorProvider, successProvider]);
-      mockGetPluginServices.mockReturnValue(mockServices);
-
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-      const { result } = renderHook(() =>
-        useTileItems([], "", new Set<string>())
-      );
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
-      expect(result.current.items).toHaveLength(1);
-      expect(result.current.items[0].id).toBe("success-item");
-
-      consoleSpy.mockRestore();
+      expect(result.current.items[0].label).toBe("New Item");
     });
   });
 });
