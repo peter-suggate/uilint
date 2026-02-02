@@ -68,18 +68,6 @@ export function useElementRects(
   useEffect(() => {
     updateRects();
 
-    // Update on scroll
-    window.addEventListener("scroll", throttledUpdate, { passive: true });
-
-    // Watch for DOM changes in body
-    observerRef.current = new MutationObserver(throttledUpdate);
-    observerRef.current.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["data-loc"],
-    });
-
     // Poll to keep heatmap in sync during continuous layout changes
     // Runs for ~250ms at 60fps after triggering events
     const pollForUpdates = () => {
@@ -99,11 +87,26 @@ export function useElementRects(
       poll();
     };
 
+    // Handle scroll with polling for smooth updates during momentum scrolling
+    const handleScroll = () => {
+      pollForUpdates();
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
     // Handle window resize with polling for smooth updates during drag
     const handleWindowResize = () => {
       pollForUpdates();
     };
     window.addEventListener("resize", handleWindowResize, { passive: true });
+
+    // Watch for DOM changes in body
+    observerRef.current = new MutationObserver(throttledUpdate);
+    observerRef.current.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-loc"],
+    });
 
     // Watch for style changes on document.documentElement (margin changes from inspector)
     // When style changes, poll for the duration of the CSS transition
@@ -129,7 +132,7 @@ export function useElementRects(
     document.documentElement.addEventListener("transitionend", handleTransitionEnd);
 
     return () => {
-      window.removeEventListener("scroll", throttledUpdate);
+      window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleWindowResize);
       observerRef.current?.disconnect();
       styleObserverRef.current?.disconnect();

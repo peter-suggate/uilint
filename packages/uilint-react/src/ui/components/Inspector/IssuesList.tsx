@@ -17,6 +17,9 @@ import {
   selectFileGroupsSummary,
   selectActiveRuleFilter,
 } from "../../../core/store/file-groups-selector";
+import { pluginRegistry } from "../../../core/plugin-system/registry";
+import type { ESLintPluginSlice } from "../../../plugins/eslint/slice";
+import type { RuleConfig as RuleConfigType } from "../../../plugins/eslint/types";
 import { IssuesSummary } from "./IssuesSummary";
 import { RuleHeader } from "./RuleHeader";
 import { RuleConfig } from "./RuleConfig";
@@ -124,17 +127,30 @@ export function IssuesList({ className }: IssuesListProps) {
     [selectedIssueId, selectIssue]
   );
 
-  // Handle severity change (placeholder - will need ESLint integration)
-  const handleSeverityChange = useCallback((severity: "off" | "warn" | "error") => {
-    // TODO: Integrate with ESLint config
-    console.log("Severity change requested:", severity);
-  }, []);
+  // Get current rule config from ESLint store
+  const ruleConfig = useComposedStore((s) => {
+    if (!ruleFilter?.id) return null;
+    const eslintState = s.plugins?.eslint as ESLintPluginSlice | undefined;
+    if (!eslintState?.ruleConfigs) return null;
+    return eslintState.ruleConfigs.get(ruleFilter.id);
+  });
 
-  // Determine current rule severity (placeholder)
+  // Handle severity change - calls plugin registry to update ESLint config
+  const handleSeverityChange = useCallback(
+    (severity: "off" | "warn" | "error") => {
+      if (!ruleFilter?.id) return;
+      // Map "warn" to "warning" for plugin registry API
+      const apiSeverity = severity === "warn" ? "warning" : severity;
+      pluginRegistry.setRuleSeverity(ruleFilter.id, apiSeverity);
+    },
+    [ruleFilter?.id]
+  );
+
+  // Determine current rule severity from ESLint config
   const currentRuleSeverity: "off" | "warn" | "error" = useMemo(() => {
-    // TODO: Get from actual ESLint config
-    return "warn";
-  }, []);
+    if (!ruleConfig?.severity) return "warn";
+    return ruleConfig.severity;
+  }, [ruleConfig?.severity]);
 
   // Check if has filters
   const hasFilters = filters.length > 0;

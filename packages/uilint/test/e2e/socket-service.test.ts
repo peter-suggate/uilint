@@ -15,7 +15,7 @@
 import { describe, it, expect, afterEach, beforeAll } from "vitest";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { existsSync, mkdirSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import { execSync } from "child_process";
 import { useFixture, type FixtureContext } from "../helpers/fixtures.js";
 import {
@@ -418,7 +418,7 @@ describe("Socket Service - Rule Configuration", { timeout: 180000 }, () => {
     }
   });
 
-  it("sets rule severity via rule:config:set", async () => {
+  it("sets rule severity via rule:config:set with full rule ID", async () => {
     fixture = useFixture("has-eslint-with-uilint");
     const port = await findAvailablePort();
 
@@ -428,22 +428,23 @@ describe("Socket Service - Rule Configuration", { timeout: 180000 }, () => {
     client = await createTestClient(port);
     await client.waitForWorkspaceInfo();
 
+    // Use consistent-dark-mode which exists in the fixture's eslint config
+    // Send with full "uilint/" prefix (as the UI does after commit 1d9ee1a)
     const result = await client.setRuleConfig(
-      "uilint/prefer-tailwind",
-      "off"
+      "uilint/consistent-dark-mode",
+      "warn"
     );
 
     expect(result.type).toBe("rule:config:result");
-    expect(result.ruleId).toBe("uilint/prefer-tailwind");
-    // The result depends on whether the server can modify the eslint config
-    // In test environments, this might fail due to file permissions or config format
-    if (result.success) {
-      expect(result.severity).toBe("off");
-    } else {
-      // If it fails, at least verify we got a proper error response
-      expect(typeof result.error).toBe("string");
-      console.log("Rule config set failed (may be expected in test env):", result.error);
-    }
+    expect(result.ruleId).toBe("uilint/consistent-dark-mode");
+    // This MUST succeed - the rule exists in the config
+    expect(result.success).toBe(true);
+    expect(result.severity).toBe("warn");
+
+    // Verify the config file was actually updated
+    const configPath = join(fixture.path, "eslint.config.mjs");
+    const configContent = readFileSync(configPath, "utf-8");
+    expect(configContent).toContain('"warn"');
   });
 
   it("returns error for invalid rule", async () => {

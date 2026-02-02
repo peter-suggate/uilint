@@ -1718,7 +1718,13 @@ function handleRuleConfigSet(
   options?: Record<string, unknown>,
   requestId?: string
 ): void {
-  logRuleConfigSet(ruleId, severity, !!options);
+  // Normalize ruleId - strip "uilint/" prefix if present since
+  // updateRuleSeverityInConfig adds it internally
+  const normalizedRuleId = ruleId.startsWith("uilint/")
+    ? ruleId.slice("uilint/".length)
+    : ruleId;
+
+  logRuleConfigSet(normalizedRuleId, severity, !!options);
 
   // Find the ESLint config file
   const configPath = findEslintConfigFile(serverAppRootForVision);
@@ -1741,14 +1747,14 @@ function handleRuleConfigSet(
   let result;
   if (options && Object.keys(options).length > 0) {
     // Update severity AND options
-    result = updateRuleConfigInConfig(configPath, ruleId, severity, options);
+    result = updateRuleConfigInConfig(configPath, normalizedRuleId, severity, options);
   } else {
     // Update severity only
-    result = updateRuleSeverityInConfig(configPath, ruleId, severity);
+    result = updateRuleSeverityInConfig(configPath, normalizedRuleId, severity);
   }
 
   if (result.success) {
-    logServerInfo(`Updated uilint/${ruleId} -> ${severity}`);
+    logServerInfo(`Updated uilint/${normalizedRuleId} -> ${severity}`);
 
     // Clear ESLint instance cache to pick up the new config
     eslintInstances.clear();
