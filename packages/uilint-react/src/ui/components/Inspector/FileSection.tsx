@@ -6,7 +6,7 @@
  * - File name and directory
  * - Issue count with severity indicator
  * - Rule badges
- * - Expandable list of issues
+ * - Expandable source code view with inline issue annotations
  *
  * Glassmorphic styling with minimal color (severity dots only)
  */
@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { ChevronIcon } from "../../icons";
 import { RuleBadge } from "./RuleBadge";
-import { IssueRow } from "./IssueRow";
+import { FileSourceView } from "./FileSourceView";
 import type { FileGroup } from "../../../core/store/file-groups-selector";
 
 // ============================================================================
@@ -35,8 +35,8 @@ export interface FileSectionProps {
   onIssueSelect: (issueId: string) => void;
   /** Currently selected issue ID */
   selectedIssueId: string | null;
-  /** Maximum number of issues to show before "show more" */
-  maxVisibleIssues?: number;
+  /** Number of context lines around each issue in source view */
+  contextLines?: number;
   /** Additional class name */
   className?: string;
 }
@@ -101,21 +101,9 @@ export function FileSection({
   onRuleClick,
   onIssueSelect,
   selectedIssueId,
-  maxVisibleIssues = 5,
+  contextLines = 2,
   className,
 }: FileSectionProps) {
-  const [showAllIssues, setShowAllIssues] = React.useState(false);
-  const hasMoreIssues = file.issues.length > maxVisibleIssues;
-  const visibleIssues = showAllIssues ? file.issues : file.issues.slice(0, maxVisibleIssues);
-  const hiddenCount = file.issues.length - maxVisibleIssues;
-
-  // Reset showAllIssues when collapsed
-  React.useEffect(() => {
-    if (!isExpanded) {
-      setShowAllIssues(false);
-    }
-  }, [isExpanded]);
-
   return (
     <div className={cn("border-b border-foreground/[0.04]", className)}>
       {/* Header - always visible */}
@@ -173,7 +161,7 @@ export function FileSection({
         </div>
       )}
 
-      {/* Expanded issues list */}
+      {/* Expanded source code view */}
       <AnimatePresence>
         {isExpanded && (
           <motion.div
@@ -183,55 +171,14 @@ export function FileSection({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="border-l border-foreground/[0.06] ml-4 mb-3">
-              {visibleIssues.map((issue) => (
-                <IssueRow
-                  key={issue.id}
-                  issue={issue}
-                  isSelected={selectedIssueId === issue.id}
-                  onSelect={() => onIssueSelect(issue.id)}
-                  compact={file.ruleGroups.length === 1}
-                />
-              ))}
-
-              {/* Show more button */}
-              {hasMoreIssues && !showAllIssues && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowAllIssues(true);
-                  }}
-                  className={cn(
-                    "w-full px-4 py-2 text-left",
-                    "text-xs text-muted-foreground/60 hover:text-muted-foreground/80",
-                    "hover:bg-foreground/[0.02]",
-                    "transition-colors duration-100"
-                  )}
-                >
-                  + {hiddenCount} more {hiddenCount === 1 ? "issue" : "issues"}
-                </button>
-              )}
-
-              {/* Show less button */}
-              {hasMoreIssues && showAllIssues && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowAllIssues(false);
-                  }}
-                  className={cn(
-                    "w-full px-4 py-2 text-left",
-                    "text-xs text-muted-foreground/60 hover:text-muted-foreground/80",
-                    "hover:bg-foreground/[0.02]",
-                    "transition-colors duration-100"
-                  )}
-                >
-                  Show less
-                </button>
-              )}
-            </div>
+            <FileSourceView
+              filePath={file.filePath}
+              issues={file.issues}
+              contextLines={contextLines}
+              selectedIssueId={selectedIssueId}
+              onIssueSelect={onIssueSelect}
+              enabled={isExpanded}
+            />
           </motion.div>
         )}
       </AnimatePresence>
