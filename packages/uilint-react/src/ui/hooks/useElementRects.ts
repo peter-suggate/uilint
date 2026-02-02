@@ -94,11 +94,21 @@ export function useElementRects(
       attributeFilter: ["style"],
     });
 
+    // Listen for transitionend on document.documentElement to catch when margin animation completes
+    // This ensures heatmap overlays reposition correctly after inspector dock/undock transitions
+    const handleTransitionEnd = (e: TransitionEvent) => {
+      if (e.target === document.documentElement && e.propertyName === "margin-right") {
+        throttledUpdate();
+      }
+    };
+    document.documentElement.addEventListener("transitionend", handleTransitionEnd);
+
     return () => {
       window.removeEventListener("scroll", throttledUpdate);
       window.removeEventListener("resize", throttledUpdate);
       observerRef.current?.disconnect();
       styleObserverRef.current?.disconnect();
+      document.documentElement.removeEventListener("transitionend", handleTransitionEnd);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, [updateRects, throttledUpdate]);
