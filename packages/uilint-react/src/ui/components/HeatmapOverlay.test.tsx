@@ -116,7 +116,7 @@ describe("HeatmapOverlay", () => {
   });
 
   describe("Badge Click Behavior", () => {
-    it("adds file filter when badge is clicked", () => {
+    it("adds file, rule, and loc filters when badge is clicked", () => {
       const issuesMap = new Map();
       issuesMap.set("src/components/Button.tsx:15:3", [
         {
@@ -154,13 +154,29 @@ describe("HeatmapOverlay", () => {
         fireEvent.click(badge!);
       });
 
-      // Verify file filter was added
+      // Verify all three filters were added: file, rule, and loc
       const filters = store.getState().commandPalette.filters;
-      expect(filters).toHaveLength(1);
+      expect(filters).toHaveLength(3);
+
+      // Check file filter
       expect(filters[0]).toEqual({
         type: "file",
         id: "src/components/Button.tsx",
         label: "Button.tsx",
+      });
+
+      // Check rule filter
+      expect(filters[1]).toEqual({
+        type: "rule",
+        id: "no-unused-vars",
+        label: "no-unused-vars",
+      });
+
+      // Check loc filter
+      expect(filters[2]).toEqual({
+        type: "loc",
+        id: "src/components/Button.tsx:15:3",
+        label: "Line 15:3",
       });
     });
 
@@ -582,7 +598,7 @@ describe("HeatmapOverlay", () => {
       expect(badges).toHaveLength(2);
     });
 
-    it("adds file filter for the clicked badge element", () => {
+    it("adds file, rule, and loc filters for the clicked badge element", () => {
       const issuesMap = new Map();
       issuesMap.set("src/App.tsx:10:5", [
         {
@@ -616,12 +632,24 @@ describe("HeatmapOverlay", () => {
         fireEvent.click(badge!);
       });
 
-      // File filter should be added
+      // All three filters should be added
       const filters = store.getState().commandPalette.filters;
-      expect(filters).toHaveLength(1);
+      expect(filters).toHaveLength(3);
+
+      // Verify file filter
       expect(filters[0].type).toBe("file");
       expect(filters[0].id).toBe("src/App.tsx");
       expect(filters[0].label).toBe("App.tsx");
+
+      // Verify rule filter
+      expect(filters[1].type).toBe("rule");
+      expect(filters[1].id).toBe("no-console");
+      expect(filters[1].label).toBe("no-console");
+
+      // Verify loc filter
+      expect(filters[2].type).toBe("loc");
+      expect(filters[2].id).toBe("src/App.tsx:10:5");
+      expect(filters[2].label).toBe("Line 10:5");
     });
   });
 });

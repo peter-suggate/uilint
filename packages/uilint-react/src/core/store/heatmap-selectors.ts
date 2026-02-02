@@ -138,7 +138,9 @@ export function selectHighlightedLocsCount(state: ComposedState): number {
  * Filter logic:
  * - No filters: return empty array (show all issues)
  * - Rule filter only: return all dataLocs for that rule
- * - Rule + File filter: return dataLocs for that rule in that file
+ * - File filter only: return all dataLocs in that file
+ * - Loc filter only: return only that exact dataLoc
+ * - Combined filters: return intersection (all conditions must match)
  *
  * Results are memoized to ensure stable references for React.
  *
@@ -177,14 +179,20 @@ export function selectHeatmapDataLocs(state: ComposedState): string[] {
     return cachedDataLocs;
   }
 
-  // Extract rule and file filters
+  // Extract rule, file, and loc filters
   const ruleFilter = filters.find((f) => f.type === "rule");
   const fileFilter = filters.find((f) => f.type === "file");
+  const locFilter = filters.find((f) => f.type === "loc");
 
   // Collect matching dataLocs
   const dataLocs: string[] = [];
 
   for (const [dataLoc, issues] of issuesMap) {
+    // If loc filter is active, only match exact dataLoc
+    if (locFilter && dataLoc !== locFilter.id) {
+      continue;
+    }
+
     for (const issue of issues) {
       // Check if issue matches the filters
       const matchesRule = !ruleFilter || issue.ruleId === ruleFilter.id;
