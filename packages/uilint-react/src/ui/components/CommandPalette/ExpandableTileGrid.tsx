@@ -1,30 +1,29 @@
 /**
- * ExpandableTileGrid - Orchestrates the expandable tile UI
+ * ExpandableTileGrid - Mosaic grid where tiles expand in-place
  *
- * This component manages the expansion state and renders:
- * - Root-level tiles when no expansion
- * - Expanded tile with children when a tile is selected
- * - Collapsed sibling strip for context
+ * When a tile is clicked:
+ * - The tile expands to show its children inside it
+ * - Other tiles (siblings) remain visible in their normal mosaic positions
+ * - The layout adjusts to accommodate the expanded tile
  *
- * It replaces the traditional filter chip model with an in-place
- * expansion model where tiles expand to show their children.
+ * This preserves the mosaic arrangement while allowing drill-down navigation.
  */
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
-import type { TileItem, ExpandedTile, ExpansionPath } from "../../../core/plugin-system/types";
+import type { TileItem, TileBucket } from "../../../core/plugin-system/types";
+import { Tile } from "./Tile";
 import { TileGrid } from "./TileGrid";
-import { ExpandableTile } from "./ExpandableTile";
-import { CollapsedTileStrip } from "./CollapsedTileStrip";
 import { ExpandedTileHeader } from "./ExpandedTileHeader";
+import { calculateMosaicLayout } from "./layout";
 import {
   expansionWrapperVariants,
   expansionWrapperTransition,
   childrenContainerVariants,
-  layoutTransition,
   crispEase,
+  DURATIONS,
 } from "./animations/expansion-animations";
 
 // ============================================================================
@@ -32,7 +31,7 @@ import {
 // ============================================================================
 
 interface ExpandableTileGridProps {
-  /** Root-level tile items (when no expansion) */
+  /** Root-level tile items */
   items: TileItem[];
   /** Currently selected index for keyboard navigation */
   selectedIndex: number;
@@ -43,30 +42,46 @@ interface ExpandableTileGridProps {
 }
 
 // ============================================================================
+// Layout Constants
+// ============================================================================
+
+const GRID_PADDING = { top: 20, right: 24, bottom: 20, left: 24 };
+const GRID_AVAILABLE_WIDTH = 532;
+const GRID_GAP = 14;
+
+// ============================================================================
 // Hooks
 // ============================================================================
 
 /**
  * Hook to manage expansion state and actions
  */
-function useExpansion() {
+function useExpansion(items: TileItem[]) {
   const expansionPath = useComposedStore((s) => s.commandPalette.expansionPath);
   const expandTile = useComposedStore((s) => s.expandTile);
   const collapseTile = useComposedStore((s) => s.collapseTile);
-  const collapseAll = useComposedStore((s) => s.collapseAll);
   const closeCommandPalette = useComposedStore((s) => s.closeCommandPalette);
   const openInspectorPanel = useComposedStore((s) => s.openInspectorPanel);
 
   const currentLevel = expansionPath.length;
-  const currentExpansion = expansionPath[expansionPath.length - 1] || null;
+  const currentExpansion = expansionPath[currentLevel - 1] || null;
+
+  // Get the expanded tile ID at the current level
+  const expandedTileId = currentExpansion?.item.id || null;
 
   /**
    * Handle tile click - expand if possible, or open inspector if terminal
    */
   const handleTileClick = useCallback(
-    (item: TileItem, siblings: TileItem[]) => {
+    (item: TileItem) => {
       const services = getPluginServices();
       if (!services) return;
+
+      // If clicking the already expanded tile, collapse it
+      if (item.id === expandedTileId) {
+        collapseTile();
+        return;
+      }
 
       // Check if item has an execute function (commands)
       const execute = item.metadata?.execute as ((services: unknown) => Promise<void>) | undefined;
@@ -102,28 +117,25 @@ function useExpansion() {
         const children = provider.getChildItems?.(item, services) ?? [];
 
         if (children.length > 0) {
-          // Expand the tile
-          expandTile(item, children, siblings, providerId);
+          // If there's already an expansion at this level, collapse first
+          if (currentExpansion) {
+            collapseTile();
+            // Small delay then expand the new one
+            setTimeout(() => {
+              expandTile(item, children, items, providerId);
+            }, 50);
+          } else {
+            expandTile(item, children, items, providerId);
+          }
           return;
         }
       }
 
       // Terminal: open inspector and close
-      if (item.metadata?.isIssue) {
-        // Issue tile - open inspector with issue details
-        openInspectorPanel();
-        closeCommandPalette();
-      } else if (item.metadata?.isFile) {
-        // File tile at terminal state
-        openInspectorPanel();
-        closeCommandPalette();
-      } else {
-        // Fallback
-        openInspectorPanel();
-        closeCommandPalette();
-      }
+      openInspectorPanel();
+      closeCommandPalette();
     },
-    [currentLevel, expandTile, closeCommandPalette, openInspectorPanel]
+    [currentLevel, currentExpansion, expandedTileId, expandTile, collapseTile, closeCommandPalette, openInspectorPanel, items]
   );
 
   /**
@@ -135,38 +147,13 @@ function useExpansion() {
     }
   }, [currentLevel, collapseTile]);
 
-  /**
-   * Handle sibling click from collapsed strip
-   */
-  const handleSiblingClick = useCallback(
-    (sibling: TileItem) => {
-      const services = getPluginServices();
-      if (!services) return;
-
-      // Get the current expansion's siblings (including the currently expanded one)
-      const currentSiblings = currentExpansion
-        ? [...currentExpansion.siblings, currentExpansion.item]
-        : [];
-
-      // Collapse current and expand the clicked sibling
-      collapseTile();
-
-      // Small delay to allow collapse animation
-      setTimeout(() => {
-        handleTileClick(sibling, currentSiblings);
-      }, 50);
-    },
-    [currentExpansion, collapseTile, handleTileClick]
-  );
-
   return {
     expansionPath,
     currentLevel,
     currentExpansion,
+    expandedTileId,
     handleTileClick,
     handleBack,
-    handleSiblingClick,
-    collapseAll,
   };
 }
 
@@ -175,45 +162,47 @@ function useExpansion() {
 // ============================================================================
 
 /**
- * Renders the expanded tile content with header and children
+ * Expanded tile showing children inside
  */
-function ExpandedTileContent({
-  expansion,
-  nestedExpansion,
+function ExpandedTileInline({
+  item,
+  children,
+  bucket,
   onBack,
   onChildClick,
-  onSiblingClick,
   selectedIndex,
 }: {
-  expansion: ExpandedTile;
-  nestedExpansion: ExpandedTile | null;
+  item: TileItem;
+  children: TileItem[];
+  bucket: TileBucket;
   onBack: () => void;
   onChildClick: (item: TileItem) => void;
-  onSiblingClick: (item: TileItem) => void;
   selectedIndex: number;
 }) {
   return (
     <motion.div
-      variants={expansionWrapperVariants}
-      initial="collapsed"
-      animate="expanded"
-      exit="collapsed"
-      transition={expansionWrapperTransition}
+      layout
+      layoutId={`tile-${item.id}`}
+      initial={{ opacity: 0.8 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0.8 }}
+      transition={{ duration: DURATIONS.expand, ease: crispEase }}
       className={cn(
         "rounded-2xl",
-        "border border-foreground/[0.06]",
-        "bg-background/40 backdrop-blur-sm",
-        "overflow-hidden"
+        "border border-foreground/[0.08]",
+        "bg-background/60 backdrop-blur-md",
+        "overflow-hidden",
+        "shadow-lg"
       )}
     >
       {/* Header with back button */}
       <ExpandedTileHeader
-        item={expansion.item}
+        item={item}
         onBack={onBack}
-        level={expansion.level}
+        level={0}
       />
 
-      {/* Content: either nested expansion or children grid */}
+      {/* Children grid */}
       <motion.div
         variants={childrenContainerVariants}
         initial="hidden"
@@ -221,36 +210,48 @@ function ExpandedTileContent({
         exit="exit"
         className="p-3"
       >
-        {nestedExpansion ? (
-          // Render nested expanded tile recursively
-          <ExpandedTileContent
-            expansion={nestedExpansion}
-            nestedExpansion={null}
-            onBack={onBack}
-            onChildClick={onChildClick}
-            onSiblingClick={onSiblingClick}
-            selectedIndex={selectedIndex}
-          />
-        ) : (
-          // Render children as a tile grid
-          <TileGrid
-            items={expansion.children}
-            onTileClick={(item) => onChildClick(item)}
-            selectedIndex={selectedIndex}
-            isTerminal={expansion.level >= 1}
-          />
-        )}
-      </motion.div>
-
-      {/* Collapsed siblings strip */}
-      {expansion.siblings.length > 0 && !nestedExpansion && (
-        <CollapsedTileStrip
-          tiles={expansion.siblings}
-          onTileClick={onSiblingClick}
-          level={expansion.level}
-          className="border-t border-foreground/[0.04]"
+        <TileGrid
+          items={children}
+          onTileClick={onChildClick}
+          selectedIndex={selectedIndex}
+          isTerminal={true}
         />
-      )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/**
+ * Normal tile (not expanded)
+ */
+function NormalTile({
+  item,
+  bucket,
+  isSelected,
+  onClick,
+  isExpanded,
+}: {
+  item: TileItem;
+  bucket: TileBucket;
+  isSelected: boolean;
+  onClick: () => void;
+  isExpanded: boolean;
+}) {
+  return (
+    <motion.div
+      layout
+      layoutId={`tile-${item.id}`}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: DURATIONS.standard, ease: crispEase }}
+    >
+      <Tile
+        item={item}
+        bucket={bucket}
+        isSelected={isSelected}
+        onClick={onClick}
+      />
     </motion.div>
   );
 }
@@ -266,32 +267,45 @@ export function ExpandableTileGrid({
   isTerminal = false,
 }: ExpandableTileGridProps) {
   const {
-    expansionPath,
-    currentLevel,
     currentExpansion,
+    expandedTileId,
     handleTileClick,
     handleBack,
-    handleSiblingClick,
-  } = useExpansion();
+  } = useExpansion(items);
 
-  // Get nested expansion if level > 1
-  const nestedExpansion = expansionPath.length > 1
-    ? expansionPath[expansionPath.length - 1]
-    : null;
+  // Calculate layout for all items
+  const { layout, sortedItems, itemIndexMap } = useMemo(() => {
+    const computedLayout = calculateMosaicLayout(items, {
+      availableWidth: GRID_AVAILABLE_WIDTH,
+      gap: GRID_GAP,
+      padding: GRID_PADDING,
+    });
 
-  const parentExpansion = expansionPath.length > 1
-    ? expansionPath[expansionPath.length - 2]
-    : currentExpansion;
+    // Sort items by y position for proper stagger animation
+    const sorted = [...items].sort((a, b) => {
+      const layoutA = computedLayout.tiles.get(a.id);
+      const layoutB = computedLayout.tiles.get(b.id);
+      const yDiff = (layoutA?.y ?? 0) - (layoutB?.y ?? 0);
+      if (Math.abs(yDiff) > 10) return yDiff;
+      return (layoutA?.x ?? 0) - (layoutB?.x ?? 0);
+    });
+
+    // Build index lookup for selection
+    const indexMap = new Map<string, number>();
+    sorted.forEach((item, index) => indexMap.set(item.id, index));
+
+    return { layout: computedLayout, sortedItems: sorted, itemIndexMap: indexMap };
+  }, [items]);
 
   /**
-   * Handle tile click at the current level
+   * Handle tile click
    */
   const onTileClickInternal = useCallback(
     (item: TileItem) => {
-      handleTileClick(item, items);
-      onTileClick?.(item, currentLevel);
+      handleTileClick(item);
+      onTileClick?.(item, 0);
     },
-    [handleTileClick, items, onTileClick, currentLevel]
+    [handleTileClick, onTileClick]
   );
 
   /**
@@ -299,71 +313,116 @@ export function ExpandableTileGrid({
    */
   const onChildClick = useCallback(
     (item: TileItem) => {
-      const siblings = currentExpansion?.children ?? [];
-      handleTileClick(item, siblings);
-      onTileClick?.(item, currentLevel + 1);
+      // For now, child clicks go to inspector (terminal)
+      const services = getPluginServices();
+      if (!services) return;
+
+      const openInspectorPanel = useComposedStore.getState().openInspectorPanel;
+      const closeCommandPalette = useComposedStore.getState().closeCommandPalette;
+
+      openInspectorPanel();
+      closeCommandPalette();
+
+      onTileClick?.(item, 1);
     },
-    [handleTileClick, currentExpansion, onTileClick, currentLevel]
+    [onTileClick]
   );
 
-  return (
-    <div className="relative">
-      <AnimatePresence mode="popLayout">
-        {currentLevel === 0 ? (
-          // Root level: show standard tile grid
-          <motion.div
-            key="root-grid"
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.15, ease: crispEase }}
-          >
-            <TileGrid
-              items={items}
-              onTileClick={onTileClickInternal}
-              selectedIndex={selectedIndex}
-              isTerminal={isTerminal}
-            />
-          </motion.div>
-        ) : parentExpansion ? (
-          // Expanded state: show expanded tile content
-          <motion.div
-            key={`expanded-${parentExpansion.item.id}`}
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.2, ease: crispEase }}
-            className="p-4"
-          >
-            <ExpandedTileContent
-              expansion={parentExpansion}
-              nestedExpansion={nestedExpansion}
-              onBack={handleBack}
-              onChildClick={onChildClick}
-              onSiblingClick={handleSiblingClick}
-              selectedIndex={selectedIndex}
-            />
+  // Calculate expanded tile's new height (for layout adjustment)
+  const expandedHeight = currentExpansion
+    ? Math.min(300, 80 + currentExpansion.children.length * 40) // Rough estimate
+    : 0;
 
-            {/* Root-level collapsed strip (if we're at level 1+) */}
-            {expansionPath.length === 1 && (
+  // Find expanded tile's layout position
+  const expandedTileLayout = expandedTileId ? layout.tiles.get(expandedTileId) : null;
+
+  return (
+    <div
+      className="relative"
+      style={{
+        height: expandedTileId
+          ? layout.totalHeight + expandedHeight
+          : layout.totalHeight,
+        minHeight: 200,
+      }}
+    >
+      <AnimatePresence mode="popLayout">
+        {sortedItems.map((item, animIndex) => {
+          const tileLayout = layout.tiles.get(item.id);
+          if (!tileLayout) return null;
+
+          const globalIndex = itemIndexMap.get(item.id) ?? animIndex;
+          const isExpanded = item.id === expandedTileId;
+          const isSelected = globalIndex === selectedIndex;
+
+          // Calculate position offset for tiles below expanded tile
+          let yOffset = 0;
+          if (expandedTileId && expandedTileLayout && !isExpanded) {
+            // If this tile is below the expanded tile, push it down
+            if (tileLayout.y > expandedTileLayout.y) {
+              yOffset = expandedHeight;
+            }
+          }
+
+          if (isExpanded && currentExpansion) {
+            // Render expanded tile
+            return (
               <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1, duration: 0.2 }}
-                className="mt-3"
+                key={item.id}
+                className="absolute"
+                style={{
+                  left: GRID_PADDING.left,
+                  top: tileLayout.y,
+                  width: GRID_AVAILABLE_WIDTH,
+                }}
+                initial={{ height: tileLayout.height }}
+                animate={{ height: "auto" }}
+                transition={{ duration: DURATIONS.expand, ease: crispEase }}
               >
-                <CollapsedTileStrip
-                  tiles={items.filter((t) => t.id !== parentExpansion.item.id)}
-                  onTileClick={(tile) => {
-                    handleBack();
-                    setTimeout(() => handleTileClick(tile, items), 50);
-                  }}
-                  level={0}
+                <ExpandedTileInline
+                  item={item}
+                  children={currentExpansion.children}
+                  bucket={tileLayout.bucket}
+                  onBack={handleBack}
+                  onChildClick={onChildClick}
+                  selectedIndex={-1}
                 />
               </motion.div>
-            )}
-          </motion.div>
-        ) : null}
+            );
+          }
+
+          // Render normal tile
+          return (
+            <motion.div
+              key={item.id}
+              className="absolute"
+              style={{
+                left: tileLayout.x,
+                width: tileLayout.width,
+                height: tileLayout.height,
+              }}
+              initial={{ top: tileLayout.y, opacity: 0, scale: 0.9 }}
+              animate={{
+                top: tileLayout.y + yOffset,
+                opacity: 1,
+                scale: 1,
+              }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{
+                duration: DURATIONS.standard,
+                ease: crispEase,
+                delay: Math.min(animIndex * 0.03, 0.2),
+              }}
+            >
+              <Tile
+                item={item}
+                bucket={tileLayout.bucket}
+                isSelected={isSelected}
+                onClick={() => onTileClickInternal(item)}
+              />
+            </motion.div>
+          );
+        })}
       </AnimatePresence>
     </div>
   );
