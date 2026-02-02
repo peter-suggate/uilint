@@ -503,6 +503,7 @@ async function createProvidersAndModifyLayout(
   providersFile: string;
   layoutFile: string;
   modified: boolean;
+  alreadyConfigured?: boolean;
 }> {
   // Find the layout file
   const layoutPath = findLayoutFile(projectPath, appRoot);
@@ -515,11 +516,55 @@ async function createProvidersAndModifyLayout(
   const providersExt = isTypeScript ? ".tsx" : ".jsx";
   const providersPath = join(projectPath, appRoot, `providers${providersExt}`);
 
-  // Check if providers already exists
+  // Check if providers already exists - if so, inject into it instead of creating
   if (existsSync(providersPath)) {
-    throw new Error(
-      `providers${providersExt} already exists. Please select it from the list instead.`
-    );
+    const original = readFileSync(providersPath, "utf-8");
+    let mod: any;
+    try {
+      mod = parseModule(original);
+    } catch {
+      throw new Error(
+        `Unable to parse existing ${relative(projectPath, providersPath)} as JavaScript/TypeScript.`
+      );
+    }
+
+    const program = mod.$ast;
+
+    // Check if already configured
+    const hasDevtoolsImport = !!findImportDeclaration(program, "uilint-react/devtools");
+    const hasOldImport = !!findImportDeclaration(program, "uilint-react");
+    const alreadyConfigured =
+      (hasDevtoolsImport || hasOldImport) && hasUILintDevtoolsJsx(program);
+
+    if (alreadyConfigured) {
+      return {
+        providersFile: relative(projectPath, providersPath),
+        layoutFile: relative(projectPath, layoutPath),
+        modified: false,
+        alreadyConfigured: true,
+      };
+    }
+
+    // Inject into existing providers file
+    let changed = false;
+
+    const importRes = ensureSideEffectImport(program, "uilint-react/devtools");
+    if (importRes.changed) changed = true;
+
+    const addRes = addDevtoolsToClientComponent(program);
+    if (addRes.changed) changed = true;
+
+    if (changed) {
+      const updatedCode = generateCode(mod).code;
+      writeFileSync(providersPath, updatedCode, "utf-8");
+    }
+
+    return {
+      providersFile: relative(projectPath, providersPath),
+      layoutFile: relative(projectPath, layoutPath),
+      modified: changed,
+      alreadyConfigured: !changed,
+    };
   }
 
   // Create the providers file
@@ -575,13 +620,18 @@ export async function installReactUILintOverlay(
     const modifiedFiles: string[] = [];
     if (result.modified) {
       modifiedFiles.push(join(opts.projectPath, result.providersFile));
-      modifiedFiles.push(join(opts.projectPath, result.layoutFile));
+      // Only include layout if we created a new providers file (not when injecting into existing)
+      if (!result.alreadyConfigured) {
+        modifiedFiles.push(join(opts.projectPath, result.layoutFile));
+      }
     }
     return {
       targetFile: result.providersFile,
       modified: result.modified,
-      createdFile: result.providersFile,
-      layoutModified: result.layoutFile,
+      alreadyConfigured: result.alreadyConfigured,
+      // Only set createdFile if we actually created a new file
+      createdFile: result.alreadyConfigured ? undefined : result.providersFile,
+      layoutModified: result.alreadyConfigured ? undefined : result.layoutFile,
       modifiedFiles,
     };
   }

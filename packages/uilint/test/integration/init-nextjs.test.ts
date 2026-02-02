@@ -212,6 +212,67 @@ describe("Next.js installation - dry run", () => {
 // Execution Tests (file modifications)
 // ============================================================================
 
+describe("Next.js installation - existing providers.tsx", () => {
+  it("injects into existing providers.tsx instead of throwing error (--react flag)", async () => {
+    fixture = useFixture("nextjs-existing-providers");
+
+    const state = await analyze(fixture.path);
+    // Use --react flag (non-interactive mode) which sets createProviders: true
+    const prompter = mockPrompter({ installItems: ["next"] });
+    const choices = await gatherChoices(state, { react: true }, prompter);
+    const plan = createPlan(state, choices);
+
+    // Execute should succeed, not throw "providers.tsx already exists"
+    const result = await execute(plan, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+
+    expect(result.success).toBe(true);
+
+    // The existing providers.tsx should have devtools injected
+    const updatedProviders = fixture.readFile("app/providers.tsx");
+    expect(updatedProviders).toContain('import "uilint-react/devtools"');
+    expect(updatedProviders).toContain("<uilint-devtools");
+
+    // Layout should remain unchanged (already wraps with Providers)
+    const layout = fixture.readFile("app/layout.tsx");
+    expect(layout).toContain("<Providers>");
+  });
+
+  it("reports already configured when providers.tsx has devtools (--react flag)", async () => {
+    fixture = useFixture("nextjs-existing-providers");
+
+    // First run - inject devtools with --react flag
+    const state1 = await analyze(fixture.path);
+    const prompter = mockPrompter({ installItems: ["next"] });
+    const choices1 = await gatherChoices(state1, { react: true }, prompter);
+    const plan1 = createPlan(state1, choices1);
+    await execute(plan1, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+
+    // Second run - should detect already configured
+    const state2 = await analyze(fixture.path);
+    const choices2 = await gatherChoices(state2, { react: true }, prompter);
+    const plan2 = createPlan(state2, choices2);
+    const result2 = await execute(plan2, {
+      dryRun: false,
+      installDependencies: mockInstallDependencies,
+    });
+
+    expect(result2.success).toBe(true);
+
+    // Should not modify the file again
+    const reactAction = result2.actionsPerformed.find(
+      (r) => r.action.type === "inject_react"
+    );
+    // The action should succeed (via alreadyConfigured path)
+    expect(reactAction?.success).toBe(true);
+  });
+});
+
 describe("Next.js installation - execute", () => {
   it("injects uilint-devtools into app layout and wraps next.config export", async () => {
     fixture = useFixture("fresh-nextjs-app");
