@@ -55,6 +55,16 @@ const CHAR_WIDTH = 8;
 const GUTTER_PADDING = 16;
 
 // ============================================================================
+// Types
+// ============================================================================
+
+/**
+ * Map of issue message -> line number of first occurrence
+ * Used to deduplicate repeated issue messages
+ */
+export type FirstOccurrenceMap = Map<string, number>;
+
+// ============================================================================
 // Component
 // ============================================================================
 
@@ -106,6 +116,23 @@ export function FileSourceView({
     const maxLineDigits = Math.max(3, String(totalLines).length);
     return Math.max(MIN_GUTTER_WIDTH, maxLineDigits * CHAR_WIDTH + GUTTER_PADDING);
   }, [totalLines]);
+
+  // Compute first occurrence map for deduplicating repeated messages
+  // Key: issue message, Value: line number of first occurrence
+  const firstOccurrenceMap = useMemo((): FirstOccurrenceMap => {
+    const map = new Map<string, number>();
+
+    // Sort issues by line number to ensure consistent "first" determination
+    const sortedIssues = [...issues].sort((a, b) => a.line - b.line);
+
+    for (const issue of sortedIssues) {
+      if (!map.has(issue.message)) {
+        map.set(issue.message, issue.line);
+      }
+    }
+
+    return map;
+  }, [issues]);
 
   // Extract lines for a region
   const getRegionLines = useCallback(
@@ -192,6 +219,7 @@ export function FileSourceView({
           selectedIssueId={selectedIssueId}
           onIssueSelect={onIssueSelect}
           gutterWidth={gutterWidth}
+          firstOccurrenceMap={firstOccurrenceMap}
         />
       );
       regionIndex++;
