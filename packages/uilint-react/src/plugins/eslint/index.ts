@@ -38,6 +38,8 @@ import {
   createFilter,
   isTerminal,
   getInspectorData,
+  getChildItems,
+  canExpand,
 } from "./tile-provider";
 
 /** WebSocket message types handled by ESLint plugin */
@@ -122,6 +124,9 @@ export const eslintPlugin: Plugin = {
     createFilter,
     isTerminal,
     getInspectorData,
+    // Expandable tile support
+    getChildItems,
+    canExpand,
   },
 
   /**
