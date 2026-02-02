@@ -254,7 +254,12 @@ export function InspectorSidebar() {
       <span style={{ fontWeight: 600, color: "var(--uilint-text-primary)" }}>
         {title}
       </span>
-      <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 4 }}>
+      {/* Stop mousedown propagation so header drag doesn't capture button clicks */}
+      <div
+        style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 4 }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+      >
         {/* Hide dock/undock toggle on mobile - not useful in fullscreen mode */}
         {!isMobile && (
           <IconButton
