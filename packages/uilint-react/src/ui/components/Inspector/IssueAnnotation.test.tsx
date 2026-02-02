@@ -142,7 +142,7 @@ describe("IssueAnnotation", () => {
     );
 
     const element = container.firstElementChild as HTMLElement;
-    expect(element.className).toContain("border-l-error");
+    expect(element.className).toContain("border-error");
     expect(element.className).toContain("bg-error");
   });
 
@@ -157,7 +157,7 @@ describe("IssueAnnotation", () => {
     );
 
     const element = container.firstElementChild as HTMLElement;
-    expect(element.className).toContain("border-l-warning");
+    expect(element.className).toContain("border-warning");
     expect(element.className).toContain("bg-warning");
   });
 
@@ -172,7 +172,7 @@ describe("IssueAnnotation", () => {
     );
 
     const element = container.firstElementChild as HTMLElement;
-    expect(element.className).toContain("border-l-info");
+    expect(element.className).toContain("border-info");
     expect(element.className).toContain("bg-info");
   });
 
@@ -216,10 +216,9 @@ describe("IssueAnnotation", () => {
       />
     );
 
-    // Find the gutter spacer (first span)
-    const spans = container.querySelectorAll("span");
-    const gutterSpan = spans[0];
-    expect(gutterSpan?.style.width).toBe("60px");
+    // The container uses marginLeft based on gutterWidth + 8
+    const element = container.firstElementChild as HTMLElement;
+    expect(element.style.marginLeft).toBe("68px");
   });
 
   it("applies custom className", () => {
