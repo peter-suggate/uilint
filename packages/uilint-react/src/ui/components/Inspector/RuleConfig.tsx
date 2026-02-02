@@ -3,14 +3,16 @@
  *
  * Displays:
  * - Severity selector (off/warn/error)
- * - Rule-specific options (future)
- * - Apply/reset buttons
+ * - Dynamic rule-specific options based on optionSchema
  *
- * Glassmorphic styling with minimal color
+ * Changes apply immediately via WebSocket to update ESLint config.
+ * Glassmorphic styling with minimal color.
  */
 import React from "react";
 import { motion } from "motion/react";
 import { cn } from "../../../lib/utils";
+import { RuleOptionsForm } from "./RuleOptionsForm";
+import type { RuleOptionSchema } from "../../../plugins/eslint/types";
 
 // ============================================================================
 // Types
@@ -25,12 +27,18 @@ export interface RuleConfigProps {
   currentSeverity: RuleSeverity;
   /** Called when severity is changed */
   onSeverityChange: (severity: RuleSeverity) => void;
-  /** Whether changes are pending (unsaved) */
-  hasPendingChanges?: boolean;
-  /** Called to apply changes */
-  onApply?: () => void;
-  /** Called to reset to defaults */
-  onReset?: () => void;
+  /** Option schema for dynamic form fields */
+  optionSchema?: RuleOptionSchema;
+  /** Current option values */
+  currentOptions?: Record<string, unknown>;
+  /** Default option values for reset */
+  defaultOptions?: Record<string, unknown>;
+  /** Called when an option value changes - applies immediately */
+  onOptionChange?: (key: string, value: unknown) => void;
+  /** Called to reset options to defaults */
+  onResetOptions?: () => void;
+  /** Whether an update is in progress */
+  isUpdating?: boolean;
   /** Additional class name */
   className?: string;
 }
@@ -79,9 +87,12 @@ export function RuleConfig({
   ruleId,
   currentSeverity,
   onSeverityChange,
-  hasPendingChanges = false,
-  onApply,
-  onReset,
+  optionSchema,
+  currentOptions,
+  defaultOptions,
+  onOptionChange,
+  onResetOptions,
+  isUpdating = false,
   className,
 }: RuleConfigProps) {
   return (
@@ -125,44 +136,20 @@ export function RuleConfig({
           </div>
         </div>
 
-        {/* Placeholder for future options */}
-        <div className="text-xs text-muted-foreground/50 italic mb-4">
-          Additional rule options coming soon
-        </div>
-
-        {/* Action buttons */}
-        {(onApply || onReset) && (
-          <div className="flex items-center gap-2">
-            {onApply && (
-              <button
-                type="button"
-                onClick={onApply}
-                disabled={!hasPendingChanges}
-                className={cn(
-                  "px-3 py-1.5 rounded-md text-sm",
-                  "transition-colors duration-100",
-                  hasPendingChanges
-                    ? "bg-foreground/[0.08] text-foreground hover:bg-foreground/[0.12]"
-                    : "bg-foreground/[0.02] text-muted-foreground/40 cursor-not-allowed"
-                )}
-              >
-                Apply changes
-              </button>
-            )}
-            {onReset && (
-              <button
-                type="button"
-                onClick={onReset}
-                className={cn(
-                  "px-3 py-1.5 rounded-md text-sm",
-                  "text-foreground/50 hover:text-foreground/80",
-                  "hover:bg-foreground/[0.04]",
-                  "transition-colors duration-100"
-                )}
-              >
-                Reset to default
-              </button>
-            )}
+        {/* Rule options form */}
+        {optionSchema && optionSchema.fields && optionSchema.fields.length > 0 ? (
+          <RuleOptionsForm
+            ruleId={ruleId}
+            optionSchema={optionSchema}
+            currentOptions={currentOptions ?? {}}
+            defaultOptions={defaultOptions ?? {}}
+            onOptionChange={onOptionChange ?? (() => {})}
+            onReset={onResetOptions}
+            isUpdating={isUpdating}
+          />
+        ) : (
+          <div className="text-xs text-muted-foreground/50 italic">
+            No additional options for this rule
           </div>
         )}
       </div>

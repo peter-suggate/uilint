@@ -153,6 +153,22 @@ export function IssuesList({ className }: IssuesListProps) {
     return eslintState.ruleConfigs.get(ruleFilter.id);
   });
 
+  // Get rule metadata including optionSchema
+  const ruleMetadata = useComposedStore((s) => {
+    if (!ruleFilter?.id) return null;
+    const eslintState = s.plugins?.eslint as ESLintPluginSlice | undefined;
+    if (!eslintState?.availableRules) return null;
+    return eslintState.availableRules.find((r) => r.id === ruleFilter.id);
+  });
+
+  // Get isUpdating state
+  const isRuleUpdating = useComposedStore((s) => {
+    if (!ruleFilter?.id) return false;
+    const eslintState = s.plugins?.eslint as ESLintPluginSlice | undefined;
+    if (!eslintState?.ruleConfigUpdating) return false;
+    return eslintState.ruleConfigUpdating.get(ruleFilter.id) ?? false;
+  });
+
   // Handle severity change - calls plugin registry to update ESLint config
   const handleSeverityChange = useCallback(
     (severity: "off" | "warn" | "error") => {
@@ -164,11 +180,41 @@ export function IssuesList({ className }: IssuesListProps) {
     [ruleFilter?.id]
   );
 
+  // Handle option change - calls plugin registry to update ESLint config
+  const handleOptionChange = useCallback(
+    (key: string, value: unknown) => {
+      if (!ruleFilter?.id) return;
+      // Merge the changed option with current options
+      const currentOptions = ruleConfig?.options ?? {};
+      const newOptions = { ...currentOptions, [key]: value };
+      pluginRegistry.setRuleConfig(ruleFilter.id, newOptions);
+    },
+    [ruleFilter?.id, ruleConfig?.options]
+  );
+
+  // Handle reset to defaults
+  const handleResetOptions = useCallback(() => {
+    if (!ruleFilter?.id || !ruleMetadata?.defaultOptions) return;
+    // defaultOptions is typically an array with the first element being the options object
+    const defaultOpts = Array.isArray(ruleMetadata.defaultOptions)
+      ? (ruleMetadata.defaultOptions[0] as Record<string, unknown>) ?? {}
+      : (ruleMetadata.defaultOptions as Record<string, unknown>) ?? {};
+    pluginRegistry.setRuleConfig(ruleFilter.id, defaultOpts);
+  }, [ruleFilter?.id, ruleMetadata?.defaultOptions]);
+
   // Determine current rule severity from ESLint config
   const currentRuleSeverity: "off" | "warn" | "error" = useMemo(() => {
     if (!ruleConfig?.severity) return "warn";
     return ruleConfig.severity;
   }, [ruleConfig?.severity]);
+
+  // Get default options for the rule
+  const defaultOptions = useMemo(() => {
+    if (!ruleMetadata?.defaultOptions) return {};
+    return Array.isArray(ruleMetadata.defaultOptions)
+      ? (ruleMetadata.defaultOptions[0] as Record<string, unknown>) ?? {}
+      : (ruleMetadata.defaultOptions as Record<string, unknown>) ?? {};
+  }, [ruleMetadata?.defaultOptions]);
 
   // Check if has filters
   const hasFilters = filters.length > 0;
@@ -180,9 +226,9 @@ export function IssuesList({ className }: IssuesListProps) {
         {ruleFilter && (
           <RuleHeader
             ruleFilter={ruleFilter}
-            description={getRuleDescription(ruleFilter.id)}
-            category={getRuleCategory(ruleFilter.id)}
-            docsUrl={getRuleDocsUrl(ruleFilter.id)}
+            description={ruleMetadata?.description ?? getRuleDescription(ruleFilter.id)}
+            category={ruleMetadata?.category ?? getRuleCategory(ruleFilter.id)}
+            docsUrl={ruleMetadata?.docs ?? getRuleDocsUrl(ruleFilter.id)}
             configExpanded={ruleConfigExpanded}
             onToggleConfig={toggleRuleConfig}
             onClear={handleClearRuleFilter}
@@ -197,6 +243,12 @@ export function IssuesList({ className }: IssuesListProps) {
             ruleId={ruleFilter.id}
             currentSeverity={currentRuleSeverity}
             onSeverityChange={handleSeverityChange}
+            optionSchema={ruleMetadata?.optionSchema}
+            currentOptions={ruleConfig?.options}
+            defaultOptions={defaultOptions}
+            onOptionChange={handleOptionChange}
+            onResetOptions={handleResetOptions}
+            isUpdating={isRuleUpdating}
           />
         )}
       </AnimatePresence>

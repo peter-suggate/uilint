@@ -657,8 +657,16 @@ function handleWebSocketMessage(
         const configState = services.getState<{ ruleConfigs: Map<string, RuleConfig> }>();
         const configs = new Map(configState.ruleConfigs);
         configs.set(ruleId, { severity, options });
-        services.setState({ ruleConfigs: configs });
-        devLog("[ESLint Plugin] Rule config updated:", ruleId, "->", severity);
+
+        // Clear issues and requested files to trigger fresh linting
+        // The DOM observer will naturally re-request linting for visible elements
+        services.setState({
+          ruleConfigs: configs,
+          issues: new Map(),
+          scannedDataLocs: new Set(),
+          requestedFiles: new Set(),
+        });
+        devLog("[ESLint Plugin] Rule config updated:", ruleId, "->", severity, "- refreshing lint results");
       } else {
         devError("[ESLint Plugin] Failed to update rule config:", error);
       }
@@ -672,8 +680,16 @@ function handleWebSocketMessage(
       const state = services.getState<{ ruleConfigs: Map<string, RuleConfig> }>();
       const configs = new Map(state.ruleConfigs);
       configs.set(ruleId, { severity, options });
-      services.setState({ ruleConfigs: configs });
-      devLog("[ESLint Plugin] Rule config changed (broadcast):", ruleId, "->", severity);
+
+      // Clear issues and requested files to trigger fresh linting
+      // The DOM observer will naturally re-request linting for visible elements
+      services.setState({
+        ruleConfigs: configs,
+        issues: new Map(),
+        scannedDataLocs: new Set(),
+        requestedFiles: new Set(),
+      });
+      devLog("[ESLint Plugin] Rule config changed (broadcast):", ruleId, "->", severity, "- refreshing lint results");
       break;
     }
   }
