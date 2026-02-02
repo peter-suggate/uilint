@@ -5,13 +5,15 @@
  * - Element rectangles are click-through (pointerEvents: none) to allow
  *   interaction with the underlying application
  * - Only the inset badge (square, top-right corner) is clickable
- * - Clicking the badge adds a file filter to the unified filter model
+ * - Clicking the badge adds file, rule, and loc filters to narrow to that exact element
  * - Alt+hover on badge shows tooltip with issue details
  *
  * The heatmap automatically reflects the current tile filters:
  * - No filters: show all issues
  * - Rule filter: show only issues for that rule
- * - Rule + File filter: show only issues for that rule in that file
+ * - File filter: show only issues in that file
+ * - Loc filter: show only the exact element at that location
+ * - Combined filters: intersection of all filter conditions
  */
 import React, { useMemo } from "react";
 import { createPortal } from "react-dom";
@@ -183,7 +185,7 @@ export function HeatmapOverlay() {
   }, [elementRects, heatmapDataLocs, hasActiveTileFilters]);
 
   // Handle clicking the badge on an overlay item
-  // Adds a file filter to the unified model and opens the inspector
+  // Adds file, rule, and loc filters to narrow to this exact element
   const handleBadgeClick = (dataLoc: string) => {
     const elementIssues = issues.get(dataLoc) || [];
     if (elementIssues.length > 0) {
@@ -195,6 +197,24 @@ export function HeatmapOverlay() {
         type: "file",
         id: firstIssue.filePath,
         label: fileName,
+      });
+
+      // Add rule filter for the clicked issue's rule
+      addFilter({
+        type: "rule",
+        id: firstIssue.ruleId,
+        label: firstIssue.ruleId,
+      });
+
+      // Add loc filter to narrow to this exact element
+      // Format label as "Line X:Y" from dataLoc "path:line:column"
+      const locParts = dataLoc.split(":");
+      const column = locParts.pop() || "0";
+      const line = locParts.pop() || "0";
+      addFilter({
+        type: "loc",
+        id: dataLoc,
+        label: `Line ${line}:${column}`,
       });
 
       // Expand the file containing this element

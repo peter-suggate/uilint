@@ -367,6 +367,101 @@ describe("selectHeatmapDataLocs", () => {
     expect(result1).toContain("file.tsx:10:5");
     expect(result2).toContain("file.tsx:20:10");
   });
+
+  it("returns only exact dataLoc when loc filter is active", () => {
+    const issues = new Map([
+      ["file.tsx:10:5", [createMockIssue({ dataLoc: "file.tsx:10:5", ruleId: "no-unused-vars" })]],
+      ["file.tsx:20:10", [createMockIssue({ dataLoc: "file.tsx:20:10", ruleId: "no-unused-vars" })]],
+      ["file.tsx:30:15", [createMockIssue({ dataLoc: "file.tsx:30:15", ruleId: "no-unused-vars" })]],
+    ]);
+    const state = createMockState({
+      issues,
+      filters: [createMockFilter({ type: "loc", id: "file.tsx:20:10", label: "Line 20:10" })],
+    });
+
+    const result = selectHeatmapDataLocs(state);
+
+    expect(result).toHaveLength(1);
+    expect(result).toContain("file.tsx:20:10");
+  });
+
+  it("returns empty when loc filter does not match any dataLoc", () => {
+    const issues = new Map([
+      ["file.tsx:10:5", [createMockIssue({ dataLoc: "file.tsx:10:5" })]],
+    ]);
+    const state = createMockState({
+      issues,
+      filters: [createMockFilter({ type: "loc", id: "file.tsx:99:99", label: "Line 99:99" })],
+    });
+
+    const result = selectHeatmapDataLocs(state);
+
+    expect(result).toEqual([]);
+  });
+
+  it("returns dataLoc matching loc + rule filter combination", () => {
+    const issues = new Map([
+      ["file.tsx:10:5", [
+        createMockIssue({ id: "1", dataLoc: "file.tsx:10:5", ruleId: "no-unused-vars" }),
+        createMockIssue({ id: "2", dataLoc: "file.tsx:10:5", ruleId: "no-console" }),
+      ]],
+      ["file.tsx:20:10", [createMockIssue({ dataLoc: "file.tsx:20:10", ruleId: "no-unused-vars" })]],
+    ]);
+    const state = createMockState({
+      issues,
+      filters: [
+        createMockFilter({ type: "loc", id: "file.tsx:10:5", label: "Line 10:5" }),
+        createMockFilter({ type: "rule", id: "no-unused-vars" }),
+      ],
+    });
+
+    const result = selectHeatmapDataLocs(state);
+
+    // Should return the loc since it has an issue matching the rule filter
+    expect(result).toHaveLength(1);
+    expect(result).toContain("file.tsx:10:5");
+  });
+
+  it("returns empty when loc matches but rule does not", () => {
+    const issues = new Map([
+      ["file.tsx:10:5", [createMockIssue({ dataLoc: "file.tsx:10:5", ruleId: "no-console" })]],
+    ]);
+    const state = createMockState({
+      issues,
+      filters: [
+        createMockFilter({ type: "loc", id: "file.tsx:10:5", label: "Line 10:5" }),
+        createMockFilter({ type: "rule", id: "no-unused-vars" }),
+      ],
+    });
+
+    const result = selectHeatmapDataLocs(state);
+
+    // Loc matches, but rule does not, so no results
+    expect(result).toEqual([]);
+  });
+
+  it("returns dataLoc matching loc + file + rule filter combination", () => {
+    const issues = new Map([
+      ["src/app.tsx:10:5", [createMockIssue({
+        dataLoc: "src/app.tsx:10:5",
+        ruleId: "no-unused-vars",
+        filePath: "src/app.tsx"
+      })]],
+    ]);
+    const state = createMockState({
+      issues,
+      filters: [
+        createMockFilter({ type: "loc", id: "src/app.tsx:10:5", label: "Line 10:5" }),
+        createMockFilter({ type: "file", id: "src/app.tsx", label: "app.tsx" }),
+        createMockFilter({ type: "rule", id: "no-unused-vars" }),
+      ],
+    });
+
+    const result = selectHeatmapDataLocs(state);
+
+    expect(result).toHaveLength(1);
+    expect(result).toContain("src/app.tsx:10:5");
+  });
 });
 
 // ============================================================================
@@ -448,5 +543,51 @@ describe("Heatmap Selectors - Integration", () => {
     const ruleFileDataLocs = selectHeatmapDataLocs(stateRuleFileFilter);
     expect(ruleFileDataLocs).toHaveLength(1);
     expect(ruleFileDataLocs).toContain("src/a.tsx:10:5");
+  });
+
+  it("full drill-down flow: rule → file → loc filters progressively narrow results", () => {
+    const issues = new Map([
+      ["src/a.tsx:10:5", [createMockIssue({ dataLoc: "src/a.tsx:10:5", ruleId: "no-unused-vars", filePath: "src/a.tsx" })]],
+      ["src/a.tsx:20:10", [createMockIssue({ dataLoc: "src/a.tsx:20:10", ruleId: "no-unused-vars", filePath: "src/a.tsx" })]],
+      ["src/b.tsx:30:15", [createMockIssue({ dataLoc: "src/b.tsx:30:15", ruleId: "no-unused-vars", filePath: "src/b.tsx" })]],
+    ]);
+
+    // Step 1: Rule filter only - shows all 3 locations
+    const stateRuleOnly = createMockState({
+      issues,
+      filters: [createMockFilter({ type: "rule", id: "no-unused-vars" })],
+    });
+    const ruleOnlyLocs = selectHeatmapDataLocs(stateRuleOnly);
+    expect(ruleOnlyLocs).toHaveLength(3);
+
+    clearHeatmapDataLocsCache();
+
+    // Step 2: Rule + File filter - narrows to 2 locations in src/a.tsx
+    const stateRuleFile = createMockState({
+      issues,
+      filters: [
+        createMockFilter({ type: "rule", id: "no-unused-vars" }),
+        createMockFilter({ type: "file", id: "src/a.tsx", label: "a.tsx" }),
+      ],
+    });
+    const ruleFileLocs = selectHeatmapDataLocs(stateRuleFile);
+    expect(ruleFileLocs).toHaveLength(2);
+    expect(ruleFileLocs).toContain("src/a.tsx:10:5");
+    expect(ruleFileLocs).toContain("src/a.tsx:20:10");
+
+    clearHeatmapDataLocsCache();
+
+    // Step 3: Rule + File + Loc filter - narrows to exact location
+    const stateRuleFileLoc = createMockState({
+      issues,
+      filters: [
+        createMockFilter({ type: "rule", id: "no-unused-vars" }),
+        createMockFilter({ type: "file", id: "src/a.tsx", label: "a.tsx" }),
+        createMockFilter({ type: "loc", id: "src/a.tsx:10:5", label: "Line 10:5" }),
+      ],
+    });
+    const ruleFileLocLocs = selectHeatmapDataLocs(stateRuleFileLoc);
+    expect(ruleFileLocLocs).toHaveLength(1);
+    expect(ruleFileLocLocs).toContain("src/a.tsx:10:5");
   });
 });

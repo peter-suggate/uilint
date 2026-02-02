@@ -622,7 +622,7 @@ export interface TileItem {
  * Filter type for scoping tile views.
  * Used as chips in the search bar to narrow displayed tiles.
  */
-export type TileFilterType = "scope" | "rule" | "file" | "severity" | "category";
+export type TileFilterType = "scope" | "rule" | "file" | "severity" | "category" | "loc";
 
 /**
  * A filter chip that scopes the tile view.
