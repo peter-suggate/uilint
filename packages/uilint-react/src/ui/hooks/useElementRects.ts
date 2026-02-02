@@ -23,6 +23,7 @@ export function useElementRects(
   const observerRef = useRef<MutationObserver | null>(null);
   const styleObserverRef = useRef<MutationObserver | null>(null);
   const rafRef = useRef<number | null>(null);
+  const transitionPollRef = useRef<number | null>(null);
 
   const updateRects = useCallback(() => {
     if (!dataLocs) {
@@ -67,9 +68,8 @@ export function useElementRects(
   useEffect(() => {
     updateRects();
 
-    // Update on scroll and resize
+    // Update on scroll
     window.addEventListener("scroll", throttledUpdate, { passive: true });
-    window.addEventListener("resize", throttledUpdate, { passive: true });
 
     // Watch for DOM changes in body
     observerRef.current = new MutationObserver(throttledUpdate);
@@ -80,11 +80,37 @@ export function useElementRects(
       attributeFilter: ["data-loc"],
     });
 
-    // Watch for style changes on document.documentElement (margin changes from inspector dock)
+    // Poll to keep heatmap in sync during continuous layout changes
+    // Runs for ~250ms at 60fps after triggering events
+    const pollForUpdates = () => {
+      if (transitionPollRef.current) {
+        cancelAnimationFrame(transitionPollRef.current);
+      }
+      let frames = 15; // ~250ms at 60fps
+      const poll = () => {
+        updateRects();
+        frames--;
+        if (frames > 0) {
+          transitionPollRef.current = requestAnimationFrame(poll);
+        } else {
+          transitionPollRef.current = null;
+        }
+      };
+      poll();
+    };
+
+    // Handle window resize with polling for smooth updates during drag
+    const handleWindowResize = () => {
+      pollForUpdates();
+    };
+    window.addEventListener("resize", handleWindowResize, { passive: true });
+
+    // Watch for style changes on document.documentElement (margin changes from inspector)
+    // When style changes, poll for the duration of the CSS transition
     styleObserverRef.current = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.type === "attributes" && mutation.attributeName === "style") {
-          throttledUpdate();
+          pollForUpdates();
           break;
         }
       }
@@ -94,22 +120,22 @@ export function useElementRects(
       attributeFilter: ["style"],
     });
 
-    // Listen for transitionend on document.documentElement to catch when margin animation completes
-    // This ensures heatmap overlays reposition correctly after inspector dock/undock transitions
+    // Also listen for transitionend as a final sync point
     const handleTransitionEnd = (e: TransitionEvent) => {
       if (e.target === document.documentElement && e.propertyName === "margin-right") {
-        throttledUpdate();
+        updateRects();
       }
     };
     document.documentElement.addEventListener("transitionend", handleTransitionEnd);
 
     return () => {
       window.removeEventListener("scroll", throttledUpdate);
-      window.removeEventListener("resize", throttledUpdate);
+      window.removeEventListener("resize", handleWindowResize);
       observerRef.current?.disconnect();
       styleObserverRef.current?.disconnect();
       document.documentElement.removeEventListener("transitionend", handleTransitionEnd);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (transitionPollRef.current) cancelAnimationFrame(transitionPollRef.current);
     };
   }, [updateRects, throttledUpdate]);
 

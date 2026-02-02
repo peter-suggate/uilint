@@ -10,6 +10,8 @@ interface ResizeHandleProps {
   direction: "horizontal" | "vertical" | "corner";
   /** Called during resize with delta values */
   onResize: (deltaX: number, deltaY: number) => void;
+  /** Called when resize starts */
+  onResizeStart?: () => void;
   /** Called when resize ends */
   onResizeEnd?: () => void;
 }
@@ -17,6 +19,7 @@ interface ResizeHandleProps {
 export function ResizeHandle({
   direction,
   onResize,
+  onResizeStart,
   onResizeEnd,
 }: ResizeHandleProps) {
   const isDragging = useRef(false);
@@ -28,8 +31,9 @@ export function ResizeHandle({
       e.stopPropagation();
       isDragging.current = true;
       lastPos.current = { x: e.clientX, y: e.clientY };
+      onResizeStart?.();
     },
-    []
+    [onResizeStart]
   );
 
   useEffect(() => {
