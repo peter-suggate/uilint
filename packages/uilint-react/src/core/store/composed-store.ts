@@ -19,6 +19,8 @@ import { devLog, devWarn, devError } from "uilint-core";
 import { createCoreSlice, type CoreSlice } from "./core-slice";
 import { createDragSlice, type DragSlice } from "./drag-slice";
 import { initializeSubscriptions, type CleanupFn } from "./subscriptions";
+import { clearHeatmapDataLocsCache } from "./heatmap-selectors";
+import { clearFileGroupsCache } from "./file-groups-selector";
 import {
   pluginRegistry,
   sortByDependencies,
@@ -708,6 +710,11 @@ export function resetStore(
     subscriptionsCleanup();
     subscriptionsCleanup = null;
   }
+
+  // Clear module-level memoization caches from selectors
+  // This ensures stale data doesn't persist across store resets (important for tests)
+  clearHeatmapDataLocsCache();
+  clearFileGroupsCache();
 
   // Zustand stores don't have a destroy method, just clear the reference
   storeInstance = null;

@@ -1,18 +1,19 @@
 /**
  * useTileItems - React hook for accessing filtered tile items
  *
- * Uses Zustand store selectors for derived state.
- * All filtering and deduplication is performed in the store selectors,
- * keeping React code focused on presentation.
+ * Computes tile items on demand from plugin providers based on current filters.
+ * This makes filters the single source of truth - tile items automatically
+ * update when filters change.
  */
 
 import { useMemo } from "react";
+import { devWarn } from "uilint-core";
 import {
   useComposedStore,
-  selectFilteredTileItems,
   selectTileFilters,
-  selectTileItemsLoading,
+  getPluginServices,
 } from "../../core/store";
+import { filterByQuery, dedupeItems } from "../../core/store/tile-selectors";
 import { pluginRegistry } from "../../core/plugin-system/registry";
 import type { TileItem, TileFilter } from "../../core/plugin-system/types";
 
@@ -22,23 +23,64 @@ import type { TileItem, TileFilter } from "../../core/plugin-system/types";
 export interface UseTileItemsResult {
   /** Filtered and deduplicated tile items to display */
   items: TileItem[];
-  /** Whether any provider is still loading */
+  /** Whether any provider is still loading (always false - computation is sync) */
   isLoading: boolean;
   /** Whether current filters represent a terminal state (no more drill-down) */
   isTerminal: boolean;
 }
 
+// Stable empty array to avoid creating new references
+const EMPTY_ITEMS: TileItem[] = [];
+
+/**
+ * Compute tile items from all registered providers.
+ * This is the core computation that was previously in refreshTileItems().
+ */
+function computeTileItems(filters: TileFilter[]): TileItem[] {
+  const services = getPluginServices();
+  if (!services) {
+    devWarn("[useTileItems] Plugin services not available");
+    return EMPTY_ITEMS;
+  }
+
+  const tileProviders = pluginRegistry.getAllTileProviders();
+  if (tileProviders.length === 0) {
+    return EMPTY_ITEMS;
+  }
+
+  const allItems: TileItem[] = [];
+
+  for (const { pluginId, provider } of tileProviders) {
+    try {
+      const result = provider.getTileItems(services, filters);
+
+      // Add providerId to each item's metadata for filter creation
+      const itemsWithProvider = result.map((item) => ({
+        ...item,
+        metadata: {
+          ...item.metadata,
+          providerId: pluginId,
+        },
+      }));
+
+      allItems.push(...itemsWithProvider);
+    } catch (error) {
+      devWarn(
+        `[useTileItems] Error getting tile items from plugin "${pluginId}":`,
+        error
+      );
+    }
+  }
+
+  return allItems;
+}
+
 /**
  * Hook that returns tile items to display based on current filters.
  *
- * This hook uses Zustand selectors for all derived state:
- * 1. Gets filtered and deduplicated tile items via selectFilteredTileItems
- * 2. Gets loading state via selectTileItemsLoading
- * 3. Determines if the current filter state is terminal (from plugin registry)
- *
- * Note: The query parameter is ignored - filtering uses commandPalette.query
- * from the store. This parameter is kept for API compatibility but will be
- * removed in a future version.
+ * Tile items are computed on demand from plugin providers whenever filters
+ * change. This makes filters the single source of truth - no need to manually
+ * call refreshTileItems().
  *
  * @param _filters - Deprecated: filters come from the store
  * @param _query - Deprecated: query comes from the store
@@ -69,13 +111,22 @@ export function useTileItems(
   _filters?: TileFilter[],
   _query?: string
 ): UseTileItemsResult {
-  // Use stable selectors from the store
-  const items = useComposedStore(selectFilteredTileItems);
-  const isLoading = useComposedStore(selectTileItemsLoading);
+  // Get filters and query from store - these are the source of truth
   const filters = useComposedStore(selectTileFilters);
+  const query = useComposedStore((s) => s.commandPalette.query);
 
-  // Compute isTerminal from providers - this queries the plugin registry
-  // which is external to the store
+  // Compute raw tile items when filters change
+  // This replaces the manual refreshTileItems() calls
+  const rawItems = useMemo(() => computeTileItems(filters), [filters]);
+
+  // Apply query filtering and deduplication
+  const items = useMemo(() => {
+    if (rawItems.length === 0) return EMPTY_ITEMS;
+    const filtered = filterByQuery(rawItems, query);
+    return dedupeItems(filtered);
+  }, [rawItems, query]);
+
+  // Compute isTerminal from providers
   const isTerminal = useMemo((): boolean => {
     const tileProviders = pluginRegistry.getAllTileProviders();
 
@@ -89,7 +140,9 @@ export function useTileItems(
 
   return {
     items,
-    isLoading,
+    // Always false since computation is synchronous
+    // Kept for API compatibility
+    isLoading: false,
     isTerminal,
   };
 }

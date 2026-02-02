@@ -85,9 +85,6 @@ function createMockState(options: {
       open: false,
       query: "",
       selectedIndex: 0,
-      selectedCategoryIds: new Set(),
-      tileItems: [],
-      tileItemsLoading: false,
     },
     plugins: {
       eslint: {

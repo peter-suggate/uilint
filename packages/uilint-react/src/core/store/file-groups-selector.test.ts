@@ -66,8 +66,6 @@ function createMockState(
       open: false,
       query: "",
       selectedIndex: 0,
-      tileItems: [],
-      tileItemsLoading: false,
     },
   } as unknown as ComposedState;
 }
@@ -83,8 +81,6 @@ function createEmptyState(): ComposedState {
       open: false,
       query: "",
       selectedIndex: 0,
-      tileItems: [],
-      tileItemsLoading: false,
     },
   } as unknown as ComposedState;
 }
