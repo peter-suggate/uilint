@@ -185,8 +185,8 @@ describe("RuleConfig", () => {
         />
       );
 
-      const numberInput = screen.getByRole("textbox");
-      fireEvent.change(numberInput, { target: { value: "5" } });
+      const inputs = screen.getAllByRole("textbox") as HTMLInputElement[];
+      fireEvent.change(inputs[0], { target: { value: "5" } });
 
       expect(onOptionChange).toHaveBeenCalledWith("maxDepth", 5);
     });
@@ -299,9 +299,9 @@ describe("RuleConfig", () => {
       fireEvent.click(screen.getByText("Error"));
       expect(onSeverityChange).toHaveBeenCalledWith("error");
 
-      // Change option
-      const numberInput = screen.getByRole("textbox");
-      fireEvent.change(numberInput, { target: { value: "5" } });
+      // Change option (first textbox is maxDepth)
+      const inputs = screen.getAllByRole("textbox") as HTMLInputElement[];
+      fireEvent.change(inputs[0], { target: { value: "5" } });
       expect(onOptionChange).toHaveBeenCalledWith("maxDepth", 5);
     });
   });
@@ -318,7 +318,8 @@ describe("RuleConfig", () => {
         />
       );
 
-      expect(container.firstChild).toHaveClass("custom-class");
+      const firstChild = container.firstChild as HTMLElement;
+      expect(firstChild.className).toContain("custom-class");
     });
 
     it("renders severity label", () => {

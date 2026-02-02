@@ -315,8 +315,8 @@ describe("RuleOptionsForm", () => {
         />
       );
 
-      const resetButton = screen.getByText("Reset to defaults");
-      expect(resetButton).toHaveAttribute("disabled");
+      const resetButton = screen.getByText("Reset to defaults") as HTMLButtonElement;
+      expect(resetButton.disabled).toBe(true);
     });
   });
 

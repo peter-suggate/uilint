@@ -434,7 +434,8 @@ describe("OptionField", () => {
         <OptionField schema={schema} value="" onChange={onChange} className="custom-class" />
       );
 
-      expect(container.firstChild).toHaveClass("custom-class");
+      const firstChild = container.firstChild as HTMLElement;
+      expect(firstChild.className).toContain("custom-class");
     });
 
     it("renders without description when not provided", () => {
