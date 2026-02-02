@@ -206,9 +206,11 @@ program
   .command("serve")
   .description("Start WebSocket server for real-time UI linting")
   .option("-p, --port <number>", "Port to listen on", "9234")
+  .option("--no-dashboard", "Disable dashboard UI (use simple logging)")
   .action(async (options) => {
     await serve({
       port: parseInt(options.port, 10),
+      noDashboard: !options.dashboard,
     });
   });
 
