@@ -5,9 +5,10 @@
  * we show the full annotation for the first occurrence and this
  * compact reference for subsequent occurrences.
  *
- * Shows: "↳ same as line X"
+ * Shows: "↳ line X"
+ * Auto-scrolls into view when selected (e.g., from heatmap click)
  */
-import React from "react";
+import React, { useRef, useLayoutEffect } from "react";
 import { motion } from "motion/react";
 import { cn } from "../../../lib/utils";
 import type { Issue } from "../../types";
@@ -58,8 +59,18 @@ export function IssueReference({
   gutterWidth = 40,
   className,
 }: IssueReferenceProps) {
+  const ref = useRef<HTMLButtonElement>(null);
+
+  // Auto-scroll into view when selected (e.g., from heatmap click)
+  useLayoutEffect(() => {
+    if (isSelected && ref.current?.scrollIntoView) {
+      ref.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [isSelected]);
+
   return (
     <motion.button
+      ref={ref}
       type="button"
       onClick={onSelect}
       initial={{ opacity: 0 }}

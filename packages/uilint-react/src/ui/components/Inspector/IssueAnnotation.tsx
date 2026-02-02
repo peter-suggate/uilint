@@ -5,10 +5,11 @@
  * - Subtle severity indicator
  * - Issue message only (no rule badge - context from parent)
  * - Reduced visual intensity
+ * - Auto-scroll when selected (e.g., from heatmap click)
  *
  * Focus on clarity without visual noise
  */
-import React from "react";
+import React, { useRef, useLayoutEffect } from "react";
 import { motion } from "motion/react";
 import { cn } from "../../../lib/utils";
 import type { Issue } from "../../types";
@@ -75,10 +76,19 @@ export function IssueAnnotation({
   gutterWidth = 40,
   className,
 }: IssueAnnotationProps) {
+  const ref = useRef<HTMLDivElement>(null);
   const severityClasses = getSeverityClasses(issue.severity);
+
+  // Auto-scroll into view when selected (e.g., from heatmap click)
+  useLayoutEffect(() => {
+    if (isSelected && ref.current?.scrollIntoView) {
+      ref.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [isSelected]);
 
   return (
     <motion.div
+      ref={ref}
       onClick={onSelect}
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}

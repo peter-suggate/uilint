@@ -9,7 +9,7 @@
  *
  * Uses the unified filter model - same source of truth as tiles and heatmap.
  */
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useEffect } from "react";
 import { AnimatePresence } from "motion/react";
 import { useComposedStore } from "../../../core/store";
 import {
@@ -72,6 +72,7 @@ export function IssuesList({ className }: IssuesListProps) {
   const addFilter = useComposedStore((s) => s.addFilter);
   const removeFilter = useComposedStore((s) => s.removeFilter);
   const toggleFileExpanded = useComposedStore((s) => s.toggleFileExpanded);
+  const expandFile = useComposedStore((s) => s.expandFile);
   const selectIssue = useComposedStore((s) => s.selectIssue);
   const toggleRuleConfig = useComposedStore((s) => s.toggleRuleConfig);
 
@@ -88,6 +89,23 @@ export function IssuesList({ className }: IssuesListProps) {
       }
     }
   }, [fileGroups, expandedFiles.length, toggleFileExpanded]);
+
+  // Auto-expand file containing selected issue (e.g., from heatmap click)
+  useEffect(() => {
+    if (!selectedIssueId) return;
+
+    // Find which file contains the selected issue
+    for (const fileGroup of fileGroups) {
+      const hasIssue = fileGroup.issues.some((issue) => issue.id === selectedIssueId);
+      if (hasIssue) {
+        // Expand this file if not already expanded
+        if (!expandedFiles.includes(fileGroup.filePath)) {
+          expandFile(fileGroup.filePath);
+        }
+        break;
+      }
+    }
+  }, [selectedIssueId, fileGroups, expandedFiles, expandFile]);
 
   // Handle rule badge click - adds filter
   const handleRuleClick = useCallback(
