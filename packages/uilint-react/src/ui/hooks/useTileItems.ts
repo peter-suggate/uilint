@@ -11,6 +11,7 @@ import { devWarn } from "uilint-core";
 import {
   useComposedStore,
   selectTileFilters,
+  selectIssuesMap,
   getPluginServices,
 } from "../../core/store";
 import { filterByQuery, dedupeItems } from "../../core/store/tile-selectors";
@@ -115,9 +116,13 @@ export function useTileItems(
   const filters = useComposedStore(selectTileFilters);
   const query = useComposedStore((s) => s.commandPalette.query);
 
-  // Compute raw tile items when filters change
+  // Subscribe to issues changes to trigger re-computation when lint results arrive
+  // This ensures the tile grid updates when new issues come in via WebSocket
+  const issuesMap = useComposedStore(selectIssuesMap);
+
+  // Compute raw tile items when filters or issues change
   // This replaces the manual refreshTileItems() calls
-  const rawItems = useMemo(() => computeTileItems(filters), [filters]);
+  const rawItems = useMemo(() => computeTileItems(filters), [filters, issuesMap]);
 
   // Apply query filtering and deduplication
   const items = useMemo(() => {
