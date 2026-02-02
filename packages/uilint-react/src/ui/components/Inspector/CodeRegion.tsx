@@ -8,8 +8,10 @@ import React from "react";
 import { AnimatePresence } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { IssueAnnotation } from "./IssueAnnotation";
+import { IssueReference } from "./IssueReference";
 import { getIssuesForLine, getLineSeverity } from "./source-regions";
 import type { Issue } from "../../types";
+import type { FirstOccurrenceMap } from "./FileSourceView";
 
 // ============================================================================
 // Types
@@ -28,6 +30,8 @@ export interface CodeRegionProps {
   onIssueSelect: (issueId: string) => void;
   /** Width of the line number gutter */
   gutterWidth?: number;
+  /** Map of message -> first line number for deduplication */
+  firstOccurrenceMap?: FirstOccurrenceMap;
   /** Additional class name */
   className?: string;
 }
@@ -91,6 +95,7 @@ export function CodeRegion({
   selectedIssueId,
   onIssueSelect,
   gutterWidth = 40,
+  firstOccurrenceMap,
   className,
 }: CodeRegionProps) {
   return (
@@ -146,15 +151,35 @@ export function CodeRegion({
 
             {/* Issue annotations below the line */}
             <AnimatePresence>
-              {lineIssues.map((issue) => (
-                <IssueAnnotation
-                  key={issue.id}
-                  issue={issue}
-                  isSelected={selectedIssueId === issue.id}
-                  onSelect={() => onIssueSelect(issue.id)}
-                  gutterWidth={gutterWidth}
-                />
-              ))}
+              {lineIssues.map((issue) => {
+                // Check if this is the first occurrence of this message
+                const firstLine = firstOccurrenceMap?.get(issue.message);
+                const isFirstOccurrence = !firstLine || firstLine === lineNumber;
+
+                if (isFirstOccurrence) {
+                  return (
+                    <IssueAnnotation
+                      key={issue.id}
+                      issue={issue}
+                      isSelected={selectedIssueId === issue.id}
+                      onSelect={() => onIssueSelect(issue.id)}
+                      gutterWidth={gutterWidth}
+                    />
+                  );
+                }
+
+                // Render compact reference for repeated issues
+                return (
+                  <IssueReference
+                    key={issue.id}
+                    issue={issue}
+                    firstLine={firstLine}
+                    isSelected={selectedIssueId === issue.id}
+                    onSelect={() => onIssueSelect(issue.id)}
+                    gutterWidth={gutterWidth}
+                  />
+                );
+              })}
             </AnimatePresence>
           </div>
         );
