@@ -325,9 +325,138 @@ export function getInspectorData(item: TileItem): {
     };
   }
 
+  if (metadata.isIssue) {
+    return {
+      panelId: "eslint-rule",
+      data: {
+        ruleId: metadata.ruleId,
+        filePath: metadata.filePath,
+        issueId: metadata.issueId,
+        line: metadata.line,
+      },
+    };
+  }
+
   // Fallback
   return {
     panelId: "eslint-rule",
     data: {},
   };
+}
+
+// ============================================================================
+// Expandable Tile Support
+// ============================================================================
+
+/**
+ * Create issue tiles for a specific file.
+ * Used when expanding a file tile to show individual issues.
+ *
+ * @param issues - All issues
+ * @param filePath - File path to filter by
+ * @param ruleId - Optional rule ID to filter by
+ * @returns Array of TileItem objects, one per issue
+ */
+export function aggregateIssuesForFile(
+  issues: Issue[],
+  filePath: string,
+  ruleId?: string
+): TileItem[] {
+  // Filter issues for this file (and optionally this rule)
+  let fileIssues = issues.filter((issue) => issue.filePath === filePath);
+  if (ruleId) {
+    fileIssues = fileIssues.filter((issue) => issue.ruleId === ruleId);
+  }
+
+  // Sort by line number
+  fileIssues.sort((a, b) => a.line - b.line);
+
+  // Convert to tiles
+  return fileIssues.map((issue) => ({
+    id: `issue:${issue.id}`,
+    label: issue.message,
+    subtitle: `Line ${issue.line}${issue.column ? `:${issue.column}` : ""}`,
+    count: 1, // Each issue counts as 1
+    severityCounts: {
+      error: issue.severity === "error" ? 1 : 0,
+      warning: issue.severity === "warning" ? 1 : 0,
+      info: issue.severity === "info" ? 1 : 0,
+    },
+    metadata: {
+      isIssue: true,
+      issueId: issue.id,
+      ruleId: issue.ruleId,
+      filePath: issue.filePath,
+      line: issue.line,
+      column: issue.column,
+      severity: issue.severity,
+      issue, // Full issue object for detailed display
+    },
+  }));
+}
+
+/**
+ * Get child items for an expanded tile (for expandable tile UI).
+ *
+ * - Rule tile -> returns file tiles for that rule
+ * - File tile -> returns issue tiles for that file (and rule if specified)
+ * - Issue tile -> returns undefined (terminal, no children)
+ *
+ * @param item - The expanded tile item
+ * @param services - Plugin services for state access
+ * @returns Array of child tile items, or undefined if not expandable
+ */
+export function getChildItems(
+  item: TileItem,
+  services: PluginServices
+): TileItem[] | undefined {
+  const metadata = item.metadata ?? {};
+  const allIssues = getAllIssues(services);
+
+  if (allIssues.length === 0) {
+    return undefined;
+  }
+
+  // Rule tile -> file tiles
+  if (metadata.isRule) {
+    const ruleId = metadata.ruleId as string;
+    return aggregateByFile(allIssues, ruleId);
+  }
+
+  // File tile -> issue tiles
+  if (metadata.isFile) {
+    const filePath = metadata.filePath as string;
+    const ruleId = metadata.ruleId as string | undefined;
+    return aggregateIssuesForFile(allIssues, filePath, ruleId);
+  }
+
+  // Issue tile -> no children (terminal)
+  if (metadata.isIssue) {
+    return undefined;
+  }
+
+  return undefined;
+}
+
+/**
+ * Check if a tile can be expanded (has children).
+ *
+ * @param item - The tile to check
+ * @returns True if the tile can be expanded
+ */
+export function canExpand(item: TileItem): boolean {
+  const metadata = item.metadata ?? {};
+
+  // Rule tiles can expand to show files
+  if (metadata.isRule) {
+    return true;
+  }
+
+  // File tiles can expand to show issues
+  if (metadata.isFile) {
+    return true;
+  }
+
+  // Issue tiles cannot expand (terminal)
+  return false;
 }

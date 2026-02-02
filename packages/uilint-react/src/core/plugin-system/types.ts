@@ -575,6 +575,22 @@ export interface Plugin<TSlice = unknown> {
       panelId: string;
       data: Record<string, unknown>;
     };
+
+    /**
+     * Get child items for an expanded tile (for expandable tile UI).
+     * Called when a tile is expanded to fetch its children.
+     * @param item The expanded tile item
+     * @param services Plugin services for state access
+     * @returns Array of child tile items, or undefined if not expandable
+     */
+    getChildItems?: (item: TileItem, services: PluginServices) => TileItem[] | undefined;
+
+    /**
+     * Check if a tile can be expanded (has children).
+     * @param item The tile to check
+     * @returns True if the tile can be expanded
+     */
+    canExpand?: (item: TileItem) => boolean;
   };
 }
 
@@ -637,6 +653,52 @@ export interface TileFilter {
   /** Provider/plugin that owns this filter */
   providerId?: string;
 }
+
+// ============================================================================
+// Expandable Tile System Types
+// ============================================================================
+
+/**
+ * Expansion level in the tile hierarchy.
+ * - 0: Root level (e.g., rules)
+ * - 1: First expansion (e.g., files for a rule)
+ * - 2: Second expansion (e.g., issues in a file)
+ */
+export type ExpansionLevel = 0 | 1 | 2;
+
+/**
+ * Represents an expanded tile in the expansion path.
+ * Forms a stack that tracks the drill-down navigation.
+ */
+export interface ExpandedTile {
+  /** The tile item that was expanded */
+  item: TileItem;
+  /** Provider ID for fetching children */
+  providerId: string;
+  /** Level in the expansion hierarchy (0 = root, 1 = first expansion, etc.) */
+  level: ExpansionLevel;
+  /** Cached children of this expanded tile */
+  children: TileItem[];
+  /** Siblings at the same level (for collapsed strip) */
+  siblings: TileItem[];
+}
+
+/**
+ * The expansion path represents the current drill-down state.
+ * It's a stack where each entry is an expanded tile.
+ * Empty array = root view (no expansion).
+ */
+export type ExpansionPath = ExpandedTile[];
+
+/**
+ * Visual state of a tile in the expandable grid.
+ */
+export type TileVisualState =
+  | "normal"           // Standard tile in the grid
+  | "expanded"         // Currently expanded (showing children)
+  | "collapsed-sibling" // Sibling of an expanded tile (minimal view)
+  | "child"            // Child tile within an expanded parent
+  | "nested-expanded"; // Expanded tile within another expanded tile
 
 // ============================================================================
 // Rule Definitions

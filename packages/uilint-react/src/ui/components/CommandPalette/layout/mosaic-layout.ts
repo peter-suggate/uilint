@@ -296,3 +296,144 @@ export function groupTilesByRow<T extends { id: string }>(
 export function getBucketHeight(bucket: TileBucket): number {
   return BUCKET_HEIGHTS[bucket];
 }
+
+// ============================================================================
+// Expanded Tile Layout Helpers
+// ============================================================================
+
+/**
+ * Configuration for collapsed tile strip layout
+ */
+export interface CollapsedStripConfig {
+  /** Width of each collapsed tile */
+  tileWidth?: number;
+  /** Height of collapsed tiles */
+  tileHeight?: number;
+  /** Gap between tiles */
+  gap?: number;
+  /** Padding around the strip */
+  padding?: number;
+}
+
+const DEFAULT_COLLAPSED_CONFIG: Required<CollapsedStripConfig> = {
+  tileWidth: 100,
+  tileHeight: 56,
+  gap: 8,
+  padding: 12,
+};
+
+/**
+ * Layout info for a collapsed tile in the strip
+ */
+export interface CollapsedTileLayout {
+  id: string;
+  x: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Calculate layout for collapsed tiles in horizontal strip
+ */
+export function calculateCollapsedStripLayout(
+  items: LayoutItem[],
+  config: CollapsedStripConfig = {}
+): {
+  tiles: CollapsedTileLayout[];
+  totalWidth: number;
+  height: number;
+} {
+  const mergedConfig = { ...DEFAULT_COLLAPSED_CONFIG, ...config };
+  const { tileWidth, tileHeight, gap, padding } = mergedConfig;
+
+  if (items.length === 0) {
+    return { tiles: [], totalWidth: padding * 2, height: tileHeight + padding * 2 };
+  }
+
+  const tiles: CollapsedTileLayout[] = items.map((item, index) => ({
+    id: item.id,
+    x: padding + index * (tileWidth + gap),
+    width: tileWidth,
+    height: tileHeight,
+  }));
+
+  const totalWidth = padding * 2 + items.length * tileWidth + (items.length - 1) * gap;
+  const height = tileHeight + padding * 2;
+
+  return { tiles, totalWidth, height };
+}
+
+/**
+ * Calculate layout for children within an expanded tile
+ * Uses a simpler grid layout (not masonry) for consistency
+ */
+export interface ChildGridConfig {
+  /** Available width for the grid */
+  availableWidth?: number;
+  /** Number of columns */
+  columns?: number;
+  /** Gap between tiles */
+  gap?: number;
+  /** Tile height */
+  tileHeight?: number;
+}
+
+const DEFAULT_CHILD_GRID_CONFIG: Required<ChildGridConfig> = {
+  availableWidth: 480,
+  columns: 3,
+  gap: 8,
+  tileHeight: 80,
+};
+
+/**
+ * Layout info for a child tile in the grid
+ */
+export interface ChildTileLayout {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  row: number;
+  column: number;
+}
+
+/**
+ * Calculate layout for child tiles in a simple grid
+ */
+export function calculateChildGridLayout(
+  items: LayoutItem[],
+  config: ChildGridConfig = {}
+): {
+  tiles: ChildTileLayout[];
+  totalHeight: number;
+  columns: number;
+} {
+  const mergedConfig = { ...DEFAULT_CHILD_GRID_CONFIG, ...config };
+  const { availableWidth, columns, gap, tileHeight } = mergedConfig;
+
+  if (items.length === 0) {
+    return { tiles: [], totalHeight: 0, columns };
+  }
+
+  const tileWidth = (availableWidth - gap * (columns - 1)) / columns;
+  const rows = Math.ceil(items.length / columns);
+
+  const tiles: ChildTileLayout[] = items.map((item, index) => {
+    const row = Math.floor(index / columns);
+    const column = index % columns;
+    return {
+      id: item.id,
+      x: column * (tileWidth + gap),
+      y: row * (tileHeight + gap),
+      width: tileWidth,
+      height: tileHeight,
+      row,
+      column,
+    };
+  });
+
+  const totalHeight = rows * tileHeight + (rows - 1) * gap;
+
+  return { tiles, totalHeight, columns };
+}
