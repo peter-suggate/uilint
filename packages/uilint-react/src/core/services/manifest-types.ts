@@ -41,7 +41,9 @@ export interface ManifestFileEntry {
   filePath: string;
   /** All issues found in this file */
   issues: ManifestIssue[];
-  /** Source snippets for each dataLoc (optional) */
+  /** Full source content of the file (for production mode source display) */
+  content?: string;
+  /** Source snippets for each dataLoc (optional, deprecated - use content instead) */
   snippets?: Record<string, SourceSnippet>;
 }
 

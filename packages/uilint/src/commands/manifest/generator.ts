@@ -111,7 +111,10 @@ export async function generateManifest(
   const cwd = resolve(options.cwd ?? process.cwd());
   const include = options.include ?? DEFAULT_INCLUDE;
   const exclude = options.exclude ?? DEFAULT_EXCLUDE;
-  const includeSnippets = options.includeSnippets ?? true;
+  // Default to including full source content (for production mode source display)
+  const includeSource = options.includeSource ?? true;
+  // Snippets are deprecated but still supported for backwards compatibility
+  const includeSnippets = options.includeSnippets ?? false;
   const snippetContextLines = options.snippetContextLines ?? 3;
   const onProgress = options.onProgress ?? (() => {});
 
@@ -172,26 +175,33 @@ export async function generateManifest(
 
     if (manifestIssues.length === 0) continue;
 
-    // Extract source snippets if requested
+    // Read file content for source inclusion
+    let fileContent: string | undefined;
     let snippets: Record<string, SourceSnippet> | undefined;
-    if (includeSnippets) {
-      try {
-        const code = readFileSync(absolutePath, "utf-8");
-        snippets = {};
 
-        // Group issues by dataLoc to avoid duplicate snippets
-        const issuesByDataLoc = new Map<string, ManifestIssue>();
-        for (const issue of manifestIssues) {
-          if (!issuesByDataLoc.has(issue.dataLoc)) {
-            issuesByDataLoc.set(issue.dataLoc, issue);
+    if (includeSource || includeSnippets) {
+      try {
+        fileContent = readFileSync(absolutePath, "utf-8");
+
+        // Include snippets if requested (deprecated, for backwards compatibility)
+        if (includeSnippets) {
+          snippets = {};
+
+          // Group issues by dataLoc to avoid duplicate snippets
+          const issuesByDataLoc = new Map<string, ManifestIssue>();
+          for (const issue of manifestIssues) {
+            if (!issuesByDataLoc.has(issue.dataLoc)) {
+              issuesByDataLoc.set(issue.dataLoc, issue);
+            }
+          }
+
+          for (const [dataLoc, issue] of issuesByDataLoc) {
+            snippets[dataLoc] = extractSourceSnippet(fileContent, issue.line, snippetContextLines);
           }
         }
-
-        for (const [dataLoc, issue] of issuesByDataLoc) {
-          snippets[dataLoc] = extractSourceSnippet(code, issue.line, snippetContextLines);
-        }
       } catch {
-        // Skip snippets if file can't be read
+        // Skip source/snippets if file can't be read
+        fileContent = undefined;
       }
     }
 
@@ -219,7 +229,10 @@ export async function generateManifest(
     manifestFiles.push({
       filePath: dataLocFilePath,
       issues: manifestIssues,
-      snippets,
+      // Include full source content for production mode source display
+      content: includeSource ? fileContent : undefined,
+      // Include snippets if explicitly requested (deprecated)
+      snippets: includeSnippets ? snippets : undefined,
     });
   }
 

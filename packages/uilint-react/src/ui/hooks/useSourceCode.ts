@@ -18,6 +18,7 @@ import {
   type SourceContext,
   type CachedSourceFile,
 } from "../../core/services/source-cache";
+import { isStaticMode, getFileSource } from "../../plugins/eslint/static-handler";
 
 interface UseSourceCodeOptions {
   filePath: string;
@@ -70,7 +71,7 @@ export function useSourceCode({
   const requestIdRef = useRef<string | null>(null);
 
   const fetchSource = useCallback(() => {
-    if (!enabled || !filePath || !wsConnected) {
+    if (!enabled || !filePath) {
       return;
     }
 
@@ -80,6 +81,33 @@ export function useSourceCode({
       setContext(extractContext(cached, line, contextAbove, contextBelow));
       setIsLoading(false);
       setError(null);
+      return;
+    }
+
+    // In static mode (no WebSocket), get source from manifest
+    if (!wsConnected && isStaticMode()) {
+      const manifestSource = getFileSource(filePath);
+      if (manifestSource) {
+        // Cache it for future requests
+        const cachedSource = setCachedSource(
+          filePath,
+          manifestSource.content,
+          manifestSource.totalLines,
+          manifestSource.relativePath
+        );
+        setContext(extractContext(cachedSource, line, contextAbove, contextBelow));
+        setIsLoading(false);
+        setError(null);
+      } else {
+        setContext(null);
+        setIsLoading(false);
+        setError("Source not available in manifest");
+      }
+      return;
+    }
+
+    // Need WebSocket for non-static mode
+    if (!wsConnected) {
       return;
     }
 

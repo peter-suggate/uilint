@@ -44,7 +44,9 @@ export interface ManifestFileEntry {
   filePath: string;
   /** All issues found in this file */
   issues: ManifestIssue[];
-  /** Source snippets for each dataLoc (optional) */
+  /** Full source content of the file (for production mode source display) */
+  content?: string;
+  /** Source snippets for each dataLoc (optional, deprecated - use content instead) */
   snippets?: Record<string, SourceSnippet>;
 }
 
@@ -116,7 +118,9 @@ export interface GenerateManifestOptions {
   include?: string[];
   /** Glob patterns to exclude (default: ["node_modules/**", "dist/**", ".next/**"]) */
   exclude?: string[];
-  /** Include source snippets in manifest (default: true) */
+  /** Include full source content for files with issues (default: true) */
+  includeSource?: boolean;
+  /** Include source snippets in manifest (default: false, deprecated - use includeSource instead) */
   includeSnippets?: boolean;
   /** Number of context lines around each issue (default: 3) */
   snippetContextLines?: number;

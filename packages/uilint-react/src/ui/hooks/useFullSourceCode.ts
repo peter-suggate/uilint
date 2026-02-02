@@ -14,6 +14,7 @@ import {
   invalidateSource,
   type CachedSourceFile,
 } from "../../core/services/source-cache";
+import { isStaticMode, getFileSource } from "../../plugins/eslint/static-handler";
 
 // ============================================================================
 // Types
@@ -81,7 +82,7 @@ export function useFullSourceCode({
   const requestIdRef = useRef<string | null>(null);
 
   const fetchSource = useCallback(() => {
-    if (!enabled || !filePath || !wsConnected) {
+    if (!enabled || !filePath) {
       return;
     }
 
@@ -91,6 +92,33 @@ export function useFullSourceCode({
       setSource(cached);
       setIsLoading(false);
       setError(null);
+      return;
+    }
+
+    // In static mode (no WebSocket), get source from manifest
+    if (!wsConnected && isStaticMode()) {
+      const manifestSource = getFileSource(filePath);
+      if (manifestSource) {
+        // Cache it for future requests
+        const cachedSource = setCachedSource(
+          filePath,
+          manifestSource.content,
+          manifestSource.totalLines,
+          manifestSource.relativePath
+        );
+        setSource(cachedSource);
+        setIsLoading(false);
+        setError(null);
+      } else {
+        setSource(null);
+        setIsLoading(false);
+        setError("Source not available in manifest");
+      }
+      return;
+    }
+
+    // Need WebSocket for non-static mode
+    if (!wsConnected) {
       return;
     }
 

@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { processManifest, configureStaticMode, isStaticMode, clearStaticMode, getSourceSnippet } from "./static-handler";
+import { processManifest, configureStaticMode, isStaticMode, clearStaticMode, getSourceSnippet, getFileSource, getStaticModeState } from "./static-handler";
 import type { PluginServices } from "../../core/plugin-system/types";
 import type { ESLintPluginSlice } from "./slice";
 import type { LintManifest } from "../../core/services/manifest-types";
@@ -349,5 +349,167 @@ describe("configureStaticMode / isStaticMode / clearStaticMode", () => {
     clearStaticMode();
 
     expect(isStaticMode()).toBe(false);
+  });
+});
+
+describe("getFileSource", () => {
+  beforeEach(() => {
+    clearStaticMode();
+  });
+
+  /**
+   * Creates a manifest with full source content for testing
+   */
+  function createManifestWithSource(): LintManifest {
+    return {
+      version: "1.0",
+      generatedAt: new Date().toISOString(),
+      workspaceRoot: "/home/user/project",
+      appRoot: "/home/user/project",
+      files: [
+        {
+          filePath: "src/components/Button.tsx",
+          issues: [
+            {
+              line: 10,
+              column: 5,
+              message: "Color #ff0000 not in design tokens",
+              ruleId: "uilint/color-consistency",
+              dataLoc: "src/components/Button.tsx:10:5",
+            },
+          ],
+          content: `import React from 'react';
+
+interface ButtonProps {
+  children: React.ReactNode;
+  onClick?: () => void;
+}
+
+export function Button({ children, onClick }: ButtonProps) {
+  return (
+    <button style={{ color: "#ff0000" }} onClick={onClick}>
+      {children}
+    </button>
+  );
+}`,
+        },
+        {
+          filePath: "src/components/Input.tsx",
+          issues: [
+            {
+              line: 5,
+              column: 3,
+              message: "Font size not on scale",
+              ruleId: "uilint/spacing-scale",
+              dataLoc: "src/components/Input.tsx:5:3",
+            },
+          ],
+          // No content - simulates a file without source in manifest
+        },
+      ],
+      rules: [],
+      summary: {
+        filesScanned: 2,
+        filesWithIssues: 2,
+        totalIssues: 2,
+        bySeverity: { error: 0, warn: 2 },
+      },
+    };
+  }
+
+  it("returns null when static mode is not configured", () => {
+    const result = getFileSource("src/components/Button.tsx");
+    expect(result).toBeNull();
+  });
+
+  it("returns null when manifest is not loaded", () => {
+    configureStaticMode("/.uilint/manifest.json");
+    // Manifest not loaded yet (fetcher.fetch() not called)
+
+    const result = getFileSource("src/components/Button.tsx");
+    expect(result).toBeNull();
+  });
+
+  it("returns source content for exact file path match", () => {
+    configureStaticMode("/.uilint/manifest.json");
+    const state = getStaticModeState()!;
+    state.manifest = createManifestWithSource();
+
+    const result = getFileSource("src/components/Button.tsx");
+
+    expect(result).not.toBeNull();
+    expect(result!.content).toContain("import React from 'react'");
+    expect(result!.lines).toHaveLength(14);
+    expect(result!.totalLines).toBe(14);
+    expect(result!.relativePath).toBe("src/components/Button.tsx");
+  });
+
+  it("returns source content when request path ends with manifest path", () => {
+    configureStaticMode("/.uilint/manifest.json");
+    const state = getStaticModeState()!;
+    state.manifest = createManifestWithSource();
+
+    // Absolute path that ends with the manifest's relative path
+    const result = getFileSource("/home/user/project/src/components/Button.tsx");
+
+    expect(result).not.toBeNull();
+    expect(result!.content).toContain("import React from 'react'");
+  });
+
+  it("returns source content when manifest path ends with request path", () => {
+    configureStaticMode("/.uilint/manifest.json");
+    const state = getStaticModeState()!;
+    state.manifest = createManifestWithSource();
+
+    // Short path that matches end of manifest's path
+    const result = getFileSource("Button.tsx");
+
+    expect(result).not.toBeNull();
+    expect(result!.relativePath).toBe("src/components/Button.tsx");
+  });
+
+  it("handles Windows-style path separators", () => {
+    configureStaticMode("/.uilint/manifest.json");
+    const state = getStaticModeState()!;
+    state.manifest = createManifestWithSource();
+
+    // Windows-style path
+    const result = getFileSource("src\\components\\Button.tsx");
+
+    expect(result).not.toBeNull();
+    expect(result!.content).toContain("import React from 'react'");
+  });
+
+  it("returns null for file without content in manifest", () => {
+    configureStaticMode("/.uilint/manifest.json");
+    const state = getStaticModeState()!;
+    state.manifest = createManifestWithSource();
+
+    const result = getFileSource("src/components/Input.tsx");
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null for unknown file path", () => {
+    configureStaticMode("/.uilint/manifest.json");
+    const state = getStaticModeState()!;
+    state.manifest = createManifestWithSource();
+
+    const result = getFileSource("src/components/Unknown.tsx");
+
+    expect(result).toBeNull();
+  });
+
+  it("correctly splits content into lines", () => {
+    configureStaticMode("/.uilint/manifest.json");
+    const state = getStaticModeState()!;
+    state.manifest = createManifestWithSource();
+
+    const result = getFileSource("src/components/Button.tsx");
+
+    expect(result).not.toBeNull();
+    expect(result!.lines[0]).toBe("import React from 'react';");
+    expect(result!.lines[1]).toBe("");
+    expect(result!.lines[2]).toBe("interface ButtonProps {");
   });
 });

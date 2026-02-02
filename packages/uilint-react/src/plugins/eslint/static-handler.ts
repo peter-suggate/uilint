@@ -159,6 +159,50 @@ export function getSourceSnippet(
 }
 
 /**
+ * Get full source content for a file from the manifest
+ */
+export function getFileSource(
+  filePath: string
+): { content: string; lines: string[]; totalLines: number; relativePath: string } | null {
+  if (!staticModeState?.manifest) {
+    return null;
+  }
+
+  const { manifest } = staticModeState;
+
+  // Find the file entry - try various path matching strategies
+  const fileEntry = manifest.files.find((f) => {
+    // Exact match
+    if (f.filePath === filePath) return true;
+    // filePath ends with manifest's filePath (e.g., "/full/path/src/file.tsx" matches "src/file.tsx")
+    if (filePath.endsWith(f.filePath)) return true;
+    // manifest's filePath ends with filePath
+    if (f.filePath.endsWith(filePath)) return true;
+    // Handle Windows vs Unix path separators
+    const normalizedManifest = f.filePath.replace(/\\/g, "/");
+    const normalizedRequest = filePath.replace(/\\/g, "/");
+    if (normalizedManifest === normalizedRequest) return true;
+    if (normalizedRequest.endsWith(normalizedManifest)) return true;
+    if (normalizedManifest.endsWith(normalizedRequest)) return true;
+    return false;
+  });
+
+  if (!fileEntry?.content) {
+    devLog("[Static Handler] No source content found for file:", filePath);
+    return null;
+  }
+
+  const lines = fileEntry.content.split("\n");
+
+  return {
+    content: fileEntry.content,
+    lines,
+    totalLines: lines.length,
+    relativePath: fileEntry.filePath,
+  };
+}
+
+/**
  * Static mode plugin state
  */
 interface StaticModeState {

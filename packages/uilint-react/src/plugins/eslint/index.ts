@@ -692,6 +692,7 @@ export {
   isStaticMode,
   clearStaticMode,
   getManifestMetadata,
+  getFileSource,
 } from "./static-handler";
 
 // Export for testing - allows direct testing of message handling logic
