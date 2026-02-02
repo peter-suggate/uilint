@@ -7,8 +7,7 @@
 
 import type { StateCreator } from "zustand";
 import { devWarn } from "uilint-core";
-import type { PluginServices, TileFilter, TileItem } from "../plugin-system/types";
-import { pluginRegistry } from "../plugin-system/registry";
+import type { PluginServices, TileFilter } from "../plugin-system/types";
 
 // ============================================================================
 // Types
@@ -67,10 +66,6 @@ export interface CommandPaletteState {
   selectedIndex: number;
   /** Active filters (shown as chips) - tile filters for scoping */
   filters: TileFilter[];
-  /** Raw tile items from providers (before filtering/dedup) */
-  tileItems: TileItem[];
-  /** Whether tile items are currently loading */
-  tileItemsLoading: boolean;
 }
 
 /**
@@ -171,10 +166,6 @@ export interface CoreSlice {
   removeLastFilter: () => void;
   /** Clear all command palette filters */
   clearFilters: () => void;
-  /** Set tile items and loading state */
-  setTileItems: (items: TileItem[], loading: boolean) => void;
-  /** Refresh tile items from providers synchronously */
-  refreshTileItems: () => void;
 
   // ============ Inspector ============
   /** Inspector sidebar state */
@@ -290,8 +281,6 @@ const DEFAULT_COMMAND_PALETTE_STATE: CommandPaletteState = {
   query: "",
   selectedIndex: 0,
   filters: [],
-  tileItems: [],
-  tileItemsLoading: false,
 };
 
 const DEFAULT_HEATMAP_FILTER_STATE: HeatmapFilterState = {
@@ -457,78 +446,6 @@ export const createCoreSlice = (
         ...get().commandPalette,
         filters: [],
         selectedIndex: 0,
-      },
-    });
-  },
-
-  setTileItems: (items, loading) => {
-    set({
-      commandPalette: {
-        ...get().commandPalette,
-        tileItems: items,
-        tileItemsLoading: loading,
-      },
-    });
-  },
-
-  refreshTileItems: () => {
-    const { filters } = get().commandPalette;
-
-    // Get all tile providers from plugins
-    const tileProviders = pluginRegistry.getAllTileProviders();
-
-    // If no providers, clear items
-    if (tileProviders.length === 0) {
-      set({
-        commandPalette: {
-          ...get().commandPalette,
-          tileItems: [],
-          tileItemsLoading: false,
-        },
-      });
-      return;
-    }
-
-    // Set loading state
-    set({
-      commandPalette: {
-        ...get().commandPalette,
-        tileItemsLoading: true,
-      },
-    });
-
-    // Collect all items from providers synchronously
-    const allItems: TileItem[] = [];
-
-    for (const { pluginId, provider } of tileProviders) {
-      try {
-        const result = provider.getTileItems(services, filters);
-
-        // Add providerId to each item's metadata for filter creation
-        const itemsWithProvider = result.map((item) => ({
-          ...item,
-          metadata: {
-            ...item.metadata,
-            providerId: pluginId,
-          },
-        }));
-
-        allItems.push(...itemsWithProvider);
-      } catch (error) {
-        // Log error but continue with other providers
-        devWarn(
-          `[CoreSlice] Error getting tile items from plugin "${pluginId}":`,
-          error
-        );
-      }
-    }
-
-    // Update state with collected items
-    set({
-      commandPalette: {
-        ...get().commandPalette,
-        tileItems: allItems,
-        tileItemsLoading: false,
       },
     });
   },

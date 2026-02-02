@@ -15,14 +15,10 @@ export {
 
 // Tile selectors
 export {
-  selectFilteredTileItems,
   selectTileQuery,
   selectTileFilters,
-  selectRawTileItems,
-  selectTileItemsLoading,
   filterByQuery,
   dedupeItems,
-  clearTileItemsCache,
 } from "./tile-selectors";
 
 // Heatmap selectors

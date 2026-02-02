@@ -1,8 +1,9 @@
 /**
  * Tile Selectors
  *
- * Zustand selectors for computing derived tile state.
- * These selectors are used by the useTileItems hook and CommandPalette.
+ * Zustand selectors for accessing tile-related state.
+ * Note: Tile items are now computed on-demand in useTileItems hook,
+ * not stored in state. These selectors provide access to filters and query.
  */
 
 import type { CoreSlice } from "./core-slice";
@@ -48,63 +49,9 @@ export function dedupeItems(items: TileItem[]): TileItem[] {
   return result;
 }
 
-// Stable empty array for selectors (avoid creating new references)
-const EMPTY_TILE_ITEMS: TileItem[] = [];
-
-// ============================================================================
-// Memoization Cache for Filtered Tile Items
-// ============================================================================
-
-// Cache for selectFilteredTileItems to ensure stable references
-let cachedRawItems: TileItem[] | null = null;
-let cachedQuery: string | null = null;
-let cachedResult: TileItem[] = EMPTY_TILE_ITEMS;
-
-/**
- * Clear the tile items cache. Call this when the store is reset.
- */
-export function clearTileItemsCache(): void {
-  cachedRawItems = null;
-  cachedQuery = null;
-  cachedResult = EMPTY_TILE_ITEMS;
-}
-
 // ============================================================================
 // Selectors
 // ============================================================================
-
-/**
- * Selector to get filtered and deduplicated tile items.
- * Uses the query from commandPalette.query in the store.
- * Results are memoized to ensure stable references for React.
- *
- * @example
- * ```tsx
- * const items = useComposedStore(selectFilteredTileItems);
- * ```
- */
-export function selectFilteredTileItems(state: CoreSlice): TileItem[] {
-  const rawItems = state.commandPalette.tileItems;
-  const query = state.commandPalette.query;
-
-  // Return cached result if inputs haven't changed
-  if (rawItems === cachedRawItems && query === cachedQuery) {
-    return cachedResult;
-  }
-
-  // Update cache
-  cachedRawItems = rawItems;
-  cachedQuery = query;
-
-  if (rawItems.length === 0) {
-    cachedResult = EMPTY_TILE_ITEMS;
-    return cachedResult;
-  }
-
-  const filtered = filterByQuery(rawItems, query);
-  cachedResult = dedupeItems(filtered);
-  return cachedResult;
-}
 
 /**
  * Selector to get the current command palette query.
@@ -119,18 +66,3 @@ export function selectTileQuery(state: CoreSlice): string {
 export function selectTileFilters(state: CoreSlice): CoreSlice["commandPalette"]["filters"] {
   return state.commandPalette.filters;
 }
-
-/**
- * Selector to get raw tile items without filtering.
- */
-export function selectRawTileItems(state: CoreSlice): TileItem[] {
-  return state.commandPalette.tileItems;
-}
-
-/**
- * Selector to get tile items loading state.
- */
-export function selectTileItemsLoading(state: CoreSlice): boolean {
-  return state.commandPalette.tileItemsLoading;
-}
-

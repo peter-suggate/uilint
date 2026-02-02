@@ -14,7 +14,7 @@
  * - shadcn class conventions
  */
 
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { devError } from "uilint-core";
@@ -43,9 +43,6 @@ export function CommandPalette() {
   const addFilter = useComposedStore((s) => s.addFilter);
   const removeFilter = useComposedStore((s) => s.removeFilter);
   const removeLastFilter = useComposedStore((s) => s.removeLastFilter);
-
-  // Tile system state
-  const refreshTileItems = useComposedStore((s) => s.refreshTileItems);
 
   // Mobile detection from store
   const isMobile = useComposedStore((s) => s.mobile.isMobile);
@@ -111,7 +108,6 @@ export function CommandPalette() {
         if (provider.createFilter) {
           const filter = provider.createFilter(item);
           addFilter(filter);
-          refreshTileItems();
         }
         openInspectorPanel();
         closeCommandPalette();
@@ -119,7 +115,6 @@ export function CommandPalette() {
         // Rule tile: add filter, stay open for further filtering
         const filter = provider.createFilter(item);
         addFilter(filter);
-        refreshTileItems();
         // Also open inspector to show filtered results
         openInspectorPanel();
       } else {
@@ -128,7 +123,7 @@ export function CommandPalette() {
         closeCommandPalette();
       }
     },
-    [openInspectorPanel, closeCommandPalette, addFilter, refreshTileItems]
+    [openInspectorPanel, closeCommandPalette, addFilter]
   );
 
   // Use tile navigation for 2D keyboard navigation
@@ -147,13 +142,6 @@ export function CommandPalette() {
     },
     [tileHandleKeyDown]
   );
-
-  // Refresh tile items when command palette opens
-  useEffect(() => {
-    if (isOpen) {
-      refreshTileItems();
-    }
-  }, [isOpen, refreshTileItems]);
 
   const portalRoot = document.getElementById("uilint-portal") || document.body;
 
