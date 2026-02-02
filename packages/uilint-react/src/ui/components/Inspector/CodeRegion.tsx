@@ -38,6 +38,7 @@ export interface CodeRegionProps {
 
 /**
  * Get background class for a line based on its issues
+ * Reduced intensity for cleaner appearance
  */
 function getLineBackgroundClass(
   severity: Issue["severity"] | null,
@@ -47,11 +48,11 @@ function getLineBackgroundClass(
 
   switch (severity) {
     case "error":
-      return "bg-error/[0.08]";
+      return "bg-error/[0.04]";
     case "warning":
-      return "bg-warning/[0.08]";
+      return "bg-warning/[0.04]";
     case "info":
-      return "bg-info/[0.08]";
+      return "bg-info/[0.04]";
     default:
       return "";
   }
@@ -59,22 +60,23 @@ function getLineBackgroundClass(
 
 /**
  * Get border class for a line with issues
+ * Subtle indicator without overwhelming the code
  */
 function getLineBorderClass(
   severity: Issue["severity"] | null,
   hasIssues: boolean
 ): string {
-  if (!hasIssues) return "border-l-2 border-l-transparent";
+  if (!hasIssues) return "border-l border-l-transparent";
 
   switch (severity) {
     case "error":
-      return "border-l-2 border-l-error/70";
+      return "border-l border-l-error/50";
     case "warning":
-      return "border-l-2 border-l-warning/70";
+      return "border-l border-l-warning/50";
     case "info":
-      return "border-l-2 border-l-info/70";
+      return "border-l border-l-info/50";
     default:
-      return "border-l-2 border-l-transparent";
+      return "border-l border-l-transparent";
   }
 }
 

@@ -177,22 +177,24 @@ export function IssuesList({ className }: IssuesListProps) {
         />
       )}
 
-      {/* File list */}
+      {/* File cards */}
       <div className="flex-1 overflow-y-auto">
         {fileGroups.length === 0 ? (
           <EmptyState hasFilters={hasFilters} />
         ) : (
-          fileGroups.map((file) => (
-            <FileSection
-              key={file.filePath}
-              file={file}
-              isExpanded={expandedFiles.includes(file.filePath)}
-              onToggle={() => toggleFileExpanded(file.filePath)}
-              onRuleClick={handleRuleClick}
-              onIssueSelect={handleIssueSelect}
-              selectedIssueId={selectedIssueId}
-            />
-          ))
+          <div className="flex flex-col gap-3 p-4">
+            {fileGroups.map((file) => (
+              <FileSection
+                key={file.filePath}
+                file={file}
+                isExpanded={expandedFiles.includes(file.filePath)}
+                onToggle={() => toggleFileExpanded(file.filePath)}
+                onRuleClick={handleRuleClick}
+                onIssueSelect={handleIssueSelect}
+                selectedIssueId={selectedIssueId}
+              />
+            ))}
+          </div>
         )}
       </div>
     </div>
