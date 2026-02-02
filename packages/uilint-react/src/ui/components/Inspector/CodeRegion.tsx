@@ -8,8 +8,10 @@ import React from "react";
 import { AnimatePresence } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { IssueAnnotation } from "./IssueAnnotation";
+import { IssueReference } from "./IssueReference";
 import { getIssuesForLine, getLineSeverity } from "./source-regions";
 import type { Issue } from "../../types";
+import type { FirstOccurrenceMap } from "./FileSourceView";
 
 // ============================================================================
 // Types
@@ -28,6 +30,8 @@ export interface CodeRegionProps {
   onIssueSelect: (issueId: string) => void;
   /** Width of the line number gutter */
   gutterWidth?: number;
+  /** Map of message -> first line number for deduplication */
+  firstOccurrenceMap?: FirstOccurrenceMap;
   /** Additional class name */
   className?: string;
 }
@@ -38,6 +42,7 @@ export interface CodeRegionProps {
 
 /**
  * Get background class for a line based on its issues
+ * Reduced intensity for cleaner appearance
  */
 function getLineBackgroundClass(
   severity: Issue["severity"] | null,
@@ -47,11 +52,11 @@ function getLineBackgroundClass(
 
   switch (severity) {
     case "error":
-      return "bg-error/[0.08]";
+      return "bg-error/[0.04]";
     case "warning":
-      return "bg-warning/[0.08]";
+      return "bg-warning/[0.04]";
     case "info":
-      return "bg-info/[0.08]";
+      return "bg-info/[0.04]";
     default:
       return "";
   }
@@ -59,22 +64,23 @@ function getLineBackgroundClass(
 
 /**
  * Get border class for a line with issues
+ * Subtle indicator without overwhelming the code
  */
 function getLineBorderClass(
   severity: Issue["severity"] | null,
   hasIssues: boolean
 ): string {
-  if (!hasIssues) return "border-l-2 border-l-transparent";
+  if (!hasIssues) return "border-l border-l-transparent";
 
   switch (severity) {
     case "error":
-      return "border-l-2 border-l-error/70";
+      return "border-l border-l-error/50";
     case "warning":
-      return "border-l-2 border-l-warning/70";
+      return "border-l border-l-warning/50";
     case "info":
-      return "border-l-2 border-l-info/70";
+      return "border-l border-l-info/50";
     default:
-      return "border-l-2 border-l-transparent";
+      return "border-l border-l-transparent";
   }
 }
 
@@ -89,6 +95,7 @@ export function CodeRegion({
   selectedIssueId,
   onIssueSelect,
   gutterWidth = 40,
+  firstOccurrenceMap,
   className,
 }: CodeRegionProps) {
   return (
@@ -144,15 +151,35 @@ export function CodeRegion({
 
             {/* Issue annotations below the line */}
             <AnimatePresence>
-              {lineIssues.map((issue) => (
-                <IssueAnnotation
-                  key={issue.id}
-                  issue={issue}
-                  isSelected={selectedIssueId === issue.id}
-                  onSelect={() => onIssueSelect(issue.id)}
-                  gutterWidth={gutterWidth}
-                />
-              ))}
+              {lineIssues.map((issue) => {
+                // Check if this is the first occurrence of this message
+                const firstLine = firstOccurrenceMap?.get(issue.message);
+                const isFirstOccurrence = !firstLine || firstLine === lineNumber;
+
+                if (isFirstOccurrence) {
+                  return (
+                    <IssueAnnotation
+                      key={issue.id}
+                      issue={issue}
+                      isSelected={selectedIssueId === issue.id}
+                      onSelect={() => onIssueSelect(issue.id)}
+                      gutterWidth={gutterWidth}
+                    />
+                  );
+                }
+
+                // Render compact reference for repeated issues
+                return (
+                  <IssueReference
+                    key={issue.id}
+                    issue={issue}
+                    firstLine={firstLine}
+                    isSelected={selectedIssueId === issue.id}
+                    onSelect={() => onIssueSelect(issue.id)}
+                    gutterWidth={gutterWidth}
+                  />
+                );
+              })}
             </AnimatePresence>
           </div>
         );

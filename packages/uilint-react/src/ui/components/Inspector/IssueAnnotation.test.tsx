@@ -83,7 +83,7 @@ describe("IssueAnnotation", () => {
     expect(container.textContent).toContain("Custom error message");
   });
 
-  it("renders the rule ID (short name for namespaced rules)", () => {
+  it("does not display rule ID (removed for cleaner design)", () => {
     const issue = createMockIssue({
       ruleId: "@typescript-eslint/no-unused-vars",
     });
@@ -95,13 +95,13 @@ describe("IssueAnnotation", () => {
       />
     );
 
-    // Should show the short name, not the full namespace
-    expect(container.textContent).toContain("no-unused-vars");
+    // Rule badge removed for cleaner UI - rule context provided by parent components
+    expect(container.textContent).not.toContain("no-unused-vars");
     expect(container.textContent).not.toContain("@typescript-eslint/");
   });
 
-  it("renders the rule ID for simple rules", () => {
-    const issue = createMockIssue({ ruleId: "no-console" });
+  it("only displays message content, not rule metadata", () => {
+    const issue = createMockIssue({ ruleId: "no-console", message: "Unexpected console statement" });
     const { container } = render(
       <IssueAnnotation
         issue={issue}
@@ -110,7 +110,9 @@ describe("IssueAnnotation", () => {
       />
     );
 
-    expect(container.textContent).toContain("no-console");
+    // Should only contain the message, not the rule ID
+    expect(container.textContent).toContain("Unexpected console statement");
+    expect(container.textContent).not.toContain("no-console");
   });
 
   it("calls onSelect when clicked", () => {

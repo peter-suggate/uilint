@@ -1,12 +1,12 @@
 /**
- * IssuesSummary - Summary bar showing issue statistics
+ * IssuesSummary - Clean summary card showing issue statistics
  *
- * Displays:
- * - Total issue count
- * - Total file count
- * - Severity breakdown (dots with counts)
+ * Tile-inspired design with:
+ * - Large, prominent issue count
+ * - Minimal supporting text
+ * - Simple severity indicators
  *
- * Glassmorphic styling with minimal color (severity dots only)
+ * Focus on simplicity and clean lines
  */
 import React from "react";
 import { cn } from "../../../lib/utils";
@@ -20,7 +20,7 @@ export interface IssuesSummaryProps {
   totalIssues: number;
   /** Number of files with issues */
   totalFiles: number;
-  /** Number of unique rules with issues (optional) */
+  /** Number of unique rules with issues (optional, not displayed) */
   totalRules?: number;
   /** Severity counts */
   severityCounts: {
@@ -36,12 +36,12 @@ export interface IssuesSummaryProps {
 // Sub-components
 // ============================================================================
 
-interface SeverityCountProps {
+interface SeverityDotProps {
   type: "error" | "warning" | "info";
   count: number;
 }
 
-function SeverityCount({ type, count }: SeverityCountProps) {
+function SeverityDot({ type, count }: SeverityDotProps) {
   if (count === 0) return null;
 
   const dotClass = {
@@ -50,12 +50,7 @@ function SeverityCount({ type, count }: SeverityCountProps) {
     info: "bg-info/70",
   }[type];
 
-  return (
-    <span className="inline-flex items-center gap-1">
-      <span className={cn("w-1.5 h-1.5 rounded-full", dotClass)} />
-      <span>{count}</span>
-    </span>
-  );
+  return <div className={cn("w-2 h-2 rounded-full", dotClass)} />;
 }
 
 // ============================================================================
@@ -65,7 +60,6 @@ function SeverityCount({ type, count }: SeverityCountProps) {
 export function IssuesSummary({
   totalIssues,
   totalFiles,
-  totalRules,
   severityCounts,
   className,
 }: IssuesSummaryProps) {
@@ -77,35 +71,28 @@ export function IssuesSummary({
   return (
     <div
       className={cn(
-        "flex items-center justify-between",
-        "px-4 py-2.5",
-        "text-sm text-muted-foreground/70",
-        "border-b border-foreground/[0.04]",
+        "flex items-end justify-between",
+        "px-4 py-4",
         className
       )}
     >
-      {/* Left: Counts */}
-      <div className="flex items-center gap-1">
-        <span className="font-medium text-foreground/80">{totalIssues}</span>
-        <span>{totalIssues === 1 ? "issue" : "issues"}</span>
-        <span className="text-muted-foreground/40 mx-1">·</span>
-        <span>{totalFiles}</span>
-        <span>{totalFiles === 1 ? "file" : "files"}</span>
-        {totalRules !== undefined && (
-          <>
-            <span className="text-muted-foreground/40 mx-1">·</span>
-            <span>{totalRules}</span>
-            <span>{totalRules === 1 ? "rule" : "rules"}</span>
-          </>
-        )}
+      {/* Left: Large count with subtitle */}
+      <div>
+        <span className="text-4xl font-extralight text-foreground/80 leading-none tabular-nums">
+          {totalIssues}
+        </span>
+        <div className="text-sm text-muted-foreground/50 mt-1">
+          {totalIssues === 1 ? "issue" : "issues"} in {totalFiles}{" "}
+          {totalFiles === 1 ? "file" : "files"}
+        </div>
       </div>
 
-      {/* Right: Severity breakdown */}
+      {/* Right: Severity dots only - clean and minimal */}
       {hasAnySeverity && (
-        <div className="flex items-center gap-3 text-xs">
-          <SeverityCount type="error" count={severityCounts.error} />
-          <SeverityCount type="warning" count={severityCounts.warning} />
-          <SeverityCount type="info" count={severityCounts.info} />
+        <div className="flex items-center gap-1.5 pb-1">
+          <SeverityDot type="error" count={severityCounts.error} />
+          <SeverityDot type="warning" count={severityCounts.warning} />
+          <SeverityDot type="info" count={severityCounts.info} />
         </div>
       )}
     </div>

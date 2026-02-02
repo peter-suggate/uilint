@@ -1,20 +1,18 @@
 /**
- * FileSection - Collapsible file section in the inspector
+ * FileSection - Clean card-based file section in the inspector
  *
- * Displays a file with:
- * - Expand/collapse chevron
+ * Tile-inspired design with:
+ * - Clean rounded card appearance
  * - File name and directory
- * - Issue count with severity indicator
- * - Rule badges
- * - Expandable source code view with inline issue annotations
+ * - Large, light-weight issue count
+ * - Minimal severity indicators
+ * - Expandable source code view
  *
- * Glassmorphic styling with minimal color (severity dots only)
+ * Focus on simplicity and clean lines
  */
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../../../lib/utils";
-import { ChevronIcon } from "../../icons";
-import { RuleBadge } from "./RuleBadge";
 import { FileSourceView } from "./FileSourceView";
 import type { FileGroup } from "../../../core/store/file-groups-selector";
 
@@ -67,25 +65,29 @@ interface SeverityDotsProps {
   severityCounts: { error: number; warning: number; info: number };
 }
 
+/**
+ * Minimal severity indicators - just dots, no counts
+ * Clean and unobtrusive
+ */
 function SeverityDots({ severityCounts }: SeverityDotsProps) {
-  const hasAny =
-    severityCounts.error > 0 ||
-    severityCounts.warning > 0 ||
-    severityCounts.info > 0;
+  const dots: Array<{ type: "error" | "warning" | "info"; count: number }> = [];
 
-  if (!hasAny) return null;
+  if (severityCounts.error > 0) dots.push({ type: "error", count: severityCounts.error });
+  if (severityCounts.warning > 0) dots.push({ type: "warning", count: severityCounts.warning });
+  if (severityCounts.info > 0) dots.push({ type: "info", count: severityCounts.info });
+
+  if (dots.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-1.5">
-      {severityCounts.error > 0 && (
-        <div className={cn("w-1.5 h-1.5 rounded-full", getSeverityDotsClass("error"))} />
-      )}
-      {severityCounts.warning > 0 && (
-        <div className={cn("w-1.5 h-1.5 rounded-full", getSeverityDotsClass("warning"))} />
-      )}
-      {severityCounts.info > 0 && (
-        <div className={cn("w-1.5 h-1.5 rounded-full", getSeverityDotsClass("info"))} />
-      )}
+    <div className="flex items-center gap-2">
+      {dots.map(({ type, count }) => (
+        <div key={type} className="flex items-center gap-1">
+          <div className={cn("w-1.5 h-1.5 rounded-full", getSeverityDotsClass(type))} />
+          <span className="text-[11px] text-muted-foreground/50 tabular-nums">
+            {count}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -98,68 +100,60 @@ export function FileSection({
   file,
   isExpanded,
   onToggle,
-  onRuleClick,
+  onRuleClick: _onRuleClick,
   onIssueSelect,
   selectedIssueId,
   contextLines = 2,
   className,
 }: FileSectionProps) {
   return (
-    <div className={cn("border-b border-foreground/[0.04]", className)}>
-      {/* Header - always visible */}
-      <motion.button
+    <motion.div
+      className={cn(
+        // Card styling - Tile-inspired
+        "rounded-2xl",
+        "border border-foreground/[0.06]",
+        "bg-foreground/[0.02]",
+        "overflow-hidden",
+        "transition-colors duration-150",
+        isExpanded && "bg-foreground/[0.03]",
+        className
+      )}
+      whileHover={{ backgroundColor: "rgba(var(--foreground-rgb), 0.04)" }}
+    >
+      {/* Header - clickable card header */}
+      <button
         type="button"
         onClick={onToggle}
-        whileHover={{ backgroundColor: "rgba(var(--foreground-rgb), 0.02)" }}
         className={cn(
-          "w-full flex items-start gap-3 px-4 py-3",
+          "w-full flex items-start justify-between gap-4 p-4",
           "cursor-pointer text-left",
           "transition-colors duration-100"
         )}
       >
-        {/* Chevron */}
-        <motion.div
-          animate={{ rotate: isExpanded ? 90 : 0 }}
-          transition={{ duration: 0.15 }}
-          className="flex-shrink-0 pt-0.5 text-muted-foreground/50"
-        >
-          <ChevronIcon size={14} />
-        </motion.div>
-
-        {/* File info */}
+        {/* Left side: File info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-foreground truncate">
-              {file.fileName}
+          {/* File name - prominent */}
+          <div className="font-light text-[17px] text-foreground truncate leading-tight">
+            {file.fileName}
+          </div>
+          {/* Directory and severity - secondary line */}
+          <div className="flex items-center justify-between mt-1.5">
+            <span className="text-xs text-muted-foreground/50 truncate">
+              {file.directory}
             </span>
-            <SeverityDots severityCounts={file.severityCounts} />
-          </div>
-          <div className="text-xs text-muted-foreground/60 truncate mt-0.5">
-            {file.directory}
           </div>
         </div>
 
-        {/* Count */}
-        <span className="text-lg font-extralight text-foreground/70 flex-shrink-0">
-          {file.totalCount}
-        </span>
-      </motion.button>
-
-      {/* Rule badges - always visible below header */}
-      {file.ruleGroups.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 px-4 pb-3 -mt-1">
-          {file.ruleGroups.map((rg) => (
-            <RuleBadge
-              key={rg.ruleId}
-              ruleId={rg.ruleId}
-              ruleName={rg.ruleName}
-              count={rg.count}
-              severity={rg.highestSeverity}
-              onClick={() => onRuleClick(rg.ruleId)}
-            />
-          ))}
+        {/* Right side: Count and severity */}
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+          {/* Large count number */}
+          <span className="text-2xl font-extralight text-foreground/70 leading-none tabular-nums">
+            {file.totalCount}
+          </span>
+          {/* Severity breakdown */}
+          <SeverityDots severityCounts={file.severityCounts} />
         </div>
-      )}
+      </button>
 
       {/* Expanded source code view */}
       <AnimatePresence>
@@ -168,9 +162,12 @@ export function FileSection({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
             className="overflow-hidden"
           >
+            {/* Subtle divider */}
+            <div className="mx-4 border-t border-foreground/[0.06]" />
+
             <FileSourceView
               filePath={file.filePath}
               issues={file.issues}
@@ -182,7 +179,7 @@ export function FileSection({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
 
