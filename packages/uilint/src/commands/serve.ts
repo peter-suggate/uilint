@@ -64,6 +64,37 @@ import {
   logError,
   pc,
 } from "../utils/prompts.js";
+import {
+  enableDashboard,
+  disableDashboard,
+  isDashboardEnabled,
+  logActivity,
+  logLint,
+  logLintDone,
+  logSubscribe,
+  logCacheInvalidate,
+  logVisionAnalyze,
+  logVisionDone,
+  logVisionCheck,
+  logConfigSet,
+  logRuleConfigSet,
+  logScreenshotSave,
+  logScreenshotSaved,
+  logCoverageResult,
+  logClientConnect,
+  logClientDisconnect,
+  logServerError,
+  logServerWarning,
+  logServerInfo,
+  setWorkspaceInfo,
+  setServerRunning,
+  updateSubscriptionCount,
+  updateCacheCount,
+  startBackgroundTask,
+  updateBackgroundTaskProgress,
+  completeBackgroundTask,
+} from "./serve/dashboard/logger.js";
+import { getDashboardStore } from "./serve/dashboard/store.js";
 import { ruleRegistry, type RuleOptionSchema } from "uilint-eslint";
 import {
   findEslintConfigFile,
@@ -79,6 +110,8 @@ import {
 
 export interface ServeOptions {
   port?: number;
+  /** Disable dashboard UI (use simple logging) */
+  noDashboard?: boolean;
 }
 
 export interface LintIssue {
@@ -903,19 +936,11 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
   if (message.type === "lint:file" || message.type === "lint:element") {
     const fp = (message as any).filePath as string | undefined;
     const rid = (message as any).requestId as string | undefined;
-    logInfo(
-      `${pc.dim("[ws]")} ${pc.bold(message.type)} ${pc.dim(fp ?? "")}${
-        rid ? ` ${pc.dim(`(req ${rid})`)}` : ""
-      }`
-    );
+    logLint(fp ?? "", rid);
   } else if (message.type === "subscribe:file") {
-    logInfo(`${pc.dim("[ws]")} subscribe:file ${pc.dim(message.filePath)}`);
+    logSubscribe(message.filePath);
   } else if (message.type === "cache:invalidate") {
-    logInfo(
-      `${pc.dim("[ws]")} cache:invalidate ${pc.dim(
-        message.filePath ?? "(all)"
-      )}`
-    );
+    logCacheInvalidate(message.filePath);
   } else if (message.type === "vision:analyze") {
     // Logged in handler for more detailed output
   } else if (message.type === "vision:check") {
@@ -924,11 +949,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
     // Logged in handler
   } else if (message.type === "screenshot:save") {
     const rid = (message as ScreenshotSaveMessage).requestId;
-    logInfo(
-      `${pc.dim("[ws]")} ${pc.bold("screenshot:save")} ${pc.dim(message.route)}${
-        rid ? ` ${pc.dim(`(req ${rid})`)}` : ""
-      }`
-    );
+    logScreenshotSave(message.route, rid);
   }
 
   switch (message.type) {
@@ -946,17 +967,9 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       if (!existsSync(resolved)) {
         const cwd = process.cwd();
         const wsRoot = findWorkspaceRoot(cwd);
-        logWarning(
-          [
-            `${pc.dim("[ws]")} File not found for request`,
-            `  filePath: ${pc.dim(filePath)}`,
-            `  resolved: ${pc.dim(resolved)}`,
-            `  cwd:      ${pc.dim(cwd)}`,
-            `  wsRoot:   ${pc.dim(wsRoot)}`,
-            `  hint: In monorepos, ensure paths like ${pc.dim(
-              "app/page.tsx"
-            )} exist under ${pc.dim("apps/*/")} or use absolute paths.`,
-          ].join("\n")
+        logServerWarning(
+          `File not found: ${filePath}`,
+          `resolved: ${resolved}, cwd: ${cwd}, wsRoot: ${wsRoot}`
         );
       }
 
@@ -965,11 +978,10 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       });
 
       const elapsed = Date.now() - startedAt;
-      logInfo(
-        `${pc.dim("[ws]")} lint:file done ${pc.dim(filePath)} → ${pc.bold(
-          `${issues.length}`
-        )} issue(s) ${pc.dim(`(${elapsed}ms)`)}`
-      );
+      logLintDone(filePath, issues.length, elapsed);
+
+      // Update cache count in dashboard
+      updateCacheCount(cache.size);
 
       sendMessage(ws, {
         type: "lint:progress",
@@ -1032,6 +1044,9 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         }
       }
       subscribers.add({ ws, clientFilePath: filePath });
+
+      // Update subscription count in dashboard
+      updateSubscriptionCount(subscriptions.size);
       break;
     }
 
@@ -1043,6 +1058,8 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       } else {
         cache.clear();
       }
+      // Update cache count in dashboard
+      updateCacheCount(cache.size);
       break;
     }
 
@@ -1055,11 +1072,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         manifest,
         requestId,
       } = message;
-      logInfo(
-        `${pc.dim("[ws]")} ${pc.bold("vision:analyze")} ${pc.dim(route)}${
-          requestId ? ` ${pc.dim(`(req ${requestId})`)}` : ""
-        }`
-      );
+      logVisionAnalyze(route, requestId);
 
       sendMessage(ws, {
         type: "vision:progress",
@@ -1082,20 +1095,24 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
           typeof (analyzer as any).getBaseUrl === "function"
             ? ((analyzer as any).getBaseUrl() as string)
             : undefined;
-        logInfo(
-          [
-            `${pc.dim("[ws]")} ${pc.dim("vision")} details`,
-            `  route:        ${pc.dim(route)}`,
-            `  requestId:    ${pc.dim(requestId ?? "(none)")}`,
-            `  manifest:     ${pc.dim(String(manifest.length))} element(s)`,
-            `  screenshot:   ${pc.dim(
-              screenshot ? `${Math.round(screenshotBytes / 1024)}kb` : "none"
-            )}`,
-            `  screenshotFile: ${pc.dim(screenshotFile ?? "(none)")}`,
-            `  ollamaUrl:    ${pc.dim(analyzerBaseUrl ?? "(default)")}`,
-            `  visionModel:  ${pc.dim(analyzerModel ?? "(default)")}`,
-          ].join("\n")
-        );
+
+        // Only log detailed vision info in verbose/non-dashboard mode
+        if (!isDashboardEnabled()) {
+          logInfo(
+            [
+              `${pc.dim("[ws]")} ${pc.dim("vision")} details`,
+              `  route:        ${pc.dim(route)}`,
+              `  requestId:    ${pc.dim(requestId ?? "(none)")}`,
+              `  manifest:     ${pc.dim(String(manifest.length))} element(s)`,
+              `  screenshot:   ${pc.dim(
+                screenshot ? `${Math.round(screenshotBytes / 1024)}kb` : "none"
+              )}`,
+              `  screenshotFile: ${pc.dim(screenshotFile ?? "(none)")}`,
+              `  ollamaUrl:    ${pc.dim(analyzerBaseUrl ?? "(default)")}`,
+              `  visionModel:  ${pc.dim(analyzerModel ?? "(default)")}`,
+            ].join("\n")
+          );
+        }
 
         if (!screenshot) {
           sendMessage(ws, {
@@ -1130,10 +1147,9 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         // Write a markdown report alongside the saved screenshot (best-effort).
         if (typeof screenshotFile === "string" && screenshotFile.length > 0) {
           if (!isValidScreenshotFilename(screenshotFile)) {
-            logWarning(
-              `Skipping vision report write: invalid screenshotFile ${pc.dim(
-                screenshotFile
-              )}`
+            logServerWarning(
+              `Skipping vision report write: invalid screenshotFile`,
+              screenshotFile
             );
           } else {
             const screenshotsDir = join(
@@ -1144,10 +1160,9 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
             const imagePath = join(screenshotsDir, screenshotFile);
             try {
               if (!existsSync(imagePath)) {
-                logWarning(
-                  `Skipping vision report write: screenshot file not found ${pc.dim(
-                    imagePath
-                  )}`
+                logServerWarning(
+                  `Skipping vision report write: screenshot file not found`,
+                  imagePath
                 );
               } else {
                 const report = writeVisionMarkdownReport({
@@ -1166,36 +1181,19 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
                     requestId: requestId ?? null,
                   },
                 });
-                logInfo(
-                  `${pc.dim("[ws]")} wrote vision report ${pc.dim(
-                    report.outPath
-                  )}`
-                );
+                logServerInfo(`Wrote vision report`, report.outPath);
               }
             } catch (e) {
-              logWarning(
-                `Failed to write vision report for ${pc.dim(screenshotFile)}: ${
-                  e instanceof Error ? e.message : String(e)
-                }`
+              logServerWarning(
+                `Failed to write vision report for ${screenshotFile}`,
+                e instanceof Error ? e.message : String(e)
               );
             }
           }
         }
 
         const elapsed = Date.now() - startedAt;
-        logInfo(
-          `${pc.dim("[ws]")} vision:analyze done ${pc.dim(route)} → ${pc.bold(
-            `${result.issues.length}`
-          )} issue(s) ${pc.dim(`(${elapsed}ms)`)}`
-        );
-
-        if (result.rawResponse) {
-          logInfo(
-            `${pc.dim("[ws]")} vision rawResponse ${pc.dim(
-              `${result.rawResponse.length} chars`
-            )}`
-          );
-        }
+        logVisionDone(route, result.issues.length, elapsed);
 
         sendMessage(ws, {
           type: "vision:result",
@@ -1207,17 +1205,9 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        const stack = error instanceof Error ? error.stack : undefined;
-        logError(
-          [
-            `Vision analysis failed`,
-            `  route:     ${route}`,
-            `  requestId: ${requestId ?? "(none)"}`,
-            `  error:     ${errorMessage}`,
-            stack ? `  stack:\n${stack}` : "",
-          ]
-            .filter(Boolean)
-            .join("\n")
+        logServerError(
+          `Vision analysis failed for ${route}`,
+          errorMessage
         );
 
         sendMessage(ws, {
@@ -1234,9 +1224,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
 
     case "vision:check": {
       const { requestId } = message;
-      logInfo(
-        `${pc.dim("[ws]")} ${pc.bold("vision:check")}${requestId ? ` ${pc.dim(`(req ${requestId})`)}` : ""}`
-      );
+      logVisionCheck(requestId);
 
       try {
         const analyzer = getVisionAnalyzerInstance();
@@ -1326,7 +1314,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         }
 
         const coverageData = JSON.parse(readFileSync(coveragePath, "utf-8"));
-        logInfo(`${pc.dim("[ws]")} coverage:result ${pc.dim(`${Object.keys(coverageData).length} files`)}`);
+        logCoverageResult(Object.keys(coverageData).length);
 
         sendMessage(ws, {
           type: "coverage:result",
@@ -1336,7 +1324,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        logError(`${pc.dim("[ws]")} coverage:error ${errorMessage}`);
+        logServerError(`coverage:error`, errorMessage);
         sendMessage(ws, {
           type: "coverage:error",
           error: errorMessage,
@@ -1415,11 +1403,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         };
         writeFileSync(sidecarPath, JSON.stringify(sidecarData, null, 2));
 
-        logInfo(
-          `${pc.dim("[ws]")} screenshot:saved ${pc.dim(filename)} ${pc.dim(
-            `(${Math.round(imageBuffer.length / 1024)}kb)`
-          )}`
-        );
+        logScreenshotSaved(filename, Math.round(imageBuffer.length / 1024));
 
         // Send success response
         sendMessage(ws, {
@@ -1430,7 +1414,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        logError(`${pc.dim("[ws]")} screenshot:error ${errorMessage}`);
+        logServerError(`screenshot:error`, errorMessage);
         sendMessage(ws, {
           type: "screenshot:error",
           error: errorMessage,
@@ -1461,6 +1445,8 @@ function handleDisconnect(ws: WebSocket): void {
       }
     }
   }
+  // Update subscription count in dashboard
+  updateSubscriptionCount(subscriptions.size);
 }
 
 /**
@@ -1485,7 +1471,7 @@ function handleFileChange(filePath: string): void {
 function handleCoverageFileChange(filePath: string): void {
   try {
     const coverageData = JSON.parse(readFileSync(filePath, "utf-8"));
-    logInfo(`${pc.dim("[ws]")} coverage:changed ${pc.dim(`${Object.keys(coverageData).length} files`)}`);
+    logCoverageResult(Object.keys(coverageData).length);
 
     broadcast({
       type: "coverage:result",
@@ -1494,7 +1480,7 @@ function handleCoverageFileChange(filePath: string): void {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logError(`${pc.dim("[ws]")} Failed to read coverage data: ${errorMessage}`);
+    logServerError(`Failed to read coverage data`, errorMessage);
     broadcast({
       type: "coverage:error",
       error: `Failed to read coverage: ${errorMessage}`,
@@ -1523,7 +1509,7 @@ function broadcastConfigUpdate(key: string, value: unknown): void {
  */
 function handleConfigSet(key: string, value: unknown): void {
   configStore.set(key, value);
-  logInfo(`${pc.dim("[ws]")} config:set ${pc.bold(key)} = ${pc.dim(JSON.stringify(value))}`);
+  logConfigSet(key, value);
   broadcastConfigUpdate(key, value);
 }
 
@@ -1571,19 +1557,16 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
   }
 
   isIndexing = true;
-  logInfo(`${pc.blue("Building duplicates index...")}`);
+  startBackgroundTask("duplicates-index", "Duplicates Index", "Starting...");
   broadcast({ type: "duplicates:indexing:start" });
 
   try {
     const { indexDirectory } = await import("uilint-duplicates");
     const result = await indexDirectory(appRoot, {
       onProgress: (message, current, total) => {
-        // Log to console
-        if (current !== undefined && total !== undefined) {
-          logInfo(`  ${message} (${current}/${total})`);
-        } else {
-          logInfo(`  ${message}`);
-        }
+        // Update dashboard progress
+        const progress = total && total > 0 ? Math.round((current || 0) / total * 100) : 0;
+        updateBackgroundTaskProgress("duplicates-index", progress, current, total, message);
         // Broadcast to connected clients
         broadcast({
           type: "duplicates:indexing:progress",
@@ -1594,9 +1577,8 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
       },
     });
 
-    logSuccess(
-      `${pc.green("Index complete:")} ${result.totalChunks} chunks (${result.added} added, ${result.modified} modified, ${result.deleted} deleted) in ${(result.duration / 1000).toFixed(1)}s`
-    );
+    const successMsg = `${result.totalChunks} chunks (${result.added} added, ${result.modified} modified, ${result.deleted} deleted) in ${(result.duration / 1000).toFixed(1)}s`;
+    completeBackgroundTask("duplicates-index", `Index complete: ${successMsg}`);
     broadcast({
       type: "duplicates:indexing:complete",
       added: result.added,
@@ -1607,7 +1589,7 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    logError(`Index failed: ${msg}`);
+    completeBackgroundTask("duplicates-index", undefined, msg);
     broadcast({ type: "duplicates:indexing:error", error: msg });
   } finally {
     isIndexing = false;
@@ -1627,7 +1609,7 @@ function scheduleReindex(appRoot: string, filePath: string): void {
   reindexTimeout = setTimeout(async () => {
     const count = pendingIndexChanges.size;
     pendingIndexChanges.clear();
-    logInfo(`${pc.dim(`[index] ${count} file(s) changed, updating index...`)}`);
+    logServerInfo(`${count} file(s) changed, updating index...`);
     await buildDuplicatesIndex(appRoot);
   }, 2000); // 2 second debounce
 }
@@ -1665,7 +1647,7 @@ async function buildCoverageData(appRoot: string): Promise<void> {
   try {
     // Check if coverage rule is enabled
     if (!isCoverageRuleEnabled(appRoot)) {
-      logInfo(`${pc.dim("Coverage rule not enabled, skipping preparation")}`);
+      logServerInfo("Coverage rule not enabled, skipping preparation");
       return;
     }
 
@@ -1674,12 +1656,12 @@ async function buildCoverageData(appRoot: string): Promise<void> {
 
     // Check if preparation needed
     if (!needsCoveragePreparation(setup)) {
-      logInfo(`${pc.dim("Coverage data is up-to-date")}`);
+      logServerInfo("Coverage data is up-to-date");
       return;
     }
 
     // Run preparation
-    logInfo(`${pc.blue("Preparing coverage data...")}`);
+    startBackgroundTask("coverage-prep", "Coverage Prep", "Starting...");
     broadcast({ type: "coverage:setup:start" });
 
     // Check environment variables for skipping
@@ -1691,14 +1673,14 @@ async function buildCoverageData(appRoot: string): Promise<void> {
       skipPackageInstall,
       skipTests,
       onProgress: (message, phase) => {
-        logInfo(`  ${message}`);
+        updateBackgroundTaskProgress("coverage-prep", 50, undefined, undefined, message);
         broadcast({ type: "coverage:setup:progress", message, phase });
       },
     });
 
     if (result.error) {
       // Continue with warning on test failures (don't block server startup)
-      logWarning(`Coverage preparation completed with errors: ${result.error}`);
+      completeBackgroundTask("coverage-prep", undefined, result.error);
     } else {
       const parts = [];
       if (result.packageAdded) parts.push("package installed");
@@ -1706,8 +1688,9 @@ async function buildCoverageData(appRoot: string): Promise<void> {
       if (result.testsRan) parts.push("tests ran");
       if (result.coverageGenerated) parts.push("coverage generated");
 
-      logSuccess(
-        `${pc.green("Coverage prepared:")} ${parts.join(", ")} in ${(result.duration / 1000).toFixed(1)}s`
+      completeBackgroundTask(
+        "coverage-prep",
+        `Coverage prepared: ${parts.join(", ")} in ${(result.duration / 1000).toFixed(1)}s`
       );
     }
 
@@ -1717,7 +1700,7 @@ async function buildCoverageData(appRoot: string): Promise<void> {
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    logError(`Coverage preparation failed: ${msg}`);
+    completeBackgroundTask("coverage-prep", undefined, msg);
     broadcast({ type: "coverage:setup:error", error: msg });
   } finally {
     isPreparingCoverage = false;
@@ -1735,17 +1718,13 @@ function handleRuleConfigSet(
   options?: Record<string, unknown>,
   requestId?: string
 ): void {
-  logInfo(
-    `${pc.dim("[ws]")} rule:config:set ${pc.bold(ruleId)} -> ${pc.dim(severity)}${
-      options ? ` with options` : ""
-    }`
-  );
+  logRuleConfigSet(ruleId, severity, !!options);
 
   // Find the ESLint config file
   const configPath = findEslintConfigFile(serverAppRootForVision);
   if (!configPath) {
     const error = `No ESLint config file found in ${serverAppRootForVision}`;
-    logError(`${pc.dim("[ws]")} ${error}`);
+    logServerError(error);
     sendMessage(ws, {
       type: "rule:config:result",
       ruleId,
@@ -1769,13 +1748,12 @@ function handleRuleConfigSet(
   }
 
   if (result.success) {
-    logSuccess(
-      `${pc.dim("[ws]")} Updated ${pc.bold(`uilint/${ruleId}`)} -> ${pc.dim(severity)}`
-    );
+    logServerInfo(`Updated uilint/${ruleId} -> ${severity}`);
 
     // Clear ESLint instance cache to pick up the new config
     eslintInstances.clear();
     cache.clear();
+    updateCacheCount(0);
 
     // Send success response to requesting client
     sendMessage(ws, {
@@ -1790,7 +1768,7 @@ function handleRuleConfigSet(
     // Broadcast change to all connected clients
     broadcastRuleConfigChange(ruleId, severity, options);
   } else {
-    logError(`${pc.dim("[ws]")} Failed to update rule: ${result.error}`);
+    logServerError(`Failed to update rule: ${result.error}`);
     sendMessage(ws, {
       type: "rule:config:result",
       ruleId,
@@ -1809,13 +1787,23 @@ function handleRuleConfigSet(
 export async function serve(options: ServeOptions): Promise<void> {
   const port = options.port || 9234;
 
+  // Determine if we should use the dashboard UI
+  // Enable dashboard if TTY and not explicitly disabled
+  const useDashboardUI = process.stdout.isTTY && !options.noDashboard;
+
+  if (useDashboardUI) {
+    enableDashboard();
+  } else {
+    disableDashboard();
+  }
+
   const cwd = process.cwd();
   const wsRoot = findWorkspaceRoot(cwd);
   const appRoot = pickAppRoot({ cwd, workspaceRoot: wsRoot });
   serverAppRootForVision = appRoot;
-  logInfo(`Workspace root: ${pc.dim(wsRoot)}`);
-  logInfo(`App root:        ${pc.dim(appRoot)}`);
-  logInfo(`Server cwd:     ${pc.dim(cwd)}`);
+
+  // Set workspace info in dashboard
+  setWorkspaceInfo(wsRoot, appRoot, cwd);
 
   // Create file watcher
   fileWatcher = watch([], {
@@ -1841,7 +1829,7 @@ export async function serve(options: ServeOptions): Promise<void> {
   const coveragePath = join(appRoot, "coverage", "coverage-final.json");
   if (existsSync(coveragePath)) {
     fileWatcher.add(coveragePath);
-    logInfo(`Watching coverage: ${pc.dim(coveragePath)}`);
+    logServerInfo(`Watching coverage`, coveragePath);
   }
 
   // Create WebSocket server
@@ -1850,20 +1838,20 @@ export async function serve(options: ServeOptions): Promise<void> {
   // Start building the duplicates index in the background
   // This runs incrementally - very fast if nothing changed
   buildDuplicatesIndex(appRoot).catch((err) => {
-    logError(`Failed to build duplicates index: ${err.message}`);
+    logServerError(`Failed to build duplicates index`, err.message);
   });
 
   // Prepare coverage data for require-test-coverage rule (startup only)
   // This installs packages, modifies config, and runs tests if needed
   buildCoverageData(appRoot).catch((err) => {
     // Don't block server startup on coverage failures
-    logWarning(`Failed to prepare coverage: ${err.message}`);
+    logServerWarning(`Failed to prepare coverage`, err.message);
   });
 
   wss.on("connection", (ws) => {
     connectedClients += 1;
     connectedClientsSet.add(ws);
-    logInfo(`Client connected (${connectedClients} total)`);
+    logClientConnect(connectedClients);
 
     // Send workspace info to client on connect
     sendMessage(ws, {
@@ -1880,7 +1868,7 @@ export async function serve(options: ServeOptions): Promise<void> {
       postToolUseHook: hookInfo,
     });
     if (hookInfo.enabled) {
-      logInfo(`${pc.dim("[ws]")} Post-tool-use hook detected: ${pc.bold(hookInfo.provider!)}`);
+      logServerInfo(`Post-tool-use hook detected: ${hookInfo.provider}`);
     }
 
     // Read current rule configs from ESLint config file
@@ -1925,31 +1913,47 @@ export async function serve(options: ServeOptions): Promise<void> {
     ws.on("close", () => {
       connectedClients = Math.max(0, connectedClients - 1);
       connectedClientsSet.delete(ws);
-      logInfo(`Client disconnected (${connectedClients} total)`);
+      logClientDisconnect(connectedClients);
       handleDisconnect(ws);
     });
 
     ws.on("error", (error) => {
-      logError(`WebSocket error: ${error.message}`);
+      logServerError(`WebSocket error`, error.message);
     });
   });
 
   wss.on("error", (error) => {
-    logError(`Server error: ${error.message}`);
+    logServerError(`Server error`, error.message);
   });
 
-  logSuccess(
-    `UILint WebSocket server running on ${pc.cyan(`ws://localhost:${port}`)}`
-  );
-  logInfo("Press Ctrl+C to stop");
+  // Set server as running in dashboard
+  setServerRunning(port);
 
-  // Keep the server running
-  await new Promise<void>((resolve) => {
-    process.on("SIGINT", () => {
-      logInfo("Shutting down...");
-      wss.close();
-      fileWatcher?.close();
-      resolve();
+  // Render dashboard or keep server running
+  if (useDashboardUI) {
+    // Dynamic import to avoid loading Ink in non-TTY environments
+    const { renderDashboard } = await import("./serve/dashboard/render.js");
+    const { waitUntilExit } = renderDashboard({
+      onQuit: () => {
+        wss.close();
+        fileWatcher?.close();
+      },
+      onRebuildIndex: () => {
+        buildDuplicatesIndex(appRoot);
+      },
     });
-  });
+
+    // Wait for dashboard to exit
+    await waitUntilExit();
+  } else {
+    // Keep the server running in non-TTY mode
+    await new Promise<void>((resolve) => {
+      process.on("SIGINT", () => {
+        logServerInfo("Shutting down...");
+        wss.close();
+        fileWatcher?.close();
+        resolve();
+      });
+    });
+  }
 }
