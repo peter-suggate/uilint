@@ -5,8 +5,8 @@
  */
 
 import { RuleTester } from "@typescript-eslint/rule-tester";
-import { describe, afterAll } from "vitest";
-import { readFileSync } from "fs";
+import { describe, afterAll, it } from "vitest";
+import { readFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import rule from "./no-unsafe-type-casts.js";
@@ -489,47 +489,53 @@ describe("no-unsafe-type-casts edge cases", () => {
 // ============================================
 // FIXTURE-BASED TESTS
 // ============================================
+// These tests only run when the fixtures directory exists (i.e., in the source package,
+// not when the rule is installed into a project's .uilint/rules/ directory)
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, "__fixtures__/no-unsafe-type-casts");
+const fixtureFilePath = join(FIXTURES_DIR, "unsafe-casts.ts");
 
-// Read fixture file at module level
-const fixtureCode = readFileSync(
-  join(FIXTURES_DIR, "unsafe-casts.ts"),
-  "utf-8"
-);
+if (existsSync(fixtureFilePath)) {
+  const fixtureCode = readFileSync(fixtureFilePath, "utf-8");
 
-// Create a separate tester for fixture (no JSX for legacy syntax in fixture)
-const fixtureRuleTester = new RuleTester({
-  languageOptions: {
-    ecmaVersion: 2022,
-    sourceType: "module",
-    parserOptions: {
-      ecmaFeatures: { jsx: false },
+  // Create a separate tester for fixture (no JSX for legacy syntax in fixture)
+  const fixtureRuleTester = new RuleTester({
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      parserOptions: {
+        ecmaFeatures: { jsx: false },
+      },
     },
-  },
-});
+  });
 
-fixtureRuleTester.run("no-unsafe-type-casts (fixture)", rule, {
-  valid: [],
-  invalid: [
-    {
-      name: "fixture file with multiple unsafe cast patterns",
-      code: fixtureCode,
-      errors: [
-        // AS ANY PATTERNS (3 occurrences)
-        { messageId: "noAsAny" }, // response.data as any
-        { messageId: "noAsAny" }, // payload as any
-        { messageId: "noAsAny" }, // obj as any
-        // DOUBLE-CAST PATTERNS (3 occurrences)
-        // Note: "as any as" also reports an inner "as any"
-        { messageId: "noDoubleCast" }, // jsonData as unknown as User
-        { messageId: "noDoubleCast" }, // input as any as number[]
-        { messageId: "noAsAny" }, // inner "as any" from the double-cast above
-        { messageId: "noDoubleCast" }, // response.data as unknown as User[]
-        // LEGACY SYNTAX PATTERNS (2 occurrences)
-        { messageId: "noLegacyAsAny" }, // <any>value
-        { messageId: "noDoubleCast" }, // <User><unknown>data
-      ],
-    },
-  ],
-});
+  fixtureRuleTester.run("no-unsafe-type-casts (fixture)", rule, {
+    valid: [],
+    invalid: [
+      {
+        name: "fixture file with multiple unsafe cast patterns",
+        code: fixtureCode,
+        errors: [
+          // AS ANY PATTERNS (3 occurrences)
+          { messageId: "noAsAny" }, // response.data as any
+          { messageId: "noAsAny" }, // payload as any
+          { messageId: "noAsAny" }, // obj as any
+          // DOUBLE-CAST PATTERNS (3 occurrences)
+          // Note: "as any as" also reports an inner "as any"
+          { messageId: "noDoubleCast" }, // jsonData as unknown as User
+          { messageId: "noDoubleCast" }, // input as any as number[]
+          { messageId: "noAsAny" }, // inner "as any" from the double-cast above
+          { messageId: "noDoubleCast" }, // response.data as unknown as User[]
+          // LEGACY SYNTAX PATTERNS (2 occurrences)
+          { messageId: "noLegacyAsAny" }, // <any>value
+          { messageId: "noDoubleCast" }, // <User><unknown>data
+        ],
+      },
+    ],
+  });
+} else {
+  // Skip fixture tests when running in an installed context
+  describe("no-unsafe-type-casts (fixture)", () => {
+    it.skip("fixture tests skipped - fixtures not available in installed context", () => {});
+  });
+}
