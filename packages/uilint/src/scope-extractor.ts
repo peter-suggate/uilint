@@ -112,10 +112,13 @@ function determineScopeType(
   name: string | null,
   isArrow: boolean,
   isMethod: boolean,
-  returnsJsx: boolean
+  returnsJsx: boolean,
+  isExportDefault: boolean = false
 ): ScopeInfo["scopeType"] {
   if (isMethod) return "method";
   if (isHookName(name)) return "hook";
+  // Export default functions returning JSX are components
+  if (isExportDefault && returnsJsx) return "component";
   if (isComponentName(name) && returnsJsx) return "component";
   if (isArrow) return "arrow-function";
   return "function";
@@ -259,9 +262,14 @@ function collectScopeBoundaries(ast: any): ScopeBoundary[] {
         init.type === "ArrowFunctionExpression" ||
         init.type === "FunctionExpression"
       ) {
+        // For named function expressions like `const handler = function processData() {}`
+        // prefer the function's own name over the variable name
+        const funcOwnName = getIdentifierName(init.id);
+        const effectiveName = funcOwnName || varName;
+
         const returnsJsx = containsJsxReturn(init.body);
         const isArrow = init.type === "ArrowFunctionExpression";
-        const scopeType = determineScopeType(varName, isArrow, false, returnsJsx);
+        const scopeType = determineScopeType(effectiveName, isArrow, false, returnsJsx);
 
         const initRange = init.range as [number, number] | undefined;
         const initLoc = init.loc;
@@ -272,11 +280,11 @@ function collectScopeBoundaries(ast: any): ScopeBoundary[] {
             (b) => b.start === initRange[0] && b.end === initRange[1]
           );
           if (existing) {
-            existing.name = varName;
+            existing.name = effectiveName;
             existing.type = scopeType;
           } else {
             boundaries.push({
-              name: varName,
+              name: effectiveName,
               type: scopeType,
               start: initRange[0],
               end: initRange[1],
@@ -286,7 +294,7 @@ function collectScopeBoundaries(ast: any): ScopeBoundary[] {
           }
         }
 
-        walk(init.body, varName);
+        walk(init.body, effectiveName);
         return;
       }
     }
@@ -344,24 +352,48 @@ function collectScopeBoundaries(ast: any): ScopeBoundary[] {
     if (node.type === "ExportDefaultDeclaration" && node.declaration) {
       const decl = node.declaration;
 
-      if (
-        decl.type === "FunctionDeclaration" ||
-        decl.type === "ClassDeclaration"
-      ) {
-        // The declaration itself will be visited
+      if (decl.type === "FunctionDeclaration") {
+        // Named export default: export default function Foo() {}
+        const name = getIdentifierName(decl.id);
+        const returnsJsx = containsJsxReturn(decl.body);
+        // Pass isExportDefault=true for anonymous export defaults returning JSX
+        const scopeType = determineScopeType(name, false, false, returnsJsx, !name);
+
+        const declRange = decl.range as [number, number] | undefined;
+        const declLoc = decl.loc;
+
+        if (declRange && declLoc) {
+          boundaries.push({
+            name: name || "default",
+            type: scopeType,
+            start: declRange[0],
+            end: declRange[1],
+            line: declLoc.start.line,
+            column: declLoc.start.column,
+          });
+        }
+
+        walk(decl.body, name || "default");
+        return;
+      }
+
+      if (decl.type === "ClassDeclaration") {
+        // The class declaration itself will be visited
         walk(decl, parentName);
         return;
       }
 
-      // Anonymous export default function
+      // Anonymous export default function/arrow
       if (
         decl.type === "FunctionExpression" ||
         decl.type === "ArrowFunctionExpression"
       ) {
-        const name = getIdentifierName(decl.id) || "default";
+        const funcOwnName = getIdentifierName(decl.id);
+        const name = funcOwnName || "default";
         const returnsJsx = containsJsxReturn(decl.body);
         const isArrow = decl.type === "ArrowFunctionExpression";
-        const scopeType = determineScopeType(name, isArrow, false, returnsJsx);
+        // Pass isExportDefault=true for anonymous export defaults returning JSX
+        const scopeType = determineScopeType(name, isArrow, false, returnsJsx, !funcOwnName);
 
         const declRange = decl.range as [number, number] | undefined;
         const declLoc = decl.loc;
@@ -404,7 +436,10 @@ function collectScopeBoundaries(ast: any): ScopeBoundary[] {
  * Find the innermost JSX element containing a position
  */
 function findContainingJsxElement(ast: any, offset: number): string | null {
-  let innermost: { type: string; size: number } | null = null;
+  // Use object wrapper to help TypeScript understand closure mutation
+  const result: { innermost: { type: string; size: number } | null } = {
+    innermost: null,
+  };
 
   function walk(node: any): void {
     if (!node || typeof node !== "object") return;
@@ -413,10 +448,10 @@ function findContainingJsxElement(ast: any, offset: number): string | null {
       const range = node.range as [number, number] | undefined;
       if (range && range[0] <= offset && offset < range[1]) {
         const size = range[1] - range[0];
-        if (!innermost || size < innermost.size) {
+        if (!result.innermost || size < result.innermost.size) {
           const elementType = getJsxElementType(node);
           if (elementType) {
-            innermost = { type: elementType, size };
+            result.innermost = { type: elementType, size };
           }
         }
       }
@@ -434,7 +469,7 @@ function findContainingJsxElement(ast: any, offset: number): string | null {
   }
 
   walk(ast);
-  return innermost?.type ?? null;
+  return result.innermost?.type ?? null;
 }
 
 /**

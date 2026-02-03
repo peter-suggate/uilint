@@ -31,6 +31,7 @@ vi.mock("motion/react", () => {
                 "whileHover",
                 "whileTap",
                 "layout",
+                "layoutId",
                 "variants",
               ].includes(key)
             ) {

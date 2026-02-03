@@ -90,10 +90,16 @@ export function IssueAnnotation({
     <motion.div
       ref={ref}
       onClick={onSelect}
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4 }}
-      transition={{ duration: 0.15 }}
+      layout
+      layoutId={`issue-${issue.id}`}
+      initial={{ opacity: 0, y: -4, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -4, scale: 0.98 }}
+      transition={{
+        duration: 0.2,
+        ease: [0.32, 0.72, 0, 1],
+        layout: { duration: 0.25 }
+      }}
       className={cn(
         "flex items-start gap-2 cursor-pointer",
         "mx-2 my-1",

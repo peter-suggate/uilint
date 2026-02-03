@@ -31,6 +31,7 @@ vi.mock("motion/react", () => {
                 "whileHover",
                 "whileTap",
                 "layout",
+                "layoutId",
                 "variants",
               ].includes(key)
             ) {
@@ -289,5 +290,138 @@ describe("CodeRegion", () => {
     // The selected annotation should have a ring class
     const html = container.innerHTML;
     expect(html).toContain("ring-");
+  });
+
+  // ============================================================================
+  // Tests for issue collapsing behavior
+  // ============================================================================
+
+  describe("issue collapsing when another issue is selected", () => {
+    it("shows all issues in full when no issue is selected", () => {
+      const lines = ["line 1", "line 2", "line 3"];
+      const issue1 = createMockIssue(1, { id: "issue-1", message: "First issue message" });
+      const issue2 = createMockIssue(2, { id: "issue-2", message: "Second issue message" });
+      const issue3 = createMockIssue(3, { id: "issue-3", message: "Third issue message" });
+
+      const { container } = render(
+        <CodeRegion
+          lines={lines}
+          startLine={1}
+          issues={[issue1, issue2, issue3]}
+          selectedIssueId={null}
+          onIssueSelect={vi.fn()}
+        />
+      );
+
+      // All issue messages should be visible
+      expect(container.textContent).toContain("First issue message");
+      expect(container.textContent).toContain("Second issue message");
+      expect(container.textContent).toContain("Third issue message");
+    });
+
+    it("collapses non-selected issues when an issue is selected", () => {
+      const lines = ["line 1", "line 2", "line 3"];
+      const issue1 = createMockIssue(1, { id: "issue-1", message: "First issue message" });
+      const issue2 = createMockIssue(2, { id: "issue-2", message: "Second issue message" });
+      const issue3 = createMockIssue(3, { id: "issue-3", message: "Third issue message" });
+
+      const { container } = render(
+        <CodeRegion
+          lines={lines}
+          startLine={1}
+          issues={[issue1, issue2, issue3]}
+          selectedIssueId="issue-2"
+          onIssueSelect={vi.fn()}
+        />
+      );
+
+      // Selected issue should show full message
+      expect(container.textContent).toContain("Second issue message");
+
+      // Non-selected issues should be collapsed (showing line indicators like "L1", "L3")
+      // and their full messages should NOT be visible in the main content
+      const html = container.innerHTML;
+      expect(html).toContain("L1"); // Line indicator for collapsed issue 1
+      expect(html).toContain("L3"); // Line indicator for collapsed issue 3
+    });
+
+    it("collapsed issue indicators are clickable", () => {
+      const lines = ["line 1", "line 2"];
+      const issue1 = createMockIssue(1, { id: "issue-1", message: "First issue" });
+      const issue2 = createMockIssue(2, { id: "issue-2", message: "Second issue" });
+      const onIssueSelect = vi.fn();
+
+      const { container } = render(
+        <CodeRegion
+          lines={lines}
+          startLine={1}
+          issues={[issue1, issue2]}
+          selectedIssueId="issue-2"
+          onIssueSelect={onIssueSelect}
+        />
+      );
+
+      // Find the collapsed indicator button (should contain "L1")
+      const buttons = container.querySelectorAll("button");
+      const collapsedIndicator = Array.from(buttons).find(
+        (btn) => btn.textContent?.includes("L1")
+      );
+      expect(collapsedIndicator).toBeTruthy();
+
+      // Click it
+      fireEvent.click(collapsedIndicator!);
+      expect(onIssueSelect).toHaveBeenCalledWith("issue-1");
+    });
+
+    it("shows full annotation for the selected issue", () => {
+      const lines = ["line 1"];
+      const issue = createMockIssue(1, { id: "issue-1", message: "Important issue message" });
+
+      const { container } = render(
+        <CodeRegion
+          lines={lines}
+          startLine={1}
+          issues={[issue]}
+          selectedIssueId="issue-1"
+          onIssueSelect={vi.fn()}
+        />
+      );
+
+      // The full message should be visible (not just a line indicator)
+      expect(container.textContent).toContain("Important issue message");
+      // Should not have a collapsed line indicator style "L1" badge
+      // (the line number appears in gutter, but not as "L1" badge)
+      const buttons = container.querySelectorAll("button");
+      const hasCollapsedIndicator = Array.from(buttons).some(
+        (btn) => btn.textContent?.trim() === "L1"
+      );
+      expect(hasCollapsedIndicator).toBe(false);
+    });
+
+    it("collapses issues with different severities correctly", () => {
+      const lines = ["line 1", "line 2", "line 3"];
+      const errorIssue = createMockIssue(1, { id: "issue-error", severity: "error" });
+      const warningIssue = createMockIssue(2, { id: "issue-warning", severity: "warning" });
+      const infoIssue = createMockIssue(3, { id: "issue-info", severity: "info" });
+
+      const { container } = render(
+        <CodeRegion
+          lines={lines}
+          startLine={1}
+          issues={[errorIssue, warningIssue, infoIssue]}
+          selectedIssueId="issue-warning"
+          onIssueSelect={vi.fn()}
+        />
+      );
+
+      // Collapsed indicators should still show severity colors
+      const html = container.innerHTML;
+      // The error and info issues are collapsed, they should still have severity styling
+      expect(html).toContain("L1"); // Error issue collapsed
+      expect(html).toContain("L3"); // Info issue collapsed
+      // Severity classes should be present for the collapsed indicators
+      expect(html).toContain("bg-error");
+      expect(html).toContain("bg-info");
+    });
   });
 });
