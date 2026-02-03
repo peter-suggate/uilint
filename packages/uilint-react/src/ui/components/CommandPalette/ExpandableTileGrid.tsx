@@ -217,6 +217,8 @@ export function ExpandableTileGrid({
   isTerminal = false,
 }: ExpandableTileGridProps) {
   const { currentExpansion, expandedTileId, handleTileClick, handleBack } = useExpansion(items);
+  const expansionPath = useComposedStore((s) => s.commandPalette.expansionPath);
+  const expandTileAction = useComposedStore((s) => s.expandTile);
   const openInspectorPanelAction = useComposedStore((s) => s.openInspectorPanel);
   const closeCommandPaletteAction = useComposedStore((s) => s.closeCommandPalette);
 
@@ -283,13 +285,104 @@ export function ExpandableTileGrid({
 
   const onChildClick = useCallback(
     (item: TileItem) => {
+      const services = getPluginServices();
+      if (!services) {
+        openInspectorPanelAction();
+        closeCommandPaletteAction();
+        return;
+      }
+
+      // Check if child can expand (e.g., file tile to show issues)
+      const providerId = item.metadata?.providerId as string | undefined;
+      if (providerId) {
+        const tileProviders = pluginRegistry.getAllTileProviders();
+        const providerEntry = tileProviders.find((p) => p.pluginId === providerId);
+        if (providerEntry) {
+          const { provider } = providerEntry;
+          const canExpand = provider.canExpand?.(item) ?? false;
+          const currentLevel = expansionPath.length;
+
+          if (canExpand && currentLevel < 2) {
+            const children = provider.getChildItems?.(item, services) ?? [];
+            if (children.length > 0) {
+              // Get siblings (other children of the currently expanded tile)
+              const siblings = currentExpansion?.children ?? [];
+              expandTileAction(item, children, siblings, providerId);
+              onTileClick?.(item, 1);
+              return;
+            }
+          }
+        }
+      }
+
+      // Terminal - open inspector
       openInspectorPanelAction();
       closeCommandPaletteAction();
       onTileClick?.(item, 1);
     },
-    [openInspectorPanelAction, closeCommandPaletteAction, onTileClick]
+    [expansionPath, currentExpansion, expandTileAction, openInspectorPanelAction, closeCommandPaletteAction, onTileClick]
   );
 
+  // Handle second level expansion (file expanded to show issues)
+  const isSecondLevelExpansion = expansionPath.length === 2;
+  const secondLevelExpansion = isSecondLevelExpansion ? expansionPath[1] : null;
+
+  // Calculate layout for second level if needed
+  const secondLevelChildLayoutItems: LayoutItem[] = useMemo(
+    () => (secondLevelExpansion?.children ?? []).map((c) => ({ id: c.id, count: c.count })),
+    [secondLevelExpansion?.children]
+  );
+
+  const secondLevelLayoutResult = useMemo(() => {
+    if (!isSecondLevelExpansion || !secondLevelExpansion) return null;
+    return calculateExpandedLayout({
+      items: secondLevelExpansion.siblings.map((s) => ({ id: s.id, count: s.count })),
+      expandedId: secondLevelExpansion.item.id,
+      children: secondLevelChildLayoutItems,
+      config: {
+        availableWidth: GRID_AVAILABLE_WIDTH,
+        gap: GRID_GAP,
+        padding: GRID_PADDING,
+      },
+    });
+  }, [isSecondLevelExpansion, secondLevelExpansion, secondLevelChildLayoutItems]);
+
+  // Second level: show file's children (issues) with back navigation
+  if (isSecondLevelExpansion && secondLevelExpansion && secondLevelLayoutResult) {
+    const fileItem = secondLevelExpansion.item;
+    const issueItems = secondLevelExpansion.children;
+
+    return (
+      <div className="relative" style={{ height: secondLevelLayoutResult.totalHeight, minHeight: 200 }}>
+        {/* File header with back button */}
+        <ExpandedTileHeader item={fileItem} onBack={handleBack} level={1} />
+
+        {/* Issue tiles grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATIONS.standard, ease: crispEase }}
+          className="pt-14" // Account for header height
+        >
+          <TileGrid
+            items={issueItems}
+            onTileClick={(issue) => {
+              // Issue tiles are terminal - open inspector
+              openInspectorPanelAction();
+              closeCommandPaletteAction();
+              onTileClick?.(issue, 2);
+            }}
+            onOpenInInspector={onOpenInInspector}
+            selectedIndex={-1}
+            availableWidth={GRID_AVAILABLE_WIDTH}
+            padding={{ top: 0, right: GRID_PADDING.right, bottom: GRID_PADDING.bottom, left: GRID_PADDING.left }}
+          />
+        </motion.div>
+      </div>
+    );
+  }
+
+  // First level: normal rendering with root tiles
   return (
     <div className="relative" style={{ height: totalHeight, minHeight: 200 }}>
       <AnimatePresence mode="popLayout">

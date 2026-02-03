@@ -99,6 +99,8 @@ export interface InspectorState {
   selectedIssueId: string | null;
   /** Whether the rule config section is expanded */
   ruleConfigExpanded: boolean;
+  /** Whether to show full source view (false = show issue summary view) */
+  showFullSource: boolean;
 }
 
 /**
@@ -232,6 +234,10 @@ export interface CoreSlice {
   selectIssue: (issueId: string | null) => void;
   /** Toggle the rule config section */
   toggleRuleConfig: () => void;
+  /** Show the full source view */
+  showFullSourceView: () => void;
+  /** Show the issue summary view (hide full source) */
+  showIssueSummaryView: () => void;
 
   // ============ Connection (delegated from websocket service) ============
   /** Whether connected to the WebSocket server */
@@ -353,6 +359,7 @@ function loadInitialInspectorState(): InspectorState {
     expandedFilePath: null,
     selectedIssueId: null,
     ruleConfigExpanded: false,
+    showFullSource: false,
   };
 }
 
@@ -647,6 +654,7 @@ export const createCoreSlice = (
         ...get().inspector,
         expandedRuleId: null,
         expandedFilePath: null,
+        showFullSource: false,
       },
     });
   },
@@ -665,6 +673,7 @@ export const createCoreSlice = (
       inspector: {
         ...get().inspector,
         expandedFilePath: null,
+        showFullSource: false,
       },
     });
   },
@@ -675,6 +684,7 @@ export const createCoreSlice = (
         ...get().inspector,
         expandedRuleId: null,
         expandedFilePath: null,
+        showFullSource: false,
       },
     });
   },
@@ -694,6 +704,24 @@ export const createCoreSlice = (
       inspector: {
         ...current,
         ruleConfigExpanded: !current.ruleConfigExpanded,
+      },
+    });
+  },
+
+  showFullSourceView: () => {
+    set({
+      inspector: {
+        ...get().inspector,
+        showFullSource: true,
+      },
+    });
+  },
+
+  showIssueSummaryView: () => {
+    set({
+      inspector: {
+        ...get().inspector,
+        showFullSource: false,
       },
     });
   },
