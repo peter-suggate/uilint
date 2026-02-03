@@ -16,6 +16,7 @@ import { FloatingIcon } from "./components/FloatingIcon";
 import { HeatmapOverlay } from "./components/HeatmapOverlay";
 import { CommandPalette } from "./components/CommandPalette";
 import { InspectorSidebar } from "./components/Inspector";
+import { InspectorToggle } from "./components/InspectorToggle";
 import { RegionSelector } from "./components/RegionSelector";
 import { useComposedStore } from "../core/store";
 import type { VisionSlice } from "../plugins/vision/slice";
@@ -107,6 +108,7 @@ export function UILint({ enabled = true }: UILintProps) {
   return (
     <>
       <FloatingIcon />
+      <InspectorToggle />
       <HeatmapOverlay />
       <CommandPalette />
       <InspectorSidebar />

@@ -18,6 +18,7 @@ import { calculateMosaicLayout } from "./layout";
 interface TileGridProps {
   items: TileItem[];
   onTileClick: (item: TileItem) => void;
+  onOpenInInspector?: (item: TileItem) => void;
   selectedIndex: number;
   isTerminal?: boolean;
   /** Override the available width for layout (default: 532) */
@@ -70,6 +71,7 @@ function EmptyState() {
 export function TileGrid({
   items,
   onTileClick,
+  onOpenInInspector,
   selectedIndex,
   isTerminal = false,
   availableWidth = GRID_AVAILABLE_WIDTH,
@@ -143,6 +145,7 @@ export function TileGrid({
                 bucket={tileLayout.bucket}
                 isSelected={globalIndex === selectedIndex}
                 onClick={() => onTileClick(item)}
+                onOpenInInspector={onOpenInInspector ? () => onOpenInInspector(item) : undefined}
               />
             </motion.div>
           );

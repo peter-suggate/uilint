@@ -74,8 +74,8 @@ export function CommandPalette() {
     }
   }, [expansionLevel, collapseTile, removeLastFilter]);
 
-  // Handle tile click
-  // With unified model: clicking tiles adds filters and opens the inspector
+  // Handle tile click - adds filter only, does NOT open inspector
+  // This allows users to build up filters before viewing in inspector
   const handleTileClick = useCallback(
     async (item: TileItem) => {
       const services = getPluginServices();
@@ -99,9 +99,6 @@ export function CommandPalette() {
       // Get the provider for this item
       const providerId = item.metadata?.providerId as string | undefined;
       if (!providerId) {
-        // Fallback: open unified inspector panel
-        openInspectorPanel();
-        closeCommandPalette();
         return;
       }
 
@@ -109,8 +106,6 @@ export function CommandPalette() {
       const providerEntry = tileProviders.find((p) => p.pluginId === providerId);
 
       if (!providerEntry) {
-        openInspectorPanel();
-        closeCommandPalette();
         return;
       }
 
@@ -120,24 +115,39 @@ export function CommandPalette() {
       const isFileTile = item.metadata?.isFile === true;
 
       if (isFileTile) {
-        // File tile: add filter, open inspector, close command palette
+        // File tile: add filter, close command palette (user can open inspector via button)
         if (provider.createFilter) {
           const filter = provider.createFilter(item);
           addFilter(filter);
         }
-        openInspectorPanel();
         closeCommandPalette();
       } else if (provider.createFilter) {
-        // Rule tile: add filter, stay open for further filtering
+        // Rule/category tile: add filter, stay open for further filtering
         const filter = provider.createFilter(item);
         addFilter(filter);
-        // Also open inspector to show filtered results
-        openInspectorPanel();
-      } else {
-        // Fallback
-        openInspectorPanel();
-        closeCommandPalette();
       }
+    },
+    [closeCommandPalette, addFilter]
+  );
+
+  // Handle "open in inspector" button click on tiles
+  // This opens the inspector with the item's filter applied
+  const handleOpenInInspector = useCallback(
+    (item: TileItem) => {
+      // Get the provider for this item
+      const providerId = item.metadata?.providerId as string | undefined;
+      if (providerId) {
+        const tileProviders = pluginRegistry.getAllTileProviders();
+        const providerEntry = tileProviders.find((p) => p.pluginId === providerId);
+
+        if (providerEntry?.provider.createFilter) {
+          const filter = providerEntry.provider.createFilter(item);
+          addFilter(filter);
+        }
+      }
+
+      openInspectorPanel();
+      closeCommandPalette();
     },
     [openInspectorPanel, closeCommandPalette, addFilter]
   );
@@ -329,11 +339,13 @@ export function CommandPalette() {
                             items={tileItems}
                             selectedIndex={selectedIndex}
                             isTerminal={isTerminal}
+                            onOpenInInspector={handleOpenInInspector}
                           />
                         ) : (
                           <TileGrid
                             items={tileItems}
                             onTileClick={handleTileClick}
+                            onOpenInInspector={handleOpenInInspector}
                             selectedIndex={selectedIndex}
                             isTerminal={isTerminal}
                           />

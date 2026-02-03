@@ -43,6 +43,8 @@ interface ExpandableTileGridProps {
   selectedIndex: number;
   /** Callback when a tile is clicked (at any level) */
   onTileClick?: (item: TileItem, level: number) => void;
+  /** Callback to open an item directly in the inspector */
+  onOpenInInspector?: (item: TileItem) => void;
   /** Whether we're in a terminal state (no more expansion possible) */
   isTerminal?: boolean;
 }
@@ -152,6 +154,7 @@ function ExpandedTileInline({
   childrenHeight,
   onBack,
   onChildClick,
+  onOpenInInspector,
 }: {
   item: TileItem;
   children: TileItem[];
@@ -161,6 +164,7 @@ function ExpandedTileInline({
   childrenHeight: number;
   onBack: () => void;
   onChildClick: (item: TileItem) => void;
+  onOpenInInspector?: (item: TileItem) => void;
 }) {
   return (
     <motion.div
@@ -190,6 +194,7 @@ function ExpandedTileInline({
         <TileGrid
           items={children}
           onTileClick={onChildClick}
+          onOpenInInspector={onOpenInInspector}
           selectedIndex={-1}
           isTerminal={true}
           availableWidth={GRID_AVAILABLE_WIDTH - EXPANDED_PADDING * 2}
@@ -208,6 +213,7 @@ export function ExpandableTileGrid({
   items,
   selectedIndex,
   onTileClick,
+  onOpenInInspector,
   isTerminal = false,
 }: ExpandableTileGridProps) {
   const { currentExpansion, expandedTileId, handleTileClick, handleBack } = useExpansion(items);
@@ -314,6 +320,7 @@ export function ExpandableTileGrid({
                   childrenHeight={layoutResult.childrenHeight}
                   onBack={handleBack}
                   onChildClick={onChildClick}
+                  onOpenInInspector={onOpenInInspector}
                 />
               </motion.div>
             );
@@ -342,6 +349,7 @@ export function ExpandableTileGrid({
                 bucket={originalLayoutItem.bucket}
                 isSelected={isSelected}
                 onClick={() => onTileClickInternal(item)}
+                onOpenInInspector={onOpenInInspector ? () => onOpenInInspector(item) : undefined}
               />
             </motion.div>
           );

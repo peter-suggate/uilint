@@ -11,6 +11,7 @@ import React from "react";
 import { motion } from "motion/react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../../lib/utils";
+import { ExternalLinkIcon } from "../../icons";
 import type { TileItem, TileBucket } from "../../../core/plugin-system/types";
 
 // ============================================================================
@@ -98,6 +99,7 @@ interface TileProps extends VariantProps<typeof tileVariants> {
   bucket: TileBucket;
   isSelected: boolean;
   onClick: () => void;
+  onOpenInInspector?: () => void;
 }
 
 // ============================================================================
@@ -188,9 +190,14 @@ function HoverOverlay({ isHovered }: { isHovered: boolean }) {
 // Main Component
 // ============================================================================
 
-export function Tile({ item, bucket, isSelected, onClick }: TileProps) {
+export function Tile({ item, bucket, isSelected, onClick, onOpenInInspector }: TileProps) {
   const [isHovered, setIsHovered] = React.useState(false);
   const isCompact = bucket === "xs" || bucket === "sm";
+
+  const handleOpenInInspector = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onOpenInInspector?.();
+  };
 
   return (
     <motion.div
@@ -205,17 +212,36 @@ export function Tile({ item, bucket, isSelected, onClick }: TileProps) {
       }}
       className={cn(tileVariants({ selected: isSelected, size: bucket }))}
     >
-      {/* Top section: Label */}
-      <div>
-        <span className={cn(titleVariants({ size: bucket }))}>
-          {item.label}
-        </span>
+      {/* Top section: Label and open in inspector button */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <span className={cn(titleVariants({ size: bucket }))}>
+            {item.label}
+          </span>
 
-        {/* Subtitle - path or description */}
-        {item.subtitle && !isCompact && (
-          <div className="mt-2 text-xs font-normal text-muted-foreground/60 truncate tracking-wide">
-            {item.subtitle}
-          </div>
+          {/* Subtitle - path or description */}
+          {item.subtitle && !isCompact && (
+            <div className="mt-2 text-xs font-normal text-muted-foreground/60 truncate tracking-wide">
+              {item.subtitle}
+            </div>
+          )}
+        </div>
+
+        {/* Open in inspector button */}
+        {onOpenInInspector && (
+          <motion.button
+            onClick={handleOpenInInspector}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: isHovered ? 1 : 0 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ duration: 0.1 }}
+            className="flex-shrink-0 p-1.5 -mt-1 -mr-1 rounded-lg text-muted-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.06] transition-colors"
+            title="Open in inspector"
+            aria-label="Open in inspector"
+          >
+            <ExternalLinkIcon size={isCompact ? 12 : 14} />
+          </motion.button>
         )}
       </div>
 
