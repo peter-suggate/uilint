@@ -19,11 +19,12 @@ import {
 } from "../../../core/store/file-groups-selector";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
 import type { ESLintPluginSlice } from "../../../plugins/eslint/slice";
-import type { RuleConfig as RuleConfigType } from "../../../plugins/eslint/types";
 import { IssuesSummary } from "./IssuesSummary";
 import { RuleHeader } from "./RuleHeader";
 import { RuleConfig } from "./RuleConfig";
-import { FileSection } from "./FileSection";
+import { FileSourceView } from "./FileSourceView";
+import { ExpandableContainer } from "../HierarchicalTiles";
+import { fileGroupsToNodes, FileCardHeader, type FileNode } from "./FileNodeAdapter";
 import { cn } from "../../../lib/utils";
 
 // ============================================================================
@@ -67,31 +68,33 @@ export function IssuesList({ className }: IssuesListProps) {
   const summary = useComposedStore(selectFileGroupsSummary);
   const ruleFilter = useComposedStore(selectActiveRuleFilter);
   const filters = useComposedStore((s) => s.commandPalette.filters);
-  const expandedFiles = useComposedStore((s) => s.inspector.expandedFiles);
+  const expandedFileNode = useComposedStore((s) => s.inspector.expandedFileNode);
   const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
   const ruleConfigExpanded = useComposedStore((s) => s.inspector.ruleConfigExpanded);
 
   // Store actions
-  const addFilter = useComposedStore((s) => s.addFilter);
   const removeFilter = useComposedStore((s) => s.removeFilter);
-  const toggleFileExpanded = useComposedStore((s) => s.toggleFileExpanded);
-  const expandFile = useComposedStore((s) => s.expandFile);
+  const expandFileNode = useComposedStore((s) => s.expandFileNode);
+  const collapseFileNode = useComposedStore((s) => s.collapseFileNode);
   const selectIssue = useComposedStore((s) => s.selectIssue);
   const toggleRuleConfig = useComposedStore((s) => s.toggleRuleConfig);
+
+  // Create fileNodes from fileGroups using the adapter
+  const fileNodes = useMemo(() => fileGroupsToNodes(fileGroups), [fileGroups]);
 
   // Auto-expand first file with errors on initial load
   const autoExpandedRef = React.useRef(false);
   React.useEffect(() => {
-    if (!autoExpandedRef.current && fileGroups.length > 0 && expandedFiles.length === 0) {
+    if (!autoExpandedRef.current && fileGroups.length > 0 && !expandedFileNode) {
       // Find first file with errors, or just first file
       const firstWithErrors = fileGroups.find((f) => f.severityCounts.error > 0);
       const fileToExpand = firstWithErrors || fileGroups[0];
       if (fileToExpand) {
-        toggleFileExpanded(fileToExpand.filePath);
+        expandFileNode(fileToExpand.filePath);
         autoExpandedRef.current = true;
       }
     }
-  }, [fileGroups, expandedFiles.length, toggleFileExpanded]);
+  }, [fileGroups, expandedFileNode, expandFileNode]);
 
   // Auto-expand file containing selected issue (e.g., from heatmap click)
   useEffect(() => {
@@ -102,32 +105,13 @@ export function IssuesList({ className }: IssuesListProps) {
       const hasIssue = fileGroup.issues.some((issue) => issue.id === selectedIssueId);
       if (hasIssue) {
         // Expand this file if not already expanded
-        if (!expandedFiles.includes(fileGroup.filePath)) {
-          expandFile(fileGroup.filePath);
+        if (expandedFileNode !== fileGroup.filePath) {
+          expandFileNode(fileGroup.filePath);
         }
         break;
       }
     }
-  }, [selectedIssueId, fileGroups, expandedFiles, expandFile]);
-
-  // Handle rule badge click - adds filter
-  const handleRuleClick = useCallback(
-    (ruleId: string) => {
-      // Don't add if already filtered to this rule
-      if (ruleFilter?.id === ruleId) return;
-
-      // Get short name for label
-      const shortName = ruleId.includes("/") ? ruleId.split("/").pop()! : ruleId;
-
-      addFilter({
-        type: "rule",
-        id: ruleId,
-        label: shortName,
-        providerId: "eslint",
-      });
-    },
-    [ruleFilter, addFilter]
-  );
+  }, [selectedIssueId, fileGroups, expandedFileNode, expandFileNode]);
 
   // Handle clear rule filter
   const handleClearRuleFilter = useCallback(() => {
@@ -269,15 +253,27 @@ export function IssuesList({ className }: IssuesListProps) {
           <EmptyState hasFilters={hasFilters} />
         ) : (
           <div className="flex flex-col gap-3 p-4">
-            {fileGroups.map((file) => (
-              <FileSection
-                key={file.filePath}
-                file={file}
-                isExpanded={expandedFiles.includes(file.filePath)}
-                onToggle={() => toggleFileExpanded(file.filePath)}
-                onRuleClick={handleRuleClick}
-                onIssueSelect={handleIssueSelect}
-                selectedIssueId={selectedIssueId}
+            {fileNodes.map((node) => (
+              <ExpandableContainer
+                key={node.id}
+                node={node}
+                isExpanded={expandedFileNode === node.id}
+                onExpand={() => expandFileNode(node.id)}
+                onCollapse={() => collapseFileNode()}
+                renderHeader={(n) => <FileCardHeader node={n as FileNode} isExpanded={expandedFileNode === n.id} />}
+                renderChildren={(n) => (
+                  <FileSourceView
+                    filePath={(n as FileNode).data.fileGroup.filePath}
+                    issues={(n as FileNode).data.fileGroup.issues}
+                    contextLines={2}
+                    selectedIssueId={selectedIssueId}
+                    onIssueSelect={handleIssueSelect}
+                    enabled={true}
+                  />
+                )}
+                layout="list"
+                showSiblingStrip={false}
+                className="mb-3"
               />
             ))}
           </div>

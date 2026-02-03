@@ -101,6 +101,8 @@ export interface InspectorState {
   floatingSize: { width: number; height: number } | null;
   /** File paths that are expanded in the issues list */
   expandedFiles: string[];
+  /** Single expanded file path (for HierarchicalTiles mode) */
+  expandedFileNode: string | null;
   /** Currently selected issue ID (for heatmap highlight sync) */
   selectedIssueId: string | null;
   /** Whether the rule config section is expanded */
@@ -238,6 +240,10 @@ export interface CoreSlice {
   expandFile: (filePath: string) => void;
   /** Collapse a specific file in the issues list */
   collapseFile: (filePath: string) => void;
+  /** Expand a single file node (for HierarchicalTiles mode) */
+  expandFileNode: (filePath: string) => void;
+  /** Collapse the expanded file node (for HierarchicalTiles mode) */
+  collapseFileNode: () => void;
   /** Select an issue (for heatmap highlight sync) */
   selectIssue: (issueId: string | null) => void;
   /** Toggle the rule config section */
@@ -361,6 +367,7 @@ function loadInitialInspectorState(): InspectorState {
     floatingPosition: getStorageValue(STORAGE_KEYS.inspectorFloatingPosition, null),
     floatingSize: getStorageValue(STORAGE_KEYS.inspectorFloatingSize, null),
     expandedFiles: [],
+    expandedFileNode: null,
     selectedIssueId: null,
     ruleConfigExpanded: false,
   };
@@ -681,6 +688,24 @@ export const createCoreSlice = (
       inspector: {
         ...current,
         expandedFiles: current.expandedFiles.filter((f) => f !== filePath),
+      },
+    });
+  },
+
+  expandFileNode: (filePath) => {
+    set({
+      inspector: {
+        ...get().inspector,
+        expandedFileNode: filePath,
+      },
+    });
+  },
+
+  collapseFileNode: () => {
+    set({
+      inspector: {
+        ...get().inspector,
+        expandedFileNode: null,
       },
     });
   },
