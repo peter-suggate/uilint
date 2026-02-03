@@ -8,6 +8,7 @@
 import { existsSync, readFileSync } from "fs";
 import { createRequire } from "module";
 import { dirname, resolve, relative, join } from "path";
+import { findEnclosingScopeBatch, type ScopeInfo } from "../scope-extractor.js";
 
 /**
  * JSX element span with character offsets and data-loc
@@ -27,6 +28,12 @@ export interface LintIssue {
   message: string;
   ruleId?: string;
   dataLoc?: string;
+  scopeInfo?: {
+    enclosingScope: string | null;
+    scopeType: "function" | "arrow-function" | "component" | "hook" | "method" | "class" | "module";
+    parentScope?: string;
+    jsxElementType?: string;
+  };
 }
 
 /**
@@ -269,13 +276,14 @@ export async function lintFileWithDataLoc(
     let spans: JsxElementSpan[] = [];
     let lineStarts: number[] = [];
     let codeLength = 0;
+    let fileCode: string | null = null;
 
     try {
       progress("Building JSX map...");
-      const code = readFileSync(absolutePath, "utf-8");
-      codeLength = code.length;
-      lineStarts = buildLineStarts(code);
-      spans = buildJsxElementSpans(code, dataLocFile);
+      fileCode = readFileSync(absolutePath, "utf-8");
+      codeLength = fileCode.length;
+      lineStarts = buildLineStarts(fileCode);
+      spans = buildJsxElementSpans(fileCode, dataLocFile);
       progress(`JSX map: ${spans.length} element(s)`);
     } catch (e) {
       // If parsing fails, we still return ESLint messages (unmapped).
@@ -283,9 +291,10 @@ export async function lintFileWithDataLoc(
       spans = [];
       lineStarts = [];
       codeLength = 0;
+      fileCode = null;
     }
 
-    const issues: LintIssue[] = messages
+    let issues: LintIssue[] = messages
       .filter((m: any) => typeof m?.message === "string")
       .map((m: any) => {
         const line = typeof m.line === "number" ? m.line : 1;
@@ -314,6 +323,14 @@ export async function lintFileWithDataLoc(
       progress(`Mapped ${mappedCount}/${issues.length} issue(s) to JSX elements`);
     }
 
+    // Enrich issues with scope information
+    if (fileCode && issues.length > 0) {
+      progress("Extracting scope info...");
+      issues = enrichIssuesWithScopeInfo(issues, fileCode);
+      const scopeCount = issues.filter((i) => Boolean(i.scopeInfo)).length;
+      progress(`Enriched ${scopeCount}/${issues.length} issue(s) with scope info`);
+    }
+
     return issues;
   } catch (error) {
     progress(`ESLint failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -338,4 +355,45 @@ export function extractSourceSnippet(
     startLine,
     endLine,
   };
+}
+
+/**
+ * Enrich lint issues with scope information.
+ *
+ * Uses the scope-extractor to add context about where each issue occurs
+ * in the code (function name, component name, hook, etc.). Uses batch
+ * processing for efficiency when handling multiple issues in the same file.
+ *
+ * Gracefully degrades: if parsing fails, issues are returned without scopeInfo.
+ *
+ * @param issues - Array of lint issues to enrich
+ * @param code - Source code of the file
+ * @returns Issues with scopeInfo added (when available)
+ */
+export function enrichIssuesWithScopeInfo(
+  issues: LintIssue[],
+  code: string
+): LintIssue[] {
+  if (issues.length === 0) {
+    return issues;
+  }
+
+  // Extract positions from issues
+  const positions = issues.map((issue) => ({
+    line: issue.line,
+    column: issue.column ?? 0,
+  }));
+
+  // Batch extract scope info for all positions
+  const scopeInfos = findEnclosingScopeBatch(code, positions);
+
+  // Merge scope info back into issues
+  return issues.map((issue, index) => {
+    const scopeInfo = scopeInfos[index];
+    if (scopeInfo) {
+      return { ...issue, scopeInfo };
+    }
+    // If scope extraction failed, return issue without scopeInfo
+    return issue;
+  });
 }

@@ -116,6 +116,12 @@ export interface LintIssue {
   message: string;
   ruleId?: string;
   dataLoc?: string;
+  scopeInfo?: {
+    enclosingScope: string | null;
+    scopeType: "function" | "arrow-function" | "component" | "hook" | "method" | "class" | "module";
+    parentScope?: string;
+    jsxElementType?: string;
+  };
 }
 
 export interface LintResultMessage {

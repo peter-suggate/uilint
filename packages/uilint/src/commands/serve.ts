@@ -107,6 +107,7 @@ import {
   prepareCoverage,
   needsCoveragePreparation,
 } from "../utils/coverage-prepare.js";
+import { enrichIssuesWithScopeInfo } from "../utils/eslint-utils.js";
 
 export interface ServeOptions {
   port?: number;
@@ -120,6 +121,12 @@ export interface LintIssue {
   message: string;
   ruleId?: string;
   dataLoc?: string;
+  scopeInfo?: {
+    enclosingScope: string | null;
+    scopeType: "function" | "arrow-function" | "component" | "hook" | "method" | "class" | "module";
+    parentScope?: string;
+    jsxElementType?: string;
+  };
 }
 
 // Message types
@@ -856,13 +863,14 @@ async function lintFile(
     let spans: JsxElementSpan[] = [];
     let lineStarts: number[] = [];
     let codeLength = 0;
+    let fileCode: string | null = null;
 
     try {
       onProgress("Building JSX map...");
-      const code = readFileSync(absolutePath, "utf-8");
-      codeLength = code.length;
-      lineStarts = buildLineStarts(code);
-      spans = buildJsxElementSpans(code, dataLocFile);
+      fileCode = readFileSync(absolutePath, "utf-8");
+      codeLength = fileCode.length;
+      lineStarts = buildLineStarts(fileCode);
+      spans = buildJsxElementSpans(fileCode, dataLocFile);
       onProgress(`JSX map: ${spans.length} element(s)`);
     } catch (e) {
       // If parsing fails, we still return ESLint messages (unmapped).
@@ -871,9 +879,10 @@ async function lintFile(
       spans = [];
       lineStarts = [];
       codeLength = 0;
+      fileCode = null;
     }
 
-    const issues: LintIssue[] = messages
+    let issues: LintIssue[] = messages
       .filter((m: any) => typeof m?.message === "string")
       .map((m: any) => {
         const line = typeof m.line === "number" ? m.line : 1;
@@ -902,6 +911,14 @@ async function lintFile(
       onProgress(
         `Mapped ${mappedCount}/${issues.length} issue(s) to JSX elements`
       );
+    }
+
+    // Enrich issues with scope information
+    if (fileCode && issues.length > 0) {
+      onProgress("Extracting scope info...");
+      issues = enrichIssuesWithScopeInfo(issues, fileCode);
+      const scopeCount = issues.filter((i) => Boolean(i.scopeInfo)).length;
+      onProgress(`Enriched ${scopeCount}/${issues.length} issue(s) with scope info`);
     }
 
     cache.set(absolutePath, { issues, mtimeMs, timestamp: Date.now() });
