@@ -6,19 +6,38 @@
  * - Places largest tiles first, fills vertical gaps
  * - Staggered entrance animations
  * - Glassmorphic empty state with proper light/dark mode support
+ * - Generic item type support
  */
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles } from "lucide-react";
 import { cn } from "../../../lib/utils";
-import type { TileItem } from "../../../core/plugin-system/types";
 import { Tile } from "./Tile";
-import { calculateMosaicLayout } from "../HierarchicalTiles/layout";
+import { calculateMosaicLayout } from "./layout";
+import { crispEase } from "./animations";
 
-interface TileGridProps {
-  items: TileItem[];
-  onTileClick: (item: TileItem) => void;
-  onOpenInInspector?: (item: TileItem) => void;
+// ============================================================================
+// Types
+// ============================================================================
+
+/**
+ * Base item type that TileGrid can work with.
+ * Items must have at minimum an id, label, and count.
+ * Optional properties match the Tile component's props.
+ */
+export interface BaseTileItem {
+  id: string;
+  label: string;
+  count: number;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  severityCounts?: { error: number; warning: number; info: number };
+}
+
+export interface TileGridProps<T extends BaseTileItem> {
+  items: T[];
+  onTileClick: (item: T) => void;
+  onOpenInInspector?: (item: T) => void;
   selectedIndex: number;
   isTerminal?: boolean;
   /** Override the available width for layout (default: 532) */
@@ -27,10 +46,9 @@ interface TileGridProps {
   padding?: { top: number; right: number; bottom: number; left: number };
 }
 
-/**
- * Crisp easing curve for animations
- */
-const crispEase = [0.32, 0.72, 0, 1] as const;
+// ============================================================================
+// Constants
+// ============================================================================
 
 /**
  * Command palette width: 580px
@@ -40,6 +58,10 @@ const crispEase = [0.32, 0.72, 0, 1] as const;
 const GRID_PADDING = { top: 20, right: 24, bottom: 20, left: 24 };
 const GRID_AVAILABLE_WIDTH = 532;
 const GRID_GAP = 14;
+
+// ============================================================================
+// Sub-components
+// ============================================================================
 
 /**
  * EmptyState - Minimal placeholder when no tiles to display
@@ -68,7 +90,11 @@ function EmptyState() {
   );
 }
 
-export function TileGrid({
+// ============================================================================
+// Main Component
+// ============================================================================
+
+export function TileGrid<T extends BaseTileItem>({
   items,
   onTileClick,
   onOpenInInspector,
@@ -76,7 +102,7 @@ export function TileGrid({
   isTerminal = false,
   availableWidth = GRID_AVAILABLE_WIDTH,
   padding = GRID_PADDING,
-}: TileGridProps) {
+}: TileGridProps<T>) {
   // Handle empty state early (no hooks needed)
   if (items.length === 0) {
     return <EmptyState />;
@@ -141,7 +167,12 @@ export function TileGrid({
               }}
             >
               <Tile
-                item={item}
+                id={item.id}
+                label={item.label}
+                subtitle={item.subtitle}
+                icon={item.icon}
+                count={item.count}
+                severityCounts={item.severityCounts}
                 bucket={tileLayout.bucket}
                 isSelected={globalIndex === selectedIndex}
                 onClick={() => onTileClick(item)}
@@ -154,5 +185,3 @@ export function TileGrid({
     </div>
   );
 }
-
-export type { TileGridProps };

@@ -25,7 +25,7 @@ import {
   childrenContainerVariants,
   layoutTransition,
   getStaggerDelay,
-} from "./animations/expansion-animations";
+} from "../HierarchicalTiles/animations";
 
 // ============================================================================
 // Types

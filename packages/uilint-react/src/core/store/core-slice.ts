@@ -101,6 +101,10 @@ export interface InspectorState {
   floatingSize: { width: number; height: number } | null;
   /** File paths that are expanded in the issues list */
   expandedFiles: string[];
+  /** Expanded rule ID (level 0) */
+  expandedRuleId: string | null;
+  /** Expanded file path within the rule (level 1) */
+  expandedFilePath: string | null;
   /** Currently selected issue ID (for heatmap highlight sync) */
   selectedIssueId: string | null;
   /** Whether the rule config section is expanded */
@@ -238,6 +242,16 @@ export interface CoreSlice {
   expandFile: (filePath: string) => void;
   /** Collapse a specific file in the issues list */
   collapseFile: (filePath: string) => void;
+  /** Expand a rule tile (level 0) */
+  expandRule: (ruleId: string) => void;
+  /** Collapse the expanded rule */
+  collapseRule: () => void;
+  /** Expand a file within the expanded rule (level 1) */
+  expandFileInRule: (filePath: string) => void;
+  /** Collapse the expanded file, keeping rule expanded */
+  collapseFileInRule: () => void;
+  /** Collapse all (both rule and file) */
+  collapseAllInspector: () => void;
   /** Select an issue (for heatmap highlight sync) */
   selectIssue: (issueId: string | null) => void;
   /** Toggle the rule config section */
@@ -361,6 +375,8 @@ function loadInitialInspectorState(): InspectorState {
     floatingPosition: getStorageValue(STORAGE_KEYS.inspectorFloatingPosition, null),
     floatingSize: getStorageValue(STORAGE_KEYS.inspectorFloatingSize, null),
     expandedFiles: [],
+    expandedRuleId: null,
+    expandedFilePath: null,
     selectedIssueId: null,
     ruleConfigExpanded: false,
   };
@@ -681,6 +697,54 @@ export const createCoreSlice = (
       inspector: {
         ...current,
         expandedFiles: current.expandedFiles.filter((f) => f !== filePath),
+      },
+    });
+  },
+
+  expandRule: (ruleId) => {
+    set({
+      inspector: {
+        ...get().inspector,
+        expandedRuleId: ruleId,
+        expandedFilePath: null,
+      },
+    });
+  },
+
+  collapseRule: () => {
+    set({
+      inspector: {
+        ...get().inspector,
+        expandedRuleId: null,
+        expandedFilePath: null,
+      },
+    });
+  },
+
+  expandFileInRule: (filePath) => {
+    set({
+      inspector: {
+        ...get().inspector,
+        expandedFilePath: filePath,
+      },
+    });
+  },
+
+  collapseFileInRule: () => {
+    set({
+      inspector: {
+        ...get().inspector,
+        expandedFilePath: null,
+      },
+    });
+  },
+
+  collapseAllInspector: () => {
+    set({
+      inspector: {
+        ...get().inspector,
+        expandedRuleId: null,
+        expandedFilePath: null,
       },
     });
   },
