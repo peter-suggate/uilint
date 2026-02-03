@@ -21,14 +21,6 @@ import type {
 // ============================================================================
 
 /**
- * Position of the floating icon in pixel coordinates.
- */
-export interface FloatingIconPosition {
-  x: number;
-  y: number;
-}
-
-/**
  * Breakpoints for responsive design.
  */
 export const BREAKPOINTS = {
@@ -142,12 +134,6 @@ export interface HeatmapFilterState {
  * Contains state and actions for core UI functionality.
  */
 export interface CoreSlice {
-  // ============ Floating Icon ============
-  /** Floating icon position (null = default top-center) */
-  floatingIconPosition: FloatingIconPosition | null;
-  /** Set floating icon position and persist to localStorage */
-  setFloatingIconPosition: (position: FloatingIconPosition) => void;
-
   // ============ Alt Key Mode ============
   /** Whether the Alt key is currently held */
   altKeyHeld: boolean;
@@ -287,7 +273,6 @@ export interface CoreSlice {
 // ============================================================================
 
 const STORAGE_KEYS = {
-  floatingIconPosition: "uilint:floatingIconPosition",
   inspectorDocked: "uilint:inspectorDocked",
   inspectorWidth: "uilint:inspectorWidth",
   inspectorFloatingPosition: "uilint:inspectorFloatingPosition",
@@ -395,17 +380,6 @@ function loadInitialInspectorState(): InspectorState {
 export const createCoreSlice = (
   services: PluginServices
 ): StateCreator<CoreSlice> => (set, get) => ({
-  // ============ Floating Icon ============
-  floatingIconPosition: getStorageValue<FloatingIconPosition | null>(
-    STORAGE_KEYS.floatingIconPosition,
-    null
-  ),
-
-  setFloatingIconPosition: (position) => {
-    setStorageValue(STORAGE_KEYS.floatingIconPosition, position);
-    set({ floatingIconPosition: position });
-  },
-
   // ============ Alt Key Mode ============
   altKeyHeld: false,
 

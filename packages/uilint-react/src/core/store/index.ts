@@ -6,7 +6,6 @@
 export {
   createCoreSlice,
   type CoreSlice,
-  type FloatingIconPosition,
   type CommandPaletteState,
   type CommandPaletteFilter,
   type InspectorState,

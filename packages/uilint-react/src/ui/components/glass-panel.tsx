@@ -2,7 +2,7 @@
  * GlassPanel - Glassmorphism container component
  *
  * A shadcn-style component for glass morphism UI panels.
- * Used as the base container for CommandPalette, FloatingIcon, modals, etc.
+ * Used as the base container for CommandPalette, modals, etc.
  *
  * Features:
  * - CSS variable theming (--uilint-glass-*)

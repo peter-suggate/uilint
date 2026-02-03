@@ -22,7 +22,6 @@ export {
 export { useIssues, useElementRects } from "./hooks";
 
 // Components (for custom composition)
-export { FloatingIcon } from "./components/FloatingIcon";
 export { HeatmapOverlay } from "./components/HeatmapOverlay";
 export { CommandPalette } from "./components/CommandPalette";
 export { InspectorSidebar } from "./components/Inspector";

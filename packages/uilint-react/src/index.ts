@@ -7,7 +7,6 @@
 // =============================================================================
 export {
   UILint,
-  FloatingIcon,
   CommandPalette,
   InspectorSidebar,
   // Hooks

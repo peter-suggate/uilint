@@ -172,7 +172,7 @@ export function defineUILintDevtoolsElement() {
         case "bottom-center":
           return raw;
         default:
-          // Default to top-center (matches FloatingIcon default)
+          // Default to top-center
           return "top-center";
       }
     }

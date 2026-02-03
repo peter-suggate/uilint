@@ -689,12 +689,6 @@ export interface TestStoreState extends CoreSlice {
  */
 export function createTestStore(): UseBoundStore<StoreApi<TestStoreState>> {
   return create<TestStoreState>()((set, get) => ({
-    // ============ Floating Icon ============
-    floatingIconPosition: null,
-    setFloatingIconPosition: (position) => {
-      set({ floatingIconPosition: position });
-    },
-
     // ============ Alt Key Mode ============
     altKeyHeld: false,
     setAltKeyHeld: (held) => {

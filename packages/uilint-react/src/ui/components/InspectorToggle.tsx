@@ -1,8 +1,8 @@
 /**
- * InspectorToggle - Persistent button to open the inspector panel
+ * InspectorToggle - Main UI anchor for UILint
  *
- * Positioned at the top-right of the window, provides easy access to the
- * inspector without needing to go through the command palette.
+ * Positioned at the top-right of the window, serves as the primary entry point
+ * to the UILint interface. Includes a keyboard shortcut hint for command palette.
  */
 import React from "react";
 import { createPortal } from "react-dom";
@@ -11,11 +11,18 @@ import { useComposedStore } from "../../core/store";
 import { UILintInspectorIcon } from "../icons";
 import { getGlassStyles } from "./primitives";
 
+/** Detect macOS for showing correct modifier key symbol */
+function isMac(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+}
+
 export function InspectorToggle() {
   const isInspectorOpen = useComposedStore((s) => s.inspector.open);
   const isCommandPaletteOpen = useComposedStore((s) => s.commandPalette.open);
   const openInspectorPanel = useComposedStore((s) => s.openInspectorPanel);
   const isMobile = useComposedStore((s) => s.mobile.isMobile);
+  const isTouchDevice = useComposedStore((s) => s.mobile.isTouchDevice);
 
   const portalRoot = document.getElementById("uilint-portal") || document.body;
 
@@ -25,42 +32,82 @@ export function InspectorToggle() {
   }
 
   const buttonSize = isMobile ? 44 : 36;
+  const modKey = isMac() ? "⌘" : "Ctrl+";
+  const showShortcutHint = !isTouchDevice;
 
   return createPortal(
     <AnimatePresence>
-      <motion.button
+      <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
         transition={{ duration: 0.15, ease: [0.32, 0.72, 0, 1] }}
-        onClick={openInspectorPanel}
-        aria-label="Open inspector"
-        title="Open inspector"
         style={{
           position: "fixed",
           top: 16,
           right: 16,
-          width: buttonSize,
-          height: buttonSize,
-          borderRadius: buttonSize / 2,
-          border: "none",
-          cursor: "pointer",
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
+          gap: 8,
           pointerEvents: "auto",
-          color: "var(--uilint-text-secondary)",
-          ...getGlassStyles("medium", "md", false),
-          borderTop: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
-          borderBottom: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
-          borderLeft: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
-          borderRight: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
         }}
       >
-        <UILintInspectorIcon size={isMobile ? 20 : 18} />
-      </motion.button>
+        {/* Keyboard shortcut hint */}
+        {showShortcutHint && (
+          <motion.div
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.2, delay: 0.1 }}
+            style={{
+              height: buttonSize,
+              padding: "0 12px",
+              borderRadius: buttonSize / 2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              fontSize: 12,
+              fontWeight: 500,
+              color: "var(--uilint-text-muted)",
+              ...getGlassStyles("medium", "md", false),
+              borderTop: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
+              borderBottom: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
+              borderLeft: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
+              borderRight: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
+            }}
+          >
+            <span style={{ opacity: 0.7 }}>{modKey}K</span>
+            <span style={{ marginLeft: 6, opacity: 0.5 }}>to search</span>
+          </motion.div>
+        )}
+
+        {/* Inspector toggle button */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={openInspectorPanel}
+          aria-label="Open inspector"
+          title="Open inspector"
+          style={{
+            width: buttonSize,
+            height: buttonSize,
+            borderRadius: buttonSize / 2,
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--uilint-text-secondary)",
+            ...getGlassStyles("medium", "md", false),
+            borderTop: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
+            borderBottom: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
+            borderLeft: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
+            borderRight: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
+          }}
+        >
+          <UILintInspectorIcon size={isMobile ? 20 : 18} />
+        </motion.button>
+      </motion.div>
     </AnimatePresence>,
     portalRoot
   );
