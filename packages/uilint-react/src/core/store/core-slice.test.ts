@@ -5,7 +5,6 @@
  * - Initial state values
  * - Command palette actions
  * - Inspector actions
- * - Floating icon actions
  * - Alt key mode actions
  * - Selection actions
  */
@@ -15,7 +14,6 @@ import {
   createCoreSlice,
   type CoreSlice,
   type CommandPaletteFilter,
-  type FloatingIconPosition,
   type MobileState,
 } from "./core-slice";
 import type { PluginServices, WebSocketService, DOMObserverService } from "../plugin-system/types";
@@ -109,11 +107,6 @@ function createTestSlice(services?: PluginServices) {
 // ============================================================================
 
 describe("Core Slice - Initial State", () => {
-  it("has floatingIconPosition as null by default", () => {
-    const { getState } = createTestSlice();
-    expect(getState().floatingIconPosition).toBeNull();
-  });
-
   it("has altKeyHeld as false by default", () => {
     const { getState } = createTestSlice();
     expect(getState().altKeyHeld).toBe(false);
@@ -827,48 +820,6 @@ describe("Core Slice - Inspector Actions", () => {
 });
 
 // ============================================================================
-// Floating Icon Actions Tests
-// ============================================================================
-
-describe("Core Slice - Floating Icon Actions", () => {
-  describe("setFloatingIconPosition", () => {
-    it("updates the position", () => {
-      const { getState } = createTestSlice();
-
-      const position: FloatingIconPosition = { x: 100, y: 50 };
-      getState().setFloatingIconPosition(position);
-
-      expect(getState().floatingIconPosition).toEqual(position);
-    });
-
-    it("can set position to various coordinates", () => {
-      const { getState } = createTestSlice();
-
-      const positions: FloatingIconPosition[] = [
-        { x: 0, y: 0 },
-        { x: 100, y: 200 },
-        { x: -50, y: 300 },
-        { x: 1920, y: 1080 },
-      ];
-
-      positions.forEach((position) => {
-        getState().setFloatingIconPosition(position);
-        expect(getState().floatingIconPosition).toEqual(position);
-      });
-    });
-
-    it("overwrites previous position", () => {
-      const { getState } = createTestSlice();
-
-      getState().setFloatingIconPosition({ x: 100, y: 100 });
-      getState().setFloatingIconPosition({ x: 200, y: 200 });
-
-      expect(getState().floatingIconPosition).toEqual({ x: 200, y: 200 });
-    });
-  });
-});
-
-// ============================================================================
 // Alt Key Mode Actions Tests
 // ============================================================================
 
@@ -1119,7 +1070,6 @@ describe("Core Slice - Mobile State Actions", () => {
       // Set up various state
       getState().openCommandPalette();
       getState().setSelectedElementId("element-123");
-      getState().setFloatingIconPosition({ x: 100, y: 200 });
 
       getState().setMobileState({
         isMobile: true,
@@ -1131,7 +1081,6 @@ describe("Core Slice - Mobile State Actions", () => {
       // Verify other state is preserved
       expect(getState().commandPalette.open).toBe(true);
       expect(getState().selectedElementId).toBe("element-123");
-      expect(getState().floatingIconPosition).toEqual({ x: 100, y: 200 });
     });
   });
 });
@@ -1173,19 +1122,6 @@ describe("Core Slice - Integration", () => {
 
     expect(getState().selectedElementId).toBe("element-123");
     expect(getState().hoveredElementId).toBe("element-456");
-  });
-
-  it("preserves floating icon position through other state changes", () => {
-    const { getState } = createTestSlice();
-
-    getState().setFloatingIconPosition({ x: 500, y: 100 });
-
-    getState().openCommandPalette();
-    getState().setCommandPaletteQuery("test");
-    getState().openInspector("panel");
-    getState().setSelectedElementId("el-1");
-
-    expect(getState().floatingIconPosition).toEqual({ x: 500, y: 100 });
   });
 
   it("preserves alt key state through other state changes", () => {

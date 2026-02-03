@@ -2,7 +2,7 @@
  * UILint - Root component for the UILint overlay UI
  *
  * Renders:
- * - FloatingIcon: Draggable button to open command palette
+ * - InspectorToggle: Button to open inspector (anchor for UI)
  * - HeatmapOverlay: Colored borders on elements with issues
  * - CommandPalette: Search interface for issues
  * - InspectorSidebar: Detail panel for issues/elements
@@ -12,7 +12,6 @@
  * (initializeKeyboardShortcuts in subscriptions.ts) when the store is created.
  */
 import React, { useEffect, useCallback } from "react";
-import { FloatingIcon } from "./components/FloatingIcon";
 import { HeatmapOverlay } from "./components/HeatmapOverlay";
 import { CommandPalette } from "./components/CommandPalette";
 import { InspectorSidebar } from "./components/Inspector";
@@ -107,7 +106,6 @@ export function UILint({ enabled = true }: UILintProps) {
 
   return (
     <>
-      <FloatingIcon />
       <InspectorToggle />
       <HeatmapOverlay />
       <CommandPalette />

@@ -83,13 +83,13 @@ describe("Drag Slice - startDrag", () => {
     const { getState } = createTestSlice();
 
     getState().startDrag(
-      "floating-icon",
+      "inspector-floating",
       { x: 100, y: 200 },
       { x: 10, y: 20 }
     );
 
     expect(getState().activeDrag).toEqual({
-      type: "floating-icon",
+      type: "inspector-floating",
       startPos: { x: 100, y: 200 },
       currentPos: { x: 100, y: 200 },
       offset: { x: 10, y: 20 },
@@ -129,7 +129,7 @@ describe("Drag Slice - startDrag", () => {
     const { getState } = createTestSlice();
 
     getState().startDrag(
-      "floating-icon",
+      "inspector-floating",
       { x: 123, y: 456 },
       { x: 0, y: 0 }
     );
@@ -139,7 +139,6 @@ describe("Drag Slice - startDrag", () => {
 
   it("supports all drag types", () => {
     const dragTypes: DragType[] = [
-      "floating-icon",
       "inspector-floating",
       "inspector-resize",
       "docked-resize",
@@ -163,7 +162,7 @@ describe("Drag Slice - updateDrag", () => {
   it("updates currentPos during drag", () => {
     const { getState } = createTestSlice();
 
-    getState().startDrag("floating-icon", { x: 100, y: 100 }, { x: 0, y: 0 });
+    getState().startDrag("inspector-floating", { x: 100, y: 100 }, { x: 0, y: 0 });
     getState().updateDrag({ x: 200, y: 150 });
 
     expect(getState().activeDrag?.currentPos).toEqual({ x: 200, y: 150 });
@@ -198,7 +197,7 @@ describe("Drag Slice - updateDrag", () => {
   it("can be called multiple times during drag", () => {
     const { getState } = createTestSlice();
 
-    getState().startDrag("floating-icon", { x: 0, y: 0 }, { x: 0, y: 0 });
+    getState().startDrag("inspector-floating", { x: 0, y: 0 }, { x: 0, y: 0 });
 
     getState().updateDrag({ x: 10, y: 10 });
     expect(getState().activeDrag?.currentPos).toEqual({ x: 10, y: 10 });
@@ -219,7 +218,7 @@ describe("Drag Slice - endDrag", () => {
   it("sets activeDrag to null", () => {
     const { getState } = createTestSlice();
 
-    getState().startDrag("floating-icon", { x: 100, y: 100 }, { x: 0, y: 0 });
+    getState().startDrag("inspector-floating", { x: 100, y: 100 }, { x: 0, y: 0 });
     expect(getState().activeDrag).not.toBeNull();
 
     getState().endDrag();
@@ -237,7 +236,7 @@ describe("Drag Slice - endDrag", () => {
   it("can start a new drag after ending previous", () => {
     const { getState } = createTestSlice();
 
-    getState().startDrag("floating-icon", { x: 100, y: 100 }, { x: 0, y: 0 });
+    getState().startDrag("inspector-floating", { x: 100, y: 100 }, { x: 0, y: 0 });
     getState().endDrag();
 
     getState().startDrag("inspector-floating", { x: 200, y: 200 }, { x: 5, y: 5 });
@@ -254,7 +253,7 @@ describe("Drag Slice - isDragging", () => {
   it("returns true when any drag is active", () => {
     const { getState } = createTestSlice();
 
-    getState().startDrag("floating-icon", { x: 0, y: 0 }, { x: 0, y: 0 });
+    getState().startDrag("inspector-floating", { x: 0, y: 0 }, { x: 0, y: 0 });
 
     expect(getState().isDragging()).toBe(true);
   });
@@ -276,16 +275,16 @@ describe("Drag Slice - isDragging", () => {
   it("returns false when checking for different drag type", () => {
     const { getState } = createTestSlice();
 
-    getState().startDrag("floating-icon", { x: 0, y: 0 }, { x: 0, y: 0 });
+    getState().startDrag("inspector-floating", { x: 0, y: 0 }, { x: 0, y: 0 });
 
-    expect(getState().isDragging("inspector-floating")).toBe(false);
     expect(getState().isDragging("inspector-resize")).toBe(false);
+    expect(getState().isDragging("docked-resize")).toBe(false);
   });
 
   it("returns false after drag ends", () => {
     const { getState } = createTestSlice();
 
-    getState().startDrag("floating-icon", { x: 0, y: 0 }, { x: 0, y: 0 });
+    getState().startDrag("inspector-floating", { x: 0, y: 0 }, { x: 0, y: 0 });
     getState().endDrag();
 
     expect(getState().isDragging()).toBe(false);
@@ -300,7 +299,7 @@ describe("Drag Slice - getDragDelta", () => {
   it("returns delta between start and current position", () => {
     const { getState } = createTestSlice();
 
-    getState().startDrag("floating-icon", { x: 100, y: 100 }, { x: 0, y: 0 });
+    getState().startDrag("inspector-floating", { x: 100, y: 100 }, { x: 0, y: 0 });
     getState().updateDrag({ x: 150, y: 180 });
 
     expect(getState().getDragDelta()).toEqual({ x: 50, y: 80 });
@@ -309,7 +308,7 @@ describe("Drag Slice - getDragDelta", () => {
   it("returns zero delta at drag start", () => {
     const { getState } = createTestSlice();
 
-    getState().startDrag("floating-icon", { x: 100, y: 100 }, { x: 0, y: 0 });
+    getState().startDrag("inspector-floating", { x: 100, y: 100 }, { x: 0, y: 0 });
 
     expect(getState().getDragDelta()).toEqual({ x: 0, y: 0 });
   });
@@ -317,7 +316,7 @@ describe("Drag Slice - getDragDelta", () => {
   it("handles negative delta (dragging left/up)", () => {
     const { getState } = createTestSlice();
 
-    getState().startDrag("floating-icon", { x: 200, y: 200 }, { x: 0, y: 0 });
+    getState().startDrag("inspector-floating", { x: 200, y: 200 }, { x: 0, y: 0 });
     getState().updateDrag({ x: 100, y: 50 });
 
     expect(getState().getDragDelta()).toEqual({ x: -100, y: -150 });
@@ -338,7 +337,7 @@ describe("Drag Slice - Selectors", () => {
   describe("selectIsDragging", () => {
     it("returns true when dragging", () => {
       const { getState } = createTestSlice();
-      getState().startDrag("floating-icon", { x: 0, y: 0 }, { x: 0, y: 0 });
+      getState().startDrag("inspector-floating", { x: 0, y: 0 }, { x: 0, y: 0 });
 
       expect(selectIsDragging(getState())).toBe(true);
     });
@@ -360,16 +359,16 @@ describe("Drag Slice - Selectors", () => {
 
     it("returns false for non-matching type", () => {
       const { getState } = createTestSlice();
-      getState().startDrag("floating-icon", { x: 0, y: 0 }, { x: 0, y: 0 });
+      getState().startDrag("inspector-floating", { x: 0, y: 0 }, { x: 0, y: 0 });
 
-      expect(selectIsDraggingType(getState(), "inspector-floating")).toBe(false);
+      expect(selectIsDraggingType(getState(), "inspector-resize")).toBe(false);
     });
   });
 
   describe("selectDragDelta", () => {
     it("returns correct delta", () => {
       const { getState } = createTestSlice();
-      getState().startDrag("floating-icon", { x: 50, y: 50 }, { x: 0, y: 0 });
+      getState().startDrag("inspector-floating", { x: 50, y: 50 }, { x: 0, y: 0 });
       getState().updateDrag({ x: 100, y: 75 });
 
       expect(selectDragDelta(getState())).toEqual({ x: 50, y: 25 });
@@ -398,7 +397,7 @@ describe("Drag Slice - Selectors", () => {
 
     it("returns null if no elementStartPos", () => {
       const { getState } = createTestSlice();
-      getState().startDrag("floating-icon", { x: 0, y: 0 }, { x: 0, y: 0 });
+      getState().startDrag("inspector-floating", { x: 0, y: 0 }, { x: 0, y: 0 });
       getState().updateDrag({ x: 50, y: 50 });
 
       expect(selectDraggedElementPosition(getState())).toBeNull();
@@ -442,7 +441,7 @@ describe("Drag Slice - Selectors", () => {
 
     it("returns null if no elementStartSize", () => {
       const { getState } = createTestSlice();
-      getState().startDrag("floating-icon", { x: 0, y: 0 }, { x: 0, y: 0 });
+      getState().startDrag("inspector-floating", { x: 0, y: 0 }, { x: 0, y: 0 });
 
       expect(selectDraggedElementSize(getState())).toBeNull();
     });
@@ -465,12 +464,12 @@ describe("Drag Slice - Integration", () => {
 
     // Start drag
     getState().startDrag(
-      "floating-icon",
+      "inspector-floating",
       { x: 100, y: 50 },
       { x: 10, y: 5 },
       { x: 200, y: 16 }
     );
-    expect(getState().isDragging("floating-icon")).toBe(true);
+    expect(getState().isDragging("inspector-floating")).toBe(true);
     expect(selectDraggedElementPosition(getState())).toEqual({ x: 200, y: 16 });
 
     // Move during drag
@@ -509,15 +508,15 @@ describe("Drag Slice - Integration", () => {
   it("switching drag types mid-operation replaces previous drag", () => {
     const { getState } = createTestSlice();
 
-    // Start floating icon drag
-    getState().startDrag("floating-icon", { x: 0, y: 0 }, { x: 0, y: 0 });
-    expect(getState().isDragging("floating-icon")).toBe(true);
+    // Start inspector floating drag
+    getState().startDrag("inspector-floating", { x: 0, y: 0 }, { x: 0, y: 0 });
+    expect(getState().isDragging("inspector-floating")).toBe(true);
 
-    // Start inspector drag (would normally end previous first, but testing edge case)
-    getState().startDrag("inspector-floating", { x: 100, y: 100 }, { x: 5, y: 5 });
+    // Start inspector resize drag (would normally end previous first, but testing edge case)
+    getState().startDrag("inspector-resize", { x: 100, y: 100 }, { x: 5, y: 5 });
 
     // New drag should replace old
-    expect(getState().isDragging("inspector-floating")).toBe(true);
-    expect(getState().isDragging("floating-icon")).toBe(false);
+    expect(getState().isDragging("inspector-resize")).toBe(true);
+    expect(getState().isDragging("inspector-floating")).toBe(false);
   });
 });

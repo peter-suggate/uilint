@@ -2,7 +2,7 @@
  * Drag State Slice
  *
  * Zustand slice for unified drag state management.
- * Handles drag operations for FloatingIcon, InspectorSidebar, and resize handles.
+ * Handles drag operations for InspectorSidebar and resize handles.
  *
  * Components call startDrag on mouse/touch down, and the subscription system
  * handles move/end events globally, eliminating useEffect-based event listeners.
@@ -26,7 +26,6 @@ export interface DragPosition {
  * Types of draggable elements in the UI.
  */
 export type DragType =
-  | "floating-icon"
   | "inspector-floating"
   | "inspector-resize"
   | "docked-resize";

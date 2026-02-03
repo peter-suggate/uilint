@@ -141,7 +141,6 @@ describe("createComposedStoreFactory", () => {
 
     expect(state.commandPalette.open).toBe(false);
     expect(state.inspector.open).toBe(false);
-    expect(state.floatingIconPosition).toBeNull();
     expect(state.plugins).toEqual({});
   });
 
@@ -550,18 +549,6 @@ describe("Core slice integration", () => {
     expect(store.getState().inspector.open).toBe(false);
     expect(store.getState().inspector.panelId).toBeNull();
   });
-
-  it("setFloatingIconPosition updates position", () => {
-    const store = createComposedStoreFactory();
-
-    expect(store.getState().floatingIconPosition).toBeNull();
-
-    store.getState().setFloatingIconPosition({ x: 100, y: 200 });
-    expect(store.getState().floatingIconPosition).toEqual({ x: 100, y: 200 });
-
-    store.getState().setFloatingIconPosition({ x: 50, y: 50 });
-    expect(store.getState().floatingIconPosition).toEqual({ x: 50, y: 50 });
-  });
 });
 
 describe("WebSocket state synchronization", () => {
@@ -611,8 +598,6 @@ describe("useComposedStore hook", () => {
     expect(result.current.commandPalette).toBeDefined();
     expect(result.current.inspector).toBeDefined();
     expect(result.current.plugins).toBeDefined();
-    // floatingIconPosition can be null or a position object depending on prior state
-    expect("floatingIconPosition" in result.current).toBe(true);
   });
 
   it("returns selected state when called with selector", () => {
@@ -684,25 +669,5 @@ describe("useComposedStore hook", () => {
 
     expect(result1.current).toBe(true);
     expect(result2.current).toBe(true);
-  });
-
-  it("tracks floating icon position changes", () => {
-    const { result } = renderHook(() =>
-      useComposedStore((state) => state.floatingIconPosition)
-    );
-
-    // Set position and verify it's tracked
-    act(() => {
-      getStoreApi()?.getState().setFloatingIconPosition({ x: 100, y: 200 });
-    });
-
-    expect(result.current).toEqual({ x: 100, y: 200 });
-
-    // Update position and verify change is tracked
-    act(() => {
-      getStoreApi()?.getState().setFloatingIconPosition({ x: 300, y: 400 });
-    });
-
-    expect(result.current).toEqual({ x: 300, y: 400 });
   });
 });

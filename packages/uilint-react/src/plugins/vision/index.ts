@@ -178,7 +178,7 @@ export const visionPlugin: Plugin<VisionSlice> = {
   commands: visionCommands,
 
   /**
-   * Toolbar action groups contributed by this plugin (shown as dropdown in FloatingIcon)
+   * Toolbar action groups contributed by this plugin
    */
   toolbarActionGroups: [visionToolbarActionGroup],
 
