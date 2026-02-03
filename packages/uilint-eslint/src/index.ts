@@ -345,9 +345,13 @@ const strictConfig: Linter.Config = {
       ]],
     "uilint/no-semantic-duplicates": ["warn", ...[
         {
-          "threshold": 0.85,
+          "threshold": 0.75,
           "indexPath": ".uilint/.duplicates-index",
-          "minLines": 3
+          "minLines": 3,
+          "confidenceLevel": "low",
+          "useStructuralBoost": true,
+          "includeSameFile": false,
+          "kind": "all"
         }
       ]],
     "uilint/require-test-coverage": ["warn", ...[
