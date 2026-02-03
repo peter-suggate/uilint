@@ -148,11 +148,17 @@ function useExpansion(items: TileItem[]) {
 function ExpandedTileInline({
   item,
   children,
+  height,
+  childrenHeight,
   onBack,
   onChildClick,
 }: {
   item: TileItem;
   children: TileItem[];
+  /** Total height of the expanded tile (from layout algorithm) */
+  height: number;
+  /** Height of the children grid area (from layout algorithm) */
+  childrenHeight: number;
   onBack: () => void;
   onChildClick: (item: TileItem) => void;
 }) {
@@ -170,6 +176,7 @@ function ExpandedTileInline({
         "overflow-hidden",
         "shadow-lg"
       )}
+      style={{ height }}
     >
       <ExpandedTileHeader item={item} onBack={onBack} level={0} />
       <motion.div
@@ -178,12 +185,15 @@ function ExpandedTileInline({
         animate="visible"
         exit="exit"
         className="p-3"
+        style={{ height: childrenHeight + EXPANDED_PADDING * 2 }}
       >
         <TileGrid
           items={children}
           onTileClick={onChildClick}
           selectedIndex={-1}
           isTerminal={true}
+          availableWidth={GRID_AVAILABLE_WIDTH - EXPANDED_PADDING * 2}
+          padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
         />
       </motion.div>
     </motion.div>
@@ -291,7 +301,7 @@ export function ExpandableTileGrid({
               <motion.div
                 key={item.id}
                 className="absolute"
-                style={{ left: pos.x, width: pos.width }}
+                style={{ left: pos.x, width: pos.width, height: pos.height }}
                 initial={{ top: pos.y, opacity: 0.9 }}
                 animate={{ top: pos.y, opacity: 1 }}
                 exit={{ opacity: 0.9 }}
@@ -300,6 +310,8 @@ export function ExpandableTileGrid({
                 <ExpandedTileInline
                   item={item}
                   children={currentExpansion.children}
+                  height={pos.height}
+                  childrenHeight={layoutResult.childrenHeight}
                   onBack={handleBack}
                   onChildClick={onChildClick}
                 />

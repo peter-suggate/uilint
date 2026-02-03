@@ -287,8 +287,10 @@ function calculateChildrenHeight(
   }
 
   // Use mosaic layout for children to get accurate height
-  // Children grid is narrower due to padding inside expanded tile
-  const childrenWidth = config.availableWidth - EXPANDED_CONTENT_PADDING * 2 - 24;
+  // Children grid width = expanded tile width - content padding on each side
+  // Expanded tile width = availableWidth (532)
+  // Content padding = EXPANDED_CONTENT_PADDING (12px) on each side = 24px total
+  const childrenWidth = config.availableWidth - EXPANDED_CONTENT_PADDING * 2;
 
   const layout = calculateMosaicLayout(children, {
     availableWidth: childrenWidth,
