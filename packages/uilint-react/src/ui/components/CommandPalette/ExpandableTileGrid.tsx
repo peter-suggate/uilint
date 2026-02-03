@@ -65,6 +65,7 @@ const EXPANDED_PADDING = 12;
 
 /**
  * Hook to manage expansion state and actions
+ * Returns expansionPath as single source of truth for all expansion state
  */
 function useExpansion(items: TileItem[]) {
   const expansionPath = useComposedStore((s) => s.commandPalette.expansionPath);
@@ -74,7 +75,7 @@ function useExpansion(items: TileItem[]) {
   const openInspectorPanel = useComposedStore((s) => s.openInspectorPanel);
 
   const currentLevel = expansionPath.length;
-  const currentExpansion = expansionPath[currentLevel - 1] || null;
+  const currentExpansion = currentLevel > 0 ? expansionPath[currentLevel - 1] : null;
   const expandedTileId = currentExpansion?.item.id || null;
 
   const handleTileClick = useCallback(
@@ -140,7 +141,15 @@ function useExpansion(items: TileItem[]) {
     if (currentLevel > 0) collapseTile();
   }, [currentLevel, collapseTile]);
 
-  return { currentExpansion, expandedTileId, handleTileClick, handleBack };
+  return {
+    expansionPath,
+    currentLevel,
+    currentExpansion,
+    expandedTileId,
+    handleTileClick,
+    handleBack,
+    expandTile,
+  };
 }
 
 // ============================================================================
@@ -216,9 +225,16 @@ export function ExpandableTileGrid({
   onOpenInInspector,
   isTerminal = false,
 }: ExpandableTileGridProps) {
-  const { currentExpansion, expandedTileId, handleTileClick, handleBack } = useExpansion(items);
-  const expansionPath = useComposedStore((s) => s.commandPalette.expansionPath);
-  const expandTileAction = useComposedStore((s) => s.expandTile);
+  // Use single source of truth from the hook
+  const {
+    expansionPath,
+    currentLevel,
+    currentExpansion,
+    expandedTileId,
+    handleTileClick,
+    handleBack,
+    expandTile: expandTileAction,
+  } = useExpansion(items);
   const openInspectorPanelAction = useComposedStore((s) => s.openInspectorPanel);
   const closeCommandPaletteAction = useComposedStore((s) => s.closeCommandPalette);
 
@@ -300,8 +316,8 @@ export function ExpandableTileGrid({
         if (providerEntry) {
           const { provider } = providerEntry;
           const canExpand = provider.canExpand?.(item) ?? false;
-          const currentLevel = expansionPath.length;
 
+          // Use currentLevel from hook (single source of truth)
           if (canExpand && currentLevel < 2) {
             const children = provider.getChildItems?.(item, services) ?? [];
             if (children.length > 0) {
@@ -320,11 +336,12 @@ export function ExpandableTileGrid({
       closeCommandPaletteAction();
       onTileClick?.(item, 1);
     },
-    [expansionPath, currentExpansion, expandTileAction, openInspectorPanelAction, closeCommandPaletteAction, onTileClick]
+    [currentLevel, currentExpansion, expandTileAction, openInspectorPanelAction, closeCommandPaletteAction, onTileClick]
   );
 
   // Handle second level expansion (file expanded to show issues)
-  const isSecondLevelExpansion = expansionPath.length === 2;
+  // Use currentLevel from hook for consistency (single source of truth)
+  const isSecondLevelExpansion = currentLevel === 2;
   const secondLevelExpansion = isSecondLevelExpansion ? expansionPath[1] : null;
 
   // Calculate layout for second level if needed
