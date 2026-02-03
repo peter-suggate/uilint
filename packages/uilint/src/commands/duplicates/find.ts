@@ -12,11 +12,17 @@ export function findCommand(): Command {
     .description("Find semantic duplicate groups in the codebase")
     .option(
       "--threshold <n>",
-      "Similarity threshold 0-1 (default: 0.85)",
+      "Similarity threshold 0-1 (default: 0.75)",
       parseFloat
     )
     .option("--min-size <n>", "Minimum group size (default: 2)", parseInt)
     .option("--kind <type>", "Filter: component, hook, function")
+    .option(
+      "--confidence <level>",
+      "Minimum confidence: high, medium, low (default: low)"
+    )
+    .option("--no-structural", "Disable structural similarity boost")
+    .option("--same-file", "Include duplicates within the same file")
     .option("-o, --output <format>", "Output format: text or json", "text")
     .action(async (options) => {
       const { findDuplicates } = await import("uilint-duplicates");
@@ -30,6 +36,9 @@ export function findCommand(): Command {
           threshold: options.threshold,
           minGroupSize: options.minSize,
           kind: options.kind as ChunkKind | undefined,
+          confidenceLevel: options.confidence as "high" | "medium" | "low" | undefined,
+          useStructuralBoost: options.structural !== false,
+          includeSameFile: options.sameFile ?? false,
         });
 
         if (isJson) {
@@ -50,9 +59,18 @@ export function findCommand(): Command {
 
         groups.forEach((group, idx) => {
           const similarity = Math.round(group.avgSimilarity * 100);
+          const confidenceEmoji =
+            group.confidence === "high" ? "🔴" :
+            group.confidence === "medium" ? "🟡" : "🟢";
+          const confidenceColor =
+            group.confidence === "high" ? chalk.red :
+            group.confidence === "medium" ? chalk.yellow : chalk.green;
+
           console.log(
-            chalk.yellow(
-              `Duplicate Group ${idx + 1} (${similarity}% similar, ${group.members.length} occurrences):`
+            chalk.bold(
+              `${confidenceEmoji} Duplicate Group ${idx + 1} ` +
+              `(${confidenceColor(`${similarity}% - ${group.confidence} confidence`)}, ` +
+              `${group.members.length} occurrences):`
             )
           );
 
@@ -67,11 +85,14 @@ export function findCommand(): Command {
             console.log(`  ${chalk.cyan(location.padEnd(50))} ${name}${score}`);
           });
 
-          console.log(
-            chalk.dim(
-              `  Suggestion: Consider extracting shared logic into a reusable ${group.kind}\n`
-            )
-          );
+          const suggestion =
+            group.confidence === "high"
+              ? `Strongly recommend consolidating into a single reusable ${group.kind}`
+              : group.confidence === "medium"
+              ? `Consider extracting shared logic into a reusable ${group.kind}`
+              : `Optional: Review if a common abstraction makes sense`;
+
+          console.log(chalk.dim(`  → ${suggestion}\n`));
         });
       } catch (error) {
         const message =

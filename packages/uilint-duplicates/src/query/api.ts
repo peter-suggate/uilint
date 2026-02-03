@@ -38,12 +38,18 @@ export interface IndexOptions {
 export interface FindDuplicatesOptions {
   /** Path to search (defaults to current directory) */
   path?: string;
-  /** Minimum similarity threshold (0-1). Default: 0.85 */
+  /** Minimum similarity threshold (0-1). Default: 0.75 */
   threshold?: number;
   /** Minimum group size. Default: 2 */
   minGroupSize?: number;
   /** Filter by kind: component, hook, function */
   kind?: ChunkKind;
+  /** Minimum confidence level: "high", "medium", "low". Default: "low" */
+  confidenceLevel?: "high" | "medium" | "low";
+  /** Use structural similarity boost. Default: true */
+  useStructuralBoost?: boolean;
+  /** Include duplicates within the same file. Default: true */
+  includeSameFile?: boolean;
 }
 
 export interface SearchOptions {
@@ -88,6 +94,8 @@ export interface DuplicateGroup {
   avgSimilarity: number;
   /** The kind of code in this group */
   kind: ChunkKind;
+  /** Confidence level for this group */
+  confidence: "high" | "medium" | "low";
 }
 
 export interface SearchResult {
@@ -193,9 +201,12 @@ export async function findDuplicates(
   const metadataStore = indexer.getMetadataStore();
 
   const groups = findDuplicateGroups(vectorStore, metadataStore, {
-    threshold: options.threshold,
+    threshold: options.threshold ?? 0.75,
     minGroupSize: options.minGroupSize,
     kind: options.kind,
+    confidenceFilter: options.confidenceLevel,
+    useStructuralBoost: options.useStructuralBoost ?? true,
+    includeSameFile: options.includeSameFile ?? true,
   });
 
   // Transform to public API format
@@ -210,6 +221,7 @@ export async function findDuplicates(
     })),
     avgSimilarity: group.avgSimilarity,
     kind: group.kind,
+    confidence: group.confidence,
   }));
 }
 

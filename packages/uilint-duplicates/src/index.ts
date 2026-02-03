@@ -66,6 +66,62 @@ export {
 } from "./detection/scorer.js";
 export type { DuplicateScore } from "./detection/scorer.js";
 
+// Structural Similarity
+export {
+  jaccard,
+  calculateSizeRatio as calculateStructuralSizeRatio,
+  calculateStructuralSimilarity,
+  hasHighStructuralSimilarity,
+  findStructurallySimilar,
+} from "./detection/structural-scorer.js";
+export type {
+  StructuralScore,
+  StructuralScorerWeights,
+} from "./detection/structural-scorer.js";
+
+// Confidence Levels
+export {
+  getConfidenceLevel,
+  getConfidenceResult,
+  getConfidenceEmoji,
+  getConfidenceAnsiColor,
+  formatConfidence,
+  formatConfidenceVerbose,
+  meetsMinimumThreshold,
+  compareConfidenceLevels,
+  filterByConfidence,
+  DEFAULT_CONFIDENCE_CONFIG,
+} from "./detection/confidence.js";
+export type {
+  ConfidenceLevel,
+  ConfidenceConfig,
+  ConfidenceResult,
+} from "./detection/confidence.js";
+
+// Code Normalizer
+export {
+  normalizeCode,
+  calculateNormalizedSimilarity,
+  isNearIdentical,
+  prepareForEmbedding,
+  levenshteinDistance,
+} from "./detection/normalizer.js";
+export type { NormalizationOptions } from "./detection/normalizer.js";
+
+// Combined Scorer
+export {
+  calculateCombinedScore,
+  isPotentialDuplicate,
+  calculateQuickScore,
+  getRecommendedAction,
+  formatCombinedScore,
+  DEFAULT_COMBINED_SCORER_OPTIONS,
+} from "./detection/combined-scorer.js";
+export type {
+  CombinedScore,
+  CombinedScorerOptions,
+} from "./detection/combined-scorer.js";
+
 // Vector Storage
 export { VectorStore } from "./index/vector-store.js";
 export type { SimilarityResult, VectorStoreOptions } from "./index/vector-store.js";

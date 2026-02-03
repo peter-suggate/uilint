@@ -57,3 +57,22 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
     timeoutId = setTimeout(() => fn(...args), delay);
   };
 }
+
+/**
+ * Get a time ago string (e.g., "3 hours ago")
+ * NOTE: This is a DUPLICATE of formatRelativeTime in formatters.ts
+ */
+export function getTimeAgo(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHours = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+  if (diffHours > 0) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+  if (diffMin > 0) return `${diffMin} minute${diffMin > 1 ? "s" : ""} ago`;
+  return "just now";
+}
