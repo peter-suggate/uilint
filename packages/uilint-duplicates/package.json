@@ -1,6 +1,6 @@
 {
   "name": "uilint-duplicates",
-  "version": "0.2.120",
+  "version": "0.2.121",
   "description": "Semantic code duplicate detection for React/TypeScript codebases",
   "author": "Peter Suggate",
   "repository": {
