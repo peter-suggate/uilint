@@ -655,6 +655,7 @@ export const createCoreSlice = (
         expandedRuleId: null,
         expandedFilePath: null,
         showFullSource: false,
+        selectedIssueId: null, // Clear selection to prevent auto-expand effect from re-expanding
       },
     });
   },
@@ -674,6 +675,7 @@ export const createCoreSlice = (
         ...get().inspector,
         expandedFilePath: null,
         showFullSource: false,
+        selectedIssueId: null, // Clear selection to prevent auto-expand effect from re-expanding
       },
     });
   },
@@ -685,6 +687,7 @@ export const createCoreSlice = (
         expandedRuleId: null,
         expandedFilePath: null,
         showFullSource: false,
+        selectedIssueId: null, // Clear selection to prevent auto-expand effect from re-expanding
       },
     });
   },
