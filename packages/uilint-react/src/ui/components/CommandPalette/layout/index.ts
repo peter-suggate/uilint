@@ -29,3 +29,12 @@ export type {
   ChildGridConfig,
   ChildTileLayout,
 } from "./mosaic-layout";
+
+// Expanded layout algorithm (for expandable tile UI)
+export { calculateExpandedLayout } from "./expanded-layout";
+export type {
+  ExpandedLayoutConfig,
+  ExpandedLayoutInput,
+  ExpandedLayoutResult,
+  TilePosition,
+} from "./expanded-layout";

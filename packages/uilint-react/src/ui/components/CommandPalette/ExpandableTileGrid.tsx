@@ -15,7 +15,7 @@
  * 5. Layout siblings that were AT OR BELOW the expanded tile's original Y,
  *    but now starting below the expanded tile
  */
-import React, { useCallback, useMemo, useRef, useEffect, useState } from "react";
+import React, { useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { useComposedStore, getPluginServices } from "../../../core/store";
@@ -24,7 +24,8 @@ import type { TileItem } from "../../../core/plugin-system/types";
 import { Tile } from "./Tile";
 import { TileGrid } from "./TileGrid";
 import { ExpandedTileHeader } from "./ExpandedTileHeader";
-import { calculateMosaicLayout, calculateChildGridLayout } from "./layout";
+import { calculateMosaicLayout, calculateExpandedLayout } from "./layout";
+import type { LayoutItem } from "./layout";
 import {
   childrenContainerVariants,
   crispEase,
@@ -200,26 +201,10 @@ export function ExpandableTileGrid({
   isTerminal = false,
 }: ExpandableTileGridProps) {
   const { currentExpansion, expandedTileId, handleTileClick, handleBack } = useExpansion(items);
+  const openInspectorPanelAction = useComposedStore((s) => s.openInspectorPanel);
+  const closeCommandPaletteAction = useComposedStore((s) => s.closeCommandPalette);
 
-  // Measure actual expanded content height
-  const expandedContentRef = useRef<HTMLDivElement>(null);
-  const [measuredExpandedHeight, setMeasuredExpandedHeight] = useState(0);
-
-  useEffect(() => {
-    if (expandedContentRef.current && expandedTileId) {
-      const observer = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          setMeasuredExpandedHeight(entry.contentRect.height);
-        }
-      });
-      observer.observe(expandedContentRef.current);
-      return () => observer.disconnect();
-    } else {
-      setMeasuredExpandedHeight(0);
-    }
-  }, [expandedTileId]);
-
-  // First, compute the ORIGINAL layout (without expansion)
+  // First, compute the ORIGINAL layout (without expansion) - used for bucket sizing
   const originalLayout = useMemo(() => {
     return calculateMosaicLayout(items, {
       availableWidth: GRID_AVAILABLE_WIDTH,
@@ -228,121 +213,35 @@ export function ExpandableTileGrid({
     });
   }, [items]);
 
-  // Get the expanded tile's original position
-  const expandedTileOriginalLayout = expandedTileId
-    ? originalLayout.tiles.get(expandedTileId)
-    : null;
+  // Convert TileItems to LayoutItems for the layout algorithm
+  const layoutItems: LayoutItem[] = useMemo(
+    () => items.map((item) => ({ id: item.id, count: item.count })),
+    [items]
+  );
 
-  // Estimate expanded height from children
-  const estimatedExpandedHeight = useMemo(() => {
-    if (!currentExpansion?.children.length) return 0;
-    const childItems = currentExpansion.children.map((c) => ({ id: c.id, count: c.count }));
-    const childLayout = calculateChildGridLayout(childItems, {
-      availableWidth: GRID_AVAILABLE_WIDTH - EXPANDED_PADDING * 2 - 24,
-      columns: 2,
-      gap: 10,
-      tileHeight: 80,
-    });
-    return EXPANDED_HEADER_HEIGHT + childLayout.totalHeight + EXPANDED_PADDING * 2 + 24;
-  }, [currentExpansion?.children]);
+  // Convert children to LayoutItems
+  const childLayoutItems: LayoutItem[] = useMemo(
+    () => (currentExpansion?.children ?? []).map((c) => ({ id: c.id, count: c.count })),
+    [currentExpansion?.children]
+  );
 
-  const effectiveExpandedHeight = measuredExpandedHeight || estimatedExpandedHeight;
-
-  // Compute final positions for all tiles
-  const { positions, totalHeight } = useMemo(() => {
-    if (!expandedTileId || !expandedTileOriginalLayout) {
-      // No expansion - use original layout directly
-      const posMap = new Map<string, { x: number; y: number; width: number; height: number }>();
-      for (const item of items) {
-        const layout = originalLayout.tiles.get(item.id);
-        if (layout) {
-          posMap.set(item.id, {
-            x: layout.x,
-            y: layout.y,
-            width: parseFloat(layout.width),
-            height: layout.height,
-          });
-        }
-      }
-      return { positions: posMap, totalHeight: originalLayout.totalHeight };
-    }
-
-    // With expansion: recalculate positions
-    const posMap = new Map<string, { x: number; y: number; width: number; height: number }>();
-
-    // The Y threshold: tiles at or below this Y need to be reflowed
-    const expandedOriginalY = expandedTileOriginalLayout.y;
-    const expandedOriginalHeight = expandedTileOriginalLayout.height;
-
-    // Separate tiles into: above expanded, and at/below expanded (excluding the expanded tile itself)
-    const tilesAbove: TileItem[] = [];
-    const tilesAtOrBelow: TileItem[] = [];
-
-    for (const item of items) {
-      if (item.id === expandedTileId) continue;
-      const layout = originalLayout.tiles.get(item.id);
-      if (!layout) continue;
-
-      // A tile is "above" if its bottom edge is above the expanded tile's top edge
-      const tileBottom = layout.y + layout.height;
-      if (tileBottom <= expandedOriginalY) {
-        tilesAbove.push(item);
-      } else {
-        tilesAtOrBelow.push(item);
-      }
-    }
-
-    // Tiles above keep their original positions
-    for (const item of tilesAbove) {
-      const layout = originalLayout.tiles.get(item.id)!;
-      posMap.set(item.id, {
-        x: layout.x,
-        y: layout.y,
-        width: parseFloat(layout.width),
-        height: layout.height,
-      });
-    }
-
-    // Expanded tile: full width, at its original Y
-    posMap.set(expandedTileId, {
-      x: GRID_PADDING.left,
-      y: expandedOriginalY,
-      width: GRID_AVAILABLE_WIDTH,
-      height: effectiveExpandedHeight,
-    });
-
-    // Layout tiles that were at or below the expanded tile
-    // They now start below the expanded tile
-    const belowStartY = expandedOriginalY + effectiveExpandedHeight + GRID_GAP;
-
-    if (tilesAtOrBelow.length > 0) {
-      // Re-layout these tiles using mosaic algorithm
-      const belowLayout = calculateMosaicLayout(tilesAtOrBelow, {
+  // Use the pure layout algorithm for all position calculations
+  const layoutResult = useMemo(() => {
+    return calculateExpandedLayout({
+      items: layoutItems,
+      expandedId: expandedTileId,
+      children: childLayoutItems,
+      config: {
         availableWidth: GRID_AVAILABLE_WIDTH,
         gap: GRID_GAP,
-        padding: { top: 0, right: 0, bottom: GRID_PADDING.bottom, left: 0 },
-      });
+        padding: GRID_PADDING,
+      },
+    });
+  }, [layoutItems, expandedTileId, childLayoutItems]);
 
-      for (const item of tilesAtOrBelow) {
-        const layout = belowLayout.tiles.get(item.id);
-        if (layout) {
-          posMap.set(item.id, {
-            x: layout.x + GRID_PADDING.left,
-            y: layout.y + belowStartY,
-            width: parseFloat(layout.width),
-            height: layout.height,
-          });
-        }
-      }
-
-      const newTotalHeight = belowStartY + belowLayout.totalHeight;
-      return { positions: posMap, totalHeight: newTotalHeight };
-    }
-
-    // No tiles below
-    const newTotalHeight = belowStartY;
-    return { positions: posMap, totalHeight: newTotalHeight };
-  }, [items, expandedTileId, expandedTileOriginalLayout, originalLayout, effectiveExpandedHeight]);
+  // Extract positions and heights from the layout result
+  const positions = layoutResult.positions;
+  const totalHeight = layoutResult.totalHeight;
 
   // Build index map for selection
   const itemIndexMap = useMemo(() => {
@@ -368,13 +267,11 @@ export function ExpandableTileGrid({
 
   const onChildClick = useCallback(
     (item: TileItem) => {
-      const openInspectorPanel = useComposedStore.getState().openInspectorPanel;
-      const closeCommandPalette = useComposedStore.getState().closeCommandPalette;
-      openInspectorPanel();
-      closeCommandPalette();
+      openInspectorPanelAction();
+      closeCommandPaletteAction();
       onTileClick?.(item, 1);
     },
-    [onTileClick]
+    [openInspectorPanelAction, closeCommandPaletteAction, onTileClick]
   );
 
   return (
@@ -393,7 +290,6 @@ export function ExpandableTileGrid({
             return (
               <motion.div
                 key={item.id}
-                ref={expandedContentRef}
                 className="absolute"
                 style={{ left: pos.x, width: pos.width }}
                 initial={{ top: pos.y, opacity: 0.9 }}
