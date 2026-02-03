@@ -24,13 +24,13 @@ import type { TileItem } from "../../../core/plugin-system/types";
 import { Tile } from "./Tile";
 import { TileGrid } from "./TileGrid";
 import { ExpandedTileHeader } from "./ExpandedTileHeader";
-import { calculateMosaicLayout, calculateExpandedLayout } from "./layout";
-import type { LayoutItem } from "./layout";
+import { calculateMosaicLayout, calculateExpandedLayout } from "../HierarchicalTiles/layout";
+import type { LayoutItem } from "../HierarchicalTiles/layout";
 import {
   childrenContainerVariants,
   crispEase,
   DURATIONS,
-} from "./animations/expansion-animations";
+} from "../HierarchicalTiles/animations";
 
 // ============================================================================
 // Types

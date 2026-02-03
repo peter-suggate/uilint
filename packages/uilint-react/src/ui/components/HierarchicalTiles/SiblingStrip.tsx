@@ -1,39 +1,50 @@
 /**
- * CollapsedTileStrip - Horizontal strip of collapsed sibling tiles
+ * SiblingStrip - Generic horizontal strip of collapsed sibling items
  *
- * When a tile is expanded, its siblings collapse into a horizontal
- * scrollable strip at the bottom. This keeps context visible while
- * allowing the user to switch to a different sibling.
+ * A generalized component for displaying sibling items in a horizontal
+ * scrollable strip. When an item is expanded, its siblings collapse into
+ * this strip, keeping context visible while allowing the user to switch
+ * to a different sibling.
+ *
+ * @template T - Item type that must have id, label, and optional count
  */
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../../../lib/utils";
-import type { TileItem } from "../../../core/plugin-system/types";
 import {
   collapsedStripVariants,
   collapsedStripTransition,
   collapsedTileVariants,
   crispEase,
   DURATIONS,
-} from "../HierarchicalTiles/animations";
+} from "./animations/expansion-animations";
 
 // ============================================================================
 // Types
 // ============================================================================
 
-interface CollapsedTileStripProps {
-  /** Sibling tiles to display */
-  tiles: TileItem[];
-  /** Callback when a collapsed tile is clicked */
-  onTileClick: (tile: TileItem) => void;
+/** Base constraint for items that can be displayed in the strip */
+export interface SiblingStripItem {
+  id: string;
+  label: string;
+  count?: number;
+}
+
+export interface SiblingStripProps<T extends SiblingStripItem> {
+  /** Items to display in the strip */
+  items: T[];
+  /** Callback when an item is clicked */
+  onItemClick: (item: T) => void;
+  /** Optional custom renderer for items */
+  renderItem?: (item: T, index: number) => React.ReactNode;
   /** Optional additional class names */
   className?: string;
   /** Level indicator for visual hierarchy */
   level?: number;
 }
 
-interface CollapsedTileProps {
-  item: TileItem;
+interface DefaultItemProps<T extends SiblingStripItem> {
+  item: T;
   onClick: () => void;
   index: number;
 }
@@ -43,9 +54,13 @@ interface CollapsedTileProps {
 // ============================================================================
 
 /**
- * Individual collapsed tile in the strip
+ * Default item renderer - individual collapsed item in the strip
  */
-function CollapsedTile({ item, onClick, index }: CollapsedTileProps) {
+function DefaultItem<T extends SiblingStripItem>({
+  item,
+  onClick,
+  index,
+}: DefaultItemProps<T>) {
   return (
     <motion.button
       variants={collapsedTileVariants}
@@ -75,10 +90,12 @@ function CollapsedTile({ item, onClick, index }: CollapsedTileProps) {
         <span className="text-xs font-normal text-foreground/80 truncate max-w-full">
           {item.label}
         </span>
-        {/* Count */}
-        <span className="text-sm font-extralight text-foreground/50 tabular-nums">
-          {item.count}
-        </span>
+        {/* Count - only show if present */}
+        {item.count !== undefined && (
+          <span className="text-sm font-extralight text-foreground/50 tabular-nums">
+            {item.count}
+          </span>
+        )}
       </div>
     </motion.button>
   );
@@ -88,14 +105,15 @@ function CollapsedTile({ item, onClick, index }: CollapsedTileProps) {
 // Main Component
 // ============================================================================
 
-export function CollapsedTileStrip({
-  tiles,
-  onTileClick,
+export function SiblingStrip<T extends SiblingStripItem>({
+  items,
+  onItemClick,
+  renderItem,
   className,
   level = 0,
-}: CollapsedTileStripProps) {
+}: SiblingStripProps<T>) {
   // Don't render if no siblings
-  if (tiles.length === 0) return null;
+  if (items.length === 0) return null;
 
   return (
     <motion.div
@@ -104,10 +122,7 @@ export function CollapsedTileStrip({
       animate="visible"
       exit="exit"
       transition={collapsedStripTransition}
-      className={cn(
-        "overflow-hidden",
-        className
-      )}
+      className={cn("overflow-hidden", className)}
     >
       {/* Scrollable container */}
       <div
@@ -124,14 +139,20 @@ export function CollapsedTileStrip({
         )}
       >
         <AnimatePresence mode="popLayout">
-          {tiles.map((tile, index) => (
-            <CollapsedTile
-              key={tile.id}
-              item={tile}
-              onClick={() => onTileClick(tile)}
-              index={index}
-            />
-          ))}
+          {items.map((item, index) =>
+            renderItem ? (
+              <React.Fragment key={item.id}>
+                {renderItem(item, index)}
+              </React.Fragment>
+            ) : (
+              <DefaultItem<T>
+                key={item.id}
+                item={item}
+                onClick={() => onItemClick(item)}
+                index={index}
+              />
+            )
+          )}
         </AnimatePresence>
       </div>
 
@@ -145,5 +166,3 @@ export function CollapsedTileStrip({
     </motion.div>
   );
 }
-
-export type { CollapsedTileStripProps };
