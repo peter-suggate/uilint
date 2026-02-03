@@ -8,7 +8,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { useComposedStore } from "../../core/store";
-import { DockIcon } from "../icons";
+import { UILintInspectorIcon } from "../icons";
 import { getGlassStyles } from "./primitives";
 
 export function InspectorToggle() {
@@ -59,7 +59,7 @@ export function InspectorToggle() {
           borderRight: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
         }}
       >
-        <DockIcon size={isMobile ? 20 : 18} />
+        <UILintInspectorIcon size={isMobile ? 20 : 18} />
       </motion.button>
     </AnimatePresence>,
     portalRoot
