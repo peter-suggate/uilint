@@ -16,11 +16,10 @@ import { TileHeader } from "./TileHeader";
 import { SiblingStrip } from "./SiblingStrip";
 import {
   expansionWrapperVariants,
-  expansionWrapperTransition,
   childrenContainerVariants,
-  layoutTransition,
   getStaggerDelay,
   crispEase,
+  DURATIONS,
 } from "./animations/expansion-animations";
 
 // ============================================================================
@@ -167,7 +166,7 @@ function ExpandedContent<T>({
       initial="collapsed"
       animate="expanded"
       exit="collapsed"
-      transition={expansionWrapperTransition}
+      transition={{ duration: DURATIONS.expand, ease: crispEase }}
       className={cn(
         "w-full",
         "rounded-2xl",
@@ -273,7 +272,7 @@ export function ExpandableContainer<T>({
       <motion.div
         layout
         layoutId={`expandable-container-${node.id}`}
-        transition={layoutTransition}
+        transition={{ duration: 0.25, ease: crispEase }}
         className="w-full"
       >
         <ExpandedContent
@@ -296,7 +295,7 @@ export function ExpandableContainer<T>({
     <motion.div
       layout
       layoutId={`expandable-container-${node.id}`}
-      transition={layoutTransition}
+      transition={{ duration: 0.25, ease: crispEase }}
       className={className}
     >
       {renderTile ? (

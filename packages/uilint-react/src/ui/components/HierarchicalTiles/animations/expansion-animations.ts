@@ -86,7 +86,7 @@ export const tileContainerVariants: Variants = {
  */
 export const tileContainerTransition: Transition = {
   duration: DURATIONS.expand,
-  ease: smoothOvershoot,
+  ease: crispEase,
 };
 
 // ============================================================================
@@ -113,7 +113,7 @@ export const expansionWrapperVariants: Variants = {
  */
 export const expansionWrapperTransition: Transition = {
   duration: DURATIONS.expand,
-  ease: smoothOvershoot,
+  ease: crispEase,
 };
 
 // ============================================================================
@@ -287,20 +287,16 @@ export const backButtonTransition: Transition = {
  * Use with motion's `layout` prop.
  */
 export const layoutTransition: Transition = {
-  type: "spring",
-  stiffness: 500,
-  damping: 35,
-  mass: 1,
+  duration: 0.25,
+  ease: crispEase,
 };
 
 /**
  * Faster layout transition for smaller movements.
  */
 export const quickLayoutTransition: Transition = {
-  type: "spring",
-  stiffness: 600,
-  damping: 40,
-  mass: 0.8,
+  duration: 0.15,
+  ease: crispEase,
 };
 
 // ============================================================================

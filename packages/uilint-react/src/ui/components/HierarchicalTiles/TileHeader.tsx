@@ -117,7 +117,7 @@ export function TileHeader({
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.2, delay: 0.1 }}
+              transition={{ duration: 0.2, ease: crispEase, delay: 0.1 }}
               className="text-xs text-muted-foreground/70 truncate mt-0.5"
             >
               {subtitle}
