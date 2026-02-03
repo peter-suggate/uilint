@@ -64,6 +64,10 @@ export type {
 export { TileGrid } from "./TileGrid";
 export type { TileGridProps, BaseTileItem } from "./TileGrid";
 
+// ExpandableTileGrid - Generic mosaic grid with in-place expansion
+export { ExpandableTileGrid } from "./ExpandableTileGrid";
+export type { ExpandableTileGridProps } from "./ExpandableTileGrid";
+
 // ============================================================================
 // Layout Utilities
 // ============================================================================

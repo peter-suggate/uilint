@@ -2,18 +2,14 @@
  * File Groups Selector
  *
  * Core selector for the unified inspector view.
- * Groups issues by file, respecting current command palette filters.
+ * Groups issues by file for display in the inspector.
  * This is the single source of truth for what the inspector displays.
  *
- * Filter behavior:
- * - No filters: Show all files with all their issues
- * - Rule filter: Show only files with issues for that rule (only those issues)
- * - File filter: Show only that file with all its issues
- * - Rule + File: Show only that file with issues for that rule
+ * Note: Filtering is no longer used. All issues are always shown.
+ * Selection/expansion state determines visual emphasis (additive model).
  */
 
 import type { ComposedState } from "./composed-store";
-import type { TileFilter } from "../plugin-system/types";
 import type { Issue, IssueSeverity } from "../../ui/types";
 
 // ============================================================================
@@ -44,7 +40,7 @@ export interface FileGroup {
   fileName: string;
   /** Directory path (e.g., "src/components") */
   directory: string;
-  /** Total number of issues in this file (after filtering) */
+  /** Total number of issues in this file */
   totalCount: number;
   /** Severity counts for this file */
   severityCounts: { error: number; warning: number; info: number };
@@ -86,7 +82,6 @@ const EMPTY_SUMMARY: FileGroupsSummary = {
 // Memoization Cache
 // ============================================================================
 
-let cachedFilters: TileFilter[] | null = null;
 let cachedIssuesMap: Map<string, Issue[]> | null = null;
 let cachedFileGroups: FileGroup[] = EMPTY_FILE_GROUPS;
 let cachedSummary: FileGroupsSummary = EMPTY_SUMMARY;
@@ -95,7 +90,6 @@ let cachedSummary: FileGroupsSummary = EMPTY_SUMMARY;
  * Clear the file groups cache. Call this when the store is reset.
  */
 export function clearFileGroupsCache(): void {
-  cachedFilters = null;
   cachedIssuesMap = null;
   cachedFileGroups = EMPTY_FILE_GROUPS;
   cachedSummary = EMPTY_SUMMARY;
@@ -172,36 +166,21 @@ function severityOrder(severity: IssueSeverity): number {
 // ============================================================================
 
 /**
- * Build file groups from issues, applying filters.
+ * Build file groups from issues.
+ * Returns all issues grouped by file (no filtering).
  */
 function buildFileGroups(
-  issuesMap: Map<string, Issue[]>,
-  filters: TileFilter[]
+  issuesMap: Map<string, Issue[]>
 ): { fileGroups: FileGroup[]; summary: FileGroupsSummary } {
-  // Extract rule and file filters
-  const ruleFilter = filters.find((f) => f.type === "rule");
-  const fileFilter = filters.find((f) => f.type === "file");
-
-  // Collect all issues, applying filters
-  const filteredIssuesByFile = new Map<string, Issue[]>();
+  // Collect all issues by file path
+  const issuesByFile = new Map<string, Issue[]>();
   const allRuleIds = new Set<string>();
 
   for (const issues of issuesMap.values()) {
     for (const issue of issues) {
-      // Apply rule filter
-      if (ruleFilter && issue.ruleId !== ruleFilter.id) {
-        continue;
-      }
-
-      // Apply file filter
-      if (fileFilter && issue.filePath !== fileFilter.id) {
-        continue;
-      }
-
-      // Add to filtered issues
-      const existing = filteredIssuesByFile.get(issue.filePath) || [];
+      const existing = issuesByFile.get(issue.filePath) || [];
       existing.push(issue);
-      filteredIssuesByFile.set(issue.filePath, existing);
+      issuesByFile.set(issue.filePath, existing);
       allRuleIds.add(issue.ruleId);
     }
   }
@@ -211,7 +190,7 @@ function buildFileGroups(
   let totalIssues = 0;
   const overallSeverityCounts = { error: 0, warning: 0, info: 0 };
 
-  for (const [filePath, issues] of filteredIssuesByFile) {
+  for (const [filePath, issues] of issuesByFile) {
     // Sort issues by line number
     const sortedIssues = [...issues].sort((a, b) => a.line - b.line);
 
@@ -281,7 +260,7 @@ function buildFileGroups(
 // ============================================================================
 
 /**
- * Select file groups based on current filters.
+ * Select all file groups (no filtering).
  * This is the main selector for the inspector view.
  *
  * Results are memoized to ensure stable references.
@@ -289,17 +268,15 @@ function buildFileGroups(
  * @param state - The composed store state
  * @returns Array of FileGroup objects
  */
-export function selectFilteredFileGroups(state: ComposedState): FileGroup[] {
-  const filters = state.commandPalette.filters;
+export function selectFileGroups(state: ComposedState): FileGroup[] {
   const issuesMap = state.plugins?.eslint?.issues;
 
   // Return cached result if inputs haven't changed
-  if (filters === cachedFilters && issuesMap === cachedIssuesMap) {
+  if (issuesMap === cachedIssuesMap) {
     return cachedFileGroups;
   }
 
   // Update cache references
-  cachedFilters = filters;
   cachedIssuesMap = issuesMap ?? null;
 
   // No issues = empty result
@@ -309,8 +286,8 @@ export function selectFilteredFileGroups(state: ComposedState): FileGroup[] {
     return cachedFileGroups;
   }
 
-  // Build file groups with current filters
-  const { fileGroups, summary } = buildFileGroups(issuesMap, filters);
+  // Build file groups
+  const { fileGroups, summary } = buildFileGroups(issuesMap);
 
   cachedFileGroups = fileGroups.length > 0 ? fileGroups : EMPTY_FILE_GROUPS;
   cachedSummary = summary;
@@ -319,46 +296,57 @@ export function selectFilteredFileGroups(state: ComposedState): FileGroup[] {
 }
 
 /**
- * Select summary statistics for current filter state.
- * Must be called after selectFilteredFileGroups for accurate results.
+ * @deprecated Use selectFileGroups instead. Filtering has been removed.
+ */
+export const selectFilteredFileGroups = selectFileGroups;
+
+/**
+ * Select summary statistics for all issues.
+ * Must be called after selectFileGroups for accurate results.
  *
  * @param state - The composed store state
  * @returns Summary statistics
  */
 export function selectFileGroupsSummary(state: ComposedState): FileGroupsSummary {
   // Ensure cache is up to date
-  selectFilteredFileGroups(state);
+  selectFileGroups(state);
   return cachedSummary;
 }
 
 /**
- * Select the active rule filter (if any).
- * Useful for showing the rule header in the inspector.
+ * Select the expanded rule ID (for additive selection model).
+ * Replaces the old filter-based approach.
  *
  * @param state - The composed store state
- * @returns The active rule filter or null
+ * @returns The expanded rule ID or null
  */
-export function selectActiveRuleFilter(state: ComposedState): TileFilter | null {
-  return state.commandPalette.filters.find((f) => f.type === "rule") ?? null;
+export function selectExpandedRuleId(state: ComposedState): string | null {
+  return state.inspector.expandedRuleId;
 }
 
 /**
- * Select the active file filter (if any).
+ * Select the expanded file path (for additive selection model).
+ * Replaces the old filter-based approach.
  *
  * @param state - The composed store state
- * @returns The active file filter or null
+ * @returns The expanded file path or null
  */
-export function selectActiveFileFilter(state: ComposedState): TileFilter | null {
-  return state.commandPalette.filters.find((f) => f.type === "file") ?? null;
+export function selectExpandedFilePath(state: ComposedState): string | null {
+  return state.inspector.expandedFilePath;
 }
 
 /**
  * Check if there are any issues to display.
  *
  * @param state - The composed store state
- * @returns true if there are filtered issues
+ * @returns true if there are any issues
  */
-export function selectHasFilteredIssues(state: ComposedState): boolean {
-  const fileGroups = selectFilteredFileGroups(state);
+export function selectHasIssues(state: ComposedState): boolean {
+  const fileGroups = selectFileGroups(state);
   return fileGroups.length > 0;
 }
+
+/**
+ * @deprecated Use selectHasIssues instead. Filtering has been removed.
+ */
+export const selectHasFilteredIssues = selectHasIssues;

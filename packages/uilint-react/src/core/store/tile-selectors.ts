@@ -1,9 +1,9 @@
 /**
  * Tile Selectors
  *
- * Zustand selectors for accessing tile-related state.
- * Note: Tile items are now computed on-demand in useTileItems hook,
- * not stored in state. These selectors provide access to filters and query.
+ * Zustand selectors and helper functions for tile-related operations.
+ * Note: Tile items are computed on-demand in useTileItems hook,
+ * not stored in state.
  */
 
 import type { CoreSlice } from "./core-slice";
@@ -58,11 +58,4 @@ export function dedupeItems(items: TileItem[]): TileItem[] {
  */
 export function selectTileQuery(state: CoreSlice): string {
   return state.commandPalette.query;
-}
-
-/**
- * Selector to get the current tile filters.
- */
-export function selectTileFilters(state: CoreSlice): CoreSlice["commandPalette"]["filters"] {
-  return state.commandPalette.filters;
 }

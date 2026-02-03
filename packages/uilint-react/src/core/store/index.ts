@@ -15,22 +15,37 @@ export {
 // Tile selectors
 export {
   selectTileQuery,
-  selectTileFilters,
   filterByQuery,
   dedupeItems,
 } from "./tile-selectors";
 
-// Heatmap selectors
+// Heatmap selectors (additive selection model)
 export {
   selectHeatmapFilter,
   selectHeatmapFilterLabel,
   selectIsHeatmapFiltered,
   selectHighlightedLocs,
   selectHighlightedLocsCount,
-  selectHeatmapDataLocs,
-  selectHasActiveTileFilters,
-  clearHeatmapDataLocsCache,
+  // Additive selection model
+  selectSelectedDataLocs,
+  selectHasActiveSelection,
+  clearSelectedDataLocsCache,
 } from "./heatmap-selectors";
+
+// File groups selector
+export {
+  selectFileGroups,
+  selectFilteredFileGroups, // deprecated alias
+  selectFileGroupsSummary,
+  selectExpandedRuleId,
+  selectExpandedFilePath,
+  selectHasIssues as selectHasFileGroupIssues,
+  selectHasFilteredIssues, // deprecated alias
+  clearFileGroupsCache,
+  type FileGroup,
+  type RuleGroup,
+  type FileGroupsSummary,
+} from "./file-groups-selector";
 
 // Issues selectors
 export {

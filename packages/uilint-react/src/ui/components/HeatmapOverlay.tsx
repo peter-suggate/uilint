@@ -20,8 +20,8 @@ import { createPortal } from "react-dom";
 import {
   useComposedStore,
   selectIssuesMap,
-  selectHeatmapDataLocs,
-  selectHasActiveTileFilters,
+  selectSelectedDataLocs,
+  selectHasActiveSelection,
 } from "../../core/store";
 import { useElementRects } from "../hooks/useElementRects";
 import { severityToColor } from "../types";
@@ -33,12 +33,13 @@ interface OverlayItemProps {
   issues: Issue[];
   isHovered: boolean;
   isSelected: boolean;
+  isEmphasized: boolean;
   showDetails: boolean;
   onBadgeClick: () => void;
   onBadgeHover: (hovered: boolean) => void;
 }
 
-function OverlayItem({ rect, issues, isHovered, isSelected, showDetails, onBadgeClick, onBadgeHover }: OverlayItemProps) {
+function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, showDetails, onBadgeClick, onBadgeHover }: OverlayItemProps) {
   // Get highest severity for border color
   const severity = useMemo(() => {
     if (issues.some(i => i.severity === "error")) return "error";
@@ -48,6 +49,13 @@ function OverlayItem({ rect, issues, isHovered, isSelected, showDetails, onBadge
 
   const color = severityToColor(severity);
   const count = issues.length;
+
+  // Calculate opacity based on emphasis state
+  // - isEmphasized true: full opacity (1.0)
+  // - isEmphasized false: dimmed (0.3)
+  // - hover/selected always boosts visibility
+  const baseOpacity = isEmphasized ? 1 : 0.3;
+  const finalOpacity = isHovered || isSelected ? Math.max(baseOpacity, 0.8) : baseOpacity;
 
   return (
     <div
@@ -60,7 +68,7 @@ function OverlayItem({ rect, issues, isHovered, isSelected, showDetails, onBadge
         border: `${isSelected ? 3 : 2}px solid ${color}`,
         borderRadius: 4,
         pointerEvents: "none", // Click-through - allows underlying app interaction
-        opacity: isHovered || isSelected ? 1 : 0.6,
+        opacity: finalOpacity,
         transition: "opacity 0.15s, border-width 0.15s",
         zIndex: isSelected ? 99991 : 99990,
         boxShadow: isSelected ? `0 0 0 2px ${color}40, 0 0 12px ${color}60` : undefined,
@@ -147,78 +155,40 @@ function OverlayItem({ rect, issues, isHovered, isSelected, showDetails, onBadge
 export function HeatmapOverlay() {
   const altKeyHeld = useComposedStore((s) => s.altKeyHeld);
   const openInspectorPanel = useComposedStore((s) => s.openInspectorPanel);
-  const expandFile = useComposedStore((s) => s.expandFile);
+  const expandRule = useComposedStore((s) => s.expandRule);
+  const expandFileInRule = useComposedStore((s) => s.expandFileInRule);
   const selectIssue = useComposedStore((s) => s.selectIssue);
-  const addFilter = useComposedStore((s) => s.addFilter);
   const hoveredElementId = useComposedStore((s) => s.hoveredElementId);
   const setHoveredElementId = useComposedStore((s) => s.setHoveredElementId);
   const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
 
-  // Use selectors for issues and heatmap filter state
+  // Use selectors for issues and selection state (additive model)
   const issues = useComposedStore(selectIssuesMap);
-  const heatmapDataLocs = useComposedStore(selectHeatmapDataLocs);
-  const hasActiveTileFilters = useComposedStore(selectHasActiveTileFilters);
+  const selectedDataLocs = useComposedStore(selectSelectedDataLocs);
+  const hasActiveSelection = useComposedStore(selectHasActiveSelection);
 
   // Track element positions
   const elementRects = useElementRects(issues);
 
-  // Filter elements based on tile filters (derived via selector)
-  // When heatmapDataLocs is empty and no filters, show all
-  // When heatmapDataLocs is empty but filters exist, show nothing (no matches)
-  // When heatmapDataLocs has values, show only those
-  const filteredEntries = useMemo(() => {
-    const entries = Array.from(elementRects.entries());
-
-    // No filters active = show all issues
-    if (!hasActiveTileFilters) {
-      return entries;
-    }
-
-    // Filters active but no matching dataLocs = show nothing
-    if (heatmapDataLocs.length === 0) {
-      return [];
-    }
-
-    // Filter to only dataLocs that match the tile filters
-    const dataLocSet = new Set(heatmapDataLocs);
-    return entries.filter(([dataLoc]) => dataLocSet.has(dataLoc));
-  }, [elementRects, heatmapDataLocs, hasActiveTileFilters]);
+  // All entries are shown (additive model - no filtering)
+  // Emphasis is determined by selectedDataLocs
+  const allEntries = useMemo(() => {
+    return Array.from(elementRects.entries());
+  }, [elementRects]);
 
   // Handle clicking the badge on an overlay item
-  // Adds file, rule, and loc filters to narrow to this exact element
+  // Opens inspector and expands to the rule/file for this issue
   const handleBadgeClick = (dataLoc: string) => {
     const elementIssues = issues.get(dataLoc) || [];
     if (elementIssues.length > 0) {
       const firstIssue = elementIssues[0];
 
-      // Add file filter to the unified filter model
-      const fileName = firstIssue.filePath.split("/").pop() || firstIssue.filePath;
-      addFilter({
-        type: "file",
-        id: firstIssue.filePath,
-        label: fileName,
-      });
+      // Expand the rule tile for this issue
+      expandRule(firstIssue.ruleId);
 
-      // Add rule filter for the clicked issue's rule
-      addFilter({
-        type: "rule",
-        id: firstIssue.ruleId,
-        label: firstIssue.ruleId,
-      });
+      // Expand to the file within the rule
+      expandFileInRule(firstIssue.filePath);
 
-      // Add loc filter to narrow to this exact element
-      // Format label as "Line X:Y" from dataLoc "path:line:column"
-      const locParts = dataLoc.split(":");
-      const column = locParts.pop() || "0";
-      const line = locParts.pop() || "0";
-      addFilter({
-        type: "loc",
-        id: dataLoc,
-        label: `Line ${line}:${column}`,
-      });
-
-      // Expand the file containing this element
-      expandFile(firstIssue.filePath);
       // Select the first issue to highlight it
       selectIssue(firstIssue.id);
     }
@@ -261,9 +231,12 @@ export function HeatmapOverlay() {
         zIndex: 99990,
       }}
     >
-      {filteredEntries.map(([dataLoc, { rect }]) => {
+      {allEntries.map(([dataLoc, { rect }]) => {
         const elementIssues = issues.get(dataLoc) || [];
         if (elementIssues.length === 0) return null;
+
+        // Emphasis: full opacity if no selection, or if this loc is in selection
+        const isEmphasized = !hasActiveSelection || selectedDataLocs.has(dataLoc);
 
         return (
           <OverlayItem
@@ -271,8 +244,9 @@ export function HeatmapOverlay() {
             dataLoc={dataLoc}
             rect={rect}
             issues={elementIssues}
-            isHovered={hoveredElementId === dataLoc || hasActiveTileFilters}
+            isHovered={hoveredElementId === dataLoc}
             isSelected={getSelectedDataLoc === dataLoc}
+            isEmphasized={isEmphasized}
             showDetails={altKeyHeld}
             onBadgeClick={() => handleBadgeClick(dataLoc)}
             onBadgeHover={(hovered) => handleBadgeHover(dataLoc, hovered)}

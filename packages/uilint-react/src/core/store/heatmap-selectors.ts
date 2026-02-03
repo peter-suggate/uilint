@@ -1,43 +1,18 @@
 /**
  * Heatmap Selectors
  *
- * Selectors for filtering heatmap overlay elements.
- * Used by HeatmapOverlay component to determine which elements to show.
+ * Selectors for the heatmap overlay.
+ * Uses the additive selection model: all elements are visible,
+ * selected ones are emphasized (full opacity), others are dimmed.
  *
- * The heatmap automatically reflects the current tile filters:
- * - No filters: show all issues
- * - Rule filter: show issues for that rule
- * - Rule + File filter: show issues for that rule in that file
+ * Selection is based on inspector expansion state:
+ * - expandedRuleId: emphasize all elements with that rule
+ * - expandedFilePath: further narrow to that file
  */
 
 import type { ComposedState } from "./composed-store";
 import type { HeatmapFilterState } from "./core-slice";
-import type { TileFilter } from "../plugin-system/types";
 import type { Issue } from "../../ui/types";
-
-// ============================================================================
-// Stable Empty Values
-// ============================================================================
-
-const EMPTY_DATA_LOCS: string[] = [];
-
-// ============================================================================
-// Memoization Cache for Heatmap DataLocs
-// ============================================================================
-
-// Cache for selectHeatmapDataLocs to ensure stable references
-let cachedFilters: TileFilter[] | null = null;
-let cachedIssuesMap: Map<string, Issue[]> | null = null;
-let cachedDataLocs: string[] = EMPTY_DATA_LOCS;
-
-/**
- * Clear the heatmap data locs cache. Call this when the store is reset.
- */
-export function clearHeatmapDataLocsCache(): void {
-  cachedFilters = null;
-  cachedIssuesMap = null;
-  cachedDataLocs = EMPTY_DATA_LOCS;
-}
 
 // ============================================================================
 // Selectors
@@ -131,91 +106,100 @@ export function selectHighlightedLocsCount(state: ComposedState): number {
   return state.heatmapFilter.highlightedLocs.length;
 }
 
+
+// ============================================================================
+// Additive Selection Model (New)
+// ============================================================================
+
+// Stable empty Set for when nothing is selected
+const EMPTY_SET: Set<string> = new Set();
+
+// Cache for selectSelectedDataLocs
+let cachedExpandedRuleId: string | null = null;
+let cachedExpandedFilePath: string | null = null;
+let cachedIssuesMapForSelection: Map<string, Issue[]> | null = null;
+let cachedSelectedDataLocs: Set<string> = EMPTY_SET;
+
 /**
- * Derive the dataLocs to highlight based on current tile filters.
- * This connects tile navigation to heatmap visualization.
+ * Clear the selected data locs cache. Call this when the store is reset.
+ */
+export function clearSelectedDataLocsCache(): void {
+  cachedExpandedRuleId = null;
+  cachedExpandedFilePath = null;
+  cachedIssuesMapForSelection = null;
+  cachedSelectedDataLocs = EMPTY_SET;
+}
+
+/**
+ * Select dataLocs that match the current selection (expanded rule/file).
+ * Used for the additive selection model where all elements are visible
+ * but selected ones are emphasized (full opacity) and others are dimmed.
  *
- * Filter logic:
- * - No filters: return empty array (show all issues)
- * - Rule filter only: return all dataLocs for that rule
- * - File filter only: return all dataLocs in that file
- * - Loc filter only: return only that exact dataLoc
- * - Combined filters: return intersection (all conditions must match)
- *
- * Results are memoized to ensure stable references for React.
+ * Returns empty Set when nothing is selected, meaning all elements
+ * should be displayed with equal emphasis.
  *
  * @param state - The composed store state
- * @returns Array of dataLoc strings that should be highlighted
+ * @returns Set of dataLoc strings that should be emphasized
  *
  * @example
  * ```tsx
- * const dataLocs = useComposedStore(selectHeatmapDataLocs);
- * // When user filters to "no-unused-vars" rule, dataLocs contains
- * // all dataLoc values for issues with that rule
+ * const selectedDataLocs = useComposedStore(selectSelectedDataLocs);
+ * const isEmphasized = selectedDataLocs.size === 0 || selectedDataLocs.has(dataLoc);
+ * // isEmphasized true = full opacity, false = dimmed
  * ```
  */
-export function selectHeatmapDataLocs(state: ComposedState): string[] {
-  const filters = state.commandPalette.filters;
+export function selectSelectedDataLocs(state: ComposedState): Set<string> {
+  const expandedRuleId = state.inspector.expandedRuleId;
+  const expandedFilePath = state.inspector.expandedFilePath;
   const issuesMap = state.plugins?.eslint?.issues;
 
   // Return cached result if inputs haven't changed
-  if (filters === cachedFilters && issuesMap === cachedIssuesMap) {
-    return cachedDataLocs;
+  if (
+    expandedRuleId === cachedExpandedRuleId &&
+    expandedFilePath === cachedExpandedFilePath &&
+    issuesMap === cachedIssuesMapForSelection
+  ) {
+    return cachedSelectedDataLocs;
   }
 
   // Update cache references
-  cachedFilters = filters;
-  cachedIssuesMap = issuesMap ?? null;
+  cachedExpandedRuleId = expandedRuleId;
+  cachedExpandedFilePath = expandedFilePath;
+  cachedIssuesMapForSelection = issuesMap ?? null;
 
-  // No issues = no dataLocs to highlight
-  if (!issuesMap || issuesMap.size === 0) {
-    cachedDataLocs = EMPTY_DATA_LOCS;
-    return cachedDataLocs;
+  // No selection or no issues = empty set (all elements equal emphasis)
+  if (!expandedRuleId || !issuesMap || issuesMap.size === 0) {
+    cachedSelectedDataLocs = EMPTY_SET;
+    return cachedSelectedDataLocs;
   }
 
-  // No filters = show all (return empty to indicate "all")
-  if (filters.length === 0) {
-    cachedDataLocs = EMPTY_DATA_LOCS;
-    return cachedDataLocs;
-  }
-
-  // Extract rule, file, and loc filters
-  const ruleFilter = filters.find((f) => f.type === "rule");
-  const fileFilter = filters.find((f) => f.type === "file");
-  const locFilter = filters.find((f) => f.type === "loc");
-
-  // Collect matching dataLocs
-  const dataLocs: string[] = [];
+  // Build set of dataLocs that match the selection
+  const selected = new Set<string>();
 
   for (const [dataLoc, issues] of issuesMap) {
-    // If loc filter is active, only match exact dataLoc
-    if (locFilter && dataLoc !== locFilter.id) {
-      continue;
-    }
-
     for (const issue of issues) {
-      // Check if issue matches the filters
-      const matchesRule = !ruleFilter || issue.ruleId === ruleFilter.id;
-      const matchesFile = !fileFilter || issue.filePath === fileFilter.id;
-
-      if (matchesRule && matchesFile) {
-        dataLocs.push(dataLoc);
-        break; // Only need to add dataLoc once
+      // Check if issue matches the expanded rule
+      if (issue.ruleId === expandedRuleId) {
+        // If file is also expanded, must match that too
+        if (!expandedFilePath || issue.filePath === expandedFilePath) {
+          selected.add(dataLoc);
+          break; // Only need to add dataLoc once
+        }
       }
     }
   }
 
-  cachedDataLocs = dataLocs.length > 0 ? dataLocs : EMPTY_DATA_LOCS;
-  return cachedDataLocs;
+  cachedSelectedDataLocs = selected.size > 0 ? selected : EMPTY_SET;
+  return cachedSelectedDataLocs;
 }
 
 /**
- * Check if heatmap filtering is active based on tile filters.
- * Returns true when there are tile filters that scope which issues to show.
+ * Check if there's an active selection (expanded rule).
+ * Useful for determining whether to apply emphasis styling.
  *
  * @param state - The composed store state
- * @returns true if tile filters are limiting the heatmap display
+ * @returns true if a rule is currently expanded/selected
  */
-export function selectHasActiveTileFilters(state: ComposedState): boolean {
-  return state.commandPalette.filters.length > 0;
+export function selectHasActiveSelection(state: ComposedState): boolean {
+  return state.inspector.expandedRuleId !== null;
 }

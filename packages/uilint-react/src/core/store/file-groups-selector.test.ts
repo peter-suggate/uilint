@@ -2,28 +2,29 @@
  * Unit tests for file-groups-selector.ts
  *
  * Tests the unified file groups selector for the inspector view including:
- * - selectFilteredFileGroups - main selector for file-grouped issues
+ * - selectFileGroups - main selector for file-grouped issues
  * - selectFileGroupsSummary - summary statistics
- * - selectActiveRuleFilter / selectActiveFileFilter - filter accessors
- * - Filter combinations (no filters, rule only, file only, both)
+ * - selectExpandedRuleId / selectExpandedFilePath - expansion state accessors
  * - Sorting by severity and count
  * - Grouping issues by rule within files
+ *
+ * Note: Filtering has been removed in favor of the additive selection model.
+ * All issues are always returned, visual emphasis is handled by expansion state.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  selectFilteredFileGroups,
+  selectFileGroups,
   selectFileGroupsSummary,
-  selectActiveRuleFilter,
-  selectActiveFileFilter,
-  selectHasFilteredIssues,
+  selectExpandedRuleId,
+  selectExpandedFilePath,
+  selectHasIssues,
   clearFileGroupsCache,
   type FileGroup,
   type FileGroupsSummary,
 } from "./file-groups-selector";
 import type { ComposedState } from "./composed-store";
 import type { Issue, IssueSeverity } from "../../ui/types";
-import type { TileFilter } from "../plugin-system/types";
 
 // ============================================================================
 // Test Helpers
@@ -49,11 +50,11 @@ function createMockIssue(overrides: Partial<Issue> = {}): Issue {
 }
 
 /**
- * Create a mock ComposedState with optional issues and filters.
+ * Create a mock ComposedState with optional issues.
  */
 function createMockState(
   issues?: Map<string, Issue[]>,
-  filters?: TileFilter[]
+  expansionState?: { expandedRuleId?: string | null; expandedFilePath?: string | null }
 ): ComposedState {
   return {
     plugins: {
@@ -61,8 +62,11 @@ function createMockState(
         issues: issues ?? new Map(),
       },
     },
+    inspector: {
+      expandedRuleId: expansionState?.expandedRuleId ?? null,
+      expandedFilePath: expansionState?.expandedFilePath ?? null,
+    },
     commandPalette: {
-      filters: filters ?? [],
       open: false,
       query: "",
       selectedIndex: 0,
@@ -76,37 +80,16 @@ function createMockState(
 function createEmptyState(): ComposedState {
   return {
     plugins: {},
+    inspector: {
+      expandedRuleId: null,
+      expandedFilePath: null,
+    },
     commandPalette: {
-      filters: [],
       open: false,
       query: "",
       selectedIndex: 0,
     },
   } as unknown as ComposedState;
-}
-
-/**
- * Create a rule filter.
- */
-function createRuleFilter(ruleId: string): TileFilter {
-  return {
-    type: "rule",
-    id: ruleId,
-    label: ruleId,
-    providerId: "eslint",
-  };
-}
-
-/**
- * Create a file filter.
- */
-function createFileFilter(filePath: string): TileFilter {
-  return {
-    type: "file",
-    id: filePath,
-    label: filePath.split("/").pop() || filePath,
-    providerId: "eslint",
-  };
 }
 
 // ============================================================================
@@ -119,15 +102,15 @@ beforeEach(() => {
 });
 
 // ============================================================================
-// selectFilteredFileGroups Tests
+// selectFileGroups Tests
 // ============================================================================
 
-describe("selectFilteredFileGroups", () => {
+describe("selectFileGroups", () => {
   describe("empty states", () => {
     it("returns empty array when no plugin state exists", () => {
       const state = createEmptyState();
 
-      const result = selectFilteredFileGroups(state);
+      const result = selectFileGroups(state);
 
       expect(result).toEqual([]);
     });
@@ -135,7 +118,7 @@ describe("selectFilteredFileGroups", () => {
     it("returns empty array when issues map is empty", () => {
       const state = createMockState(new Map());
 
-      const result = selectFilteredFileGroups(state);
+      const result = selectFileGroups(state);
 
       expect(result).toEqual([]);
     });
@@ -144,16 +127,16 @@ describe("selectFilteredFileGroups", () => {
       const state1 = createEmptyState();
       const state2 = createMockState(new Map());
 
-      const result1 = selectFilteredFileGroups(state1);
+      const result1 = selectFileGroups(state1);
       clearFileGroupsCache();
-      const result2 = selectFilteredFileGroups(state2);
+      const result2 = selectFileGroups(state2);
 
       expect(result1).toEqual([]);
       expect(result2).toEqual([]);
     });
   });
 
-  describe("no filters", () => {
+  describe("grouping", () => {
     it("returns all files grouped correctly", () => {
       const issue1 = createMockIssue({
         id: "1",
@@ -181,7 +164,7 @@ describe("selectFilteredFileGroups", () => {
       ]);
       const state = createMockState(issuesMap);
 
-      const result = selectFilteredFileGroups(state);
+      const result = selectFileGroups(state);
 
       expect(result).toHaveLength(2);
 
@@ -205,7 +188,7 @@ describe("selectFilteredFileGroups", () => {
       const issuesMap = new Map([["loc", [issue]]]);
       const state = createMockState(issuesMap);
 
-      const result = selectFilteredFileGroups(state);
+      const result = selectFileGroups(state);
 
       expect(result[0].fileName).toBe("Button.tsx");
       expect(result[0].directory).toBe("src/components");
@@ -219,133 +202,11 @@ describe("selectFilteredFileGroups", () => {
       const issuesMap = new Map([["loc", [issue1, issue2, issue3]]]);
       const state = createMockState(issuesMap);
 
-      const result = selectFilteredFileGroups(state);
+      const result = selectFileGroups(state);
 
       expect(result[0].issues[0].line).toBe(10);
       expect(result[0].issues[1].line).toBe(30);
       expect(result[0].issues[2].line).toBe(50);
-    });
-  });
-
-  describe("rule filter", () => {
-    it("filters to only issues with matching rule", () => {
-      const issue1 = createMockIssue({
-        id: "1",
-        filePath: "src/App.tsx",
-        ruleId: "no-unused-vars",
-      });
-      const issue2 = createMockIssue({
-        id: "2",
-        filePath: "src/App.tsx",
-        ruleId: "no-console",
-      });
-      const issue3 = createMockIssue({
-        id: "3",
-        filePath: "src/utils.ts",
-        ruleId: "no-unused-vars",
-      });
-
-      const issuesMap = new Map([
-        ["loc1", [issue1]],
-        ["loc2", [issue2]],
-        ["loc3", [issue3]],
-      ]);
-      const filters = [createRuleFilter("no-unused-vars")];
-      const state = createMockState(issuesMap, filters);
-
-      const result = selectFilteredFileGroups(state);
-
-      expect(result).toHaveLength(2);
-
-      const appGroup = result.find((g) => g.fileName === "App.tsx");
-      expect(appGroup!.totalCount).toBe(1);
-      expect(appGroup!.ruleGroups).toHaveLength(1);
-      expect(appGroup!.ruleGroups[0].ruleId).toBe("no-unused-vars");
-    });
-
-    it("returns empty when no issues match rule filter", () => {
-      const issue = createMockIssue({ ruleId: "no-console" });
-      const issuesMap = new Map([["loc", [issue]]]);
-      const filters = [createRuleFilter("no-unused-vars")];
-      const state = createMockState(issuesMap, filters);
-
-      const result = selectFilteredFileGroups(state);
-
-      expect(result).toEqual([]);
-    });
-  });
-
-  describe("file filter", () => {
-    it("filters to only issues in matching file", () => {
-      const issue1 = createMockIssue({
-        id: "1",
-        filePath: "src/App.tsx",
-        ruleId: "no-unused-vars",
-      });
-      const issue2 = createMockIssue({
-        id: "2",
-        filePath: "src/App.tsx",
-        ruleId: "no-console",
-      });
-      const issue3 = createMockIssue({
-        id: "3",
-        filePath: "src/utils.ts",
-        ruleId: "no-unused-vars",
-      });
-
-      const issuesMap = new Map([
-        ["loc1", [issue1]],
-        ["loc2", [issue2]],
-        ["loc3", [issue3]],
-      ]);
-      const filters = [createFileFilter("src/App.tsx")];
-      const state = createMockState(issuesMap, filters);
-
-      const result = selectFilteredFileGroups(state);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].fileName).toBe("App.tsx");
-      expect(result[0].totalCount).toBe(2);
-      expect(result[0].ruleGroups).toHaveLength(2);
-    });
-  });
-
-  describe("rule + file filter", () => {
-    it("filters to specific rule in specific file", () => {
-      const issue1 = createMockIssue({
-        id: "1",
-        filePath: "src/App.tsx",
-        ruleId: "no-unused-vars",
-      });
-      const issue2 = createMockIssue({
-        id: "2",
-        filePath: "src/App.tsx",
-        ruleId: "no-console",
-      });
-      const issue3 = createMockIssue({
-        id: "3",
-        filePath: "src/utils.ts",
-        ruleId: "no-unused-vars",
-      });
-
-      const issuesMap = new Map([
-        ["loc1", [issue1]],
-        ["loc2", [issue2]],
-        ["loc3", [issue3]],
-      ]);
-      const filters = [
-        createRuleFilter("no-unused-vars"),
-        createFileFilter("src/App.tsx"),
-      ];
-      const state = createMockState(issuesMap, filters);
-
-      const result = selectFilteredFileGroups(state);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].fileName).toBe("App.tsx");
-      expect(result[0].totalCount).toBe(1);
-      expect(result[0].ruleGroups).toHaveLength(1);
-      expect(result[0].ruleGroups[0].ruleId).toBe("no-unused-vars");
     });
   });
 
@@ -368,7 +229,7 @@ describe("selectFilteredFileGroups", () => {
       ]);
       const state = createMockState(issuesMap);
 
-      const result = selectFilteredFileGroups(state);
+      const result = selectFileGroups(state);
 
       expect(result[0].fileName).toBe("errors.tsx");
       expect(result[1].fileName).toBe("warnings.tsx");
@@ -398,7 +259,7 @@ describe("selectFilteredFileGroups", () => {
       ]);
       const state = createMockState(issuesMap);
 
-      const result = selectFilteredFileGroups(state);
+      const result = selectFileGroups(state);
 
       expect(result[0].fileName).toBe("many.tsx");
       expect(result[0].totalCount).toBe(2);
@@ -436,7 +297,7 @@ describe("selectFilteredFileGroups", () => {
       ]);
       const state = createMockState(issuesMap);
 
-      const result = selectFilteredFileGroups(state);
+      const result = selectFileGroups(state);
       const ruleGroups = result[0].ruleGroups;
 
       expect(ruleGroups[0].ruleId).toBe("error-rule");
@@ -460,7 +321,7 @@ describe("selectFilteredFileGroups", () => {
       ]);
       const state = createMockState(issuesMap);
 
-      const result = selectFilteredFileGroups(state);
+      const result = selectFileGroups(state);
 
       expect(result[0].severityCounts).toEqual({
         error: 1,
@@ -479,7 +340,7 @@ describe("selectFilteredFileGroups", () => {
       ]);
       const state = createMockState(issuesMap);
 
-      const result = selectFilteredFileGroups(state);
+      const result = selectFileGroups(state);
 
       expect(result[0].highestSeverity).toBe("warning");
     });
@@ -493,7 +354,7 @@ describe("selectFilteredFileGroups", () => {
       const issuesMap = new Map([["loc", [issue]]]);
       const state = createMockState(issuesMap);
 
-      const result = selectFilteredFileGroups(state);
+      const result = selectFileGroups(state);
 
       expect(result[0].ruleGroups[0].ruleName).toBe("no-unused-vars");
     });
@@ -503,7 +364,7 @@ describe("selectFilteredFileGroups", () => {
       const issuesMap = new Map([["loc", [issue]]]);
       const state = createMockState(issuesMap);
 
-      const result = selectFilteredFileGroups(state);
+      const result = selectFileGroups(state);
 
       expect(result[0].ruleGroups[0].ruleName).toBe("no-console");
     });
@@ -515,25 +376,27 @@ describe("selectFilteredFileGroups", () => {
       const issuesMap = new Map([["loc", [issue]]]);
       const state = createMockState(issuesMap);
 
-      const result1 = selectFilteredFileGroups(state);
-      const result2 = selectFilteredFileGroups(state);
+      const result1 = selectFileGroups(state);
+      const result2 = selectFileGroups(state);
 
       expect(result1).toBe(result2);
     });
 
-    it("recomputes when filters change", () => {
-      const issue = createMockIssue({ ruleId: "test-rule" });
-      const issuesMap = new Map([["loc", [issue]]]);
+    it("recomputes when issues map changes", () => {
+      const issue1 = createMockIssue({ id: "1", ruleId: "rule-a" });
+      const issue2 = createMockIssue({ id: "2", ruleId: "rule-b" });
 
-      const state1 = createMockState(issuesMap, []);
-      const result1 = selectFilteredFileGroups(state1);
+      const issuesMap1 = new Map([["loc1", [issue1]]]);
+      const state1 = createMockState(issuesMap1);
+      const result1 = selectFileGroups(state1);
 
-      const state2 = createMockState(issuesMap, [createRuleFilter("other-rule")]);
-      const result2 = selectFilteredFileGroups(state2);
+      const issuesMap2 = new Map([["loc2", [issue2]]]);
+      const state2 = createMockState(issuesMap2);
+      const result2 = selectFileGroups(state2);
 
       expect(result1).not.toBe(result2);
-      expect(result1).toHaveLength(1);
-      expect(result2).toHaveLength(0);
+      expect(result1[0].ruleGroups[0].ruleId).toBe("rule-a");
+      expect(result2[0].ruleGroups[0].ruleId).toBe("rule-b");
     });
   });
 });
@@ -583,8 +446,8 @@ describe("selectFileGroupsSummary", () => {
     ]);
     const state = createMockState(issuesMap);
 
-    // Must call selectFilteredFileGroups first
-    selectFilteredFileGroups(state);
+    // Must call selectFileGroups first
+    selectFileGroups(state);
     const result = selectFileGroupsSummary(state);
 
     expect(result.totalIssues).toBe(3);
@@ -596,110 +459,61 @@ describe("selectFileGroupsSummary", () => {
       info: 0,
     });
   });
+});
 
-  it("respects filters in summary", () => {
-    const issue1 = createMockIssue({
-      id: "1",
-      filePath: "src/App.tsx",
-      ruleId: "rule-a",
-    });
-    const issue2 = createMockIssue({
-      id: "2",
-      filePath: "src/utils.ts",
-      ruleId: "rule-b",
-    });
+// ============================================================================
+// selectExpandedRuleId Tests
+// ============================================================================
 
-    const issuesMap = new Map([
-      ["loc1", [issue1]],
-      ["loc2", [issue2]],
-    ]);
-    const filters = [createRuleFilter("rule-a")];
-    const state = createMockState(issuesMap, filters);
+describe("selectExpandedRuleId", () => {
+  it("returns null when no rule is expanded", () => {
+    const state = createMockState(new Map());
 
-    selectFilteredFileGroups(state);
-    const result = selectFileGroupsSummary(state);
+    const result = selectExpandedRuleId(state);
 
-    expect(result.totalIssues).toBe(1);
-    expect(result.totalFiles).toBe(1);
-    expect(result.totalRules).toBe(1);
+    expect(result).toBeNull();
+  });
+
+  it("returns the expanded rule ID when set", () => {
+    const state = createMockState(new Map(), { expandedRuleId: "no-unused-vars" });
+
+    const result = selectExpandedRuleId(state);
+
+    expect(result).toBe("no-unused-vars");
   });
 });
 
 // ============================================================================
-// selectActiveRuleFilter Tests
+// selectExpandedFilePath Tests
 // ============================================================================
 
-describe("selectActiveRuleFilter", () => {
-  it("returns null when no filters", () => {
-    const state = createMockState(new Map(), []);
+describe("selectExpandedFilePath", () => {
+  it("returns null when no file is expanded", () => {
+    const state = createMockState(new Map());
 
-    const result = selectActiveRuleFilter(state);
-
-    expect(result).toBeNull();
-  });
-
-  it("returns null when no rule filter", () => {
-    const filters = [createFileFilter("src/App.tsx")];
-    const state = createMockState(new Map(), filters);
-
-    const result = selectActiveRuleFilter(state);
+    const result = selectExpandedFilePath(state);
 
     expect(result).toBeNull();
   });
 
-  it("returns rule filter when present", () => {
-    const ruleFilter = createRuleFilter("no-unused-vars");
-    const filters = [ruleFilter, createFileFilter("src/App.tsx")];
-    const state = createMockState(new Map(), filters);
+  it("returns the expanded file path when set", () => {
+    const state = createMockState(new Map(), { expandedFilePath: "src/App.tsx" });
 
-    const result = selectActiveRuleFilter(state);
+    const result = selectExpandedFilePath(state);
 
-    expect(result).toEqual(ruleFilter);
+    expect(result).toBe("src/App.tsx");
   });
 });
 
 // ============================================================================
-// selectActiveFileFilter Tests
+// selectHasIssues Tests
 // ============================================================================
 
-describe("selectActiveFileFilter", () => {
-  it("returns null when no filters", () => {
-    const state = createMockState(new Map(), []);
-
-    const result = selectActiveFileFilter(state);
-
-    expect(result).toBeNull();
-  });
-
-  it("returns null when no file filter", () => {
-    const filters = [createRuleFilter("no-unused-vars")];
-    const state = createMockState(new Map(), filters);
-
-    const result = selectActiveFileFilter(state);
-
-    expect(result).toBeNull();
-  });
-
-  it("returns file filter when present", () => {
-    const fileFilter = createFileFilter("src/App.tsx");
-    const filters = [createRuleFilter("no-unused-vars"), fileFilter];
-    const state = createMockState(new Map(), filters);
-
-    const result = selectActiveFileFilter(state);
-
-    expect(result).toEqual(fileFilter);
-  });
-});
-
-// ============================================================================
-// selectHasFilteredIssues Tests
-// ============================================================================
-
-describe("selectHasFilteredIssues", () => {
+describe("selectHasIssues", () => {
   it("returns false for empty state", () => {
     const state = createEmptyState();
 
-    const result = selectHasFilteredIssues(state);
+    const result = selectHasIssues(state);
 
     expect(result).toBe(false);
   });
@@ -709,20 +523,21 @@ describe("selectHasFilteredIssues", () => {
     const issuesMap = new Map([["loc", [issue]]]);
     const state = createMockState(issuesMap);
 
-    const result = selectHasFilteredIssues(state);
+    const result = selectHasIssues(state);
 
     expect(result).toBe(true);
   });
 
-  it("returns false when filters exclude all issues", () => {
+  it("returns true regardless of expansion state", () => {
     const issue = createMockIssue({ ruleId: "rule-a" });
     const issuesMap = new Map([["loc", [issue]]]);
-    const filters = [createRuleFilter("rule-b")];
-    const state = createMockState(issuesMap, filters);
+    // Even with a different rule expanded, hasIssues should return true
+    const state = createMockState(issuesMap, { expandedRuleId: "rule-b" });
 
-    const result = selectHasFilteredIssues(state);
+    const result = selectHasIssues(state);
 
-    expect(result).toBe(false);
+    // All issues are always returned (additive model), so hasIssues is true
+    expect(result).toBe(true);
   });
 });
 
@@ -785,7 +600,7 @@ describe("File Groups Selector - Integration", () => {
     );
     const state = createMockState(issuesMap);
 
-    const fileGroups = selectFilteredFileGroups(state);
+    const fileGroups = selectFileGroups(state);
     const summary = selectFileGroupsSummary(state);
 
     // Verify file ordering (errors first)

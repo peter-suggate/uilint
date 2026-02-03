@@ -138,10 +138,6 @@ describe("Core Slice - Initial State", () => {
       expect(getState().commandPalette.selectedIndex).toBe(0);
     });
 
-    it("has empty filters array by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().commandPalette.filters).toEqual([]);
-    });
   });
 
   describe("Inspector Initial State", () => {
@@ -267,21 +263,6 @@ describe("Core Slice - Command Palette Actions", () => {
       expect(getState().commandPalette.selectedIndex).toBe(0);
     });
 
-    it("preserves existing filters when opening", () => {
-      const { getState } = createTestSlice();
-
-      const filter: CommandPaletteFilter = {
-        type: "rule",
-        value: "uilint/semantic",
-        label: "Semantic",
-      };
-      getState().addFilter(filter);
-
-      getState().openCommandPalette();
-
-      expect(getState().commandPalette.filters).toHaveLength(1);
-      expect(getState().commandPalette.filters[0]).toEqual(filter);
-    });
   });
 
   describe("closeCommandPalette", () => {
@@ -296,24 +277,19 @@ describe("Core Slice - Command Palette Actions", () => {
       expect(getState().commandPalette.open).toBe(false);
     });
 
-    it("resets query and index but preserves filters", () => {
+    it("resets query and index", () => {
       const { getState } = createTestSlice();
 
       // Set up various state
       getState().openCommandPalette();
       getState().setCommandPaletteQuery("search term");
       getState().setCommandPaletteSelectedIndex(3);
-      getState().addFilter({ type: "rule", value: "test", label: "Test" });
 
       getState().closeCommandPalette();
 
       expect(getState().commandPalette.open).toBe(false);
       expect(getState().commandPalette.query).toBe("");
       expect(getState().commandPalette.selectedIndex).toBe(0);
-      // Unified model: filters persist when closing command palette
-      expect(getState().commandPalette.filters).toEqual([
-        { type: "rule", value: "test", label: "Test" },
-      ]);
     });
   });
 
@@ -374,175 +350,6 @@ describe("Core Slice - Command Palette Actions", () => {
     });
   });
 
-  describe("addFilter", () => {
-    it("adds a filter to the filters array", () => {
-      const { getState } = createTestSlice();
-
-      const filter: CommandPaletteFilter = {
-        type: "rule",
-        value: "uilint/semantic",
-        label: "Semantic Rule",
-      };
-
-      getState().addFilter(filter);
-
-      expect(getState().commandPalette.filters).toHaveLength(1);
-      expect(getState().commandPalette.filters[0]).toEqual(filter);
-    });
-
-    it("can add multiple filters", () => {
-      const { getState } = createTestSlice();
-
-      const filter1: CommandPaletteFilter = { type: "rule", value: "rule1", label: "Rule 1" };
-      const filter2: CommandPaletteFilter = { type: "file", value: "file.tsx", label: "file.tsx" };
-      const filter3: CommandPaletteFilter = { type: "plugin", value: "eslint", label: "ESLint" };
-
-      getState().addFilter(filter1);
-      getState().addFilter(filter2);
-      getState().addFilter(filter3);
-
-      expect(getState().commandPalette.filters).toHaveLength(3);
-      expect(getState().commandPalette.filters[0]).toEqual(filter1);
-      expect(getState().commandPalette.filters[1]).toEqual(filter2);
-      expect(getState().commandPalette.filters[2]).toEqual(filter3);
-    });
-
-    it("resets selectedIndex to 0 when adding filter", () => {
-      const { getState } = createTestSlice();
-
-      getState().setCommandPaletteSelectedIndex(5);
-
-      getState().addFilter({ type: "issue", value: "issue1", label: "Issue 1" });
-
-      expect(getState().commandPalette.selectedIndex).toBe(0);
-    });
-
-    it("supports all filter types", () => {
-      const { getState } = createTestSlice();
-
-      const filterTypes: CommandPaletteFilter["type"][] = [
-        "rule",
-        "issue",
-        "loc",
-        "file",
-        "capture",
-        "plugin",
-      ];
-
-      filterTypes.forEach((type, index) => {
-        getState().addFilter({ type, value: `value-${index}`, label: `Label ${index}` });
-      });
-
-      expect(getState().commandPalette.filters).toHaveLength(6);
-      filterTypes.forEach((type, index) => {
-        expect(getState().commandPalette.filters[index].type).toBe(type);
-      });
-    });
-  });
-
-  describe("removeFilter", () => {
-    it("removes filter at specified index", () => {
-      const { getState } = createTestSlice();
-
-      getState().addFilter({ type: "rule", value: "rule1", label: "Rule 1" });
-      getState().addFilter({ type: "file", value: "file.tsx", label: "file.tsx" });
-      getState().addFilter({ type: "plugin", value: "eslint", label: "ESLint" });
-
-      getState().removeFilter(1);
-
-      expect(getState().commandPalette.filters).toHaveLength(2);
-      expect(getState().commandPalette.filters[0].value).toBe("rule1");
-      expect(getState().commandPalette.filters[1].value).toBe("eslint");
-    });
-
-    it("removes first filter correctly", () => {
-      const { getState } = createTestSlice();
-
-      getState().addFilter({ type: "rule", value: "rule1", label: "Rule 1" });
-      getState().addFilter({ type: "file", value: "file.tsx", label: "file.tsx" });
-
-      getState().removeFilter(0);
-
-      expect(getState().commandPalette.filters).toHaveLength(1);
-      expect(getState().commandPalette.filters[0].value).toBe("file.tsx");
-    });
-
-    it("removes last filter correctly", () => {
-      const { getState } = createTestSlice();
-
-      getState().addFilter({ type: "rule", value: "rule1", label: "Rule 1" });
-      getState().addFilter({ type: "file", value: "file.tsx", label: "file.tsx" });
-
-      getState().removeFilter(1);
-
-      expect(getState().commandPalette.filters).toHaveLength(1);
-      expect(getState().commandPalette.filters[0].value).toBe("rule1");
-    });
-
-    it("resets selectedIndex to 0 when removing filter", () => {
-      const { getState } = createTestSlice();
-
-      getState().addFilter({ type: "rule", value: "rule1", label: "Rule 1" });
-      getState().setCommandPaletteSelectedIndex(5);
-
-      getState().removeFilter(0);
-
-      expect(getState().commandPalette.selectedIndex).toBe(0);
-    });
-
-    it("handles removing from empty array gracefully", () => {
-      const { getState } = createTestSlice();
-
-      // Should not throw
-      getState().removeFilter(0);
-
-      expect(getState().commandPalette.filters).toEqual([]);
-    });
-  });
-
-  describe("clearFilters", () => {
-    it("removes all filters", () => {
-      const { getState } = createTestSlice();
-
-      getState().addFilter({ type: "rule", value: "rule1", label: "Rule 1" });
-      getState().addFilter({ type: "file", value: "file.tsx", label: "file.tsx" });
-      getState().addFilter({ type: "plugin", value: "eslint", label: "ESLint" });
-
-      getState().clearFilters();
-
-      expect(getState().commandPalette.filters).toEqual([]);
-    });
-
-    it("resets selectedIndex to 0", () => {
-      const { getState } = createTestSlice();
-
-      getState().addFilter({ type: "rule", value: "rule1", label: "Rule 1" });
-      getState().setCommandPaletteSelectedIndex(3);
-
-      getState().clearFilters();
-
-      expect(getState().commandPalette.selectedIndex).toBe(0);
-    });
-
-    it("works when filters are already empty", () => {
-      const { getState } = createTestSlice();
-
-      getState().clearFilters();
-
-      expect(getState().commandPalette.filters).toEqual([]);
-    });
-
-    it("preserves query when clearing filters", () => {
-      const { getState } = createTestSlice();
-
-      getState().setCommandPaletteQuery("test query");
-      getState().addFilter({ type: "rule", value: "rule1", label: "Rule 1" });
-
-      getState().clearFilters();
-
-      expect(getState().commandPalette.query).toBe("test query");
-    });
-  });
 });
 
 // ============================================================================

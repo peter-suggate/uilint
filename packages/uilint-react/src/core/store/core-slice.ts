@@ -63,8 +63,6 @@ export interface CommandPaletteState {
   query: string;
   /** Currently selected index for keyboard navigation */
   selectedIndex: number;
-  /** Active filters (shown as chips) - tile filters for scoping */
-  filters: TileFilter[];
   /**
    * Expansion path for the expandable tile UI.
    * Stack of expanded tiles representing the current drill-down state.
@@ -161,14 +159,6 @@ export interface CoreSlice {
   setCommandPaletteQuery: (query: string) => void;
   /** Set the selected index for keyboard navigation */
   setCommandPaletteSelectedIndex: (index: number) => void;
-  /** Add a filter to the command palette */
-  addFilter: (filter: TileFilter) => void;
-  /** Remove a filter at the specified index */
-  removeFilter: (index: number) => void;
-  /** Remove the last filter (for backspace behavior) */
-  removeLastFilter: () => void;
-  /** Clear all command palette filters */
-  clearFilters: () => void;
 
   // ============ Tile Expansion ============
   /**
@@ -327,7 +317,6 @@ const DEFAULT_COMMAND_PALETTE_STATE: CommandPaletteState = {
   open: false,
   query: "",
   selectedIndex: 0,
-  filters: [],
   expansionPath: [],
 };
 
@@ -414,7 +403,6 @@ export const createCoreSlice = (
   },
 
   closeCommandPalette: () => {
-    // Preserve filters when closing - unified model keeps filters active
     const current = get().commandPalette;
     set({
       commandPalette: {
@@ -441,50 +429,6 @@ export const createCoreSlice = (
       commandPalette: {
         ...get().commandPalette,
         selectedIndex: index,
-      },
-    });
-  },
-
-  addFilter: (filter) => {
-    const current = get().commandPalette;
-    set({
-      commandPalette: {
-        ...current,
-        filters: [...current.filters, filter],
-        selectedIndex: 0,
-      },
-    });
-  },
-
-  removeFilter: (index) => {
-    const current = get().commandPalette;
-    set({
-      commandPalette: {
-        ...current,
-        filters: current.filters.filter((_, i) => i !== index),
-        selectedIndex: 0,
-      },
-    });
-  },
-
-  removeLastFilter: () => {
-    const current = get().commandPalette;
-    if (current.filters.length === 0) return;
-    set({
-      commandPalette: {
-        ...current,
-        filters: current.filters.slice(0, -1),
-        selectedIndex: 0,
-      },
-    });
-  },
-
-  clearFilters: () => {
-    set({
-      commandPalette: {
-        ...get().commandPalette,
-        filters: [],
-        selectedIndex: 0,
       },
     });
   },
@@ -676,13 +620,25 @@ export const createCoreSlice = (
   },
 
   expandRule: (ruleId) => {
-    set({
-      inspector: {
-        ...get().inspector,
-        expandedRuleId: ruleId,
-        expandedFilePath: null,
-      },
-    });
+    const current = get().inspector;
+    // Toggle: clicking the same rule collapses it
+    if (current.expandedRuleId === ruleId) {
+      set({
+        inspector: {
+          ...current,
+          expandedRuleId: null,
+          expandedFilePath: null,
+        },
+      });
+    } else {
+      set({
+        inspector: {
+          ...current,
+          expandedRuleId: ruleId,
+          expandedFilePath: null,
+        },
+      });
+    }
   },
 
   collapseRule: () => {

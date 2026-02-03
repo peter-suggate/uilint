@@ -3,13 +3,16 @@
  * @vitest-environment jsdom
  *
  * Tests tile item filtering, deduplication, and computation from providers.
- * Tile items are now computed on-demand from providers based on filters.
+ *
+ * Note: Filters have been removed from the tile system. The hook now always
+ * returns root-level tiles, and expansion to children is handled by the
+ * ExpandableTileGrid component. isTerminal is always false at root level.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, cleanup } from "@testing-library/react";
 import { act } from "react";
-import type { TileItem, TileFilter, Plugin, PluginServices } from "../../core/plugin-system/types";
+import type { TileItem, Plugin, PluginServices } from "../../core/plugin-system/types";
 import {
   filterByQuery,
   dedupeItems,
@@ -95,20 +98,19 @@ function createMockTileProvider(
 /**
  * Set up the composed store for hook tests.
  */
-function setupStore(options: { query?: string; filters?: TileFilter[] } = {}) {
+function setupStore(options: { query?: string } = {}) {
   createComposedStore({
     websocket: mockPluginServices.websocket,
     domObserver: mockPluginServices.domObserver,
   });
 
   const api = getStoreApi();
-  if (api && (options.query || options.filters)) {
+  if (api && options.query) {
     api.setState((state) => ({
       ...state,
       commandPalette: {
         ...state.commandPalette,
         query: options.query ?? "",
-        filters: options.filters ?? [],
       },
     }));
   }
@@ -227,20 +229,20 @@ describe("useTileItems hook", () => {
       expect(result.current.items[0].id).toBe("item-1");
     });
 
-    it("passes filters to provider", () => {
+    it("always passes empty filters to provider (no filter system)", () => {
       const provider = createMockTileProvider({
         getTileItems: vi.fn(() => []),
       });
       mockGetAllTileProviders.mockReturnValue([{ pluginId: "test-plugin", provider }]);
 
-      const filters: TileFilter[] = [{ type: "rule", id: "rule-1", label: "Rule 1" }];
-      setupStore({ filters });
+      setupStore();
 
       renderHook(() => useTileItems());
 
+      // Should be called with services and empty array (no filters)
       expect(provider.getTileItems).toHaveBeenCalledWith(
         expect.anything(),
-        filters
+        [] // Empty filters - filtering has been removed
       );
     });
 
@@ -294,44 +296,42 @@ describe("useTileItems hook", () => {
     });
   });
 
-  describe("computes isTerminal from providers", () => {
-    it("returns false when no provider has isTerminal", () => {
+  describe("isTerminal behavior", () => {
+    it("returns false always (expansion handles drill-down)", () => {
       const provider = createMockTileProvider();
       mockGetAllTileProviders.mockReturnValue([{ pluginId: "test-plugin", provider }]);
       setupStore();
 
       const { result } = renderHook(() => useTileItems());
 
+      // isTerminal is always false at root level
       expect(result.current.isTerminal).toBe(false);
     });
 
-    it("returns true when provider.isTerminal returns true", () => {
+    it("returns false even with provider.isTerminal defined", () => {
+      // isTerminal on providers is no longer called since filters are removed
       const provider = createMockTileProvider({
         isTerminal: vi.fn(() => true),
       });
       mockGetAllTileProviders.mockReturnValue([{ pluginId: "test-plugin", provider }]);
 
-      const filters: TileFilter[] = [{ type: "rule", id: "rule-1", label: "Rule 1" }];
-      setupStore({ filters });
+      setupStore();
 
       const { result } = renderHook(() => useTileItems());
 
-      expect(result.current.isTerminal).toBe(true);
-      expect(provider.isTerminal).toHaveBeenCalledWith(filters);
+      // isTerminal is always false - expansion model handles drill-down
+      expect(result.current.isTerminal).toBe(false);
     });
   });
 
-  describe("reacts to filter changes", () => {
-    it("recomputes items when filters change", () => {
-      const getTileItemsMock = vi.fn((services: PluginServices, filters: TileFilter[]) => {
-        // Return different items based on filters
-        if (filters.length > 0) {
-          return [createMockTileItem({ id: "filtered-item", label: "Filtered" })];
-        }
-        return [createMockTileItem({ id: "all-item", label: "All" })];
-      });
+  describe("reacts to query changes", () => {
+    it("recomputes items when query changes", () => {
+      const items = [
+        createMockTileItem({ id: "btn", label: "Button" }),
+        createMockTileItem({ id: "inp", label: "Input" }),
+      ];
       const provider = createMockTileProvider({
-        getTileItems: getTileItemsMock,
+        getTileItems: vi.fn(() => items),
       });
       mockGetAllTileProviders.mockReturnValue([{ pluginId: "test-plugin", provider }]);
 
@@ -339,20 +339,23 @@ describe("useTileItems hook", () => {
 
       const { result } = renderHook(() => useTileItems());
 
-      expect(result.current.items[0].label).toBe("All");
+      // Initially all items
+      expect(result.current.items).toHaveLength(2);
 
-      // Add a filter
+      // Update query
       act(() => {
         api?.setState((state) => ({
           ...state,
           commandPalette: {
             ...state.commandPalette,
-            filters: [{ type: "rule", id: "rule-1", label: "Rule 1" }],
+            query: "button",
           },
         }));
       });
 
-      expect(result.current.items[0].label).toBe("Filtered");
+      // Now filtered to just Button
+      expect(result.current.items).toHaveLength(1);
+      expect(result.current.items[0].label).toBe("Button");
     });
   });
 

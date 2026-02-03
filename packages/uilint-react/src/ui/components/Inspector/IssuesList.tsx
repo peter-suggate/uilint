@@ -1,20 +1,20 @@
 /**
  * IssuesList - Main content component for the unified inspector
  *
- * Orchestrates a two-level tile hierarchy:
+ * Orchestrates a two-level tile hierarchy with in-place expansion:
  * - Level 0: Rule tiles (aggregated across all files)
- * - Level 1: File tiles (for a specific rule)
- * - Level 2: Source view (for a specific file within a rule)
+ * - Level 1: File tiles (for a specific rule) - shown INSIDE expanded rule tile
+ * - Level 2: Source view (for a specific file within a rule) - shown below expanded file
  *
- * Uses the unified filter model - same source of truth as tiles and heatmap.
+ * Uses the additive selection model - all tiles visible, expanded ones emphasized.
+ * Tiles expand IN PLACE using the mosaic layout algorithm, keeping siblings visible.
  */
 import React, { useCallback, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useComposedStore } from "../../../core/store";
 import {
-  selectFilteredFileGroups,
+  selectFileGroups,
   selectFileGroupsSummary,
-  selectActiveRuleFilter,
 } from "../../../core/store/file-groups-selector";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
 import type { ESLintPluginSlice } from "../../../plugins/eslint/slice";
@@ -23,8 +23,9 @@ import { RuleHeader } from "./RuleHeader";
 import { RuleConfig } from "./RuleConfig";
 import { FileSourceView } from "./FileSourceView";
 import {
-  TileGrid,
+  ExpandableTileGrid,
   TileHeader,
+  TileGrid,
   crispEase,
   DURATIONS,
   type BaseTileItem,
@@ -77,47 +78,53 @@ function fileNodeToTileItem(node: FileForRuleNode): BaseTileItem & { data: FileF
 export interface IssuesListProps {
   /** Additional class name */
   className?: string;
+  /** Available width for the tile grid (default: 350) */
+  availableWidth?: number;
 }
 
 // ============================================================================
 // Empty State
 // ============================================================================
 
-function EmptyState({ hasFilters }: { hasFilters: boolean }) {
+function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-      <div className="text-4xl mb-4 opacity-30">
-        {hasFilters ? "🔍" : "✨"}
-      </div>
+      <div className="text-4xl mb-4 opacity-30">✨</div>
       <h3 className="text-lg font-medium text-foreground/80 mb-2">
-        {hasFilters ? "No matching issues" : "No issues found"}
+        No issues found
       </h3>
       <p className="text-sm text-muted-foreground/60 max-w-xs">
-        {hasFilters
-          ? "Try adjusting or clearing your filters to see more results."
-          : "Great job! Your code looks clean."}
+        Great job! Your code looks clean.
       </p>
     </div>
   );
 }
 
 // ============================================================================
+// Constants for height calculation
+// ============================================================================
+
+/** Approximate height of RuleHeader component */
+const RULE_HEADER_HEIGHT = 120;
+/** Approximate height of RuleConfig component when expanded */
+const RULE_CONFIG_HEIGHT = 200;
+
+// ============================================================================
 // Component
 // ============================================================================
 
-export function IssuesList({ className }: IssuesListProps) {
+const DEFAULT_AVAILABLE_WIDTH = 350;
+
+export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH }: IssuesListProps) {
   // Store selectors
-  const fileGroups = useComposedStore(selectFilteredFileGroups);
+  const fileGroups = useComposedStore(selectFileGroups);
   const summary = useComposedStore(selectFileGroupsSummary);
-  const ruleFilter = useComposedStore(selectActiveRuleFilter);
-  const filters = useComposedStore((s) => s.commandPalette.filters);
   const expandedRuleId = useComposedStore((s) => s.inspector.expandedRuleId);
   const expandedFilePath = useComposedStore((s) => s.inspector.expandedFilePath);
   const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
   const ruleConfigExpanded = useComposedStore((s) => s.inspector.ruleConfigExpanded);
 
   // Store actions
-  const removeFilter = useComposedStore((s) => s.removeFilter);
   const expandRule = useComposedStore((s) => s.expandRule);
   const collapseRule = useComposedStore((s) => s.collapseRule);
   const expandFileInRule = useComposedStore((s) => s.expandFileInRule);
@@ -159,19 +166,7 @@ export function IssuesList({ className }: IssuesListProps) {
     return fileGroup?.issues ?? [];
   }, [expandedFilePath, fileGroups]);
 
-  // Auto-expand first rule with errors on initial load
-  const autoExpandedRef = React.useRef(false);
-  React.useEffect(() => {
-    if (!autoExpandedRef.current && ruleNodes.length > 0 && !expandedRuleId) {
-      // Find first rule with errors, or just first rule
-      const firstWithErrors = ruleNodes.find((r) => r.data.highestSeverity === "error");
-      const ruleToExpand = firstWithErrors || ruleNodes[0];
-      if (ruleToExpand) {
-        expandRule(ruleToExpand.id);
-        autoExpandedRef.current = true;
-      }
-    }
-  }, [ruleNodes, expandedRuleId, expandRule]);
+  // No auto-expand - user must click to expand a rule
 
   // Auto-expand rule and file containing selected issue (e.g., from heatmap click)
   useEffect(() => {
@@ -196,14 +191,6 @@ export function IssuesList({ className }: IssuesListProps) {
     }
   }, [selectedIssueId, ruleNodes, expandedRuleId, expandedFilePath, expandRule, expandFileInRule]);
 
-  // Handle clear rule filter
-  const handleClearRuleFilter = useCallback(() => {
-    const ruleFilterIndex = filters.findIndex((f) => f.type === "rule");
-    if (ruleFilterIndex !== -1) {
-      removeFilter(ruleFilterIndex);
-    }
-  }, [filters, removeFilter]);
-
   // Handle issue selection
   const handleIssueSelect = useCallback(
     (issueId: string) => {
@@ -214,60 +201,60 @@ export function IssuesList({ className }: IssuesListProps) {
 
   // Get current rule config from ESLint store
   const ruleConfig = useComposedStore((s) => {
-    if (!ruleFilter?.id) return null;
+    if (!expandedRuleId) return null;
     const eslintState = s.plugins?.eslint as ESLintPluginSlice | undefined;
     if (!eslintState?.ruleConfigs) return null;
-    return eslintState.ruleConfigs.get(ruleFilter.id);
+    return eslintState.ruleConfigs.get(expandedRuleId);
   });
 
   // Get rule metadata including optionSchema
   const ruleMetadata = useComposedStore((s) => {
-    if (!ruleFilter?.id) return null;
+    if (!expandedRuleId) return null;
     const eslintState = s.plugins?.eslint as ESLintPluginSlice | undefined;
     if (!eslintState?.availableRules) return null;
-    return eslintState.availableRules.find((r) => r.id === ruleFilter.id);
+    return eslintState.availableRules.find((r) => r.id === expandedRuleId);
   });
 
   // Get isUpdating state
   const isRuleUpdating = useComposedStore((s) => {
-    if (!ruleFilter?.id) return false;
+    if (!expandedRuleId) return false;
     const eslintState = s.plugins?.eslint as ESLintPluginSlice | undefined;
     if (!eslintState?.ruleConfigUpdating) return false;
-    return eslintState.ruleConfigUpdating.get(ruleFilter.id) ?? false;
+    return eslintState.ruleConfigUpdating.get(expandedRuleId) ?? false;
   });
 
   // Handle severity change - calls plugin registry to update ESLint config
   const handleSeverityChange = useCallback(
     (severity: "off" | "warn" | "error") => {
-      if (!ruleFilter?.id) return;
+      if (!expandedRuleId) return;
       // Map "warn" to "warning" for plugin registry API
       const apiSeverity = severity === "warn" ? "warning" : severity;
-      pluginRegistry.setRuleSeverity(ruleFilter.id, apiSeverity);
+      pluginRegistry.setRuleSeverity(expandedRuleId, apiSeverity);
     },
-    [ruleFilter?.id]
+    [expandedRuleId]
   );
 
   // Handle option change - calls plugin registry to update ESLint config
   const handleOptionChange = useCallback(
     (key: string, value: unknown) => {
-      if (!ruleFilter?.id) return;
+      if (!expandedRuleId) return;
       // Merge the changed option with current options
       const currentOptions = ruleConfig?.options ?? {};
       const newOptions = { ...currentOptions, [key]: value };
-      pluginRegistry.setRuleConfig(ruleFilter.id, newOptions);
+      pluginRegistry.setRuleConfig(expandedRuleId, newOptions);
     },
-    [ruleFilter?.id, ruleConfig?.options]
+    [expandedRuleId, ruleConfig?.options]
   );
 
   // Handle reset to defaults
   const handleResetOptions = useCallback(() => {
-    if (!ruleFilter?.id || !ruleMetadata?.defaultOptions) return;
+    if (!expandedRuleId || !ruleMetadata?.defaultOptions) return;
     // defaultOptions is typically an array with the first element being the options object
     const defaultOpts = Array.isArray(ruleMetadata.defaultOptions)
       ? (ruleMetadata.defaultOptions[0] as Record<string, unknown>) ?? {}
       : (ruleMetadata.defaultOptions as Record<string, unknown>) ?? {};
-    pluginRegistry.setRuleConfig(ruleFilter.id, defaultOpts);
-  }, [ruleFilter?.id, ruleMetadata?.defaultOptions]);
+    pluginRegistry.setRuleConfig(expandedRuleId, defaultOpts);
+  }, [expandedRuleId, ruleMetadata?.defaultOptions]);
 
   // Determine current rule severity from ESLint config
   const currentRuleSeverity: "off" | "warn" | "error" = useMemo(() => {
@@ -283,142 +270,179 @@ export function IssuesList({ className }: IssuesListProps) {
       : (ruleMetadata.defaultOptions as Record<string, unknown>) ?? {};
   }, [ruleMetadata?.defaultOptions]);
 
-  // Check if has filters
-  const hasFilters = filters.length > 0;
+  // Calculate extra height for expanded tile (RuleHeader + RuleConfig)
+  const extraExpandedHeight = useMemo(() => {
+    let height = RULE_HEADER_HEIGHT;
+    if (ruleConfigExpanded) {
+      height += RULE_CONFIG_HEIGHT;
+    }
+    return height;
+  }, [ruleConfigExpanded]);
+
+  // Custom render function for expanded rule tile content
+  // Renders RuleHeader, RuleConfig, and file tiles INSIDE the expanded tile
+  const renderExpandedRuleContent = useCallback(
+    (
+      item: BaseTileItem,
+      children: BaseTileItem[],
+      childrenHeight: number,
+      tileAvailableWidth: number
+    ) => {
+      return (
+        <motion.div
+          layoutId={`tile-${item.id}`}
+          initial={{ opacity: 0.9 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0.9 }}
+          transition={{ duration: DURATIONS.expand, ease: crispEase }}
+          className={cn(
+            "rounded-2xl",
+            "border border-foreground/[0.08]",
+            "bg-background/60 backdrop-blur-md",
+            "overflow-hidden",
+            "shadow-lg",
+            "h-full flex flex-col"
+          )}
+        >
+          {/* Back button header */}
+          <TileHeader
+            label={item.label}
+            subtitle={item.subtitle}
+            icon={item.icon}
+            count={item.count}
+            onBack={collapseRule}
+          />
+
+          {/* Scrollable content area */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Rule description & config toggle */}
+            <RuleHeader
+              ruleFilter={{ type: "rule", id: item.id, label: item.label }}
+              description={ruleMetadata?.description ?? getRuleDescription(item.id)}
+              category={ruleMetadata?.category ?? getRuleCategory(item.id)}
+              docsUrl={ruleMetadata?.docs ?? getRuleDocsUrl(item.id)}
+              configExpanded={ruleConfigExpanded}
+              onToggleConfig={toggleRuleConfig}
+              onClear={collapseRule}
+              showCloseButton={false} // TileHeader already has back button
+            />
+
+            {/* Rule config options (collapsible) */}
+            <AnimatePresence>
+              {ruleConfigExpanded && (
+                <RuleConfig
+                  ruleId={item.id}
+                  currentSeverity={currentRuleSeverity}
+                  onSeverityChange={handleSeverityChange}
+                  optionSchema={ruleMetadata?.optionSchema}
+                  currentOptions={ruleConfig?.options}
+                  defaultOptions={defaultOptions}
+                  onOptionChange={handleOptionChange}
+                  onResetOptions={handleResetOptions}
+                  isUpdating={isRuleUpdating}
+                />
+              )}
+            </AnimatePresence>
+
+            {/* File tiles grid */}
+            <div className="p-3">
+              <TileGrid
+                items={children}
+                onTileClick={(fileItem) => {
+                  const fileNode = fileNodes.find((f) => f.id === fileItem.id);
+                  if (fileNode) {
+                    expandFileInRule(fileNode.data.filePath);
+                  }
+                }}
+                selectedIndex={-1}
+                availableWidth={tileAvailableWidth - 24} // Account for padding
+                padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
+              />
+            </div>
+          </div>
+        </motion.div>
+      );
+    },
+    [
+      collapseRule,
+      ruleMetadata,
+      ruleConfigExpanded,
+      toggleRuleConfig,
+      currentRuleSeverity,
+      handleSeverityChange,
+      ruleConfig?.options,
+      defaultOptions,
+      handleOptionChange,
+      handleResetOptions,
+      isRuleUpdating,
+      fileNodes,
+      expandFileInRule,
+    ]
+  );
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
-      {/* Rule header - shown when rule filter is active */}
-      <AnimatePresence>
-        {ruleFilter && (
-          <RuleHeader
-            ruleFilter={ruleFilter}
-            description={ruleMetadata?.description ?? getRuleDescription(ruleFilter.id)}
-            category={ruleMetadata?.category ?? getRuleCategory(ruleFilter.id)}
-            docsUrl={ruleMetadata?.docs ?? getRuleDocsUrl(ruleFilter.id)}
-            configExpanded={ruleConfigExpanded}
-            onToggleConfig={toggleRuleConfig}
-            onClear={handleClearRuleFilter}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Rule config - shown when expanded */}
-      <AnimatePresence>
-        {ruleFilter && ruleConfigExpanded && (
-          <RuleConfig
-            ruleId={ruleFilter.id}
-            currentSeverity={currentRuleSeverity}
-            onSeverityChange={handleSeverityChange}
-            optionSchema={ruleMetadata?.optionSchema}
-            currentOptions={ruleConfig?.options}
-            defaultOptions={defaultOptions}
-            onOptionChange={handleOptionChange}
-            onResetOptions={handleResetOptions}
-            isUpdating={isRuleUpdating}
-          />
-        )}
-      </AnimatePresence>
-
       {/* Summary bar */}
       {fileGroups.length > 0 && (
         <IssuesSummary
           totalIssues={summary.totalIssues}
           totalFiles={summary.totalFiles}
-          totalRules={ruleFilter ? undefined : summary.totalRules}
+          totalRules={expandedRule ? undefined : summary.totalRules}
           severityCounts={summary.severityCounts}
         />
       )}
 
-      {/* Main content - three-level tile hierarchy */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Main content - mosaic tile grid with in-place expansion */}
+      <div className="flex-1 overflow-y-auto p-4">
         {fileGroups.length === 0 ? (
-          <EmptyState hasFilters={hasFilters} />
+          <EmptyState />
+        ) : !expandedFilePath ? (
+          /* Level 0 & 1: Rule tiles with file tiles inside expanded rule */
+          <ExpandableTileGrid
+            items={ruleTileItems}
+            expandedId={expandedRuleId}
+            expandedChildren={fileTileItems}
+            onTileClick={(item) => expandRule(item.id)}
+            onExpandedChildClick={(item) => {
+              // Find the original file node to get the filePath
+              const fileNode = fileNodes.find((f) => f.id === item.id);
+              if (fileNode) {
+                expandFileInRule(fileNode.data.filePath);
+              }
+            }}
+            onBack={collapseRule}
+            availableWidth={availableWidth - 32} // Account for padding
+            extraExpandedHeight={extraExpandedHeight}
+            padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
+            renderExpandedContent={renderExpandedRuleContent}
+          />
         ) : (
-          <AnimatePresence mode="wait">
-            {/* Level 0: Rule tiles (no expansion) */}
-            {!expandedRuleId && (
-              <motion.div
-                key="rule-tiles"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: DURATIONS.standard, ease: crispEase }}
-                className="p-4"
-              >
-                <TileGrid
-                  items={ruleTileItems}
-                  onTileClick={(item) => expandRule(item.id)}
-                  selectedIndex={-1}
-                  availableWidth={350}
-                  padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
-                />
-              </motion.div>
-            )}
-
-            {/* Level 1: File tiles for the expanded rule */}
-            {expandedRule && !expandedFilePath && (
-              <motion.div
-                key="file-tiles"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: DURATIONS.standard, ease: crispEase }}
-              >
-                <TileHeader
-                  label={expandedRule.label}
-                  subtitle={expandedRule.data.ruleId}
-                  icon={expandedRule.icon}
-                  count={expandedRule.count}
-                  onBack={collapseRule}
-                />
-                <div className="p-4">
-                  <TileGrid
-                    items={fileTileItems}
-                    onTileClick={(item) => {
-                      // Find the original file node to get the filePath
-                      const fileNode = fileNodes.find((f) => f.id === item.id);
-                      if (fileNode) {
-                        expandFileInRule(fileNode.data.filePath);
-                      }
-                    }}
-                    selectedIndex={-1}
-                    availableWidth={350}
-                    padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
-                  />
-                </div>
-              </motion.div>
-            )}
-
-            {/* Level 2: Source view for the expanded file */}
-            {expandedRule && expandedFile && (
-              <motion.div
-                key="source-view"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: DURATIONS.standard, ease: crispEase }}
-              >
-                <TileHeader
-                  label={expandedFile.label}
-                  subtitle={expandedFile.subtitle}
-                  count={expandedFile.count}
-                  onBack={collapseFileInRule}
-                  level={1}
-                />
-                <div className="p-4">
-                  <FileSourceView
-                    filePath={expandedFile.data.filePath}
-                    issues={expandedFileIssues}
-                    contextLines={2}
-                    selectedIssueId={selectedIssueId}
-                    onIssueSelect={handleIssueSelect}
-                    enabled={true}
-                  />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          /* Level 2: Source view for the expanded file */
+          <motion.div
+            key="source-view"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: DURATIONS.standard, ease: crispEase }}
+          >
+            <TileHeader
+              label={expandedFile?.label ?? ""}
+              subtitle={expandedFile?.subtitle}
+              count={expandedFile?.count ?? 0}
+              onBack={collapseFileInRule}
+              level={1}
+            />
+            <div className="mt-4">
+              <FileSourceView
+                filePath={expandedFilePath}
+                issues={expandedFileIssues}
+                contextLines={2}
+                selectedIssueId={selectedIssueId}
+                onIssueSelect={handleIssueSelect}
+                enabled={true}
+              />
+            </div>
+          </motion.div>
         )}
       </div>
     </div>

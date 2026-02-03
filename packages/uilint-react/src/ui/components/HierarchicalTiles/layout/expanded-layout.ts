@@ -56,6 +56,8 @@ export interface ExpandedLayoutInput {
   children: LayoutItem[];
   /** Layout configuration */
   config?: ExpandedLayoutConfig;
+  /** Extra height to add to expanded tile (for custom content like RuleHeader, RuleConfig) */
+  extraExpandedHeight?: number;
 }
 
 export interface TilePosition {
@@ -166,7 +168,8 @@ export function calculateExpandedLayout(input: ExpandedLayoutInput): ExpandedLay
 
   // Calculate children layout to determine expanded height
   const childrenLayout = calculateChildrenHeight(children, config);
-  const expandedHeight = EXPANDED_HEADER_HEIGHT + childrenLayout.totalHeight + EXPANDED_CONTENT_PADDING * 2;
+  const extraHeight = input.extraExpandedHeight ?? 0;
+  const expandedHeight = EXPANDED_HEADER_HEIGHT + childrenLayout.totalHeight + EXPANDED_CONTENT_PADDING * 2 + extraHeight;
 
   // The Y position where the expanded tile starts
   const expandedY = expandedOriginal.y;

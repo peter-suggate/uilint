@@ -1,6 +1,10 @@
 /**
  * Tests for HeatmapOverlay component
  * @vitest-environment jsdom
+ *
+ * Tests the heatmap overlay that shows visual indicators on elements with issues.
+ * Badge clicks now expand rule/file and select issue (additive model) instead
+ * of adding filters (which have been removed).
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, fireEvent, cleanup, act } from "@testing-library/react";
@@ -34,11 +38,13 @@ function setupStoreWithIssues(
   issuesMap: Map<
     string,
     Array<{
+      id?: string;
       ruleId: string;
       message: string;
       filePath?: string;
       line?: number;
       column?: number;
+      severity?: string;
     }>
   >
 ) {
@@ -116,7 +122,7 @@ describe("HeatmapOverlay", () => {
   });
 
   describe("Badge Click Behavior", () => {
-    it("adds file, rule, and loc filters when badge is clicked", () => {
+    it("expands rule and file when badge is clicked", () => {
       const issuesMap = new Map();
       issuesMap.set("src/components/Button.tsx:15:3", [
         {
@@ -154,30 +160,16 @@ describe("HeatmapOverlay", () => {
         fireEvent.click(badge!);
       });
 
-      // Verify all three filters were added: file, rule, and loc
-      const filters = store.getState().commandPalette.filters;
-      expect(filters).toHaveLength(3);
+      // Verify rule was expanded
+      expect(store.getState().inspector.expandedRuleId).toBe("no-unused-vars");
 
-      // Check file filter
-      expect(filters[0]).toEqual({
-        type: "file",
-        id: "src/components/Button.tsx",
-        label: "Button.tsx",
-      });
+      // Verify file was expanded within the rule
+      expect(store.getState().inspector.expandedFilePath).toBe(
+        "src/components/Button.tsx"
+      );
 
-      // Check rule filter
-      expect(filters[1]).toEqual({
-        type: "rule",
-        id: "no-unused-vars",
-        label: "no-unused-vars",
-      });
-
-      // Check loc filter
-      expect(filters[2]).toEqual({
-        type: "loc",
-        id: "src/components/Button.tsx:15:3",
-        label: "Line 15:3",
-      });
+      // Verify first issue was selected
+      expect(store.getState().inspector.selectedIssueId).toBe("issue-1");
     });
 
     it("opens inspector panel when badge is clicked", () => {
@@ -218,7 +210,7 @@ describe("HeatmapOverlay", () => {
       expect(store.getState().inspector.open).toBe(true);
     });
 
-    it("expands file and selects first issue when badge is clicked", () => {
+    it("selects first issue when badge is clicked", () => {
       const issuesMap = new Map();
       issuesMap.set("src/utils/helpers.ts:25:10", [
         {
@@ -261,13 +253,11 @@ describe("HeatmapOverlay", () => {
         fireEvent.click(badge!);
       });
 
-      // Verify file was expanded
-      expect(store.getState().inspector.expandedFiles).toContain(
-        "src/utils/helpers.ts"
-      );
-
       // Verify first issue was selected
       expect(store.getState().inspector.selectedIssueId).toBe("issue-1");
+
+      // Verify rule from first issue was expanded
+      expect(store.getState().inspector.expandedRuleId).toBe("no-unused-vars");
     });
   });
 
@@ -598,7 +588,7 @@ describe("HeatmapOverlay", () => {
       expect(badges).toHaveLength(2);
     });
 
-    it("adds file, rule, and loc filters for the clicked badge element", () => {
+    it("expands correct rule and file for clicked badge", () => {
       const issuesMap = new Map();
       issuesMap.set("src/App.tsx:10:5", [
         {
@@ -632,24 +622,65 @@ describe("HeatmapOverlay", () => {
         fireEvent.click(badge!);
       });
 
-      // All three filters should be added
-      const filters = store.getState().commandPalette.filters;
-      expect(filters).toHaveLength(3);
+      // Verify rule was expanded
+      expect(store.getState().inspector.expandedRuleId).toBe("no-console");
 
-      // Verify file filter
-      expect(filters[0].type).toBe("file");
-      expect(filters[0].id).toBe("src/App.tsx");
-      expect(filters[0].label).toBe("App.tsx");
+      // Verify file was expanded within rule
+      expect(store.getState().inspector.expandedFilePath).toBe("src/App.tsx");
 
-      // Verify rule filter
-      expect(filters[1].type).toBe("rule");
-      expect(filters[1].id).toBe("no-console");
-      expect(filters[1].label).toBe("no-console");
+      // Verify issue was selected
+      expect(store.getState().inspector.selectedIssueId).toBe("issue-1");
+    });
+  });
 
-      // Verify loc filter
-      expect(filters[2].type).toBe("loc");
-      expect(filters[2].id).toBe("src/App.tsx:10:5");
-      expect(filters[2].label).toBe("Line 10:5");
+  describe("Additive Selection Model", () => {
+    it("shows all elements when no rule is expanded", () => {
+      const issuesMap = new Map();
+      issuesMap.set("src/App.tsx:10:5", [
+        {
+          id: "issue-1",
+          ruleId: "no-console",
+          message: "Console",
+          filePath: "src/App.tsx",
+          line: 10,
+          column: 5,
+          severity: "warning",
+        },
+      ]);
+      issuesMap.set("src/Button.tsx:20:3", [
+        {
+          id: "issue-2",
+          ruleId: "no-unused-vars",
+          message: "Unused",
+          filePath: "src/Button.tsx",
+          line: 20,
+          column: 3,
+          severity: "error",
+        },
+      ]);
+      setupStoreWithIssues(issuesMap);
+
+      const mockRect1 = new DOMRect(100, 100, 200, 50);
+      const mockRect2 = new DOMRect(100, 200, 200, 50);
+      const rects = new Map([
+        [
+          "src/App.tsx:10:5",
+          { rect: mockRect1, element: document.createElement("div") },
+        ],
+        [
+          "src/Button.tsx:20:3",
+          { rect: mockRect2, element: document.createElement("div") },
+        ],
+      ]);
+      mockElementRects(rects);
+
+      const { container } = render(<HeatmapOverlay />);
+
+      // Both elements should be rendered
+      const overlayItems = container.querySelectorAll(
+        'div[style*="position: fixed"][style*="border"]'
+      );
+      expect(overlayItems).toHaveLength(2);
     });
   });
 });

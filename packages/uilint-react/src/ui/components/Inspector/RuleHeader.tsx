@@ -36,6 +36,8 @@ export interface RuleHeaderProps {
   onToggleConfig: () => void;
   /** Called to clear the rule filter */
   onClear: () => void;
+  /** Whether to show the close button (default: true, set to false when inside expanded tile) */
+  showCloseButton?: boolean;
   /** Additional class name */
   className?: string;
 }
@@ -52,6 +54,7 @@ export function RuleHeader({
   configExpanded,
   onToggleConfig,
   onClear,
+  showCloseButton = true,
   className,
 }: RuleHeaderProps) {
   // Extract short name from potentially namespaced rule ID
@@ -85,15 +88,17 @@ export function RuleHeader({
               <span className="text-lg font-medium text-foreground truncate">
                 {shortName}
               </span>
-              <IconButton
-                variant="ghost"
-                size="sm"
-                onClick={onClear}
-                title="Clear filter"
-                className="opacity-60 hover:opacity-100"
-              >
-                <CloseIcon size={14} />
-              </IconButton>
+              {showCloseButton && (
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClear}
+                  title="Clear filter"
+                  className="opacity-60 hover:opacity-100"
+                >
+                  <CloseIcon size={14} />
+                </IconButton>
+              )}
             </div>
 
             {/* Category / namespace */}

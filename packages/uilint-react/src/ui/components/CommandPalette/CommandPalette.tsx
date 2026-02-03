@@ -4,7 +4,7 @@
  * Features:
  * - Hero search input with glassmorphic styling
  * - Tile-based masonry grid for visual item display
- * - Filter chips for drill-down navigation
+ * - Expandable tiles with in-place expansion
  * - Keyboard navigation for tiles
  *
  * Visual design:
@@ -39,17 +39,11 @@ const USE_EXPANDABLE_TILES = true;
 export function CommandPalette() {
   const isOpen = useComposedStore((s) => s.commandPalette.open);
   const query = useComposedStore((s) => s.commandPalette.query);
-  const filters = useComposedStore((s) => s.commandPalette.filters);
   const expansionPath = useComposedStore((s) => s.commandPalette.expansionPath);
   const closeCommandPalette = useComposedStore((s) => s.closeCommandPalette);
   const setQuery = useComposedStore((s) => s.setCommandPaletteQuery);
-  const openInspector = useComposedStore((s) => s.openInspector);
   const openInspectorPanel = useComposedStore((s) => s.openInspectorPanel);
-  const addFilter = useComposedStore((s) => s.addFilter);
-  const removeFilter = useComposedStore((s) => s.removeFilter);
-  const removeLastFilter = useComposedStore((s) => s.removeLastFilter);
   const collapseTile = useComposedStore((s) => s.collapseTile);
-  const collapseAll = useComposedStore((s) => s.collapseAll);
 
   // Mobile detection from store
   const isMobile = useComposedStore((s) => s.mobile.isMobile);
@@ -57,25 +51,18 @@ export function CommandPalette() {
   // Current expansion level
   const expansionLevel = expansionPath.length;
 
-  // Get tile items using the hook
-  const { items: tileItems, isLoading, isTerminal } = useTileItems(
-    filters,
-    query
-  );
+  // Get tile items using the hook (no filters - show all tiles)
+  const { items: tileItems, isLoading, isTerminal } = useTileItems(query);
 
-  // Handle back navigation (backspace with empty query removes last filter or collapses)
+  // Handle back navigation (backspace with empty query collapses expansion)
   const handleBack = useCallback(() => {
-    if (USE_EXPANDABLE_TILES && expansionLevel > 0) {
-      // Collapse the most recently expanded tile
+    if (expansionLevel > 0) {
       collapseTile();
-    } else {
-      // Fall back to filter removal for legacy behavior
-      removeLastFilter();
     }
-  }, [expansionLevel, collapseTile, removeLastFilter]);
+  }, [expansionLevel, collapseTile]);
 
-  // Handle tile click - adds filter only, does NOT open inspector
-  // This allows users to build up filters before viewing in inspector
+  // Handle tile click - expansion is handled by ExpandableTileGrid internally
+  // This is only used for non-expandable mode or legacy behavior
   const handleTileClick = useCallback(
     async (item: TileItem) => {
       const services = getPluginServices();
@@ -96,60 +83,20 @@ export function CommandPalette() {
         return;
       }
 
-      // Get the provider for this item
-      const providerId = item.metadata?.providerId as string | undefined;
-      if (!providerId) {
-        return;
-      }
-
-      const tileProviders = pluginRegistry.getAllTileProviders();
-      const providerEntry = tileProviders.find((p) => p.pluginId === providerId);
-
-      if (!providerEntry) {
-        return;
-      }
-
-      const { provider } = providerEntry;
-
-      // Check if this is a file tile (terminal state)
-      const isFileTile = item.metadata?.isFile === true;
-
-      if (isFileTile) {
-        // File tile: add filter, close command palette (user can open inspector via button)
-        if (provider.createFilter) {
-          const filter = provider.createFilter(item);
-          addFilter(filter);
-        }
-        closeCommandPalette();
-      } else if (provider.createFilter) {
-        // Rule/category tile: add filter, stay open for further filtering
-        const filter = provider.createFilter(item);
-        addFilter(filter);
-      }
-    },
-    [closeCommandPalette, addFilter]
-  );
-
-  // Handle "open in inspector" button click on tiles
-  // This opens the inspector with the item's filter applied
-  const handleOpenInInspector = useCallback(
-    (item: TileItem) => {
-      // Get the provider for this item
-      const providerId = item.metadata?.providerId as string | undefined;
-      if (providerId) {
-        const tileProviders = pluginRegistry.getAllTileProviders();
-        const providerEntry = tileProviders.find((p) => p.pluginId === providerId);
-
-        if (providerEntry?.provider.createFilter) {
-          const filter = providerEntry.provider.createFilter(item);
-          addFilter(filter);
-        }
-      }
-
+      // For non-expandable tiles, just open inspector
       openInspectorPanel();
       closeCommandPalette();
     },
-    [openInspectorPanel, closeCommandPalette, addFilter]
+    [closeCommandPalette, openInspectorPanel]
+  );
+
+  // Handle "open in inspector" button click on tiles
+  const handleOpenInInspector = useCallback(
+    (_item: TileItem) => {
+      openInspectorPanel();
+      closeCommandPalette();
+    },
+    [openInspectorPanel, closeCommandPalette]
   );
 
   // Use tile navigation for 2D keyboard navigation
@@ -271,9 +218,6 @@ export function CommandPalette() {
                 value={query}
                 onChange={setQuery}
                 size={isMobile ? "default" : "large"}
-                filters={filters}
-                onRemoveFilter={(index) => removeFilter(index)}
-                onRemoveLastFilter={removeLastFilter}
               />
 
               {/* Content Area: Tile Grid */}
