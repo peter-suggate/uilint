@@ -46,12 +46,20 @@ function log(message: string): void {
 type MessageIds = "semanticDuplicate" | "noIndex";
 type Options = [
   {
-    /** Similarity threshold (0-1). Default: 0.85 */
+    /** Similarity threshold (0-1). Default: 0.75 */
     threshold?: number;
     /** Path to the index directory */
     indexPath?: string;
     /** Minimum number of lines for a chunk to be reported (default: 3) */
     minLines?: number;
+    /** Minimum confidence level to report: "high", "medium", "low". Default: "low" */
+    confidenceLevel?: "high" | "medium" | "low";
+    /** Use structural similarity boost (props, JSX, hooks overlap). Default: true */
+    useStructuralBoost?: boolean;
+    /** Include duplicates within the same file. Default: false */
+    includeSameFile?: boolean;
+    /** Filter by code kind: "component", "hook", "function", or "all". Default: "all" */
+    kind?: "component" | "hook" | "function" | "all";
   }
 ];
 
@@ -78,23 +86,74 @@ export const meta = defineRuleMeta({
     },
   ],
   postInstallInstructions: "Run 'uilint duplicates index' to build the semantic index before using this rule.",
-  defaultOptions: [{ threshold: 0.85, indexPath: ".uilint/.duplicates-index", minLines: 3 }],
+  defaultOptions: [{
+    threshold: 0.75,
+    indexPath: ".uilint/.duplicates-index",
+    minLines: 3,
+    confidenceLevel: "low",
+    useStructuralBoost: true,
+    includeSameFile: false,
+    kind: "all",
+  }],
   optionSchema: {
     fields: [
       {
         key: "threshold",
         label: "Similarity threshold",
         type: "number",
-        defaultValue: 0.85,
+        defaultValue: 0.75,
         description:
-          "Minimum similarity score (0-1) to report as duplicate. Higher = stricter.",
+          "Minimum similarity score (0-1) to report as duplicate. Lower values catch more potential duplicates. Recommended: 0.75 (default), 0.85 (strict), 0.65 (lenient).",
+      },
+      {
+        key: "confidenceLevel",
+        label: "Minimum confidence",
+        type: "select",
+        defaultValue: "low",
+        options: [
+          { value: "high", label: "High (≥90%) - Likely copy-paste" },
+          { value: "medium", label: "Medium (≥75%) - Semantically similar" },
+          { value: "low", label: "Low (≥60%) - Possibly related" },
+        ],
+        description:
+          "Only report duplicates at or above this confidence level. High = fewer but more certain matches.",
+      },
+      {
+        key: "useStructuralBoost",
+        label: "Use structural similarity",
+        type: "boolean",
+        defaultValue: true,
+        description:
+          "Boost similarity scores based on structural overlap (props, JSX elements, hooks). Helps catch duplicates with different variable names.",
+      },
+      {
+        key: "kind",
+        label: "Code kind filter",
+        type: "select",
+        defaultValue: "all",
+        options: [
+          { value: "all", label: "All code" },
+          { value: "component", label: "Components only" },
+          { value: "hook", label: "Hooks only" },
+          { value: "function", label: "Functions only" },
+        ],
+        description:
+          "Only detect duplicates of a specific code type.",
+      },
+      {
+        key: "includeSameFile",
+        label: "Include same-file duplicates",
+        type: "boolean",
+        defaultValue: false,
+        description:
+          "Report duplicates within the same file (e.g., Card and CardAlt in cards.tsx).",
       },
       {
         key: "indexPath",
         label: "Index path",
         type: "text",
         defaultValue: ".uilint/.duplicates-index",
-        description: "Path to the semantic duplicates index directory",
+        description: "Path to the semantic duplicates index directory.",
       },
       {
         key: "minLines",
@@ -167,17 +226,54 @@ export function ProfileCard({ profile }) {
 \`\`\`js
 // eslint.config.js
 "uilint/no-semantic-duplicates": ["warn", {
-  threshold: 0.85,      // Similarity threshold (0-1)
-  indexPath: ".uilint/.duplicates-index",
-  minLines: 3           // Minimum lines to report (default: 3)
+  // Core detection settings
+  threshold: 0.75,              // Similarity threshold (0-1). Lower = more matches.
+  confidenceLevel: "medium",    // "high" (≥90%), "medium" (≥75%), "low" (≥60%)
+
+  // Detection enhancements
+  useStructuralBoost: true,     // Boost scores based on props/JSX/hooks overlap
+
+  // Filtering
+  kind: "all",                  // "all", "component", "hook", "function"
+  includeSameFile: false,       // Include duplicates within the same file
+  minLines: 3,                  // Minimum lines to report
+
+  // Index location
+  indexPath: ".uilint/.duplicates-index"
 }]
 \`\`\`
+
+### Preset configurations
+
+**Strict** - High-confidence duplicates only:
+\`\`\`js
+{ threshold: 0.85, confidenceLevel: "high" }
+\`\`\`
+
+**Normal** (default) - Balanced detection:
+\`\`\`js
+{ threshold: 0.75, confidenceLevel: "low" }
+\`\`\`
+
+**Lenient** - Catch more potential duplicates:
+\`\`\`js
+{ threshold: 0.65, confidenceLevel: "low" }
+\`\`\`
+
+## Confidence Levels
+
+The rule assigns confidence levels based on similarity scores:
+
+- 🔴 **High (≥90%)** - Likely copy-paste or near-identical code. Strongly recommend consolidation.
+- 🟡 **Medium (75-89%)** - Semantically similar. Review for potential abstraction.
+- 🟢 **Low (60-74%)** - Possibly related patterns. Optional review.
 
 ## Notes
 
 - Run \`uilint duplicates index\` after significant code changes
 - Use \`uilint duplicates find\` to explore all duplicate groups
 - The rule only reports if the file is in the index
+- Structural boost helps detect duplicates with different variable names (e.g., Badge vs Tag)
 `,
 });
 
