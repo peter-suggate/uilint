@@ -7,7 +7,14 @@
 
 import type { StateCreator } from "zustand";
 import { devWarn } from "uilint-core";
-import type { PluginServices, TileFilter } from "../plugin-system/types";
+import type {
+  PluginServices,
+  TileFilter,
+  TileItem,
+  ExpandedTile,
+  ExpansionPath,
+  ExpansionLevel,
+} from "../plugin-system/types";
 
 // ============================================================================
 // Types
@@ -66,6 +73,12 @@ export interface CommandPaletteState {
   selectedIndex: number;
   /** Active filters (shown as chips) - tile filters for scoping */
   filters: TileFilter[];
+  /**
+   * Expansion path for the expandable tile UI.
+   * Stack of expanded tiles representing the current drill-down state.
+   * Empty array = root view (no expansion).
+   */
+  expansionPath: ExpansionPath;
 }
 
 /**
@@ -166,6 +179,41 @@ export interface CoreSlice {
   removeLastFilter: () => void;
   /** Clear all command palette filters */
   clearFilters: () => void;
+
+  // ============ Tile Expansion ============
+  /**
+   * Expand a tile, showing its children inside it.
+   * Pushes the tile onto the expansion path stack.
+   * @param tile The tile item to expand
+   * @param children The children to show inside the expanded tile
+   * @param siblings Other tiles at the same level (for collapsed strip)
+   * @param providerId The provider that owns this tile
+   */
+  expandTile: (
+    tile: TileItem,
+    children: TileItem[],
+    siblings: TileItem[],
+    providerId: string
+  ) => void;
+  /**
+   * Collapse the most recently expanded tile.
+   * Pops from the expansion path stack.
+   */
+  collapseTile: () => void;
+  /**
+   * Collapse to a specific level in the expansion path.
+   * @param level The level to collapse to (0 = root)
+   */
+  collapseToLevel: (level: ExpansionLevel) => void;
+  /**
+   * Collapse all expanded tiles, returning to root view.
+   */
+  collapseAll: () => void;
+  /**
+   * Get the current expansion level.
+   * @returns The current depth (0 = root, 1 = first expansion, etc.)
+   */
+  getCurrentExpansionLevel: () => ExpansionLevel;
 
   // ============ Inspector ============
   /** Inspector sidebar state */
@@ -281,6 +329,7 @@ const DEFAULT_COMMAND_PALETTE_STATE: CommandPaletteState = {
   query: "",
   selectedIndex: 0,
   filters: [],
+  expansionPath: [],
 };
 
 const DEFAULT_HEATMAP_FILTER_STATE: HeatmapFilterState = {
@@ -448,6 +497,81 @@ export const createCoreSlice = (
         selectedIndex: 0,
       },
     });
+  },
+
+  // ============ Tile Expansion ============
+  expandTile: (tile, children, siblings, providerId) => {
+    const current = get().commandPalette;
+    const currentLevel = current.expansionPath.length as ExpansionLevel;
+
+    // Cap at level 2 (rules -> files -> issues)
+    if (currentLevel >= 2) {
+      devWarn("[UILint] Cannot expand beyond level 2");
+      return;
+    }
+
+    const expandedTile: ExpandedTile = {
+      item: tile,
+      providerId,
+      level: currentLevel,
+      children,
+      siblings: siblings.filter((s) => s.id !== tile.id), // Exclude the expanded tile from siblings
+    };
+
+    set({
+      commandPalette: {
+        ...current,
+        expansionPath: [...current.expansionPath, expandedTile],
+        selectedIndex: 0, // Reset selection when expanding
+        query: "", // Clear search when expanding
+      },
+    });
+  },
+
+  collapseTile: () => {
+    const current = get().commandPalette;
+    if (current.expansionPath.length === 0) return;
+
+    set({
+      commandPalette: {
+        ...current,
+        expansionPath: current.expansionPath.slice(0, -1),
+        selectedIndex: 0,
+        query: "",
+      },
+    });
+  },
+
+  collapseToLevel: (level) => {
+    const current = get().commandPalette;
+    if (level < 0 || level > 2) return;
+
+    set({
+      commandPalette: {
+        ...current,
+        expansionPath: current.expansionPath.slice(0, level),
+        selectedIndex: 0,
+        query: "",
+      },
+    });
+  },
+
+  collapseAll: () => {
+    const current = get().commandPalette;
+    if (current.expansionPath.length === 0) return;
+
+    set({
+      commandPalette: {
+        ...current,
+        expansionPath: [],
+        selectedIndex: 0,
+        query: "",
+      },
+    });
+  },
+
+  getCurrentExpansionLevel: () => {
+    return get().commandPalette.expansionPath.length as ExpansionLevel;
   },
 
   // ============ Inspector ============

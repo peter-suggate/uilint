@@ -20,6 +20,10 @@ interface TileGridProps {
   onTileClick: (item: TileItem) => void;
   selectedIndex: number;
   isTerminal?: boolean;
+  /** Override the available width for layout (default: 532) */
+  availableWidth?: number;
+  /** Override padding (default: { top: 20, right: 24, bottom: 20, left: 24 }) */
+  padding?: { top: number; right: number; bottom: number; left: number };
 }
 
 /**
@@ -68,6 +72,8 @@ export function TileGrid({
   onTileClick,
   selectedIndex,
   isTerminal = false,
+  availableWidth = GRID_AVAILABLE_WIDTH,
+  padding = GRID_PADDING,
 }: TileGridProps) {
   // Handle empty state early (no hooks needed)
   if (items.length === 0) {
@@ -77,9 +83,9 @@ export function TileGrid({
   // Single memoized computation for layout, sorted items, and index map
   const { layout, sortedItems, itemIndexMap } = React.useMemo(() => {
     const computedLayout = calculateMosaicLayout(items, {
-      availableWidth: GRID_AVAILABLE_WIDTH,
+      availableWidth,
       gap: GRID_GAP,
-      padding: GRID_PADDING,
+      padding,
     });
 
     // Sort items by y position for proper stagger animation
@@ -96,7 +102,7 @@ export function TileGrid({
     sorted.forEach((item, index) => indexMap.set(item.id, index));
 
     return { layout: computedLayout, sortedItems: sorted, itemIndexMap: indexMap };
-  }, [items]);
+  }, [items, availableWidth, padding]);
 
   return (
     <div

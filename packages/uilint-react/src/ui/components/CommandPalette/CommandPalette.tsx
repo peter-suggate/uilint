@@ -23,6 +23,7 @@ import { pluginRegistry } from "../../../core/plugin-system/registry";
 import { useTileItems, useTileNavigation } from "../../hooks";
 import { SearchInput } from "./SearchInput";
 import { TileGrid } from "./TileGrid";
+import { ExpandableTileGrid } from "./ExpandableTileGrid";
 import { GlassPanel } from "../primitives";
 import type { TileItem } from "../../../core/plugin-system/types";
 
@@ -32,10 +33,14 @@ const panelTransition = {
   ease: [0.32, 0.72, 0, 1] as const,
 };
 
+// Feature flag for expandable tile UI (can be made configurable later)
+const USE_EXPANDABLE_TILES = true;
+
 export function CommandPalette() {
   const isOpen = useComposedStore((s) => s.commandPalette.open);
   const query = useComposedStore((s) => s.commandPalette.query);
   const filters = useComposedStore((s) => s.commandPalette.filters);
+  const expansionPath = useComposedStore((s) => s.commandPalette.expansionPath);
   const closeCommandPalette = useComposedStore((s) => s.closeCommandPalette);
   const setQuery = useComposedStore((s) => s.setCommandPaletteQuery);
   const openInspector = useComposedStore((s) => s.openInspector);
@@ -43,9 +48,14 @@ export function CommandPalette() {
   const addFilter = useComposedStore((s) => s.addFilter);
   const removeFilter = useComposedStore((s) => s.removeFilter);
   const removeLastFilter = useComposedStore((s) => s.removeLastFilter);
+  const collapseTile = useComposedStore((s) => s.collapseTile);
+  const collapseAll = useComposedStore((s) => s.collapseAll);
 
   // Mobile detection from store
   const isMobile = useComposedStore((s) => s.mobile.isMobile);
+
+  // Current expansion level
+  const expansionLevel = expansionPath.length;
 
   // Get tile items using the hook
   const { items: tileItems, isLoading, isTerminal } = useTileItems(
@@ -53,10 +63,16 @@ export function CommandPalette() {
     query
   );
 
-  // Handle back navigation (backspace with empty query removes last filter)
+  // Handle back navigation (backspace with empty query removes last filter or collapses)
   const handleBack = useCallback(() => {
-    removeLastFilter();
-  }, [removeLastFilter]);
+    if (USE_EXPANDABLE_TILES && expansionLevel > 0) {
+      // Collapse the most recently expanded tile
+      collapseTile();
+    } else {
+      // Fall back to filter removal for legacy behavior
+      removeLastFilter();
+    }
+  }, [expansionLevel, collapseTile, removeLastFilter]);
 
   // Handle tile click
   // With unified model: clicking tiles adds filters and opens the inspector
@@ -134,13 +150,24 @@ export function CommandPalette() {
     handleBack
   );
 
-  // Keyboard handler for tile navigation
+  // Keyboard handler for tile navigation and expansion
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Escape key: collapse expanded tile or close palette
+      if (e.key === "Escape") {
+        if (USE_EXPANDABLE_TILES && expansionLevel > 0) {
+          // Collapse the current expansion
+          e.preventDefault();
+          collapseTile();
+          return;
+        }
+        // Default behavior: close the command palette (handled by parent)
+      }
+
       // Delegate to tile navigation for Up/Down/Left/Right/Enter/etc.
       tileHandleKeyDown(e);
     },
-    [tileHandleKeyDown]
+    [tileHandleKeyDown, expansionLevel, collapseTile]
   );
 
   const portalRoot = document.getElementById("uilint-portal") || document.body;
@@ -289,7 +316,7 @@ export function CommandPalette() {
                         </div>
                       </motion.div>
                     ) : (
-                      /* Tile Grid */
+                      /* Tile Grid - Expandable or Traditional */
                       <motion.div
                         key="tiles"
                         initial={isMobile ? false : { opacity: 0 }}
@@ -297,12 +324,20 @@ export function CommandPalette() {
                         exit={isMobile ? undefined : { opacity: 0 }}
                         transition={{ duration: isMobile ? 0 : 0.1 }}
                       >
-                        <TileGrid
-                          items={tileItems}
-                          onTileClick={handleTileClick}
-                          selectedIndex={selectedIndex}
-                          isTerminal={isTerminal}
-                        />
+                        {USE_EXPANDABLE_TILES ? (
+                          <ExpandableTileGrid
+                            items={tileItems}
+                            selectedIndex={selectedIndex}
+                            isTerminal={isTerminal}
+                          />
+                        ) : (
+                          <TileGrid
+                            items={tileItems}
+                            onTileClick={handleTileClick}
+                            selectedIndex={selectedIndex}
+                            isTerminal={isTerminal}
+                          />
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
