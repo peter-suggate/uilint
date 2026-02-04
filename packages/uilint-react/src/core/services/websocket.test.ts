@@ -426,7 +426,7 @@ describe("WebSocketServiceImpl", () => {
 
     it("handles not connected state gracefully", () => {
       const service = createService();
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.spyOn(console, "warn").mockImplementation(() => {});
 
       // Not connected
       service.send({ type: "test" });

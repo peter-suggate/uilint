@@ -14,8 +14,6 @@ import {
   getIssuesForLine,
   lineHasIssues,
   getLineSeverity,
-  type CodeRegion,
-  type CollapsedGap,
 } from "./source-regions";
 import type { Issue } from "../../types";
 

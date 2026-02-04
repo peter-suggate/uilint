@@ -5,7 +5,7 @@
  * Uses absolute positioning for true masonry layout.
  */
 
-import type { TileBucket, TileItem } from "../../../../core/plugin-system/types";
+import type { TileBucket } from "../../../../core/plugin-system/types";
 
 /**
  * Layout information for a single tile

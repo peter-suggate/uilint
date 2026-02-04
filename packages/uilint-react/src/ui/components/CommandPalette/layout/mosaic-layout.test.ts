@@ -205,7 +205,6 @@ describe("calculateMosaicLayout - bin packing", () => {
     const result = calculateMosaicLayout(items);
 
     const large = result.tiles.get("large");
-    const small = result.tiles.get("small");
 
     // Large item should be at top (y=0)
     expect(large!.y).toBe(0);

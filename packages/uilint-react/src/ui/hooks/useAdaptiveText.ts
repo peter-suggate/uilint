@@ -4,7 +4,7 @@
  * Provides utilities for ensuring text fits within available space while
  * remaining readable, particularly useful for tile components.
  */
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 // ============================================================================
 // Types

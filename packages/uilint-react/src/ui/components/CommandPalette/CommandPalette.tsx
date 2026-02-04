@@ -19,7 +19,6 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { devError } from "uilint-core";
 import { useComposedStore, getPluginServices } from "../../../core/store";
-import { pluginRegistry } from "../../../core/plugin-system/registry";
 import { useTileItems, useTileNavigation } from "../../hooks";
 import { SearchInput } from "./SearchInput";
 import { TileGrid } from "./TileGrid";

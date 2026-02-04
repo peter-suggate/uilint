@@ -92,7 +92,7 @@ describe("RuleConfig", () => {
 
     it("highlights current severity", () => {
       const onSeverityChange = vi.fn();
-      const { container } = render(
+      render(
         <RuleConfig
           ruleId="test-rule"
           currentSeverity="error"

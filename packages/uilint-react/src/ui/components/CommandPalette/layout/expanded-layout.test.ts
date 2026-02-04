@@ -112,7 +112,7 @@ describe("calculateExpandedLayout", () => {
       });
 
       // Find a tile in a lower row (not the first tile)
-      let expandedId = "item-3";
+      const expandedId = "item-3";
       const expandedOriginal = original.tiles.get(expandedId)!;
 
       const result = calculateExpandedLayout({
@@ -248,13 +248,6 @@ describe("calculateExpandedLayout", () => {
     it("should reflow tiles that were beside expanded tile", () => {
       const items = createItems(3); // 3 tiles likely in same row
       const children = createItems(2).map((c) => ({ ...c, id: `child-${c.id}` }));
-
-      // Get original layout
-      const original = calculateMosaicLayout(items, {
-        availableWidth: GRID_WIDTH,
-        gap: GRID_GAP,
-        padding: GRID_PADDING,
-      });
 
       // Expand the first tile
       const result = calculateExpandedLayout({

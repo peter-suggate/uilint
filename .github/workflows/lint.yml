@@ -1,0 +1,46 @@
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build required packages
+        run: |
+          pnpm --filter uilint-core build
+          pnpm --filter uilint-eslint build
+
+      - name: Run tests with coverage (for require-test-coverage rule)
+        working-directory: packages/uilint-react
+        run: pnpm test:coverage || true
+        # Allow test failures - we still want to run lint
+
+      - name: Lint uilint-react
+        working-directory: packages/uilint-react
+        run: npx eslint src/ --max-warnings 100
+        # --max-warnings allows some warnings while still catching errors
+
+      - name: Lint summary
+        if: failure()
+        run: |
+          echo "## Lint Failed" >> $GITHUB_STEP_SUMMARY
+          echo "ESLint found issues in uilint-react. Please fix the errors before merging." >> $GITHUB_STEP_SUMMARY

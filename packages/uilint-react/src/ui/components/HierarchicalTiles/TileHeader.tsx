@@ -18,7 +18,6 @@ import {
   headerTransition,
   backButtonVariants,
   backButtonTransition,
-  crispEase,
 } from "./animations/expansion-animations";
 
 // ============================================================================
@@ -53,7 +52,6 @@ export function TileHeader({
   icon,
   onBack,
   className,
-  level = 0,
 }: TileHeaderProps) {
   return (
     <motion.div

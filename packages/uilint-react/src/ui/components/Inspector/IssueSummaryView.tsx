@@ -113,7 +113,6 @@ function IssueRow({
 // ============================================================================
 
 export function IssueSummaryView({
-  filePath,
   fileName,
   directory,
   issues,

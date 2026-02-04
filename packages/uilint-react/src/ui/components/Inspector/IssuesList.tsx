@@ -164,6 +164,7 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
   );
 
   // Get full issues for the expanded file from fileGroups
+  // eslint-disable-next-line uilint/prefer-store-selectors -- depends on local expandedFilePath state
   const expandedFileIssues = useMemo(() => {
     if (!expandedFilePath) return [];
     const fileGroup = fileGroups.find((fg) => fg.filePath === expandedFilePath);

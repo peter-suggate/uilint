@@ -7,7 +7,6 @@
 
 import { devLog, devError } from "uilint-core";
 import type { PluginServices } from "../../core/plugin-system/types";
-import type { ESLintPluginSlice } from "./slice";
 import type { AvailableRule, RuleConfig } from "./types";
 import type { Issue } from "../../ui/types";
 import { createIssueId, parseDataLoc } from "../../ui/types";
@@ -17,7 +16,6 @@ import type {
   ManifestRuleMeta,
 } from "../../core/services/manifest-types";
 import {
-  getManifestFetcher,
   configureManifestFetcher,
   type ManifestFetcher,
 } from "../../core/services/manifest-fetcher";

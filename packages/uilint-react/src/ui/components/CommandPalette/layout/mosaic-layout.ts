@@ -65,15 +65,7 @@ export function calculateBuckets(items: LayoutItem[]): Map<string, TileBucket> {
   return buckets;
 }
 
-/**
- * Represents a free rectangular space in the layout grid
- */
-interface FreeSpace {
-  x: number;
-  y: number;
-  width: number;
-  height: number; // Infinity for open-ended bottom
-}
+// FreeSpace interface removed - not currently used but kept for future bin-packing algorithm
 
 /**
  * Calculate optimal column count
@@ -196,7 +188,6 @@ export function calculateMosaicLayout(
   const { availableWidth, gap, minTileWidth } = mergedConfig;
   const { top: paddingTop, left: paddingLeft, bottom: paddingBottom } = padding;
   const columnCount = calculateColumnCount(availableWidth, gap, minTileWidth);
-  const singleColumnWidth = (availableWidth - gap * (columnCount - 1)) / columnCount;
 
   // Calculate buckets for all items
   const buckets = calculateBuckets(items);

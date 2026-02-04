@@ -20,11 +20,9 @@ import {
   selectExpandedFilePath,
   selectHasIssues,
   clearFileGroupsCache,
-  type FileGroup,
-  type FileGroupsSummary,
 } from "./file-groups-selector";
 import type { ComposedState } from "./composed-store";
-import type { Issue, IssueSeverity } from "../../ui/types";
+import type { Issue } from "../../ui/types";
 
 // ============================================================================
 // Test Helpers

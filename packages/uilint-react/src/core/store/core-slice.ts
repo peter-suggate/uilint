@@ -9,7 +9,6 @@ import type { StateCreator } from "zustand";
 import { devWarn } from "uilint-core";
 import type {
   PluginServices,
-  TileFilter,
   TileItem,
   ExpandedTile,
   ExpansionPath,

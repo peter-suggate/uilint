@@ -103,7 +103,6 @@ export function TileGrid<T extends BaseTileItem>({
   onTileClick,
   onOpenInInspector,
   selectedIndex,
-  isTerminal = false,
   availableWidth = GRID_AVAILABLE_WIDTH,
   padding = GRID_PADDING,
 }: TileGridProps<T>) {

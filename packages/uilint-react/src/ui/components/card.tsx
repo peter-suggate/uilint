@@ -161,7 +161,7 @@ Card.displayName = "Card";
  * CardHeader Component
  * -------------------------------------------------------------------------- */
 
-export interface CardHeaderProps extends React.HTMLAttributes<HTMLDivElement> {}
+export type CardHeaderProps = React.HTMLAttributes<HTMLDivElement>;
 
 const CardHeader = React.forwardRef<HTMLDivElement, CardHeaderProps>(
   ({ className, ...props }, ref) => (
@@ -178,8 +178,7 @@ CardHeader.displayName = "CardHeader";
  * CardTitle Component
  * -------------------------------------------------------------------------- */
 
-export interface CardTitleProps
-  extends React.HTMLAttributes<HTMLHeadingElement> {}
+export type CardTitleProps = React.HTMLAttributes<HTMLHeadingElement>;
 
 const CardTitle = React.forwardRef<HTMLHeadingElement, CardTitleProps>(
   ({ className, ...props }, ref) => (
@@ -200,8 +199,7 @@ CardTitle.displayName = "CardTitle";
  * CardDescription Component
  * -------------------------------------------------------------------------- */
 
-export interface CardDescriptionProps
-  extends React.HTMLAttributes<HTMLParagraphElement> {}
+export type CardDescriptionProps = React.HTMLAttributes<HTMLParagraphElement>;
 
 const CardDescription = React.forwardRef<
   HTMLParagraphElement,
@@ -223,8 +221,7 @@ CardDescription.displayName = "CardDescription";
  * CardContent Component
  * -------------------------------------------------------------------------- */
 
-export interface CardContentProps
-  extends React.HTMLAttributes<HTMLDivElement> {}
+export type CardContentProps = React.HTMLAttributes<HTMLDivElement>;
 
 const CardContent = React.forwardRef<HTMLDivElement, CardContentProps>(
   ({ className, ...props }, ref) => (
@@ -237,7 +234,7 @@ CardContent.displayName = "CardContent";
  * CardFooter Component
  * -------------------------------------------------------------------------- */
 
-export interface CardFooterProps extends React.HTMLAttributes<HTMLDivElement> {}
+export type CardFooterProps = React.HTMLAttributes<HTMLDivElement>;
 
 const CardFooter = React.forwardRef<HTMLDivElement, CardFooterProps>(
   ({ className, ...props }, ref) => (
