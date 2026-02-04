@@ -3,8 +3,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
-vi.mock("uilint-core/node", async () => {
-  const actual = await vi.importActual<any>("uilint-core/node");
+vi.mock("uilint-core/node", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("uilint-core/node")>();
 
   class MockVisionAnalyzer {
     analyzeScreenshot = vi.fn(async () => {
@@ -30,6 +30,11 @@ vi.mock("uilint-core/node", async () => {
     ...actual,
     ensureOllamaReady: vi.fn(async () => {}),
     VisionAnalyzer: MockVisionAnalyzer,
+    // Explicitly include functions that vision-run.ts imports
+    findUILintStyleGuideUpwards: actual.findUILintStyleGuideUpwards,
+    findStyleGuidePath: actual.findStyleGuidePath,
+    readStyleGuide: actual.readStyleGuide,
+    UILINT_DEFAULT_VISION_MODEL: actual.UILINT_DEFAULT_VISION_MODEL,
   };
 });
 
