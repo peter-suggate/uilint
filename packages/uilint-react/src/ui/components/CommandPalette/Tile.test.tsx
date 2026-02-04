@@ -61,8 +61,47 @@ describe("Tile - rendering", () => {
     expect(container.textContent).toContain("42");
   });
 
-  // Note: severityCounts is accepted by TileItem but not currently rendered by Tile component
-  // These tests were removed as they tested non-existent functionality
+  it("renders correctly when severityCounts provided", () => {
+    const { container } = render(
+      <Tile
+        item={createTestItem({
+          label: "Rule with counts",
+          count: 6,
+          severityCounts: { error: 3, warning: 2, info: 1 },
+        })}
+        bucket="md"
+        isSelected={false}
+        onClick={vi.fn()}
+      />
+    );
+
+    // Tile should still render label and count properly with severityCounts
+    expect(container.textContent).toContain("Rule with counts");
+    expect(container.textContent).toContain("6");
+  });
+
+  it("does not render severity indicators when severityCounts not provided", () => {
+    const { container } = render(
+      <Tile
+        item={createTestItem({ severityCounts: undefined })}
+        bucket="md"
+        isSelected={false}
+        onClick={vi.fn()}
+      />
+    );
+
+    const allElements = container.querySelectorAll("*");
+    let severityDotsFound = false;
+
+    allElements.forEach((el) => {
+      const classAttr = el.getAttribute("class") || "";
+      if (classAttr.includes("bg-error") || classAttr.includes("bg-warning") || classAttr.includes("bg-info")) {
+        severityDotsFound = true;
+      }
+    });
+
+    expect(severityDotsFound).toBe(false);
+  });
 
   it("renders subtitle when provided for non-compact bucket", () => {
     const { container } = render(
