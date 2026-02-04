@@ -99,20 +99,21 @@ function calculateTileWidth(
 }
 
 /**
- * Determine column span based on bucket size and column count
+ * Determine column span based on bucket size and column count.
+ * Uses purely bucket-based spanning - no special first-item treatment.
  */
-function getColumnSpan(bucket: TileBucket, totalColumns: number, isFirst: boolean): number {
+function getColumnSpan(bucket: TileBucket, totalColumns: number): number {
   if (totalColumns === 1) return 1;
 
-  // For 2 columns
+  // For 2 columns: xl spans 2, others span 1
   if (totalColumns === 2) {
-    if (bucket === "xl" && isFirst) return 2; // Hero spans full width
+    if (bucket === "xl") return 2;
     return 1;
   }
 
-  // For 3 columns
-  if (bucket === "xl" && isFirst) return 3; // Hero spans full width
-  if (bucket === "lg") return 2; // Large items span 2 columns
+  // For 3 columns: xl spans 3, lg spans 2, others span 1
+  if (bucket === "xl") return 3;
+  if (bucket === "lg") return 2;
   return 1;
 }
 
@@ -200,13 +201,12 @@ export function calculateMosaicLayout(
 
   const tiles = new Map<string, TileLayout>();
 
-  sortedItems.forEach((item, index) => {
+  sortedItems.forEach((item) => {
     const bucket = buckets.get(item.id) || "md";
     const height = BUCKET_HEIGHTS[bucket];
-    const isFirst = index === 0;
 
-    // Determine column span
-    const columnSpan = getColumnSpan(bucket, columnCount, isFirst);
+    // Determine column span based purely on bucket size
+    const columnSpan = getColumnSpan(bucket, columnCount);
     const width = calculateTileWidth(columnSpan, columnCount, availableWidth, gap);
 
     // Find best position using bin-packing

@@ -62,3 +62,7 @@ export {
   getGlassStyles,
 } from "./glass-panel";
 export type { GlassPanelProps } from "./glass-panel";
+
+// Popover component
+export { Popover } from "./Popover";
+export type { PopoverProps } from "./Popover";

@@ -105,6 +105,8 @@ export interface InspectorState {
   floatingPosition: { x: number; y: number } | null;
   /** Size when floating */
   floatingSize: { width: number; height: number } | null;
+  /** Computed available width for tile grid layout (derived from width/floatingSize) */
+  layoutAvailableWidth: number;
   /** File paths that are expanded in the issues list */
   expandedFiles: string[];
   /** Expanded rule ID (level 0) */
@@ -355,7 +357,22 @@ const DEFAULT_HEATMAP_FILTER_STATE: HeatmapFilterState = {
 };
 
 const DEFAULT_INSPECTOR_WIDTH = 400;
+const DEFAULT_FLOATING_WIDTH = 450;
+const LAYOUT_PADDING = 32; // Padding subtracted from sidebar width for layout
 const _DEFAULT_WS_URL = "ws://localhost:9234";
+
+/**
+ * Compute the available width for tile grid layout.
+ * Subtracts padding from the raw sidebar width.
+ */
+function computeLayoutAvailableWidth(
+  docked: boolean,
+  width: number,
+  floatingSize: { width: number; height: number } | null
+): number {
+  const rawWidth = docked ? width : (floatingSize?.width ?? DEFAULT_FLOATING_WIDTH);
+  return Math.max(0, rawWidth - LAYOUT_PADDING);
+}
 
 const DEFAULT_MOBILE_STATE: MobileState = {
   isMobile: false,
@@ -376,14 +393,22 @@ const DEFAULT_CONNECTION_STATUS: ConnectionStatus = {
  * Load initial inspector state from localStorage.
  */
 function loadInitialInspectorState(): InspectorState {
+  const docked = getStorageValue(STORAGE_KEYS.inspectorDocked, true);
+  const width = getStorageValue(STORAGE_KEYS.inspectorWidth, DEFAULT_INSPECTOR_WIDTH);
+  const floatingSize = getStorageValue<{ width: number; height: number } | null>(
+    STORAGE_KEYS.inspectorFloatingSize,
+    null
+  );
+
   return {
     open: false,
     panelId: null,
     data: null,
-    docked: getStorageValue(STORAGE_KEYS.inspectorDocked, true),
-    width: getStorageValue(STORAGE_KEYS.inspectorWidth, DEFAULT_INSPECTOR_WIDTH),
+    docked,
+    width,
     floatingPosition: getStorageValue(STORAGE_KEYS.inspectorFloatingPosition, null),
-    floatingSize: getStorageValue(STORAGE_KEYS.inspectorFloatingSize, null),
+    floatingSize,
+    layoutAvailableWidth: computeLayoutAvailableWidth(docked, width, floatingSize),
     expandedFiles: [],
     expandedRuleId: null,
     expandedFilePath: null,
@@ -588,16 +613,27 @@ export const createCoreSlice = (
       inspector: {
         ...current,
         docked: newDocked,
+        layoutAvailableWidth: computeLayoutAvailableWidth(
+          newDocked,
+          current.width,
+          current.floatingSize
+        ),
       },
     });
   },
 
   setInspectorWidth: (width) => {
+    const current = get().inspector;
     setStorageValue(STORAGE_KEYS.inspectorWidth, width);
     set({
       inspector: {
-        ...get().inspector,
+        ...current,
         width,
+        layoutAvailableWidth: computeLayoutAvailableWidth(
+          current.docked,
+          width,
+          current.floatingSize
+        ),
       },
     });
   },
@@ -613,11 +649,17 @@ export const createCoreSlice = (
   },
 
   setInspectorFloatingSize: (size) => {
+    const current = get().inspector;
     setStorageValue(STORAGE_KEYS.inspectorFloatingSize, size);
     set({
       inspector: {
-        ...get().inspector,
+        ...current,
         floatingSize: size,
+        layoutAvailableWidth: computeLayoutAvailableWidth(
+          current.docked,
+          current.width,
+          size
+        ),
       },
     });
   },

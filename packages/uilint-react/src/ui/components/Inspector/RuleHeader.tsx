@@ -4,15 +4,19 @@
  * Shown when a rule filter is active. Displays:
  * - Rule name, category, and inline actions
  * - Description revealed on hover/focus for reduced visual weight
+ * - Configure button opens a popover with rule settings
  *
  * Glassmorphic styling with minimal color
  */
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../../../lib/utils";
-import { CloseIcon, ExternalLinkIcon, ChevronIcon } from "../../icons";
-import { IconButton } from "../primitives";
+import { CloseIcon, ExternalLinkIcon, SettingsIcon } from "../../icons";
+import { IconButton, Popover } from "../primitives";
+import { RuleConfig } from "./RuleConfig";
 import type { TileFilter } from "../../../core/plugin-system/types";
+import type { RuleOptionSchema } from "../../../plugins/eslint/types";
+import type { RuleSeverity } from "./RuleConfig";
 
 // ============================================================================
 // Types
@@ -27,16 +31,30 @@ export interface RuleHeaderProps {
   category?: string;
   /** URL to rule documentation */
   docsUrl?: string;
-  /** Whether the config section is expanded */
-  configExpanded: boolean;
-  /** Called to toggle config expansion */
-  onToggleConfig: () => void;
   /** Called to clear the rule filter */
   onClear: () => void;
   /** Whether to show the close button (default: true, set to false when inside expanded tile) */
   showCloseButton?: boolean;
   /** Additional class name */
   className?: string;
+
+  // Rule config props (for popover)
+  /** Current severity setting for the rule */
+  currentSeverity?: RuleSeverity;
+  /** Called when severity is changed */
+  onSeverityChange?: (severity: RuleSeverity) => void;
+  /** Option schema for dynamic form fields */
+  optionSchema?: RuleOptionSchema;
+  /** Current option values */
+  currentOptions?: Record<string, unknown>;
+  /** Default option values for reset */
+  defaultOptions?: Record<string, unknown>;
+  /** Called when an option value changes */
+  onOptionChange?: (key: string, value: unknown) => void;
+  /** Called to reset options to defaults */
+  onResetOptions?: () => void;
+  /** Whether an update is in progress */
+  isUpdating?: boolean;
 }
 
 // ============================================================================
@@ -48,18 +66,43 @@ export function RuleHeader({
   description,
   category,
   docsUrl,
-  configExpanded,
-  onToggleConfig,
   onClear,
   showCloseButton = true,
   className,
+  // Rule config props
+  currentSeverity = "warn",
+  onSeverityChange,
+  optionSchema,
+  currentOptions,
+  defaultOptions,
+  onOptionChange,
+  onResetOptions,
+  isUpdating,
 }: RuleHeaderProps) {
   const [showDescription, setShowDescription] = useState(false);
+  const [configPopoverOpen, setConfigPopoverOpen] = useState(false);
 
   // Get namespace if present
   const namespace = ruleFilter.id.includes("/")
     ? ruleFilter.id.split("/")[0]
     : null;
+
+  const handleSeverityChange = useCallback(
+    (severity: RuleSeverity) => {
+      onSeverityChange?.(severity);
+    },
+    [onSeverityChange]
+  );
+
+  const handleOptionChange = useCallback(
+    (key: string, value: unknown) => {
+      onOptionChange?.(key, value);
+    },
+    [onOptionChange]
+  );
+
+  // Check if config is available
+  const hasConfig = onSeverityChange !== undefined;
 
   return (
     <motion.div
@@ -106,28 +149,47 @@ export function RuleHeader({
               </button>
             )}
 
-            {/* Config toggle */}
-            <button
-              type="button"
-              onClick={onToggleConfig}
-              className={cn(
-                "inline-flex items-center gap-1",
-                "px-2 py-1 rounded",
-                "text-[11px] text-muted-foreground/60 hover:text-foreground/80",
-                "hover:bg-foreground/[0.04]",
-                "transition-colors duration-100",
-                configExpanded && "bg-foreground/[0.04] text-foreground/80"
-              )}
-            >
-              <motion.span
-                animate={{ rotate: configExpanded ? 90 : 0 }}
-                transition={{ duration: 0.1 }}
-                className="flex items-center"
+            {/* Config popover */}
+            {hasConfig && (
+              <Popover
+                open={configPopoverOpen}
+                onClose={() => setConfigPopoverOpen(false)}
+                placement="bottom"
+                align="end"
+                width={320}
+                trigger={
+                  <button
+                    type="button"
+                    onClick={() => setConfigPopoverOpen(!configPopoverOpen)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5",
+                      "px-2 py-1 rounded",
+                      "text-[11px] text-muted-foreground/60 hover:text-foreground/80",
+                      "hover:bg-foreground/[0.04]",
+                      "transition-colors duration-100",
+                      configPopoverOpen && "bg-foreground/[0.04] text-foreground/80"
+                    )}
+                  >
+                    <SettingsIcon size={12} />
+                    Configure
+                  </button>
+                }
               >
-                <ChevronIcon size={10} />
-              </motion.span>
-              Configure
-            </button>
+                <div className="p-1">
+                  <RuleConfig
+                    ruleId={ruleFilter.id}
+                    currentSeverity={currentSeverity}
+                    onSeverityChange={handleSeverityChange}
+                    optionSchema={optionSchema}
+                    currentOptions={currentOptions}
+                    defaultOptions={defaultOptions}
+                    onOptionChange={handleOptionChange}
+                    onResetOptions={onResetOptions}
+                    isUpdating={isUpdating}
+                  />
+                </div>
+              </Popover>
+            )}
 
             {/* Docs link */}
             {docsUrl && (

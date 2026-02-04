@@ -124,10 +124,9 @@ export function InspectorSidebar() {
       );
     } else {
       // Default: Unified issues list (new primary view)
+      // IssuesList reads layoutAvailableWidth directly from store
       title = "Issues";
-      // Pass the appropriate width based on docked vs floating mode
-      const issuesListWidth = docked ? width : (floatingSize?.width ?? DEFAULT_FLOATING_WIDTH);
-      content = <IssuesList availableWidth={issuesListWidth} />;
+      content = <IssuesList />;
     }
 
     return { content, title };

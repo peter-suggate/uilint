@@ -10,7 +10,7 @@
  * Tiles expand IN PLACE using the mosaic layout algorithm, keeping siblings visible.
  */
 import React, { useCallback, useMemo, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { useComposedStore } from "../../../core/store";
 import {
   selectFileGroups,
@@ -20,7 +20,6 @@ import { pluginRegistry } from "../../../core/plugin-system/registry";
 import type { ESLintPluginSlice } from "../../../plugins/eslint/slice";
 import { IssuesSummary } from "./IssuesSummary";
 import { RuleHeader } from "./RuleHeader";
-import { RuleConfig } from "./RuleConfig";
 import { FileSourceView } from "./FileSourceView";
 import { IssueSummaryView } from "./IssueSummaryView";
 import {
@@ -79,8 +78,6 @@ function fileNodeToTileItem(node: FileForRuleNode): BaseTileItem & { data: FileF
 export interface IssuesListProps {
   /** Additional class name */
   className?: string;
-  /** Available width for the tile grid (default: 350) */
-  availableWidth?: number;
 }
 
 // ============================================================================
@@ -107,24 +104,20 @@ function EmptyState() {
 
 /** Approximate height of compact RuleHeader component */
 const RULE_HEADER_HEIGHT = 40;
-/** Approximate height of RuleConfig component when expanded */
-const RULE_CONFIG_HEIGHT = 180;
 
 // ============================================================================
 // Component
 // ============================================================================
 
-const DEFAULT_AVAILABLE_WIDTH = 350;
-
-export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH }: IssuesListProps) {
+export function IssuesList({ className }: IssuesListProps) {
   // Store selectors
   const fileGroups = useComposedStore(selectFileGroups);
   const summary = useComposedStore(selectFileGroupsSummary);
   const expandedRuleId = useComposedStore((s) => s.inspector.expandedRuleId);
   const expandedFilePath = useComposedStore((s) => s.inspector.expandedFilePath);
   const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
-  const ruleConfigExpanded = useComposedStore((s) => s.inspector.ruleConfigExpanded);
   const showFullSource = useComposedStore((s) => s.inspector.showFullSource);
+  const availableWidth = useComposedStore((s) => s.inspector.layoutAvailableWidth);
 
   // Store actions
   const expandRule = useComposedStore((s) => s.expandRule);
@@ -132,7 +125,6 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
   const expandFileInRule = useComposedStore((s) => s.expandFileInRule);
   const collapseFileInRule = useComposedStore((s) => s.collapseFileInRule);
   const selectIssue = useComposedStore((s) => s.selectIssue);
-  const toggleRuleConfig = useComposedStore((s) => s.toggleRuleConfig);
   const showFullSourceView = useComposedStore((s) => s.showFullSourceView);
   const showIssueSummaryView = useComposedStore((s) => s.showIssueSummaryView);
 
@@ -275,17 +267,11 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
       : (ruleMetadata.defaultOptions as Record<string, unknown>) ?? {};
   }, [ruleMetadata?.defaultOptions]);
 
-  // Calculate extra height for expanded tile (RuleHeader + RuleConfig)
-  const extraExpandedHeight = useMemo(() => {
-    let height = RULE_HEADER_HEIGHT;
-    if (ruleConfigExpanded) {
-      height += RULE_CONFIG_HEIGHT;
-    }
-    return height;
-  }, [ruleConfigExpanded]);
+  // Extra height for expanded tile (just RuleHeader, config is now in popover)
+  const extraExpandedHeight = RULE_HEADER_HEIGHT;
 
   // Custom render function for expanded rule tile content
-  // Renders RuleHeader, RuleConfig, and file tiles INSIDE the expanded tile
+  // Renders RuleHeader (with config popover) and file tiles INSIDE the expanded tile
   const renderExpandedRuleContent = useCallback(
     (
       item: BaseTileItem,
@@ -320,34 +306,24 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
 
           {/* Content area */}
           <div className="flex-1">
-            {/* Rule description & config toggle */}
+            {/* Rule description & config popover */}
             <RuleHeader
               ruleFilter={{ type: "rule", id: item.id, label: item.label }}
               description={ruleMetadata?.description ?? getRuleDescription(item.id)}
               category={ruleMetadata?.category ?? getRuleCategory(item.id)}
               docsUrl={ruleMetadata?.docs ?? getRuleDocsUrl(item.id)}
-              configExpanded={ruleConfigExpanded}
-              onToggleConfig={toggleRuleConfig}
               onClear={collapseRule}
-              showCloseButton={false} // TileHeader already has back button
+              showCloseButton={false}
+              // Config props for popover
+              currentSeverity={currentRuleSeverity}
+              onSeverityChange={handleSeverityChange}
+              optionSchema={ruleMetadata?.optionSchema}
+              currentOptions={ruleConfig?.options}
+              defaultOptions={defaultOptions}
+              onOptionChange={handleOptionChange}
+              onResetOptions={handleResetOptions}
+              isUpdating={isRuleUpdating}
             />
-
-            {/* Rule config options (collapsible) */}
-            <AnimatePresence>
-              {ruleConfigExpanded && (
-                <RuleConfig
-                  ruleId={item.id}
-                  currentSeverity={currentRuleSeverity}
-                  onSeverityChange={handleSeverityChange}
-                  optionSchema={ruleMetadata?.optionSchema}
-                  currentOptions={ruleConfig?.options}
-                  defaultOptions={defaultOptions}
-                  onOptionChange={handleOptionChange}
-                  onResetOptions={handleResetOptions}
-                  isUpdating={isRuleUpdating}
-                />
-              )}
-            </AnimatePresence>
 
             {/* File tiles grid */}
             <div className="p-3">
@@ -371,8 +347,6 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
     [
       collapseRule,
       ruleMetadata,
-      ruleConfigExpanded,
-      toggleRuleConfig,
       currentRuleSeverity,
       handleSeverityChange,
       ruleConfig?.options,
@@ -415,7 +389,7 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
               }
             }}
             onBack={collapseRule}
-            availableWidth={availableWidth - 32} // Account for padding
+            availableWidth={availableWidth}
             extraExpandedHeight={extraExpandedHeight}
             padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
             renderExpandedContent={renderExpandedRuleContent}

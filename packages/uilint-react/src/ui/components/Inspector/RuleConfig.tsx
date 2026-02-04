@@ -1,5 +1,5 @@
 /**
- * RuleConfig - Expandable configuration section for a rule
+ * RuleConfig - Configuration panel for a rule (shown in popover)
  *
  * Displays:
  * - Severity selector (off/warn/error)
@@ -9,7 +9,6 @@
  * Glassmorphic styling with minimal color.
  */
 import React from "react";
-import { motion } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { RuleOptionsForm } from "./RuleOptionsForm";
 import type { RuleOptionSchema } from "../../../plugins/eslint/types";
@@ -96,64 +95,51 @@ export function RuleConfig({
   className,
 }: RuleConfigProps) {
   return (
-    <motion.div
-      initial={{ height: 0, opacity: 0 }}
-      animate={{ height: "auto", opacity: 1 }}
-      exit={{ height: 0, opacity: 0 }}
-      transition={{ duration: 0.2 }}
-      className={cn(
-        "overflow-hidden",
-        "bg-foreground/[0.01]",
-        "border-b border-foreground/[0.06]",
-        className
-      )}
-    >
-      <div className="px-4 py-4">
-        {/* Severity selector */}
-        <div className="mb-4">
-          <label className="block text-xs text-muted-foreground/70 uppercase tracking-wider mb-2">
-            Severity
-          </label>
-          <div className="flex items-center gap-1 p-1 bg-foreground/[0.02] rounded-lg border border-foreground/[0.04]">
-            <SeverityButton
-              severity="off"
-              isSelected={currentSeverity === "off"}
-              onClick={() => onSeverityChange("off")}
-              label="Off"
-            />
-            <SeverityButton
-              severity="warn"
-              isSelected={currentSeverity === "warn"}
-              onClick={() => onSeverityChange("warn")}
-              label="Warn"
-            />
-            <SeverityButton
-              severity="error"
-              isSelected={currentSeverity === "error"}
-              onClick={() => onSeverityChange("error")}
-              label="Error"
-            />
-          </div>
-        </div>
-
-        {/* Rule options form */}
-        {optionSchema && optionSchema.fields && optionSchema.fields.length > 0 ? (
-          <RuleOptionsForm
-            ruleId={ruleId}
-            optionSchema={optionSchema}
-            currentOptions={currentOptions ?? {}}
-            defaultOptions={defaultOptions ?? {}}
-            onOptionChange={onOptionChange ?? (() => {})}
-            onReset={onResetOptions}
-            isUpdating={isUpdating}
+    <div className={cn("px-3 py-3", className)}>
+      {/* Severity selector */}
+      <div className="mb-4">
+        <label className="block text-xs text-muted-foreground/70 uppercase tracking-wider mb-2">
+          Severity
+        </label>
+        <div className="flex items-center gap-1 p-1 bg-foreground/[0.02] rounded-lg border border-foreground/[0.04]">
+          <SeverityButton
+            severity="off"
+            isSelected={currentSeverity === "off"}
+            onClick={() => onSeverityChange("off")}
+            label="Off"
           />
-        ) : (
-          <div className="text-xs text-muted-foreground/50 italic">
-            No additional options for this rule
-          </div>
-        )}
+          <SeverityButton
+            severity="warn"
+            isSelected={currentSeverity === "warn"}
+            onClick={() => onSeverityChange("warn")}
+            label="Warn"
+          />
+          <SeverityButton
+            severity="error"
+            isSelected={currentSeverity === "error"}
+            onClick={() => onSeverityChange("error")}
+            label="Error"
+          />
+        </div>
       </div>
-    </motion.div>
+
+      {/* Rule options form */}
+      {optionSchema && optionSchema.fields && optionSchema.fields.length > 0 ? (
+        <RuleOptionsForm
+          ruleId={ruleId}
+          optionSchema={optionSchema}
+          currentOptions={currentOptions ?? {}}
+          defaultOptions={defaultOptions ?? {}}
+          onOptionChange={onOptionChange ?? (() => {})}
+          onReset={onResetOptions}
+          isUpdating={isUpdating}
+        />
+      ) : (
+        <div className="text-xs text-muted-foreground/50 italic">
+          No additional options for this rule
+        </div>
+      )}
+    </div>
   );
 }
 
