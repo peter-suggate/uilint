@@ -176,14 +176,12 @@ export function TileGrid<T extends BaseTileItem>({
                 subtitle={item.subtitle}
                 icon={item.icon}
                 count={item.count}
-                severityCounts={item.severityCounts}
                 bucket={tileLayout.bucket}
                 tileWidth={tileLayout.height ? parseFloat(tileLayout.width) : 166}
                 isSelected={globalIndex === selectedIndex}
                 onClick={() => onTileClick(item)}
                 onOpenInInspector={onOpenInInspector ? () => onOpenInInspector(item) : undefined}
                 previewMessages={item.previewMessages}
-                fileCount={item.fileCount}
               />
             </motion.div>
           );

@@ -51,9 +51,9 @@ function ruleNodeToTileItem(node: RuleNode): BaseTileItem & { data: RuleNode["da
     id: node.id,
     label: node.label,
     subtitle: node.subtitle,
-    icon: node.icon,
     count: node.count ?? 0,
-    severityCounts: node.severityCounts,
+    previewMessages: node.previewMessages,
+    fileCount: node.fileCount,
     data: node.data,
   };
 }
@@ -392,7 +392,6 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
           totalIssues={summary.totalIssues}
           totalFiles={summary.totalFiles}
           totalRules={expandedRule ? undefined : summary.totalRules}
-          severityCounts={summary.severityCounts}
         />
       )}
 

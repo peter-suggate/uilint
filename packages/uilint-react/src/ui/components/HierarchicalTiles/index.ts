@@ -57,7 +57,6 @@ export { Tile } from "./Tile";
 export type {
   TileProps as TileComponentProps,
   TileBucket as TileComponentBucket,
-  SeverityCounts as TileComponentSeverityCounts,
 } from "./Tile";
 
 // TileGrid - Bin-packing mosaic grid

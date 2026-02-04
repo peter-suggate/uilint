@@ -9,8 +9,7 @@
  *
  * Responsive features:
  * - Dynamic font scaling for small tiles to ensure readability
- * - Extra context display for large tiles
- * - Compact severity indicators for xs tiles
+ * - Preview messages for large tiles
  */
 import React, { useMemo } from "react";
 import { motion } from "motion/react";
@@ -98,107 +97,6 @@ const crispEase = [0.32, 0.72, 0, 1] as const;
 // ============================================================================
 
 /**
- * Severity indicator dot
- */
-function SeverityDot({
-  type,
-  count,
-  showCount,
-  size = "normal",
-}: {
-  type: "error" | "warning" | "info";
-  count: number;
-  showCount: boolean;
-  size?: "compact" | "normal";
-}) {
-  if (count === 0) return null;
-
-  const colorClasses = {
-    error: "bg-error/70",
-    warning: "bg-warning/70",
-    info: "bg-info/70",
-  };
-
-  const dotSize = size === "compact" ? "w-1 h-1" : "w-1.5 h-1.5";
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className={cn(dotSize, "rounded-full", colorClasses[type])} />
-      {showCount && (
-        <span className="text-[11px] font-normal text-muted-foreground/70">
-          {count}
-        </span>
-      )}
-    </div>
-  );
-}
-
-/**
- * Compact severity indicator - single dot showing highest severity
- */
-function CompactSeverityIndicator({
-  severityCounts,
-}: {
-  severityCounts: TileItem["severityCounts"];
-}) {
-  if (!severityCounts) return null;
-
-  const { error, warning, info } = severityCounts;
-  const hasAny = error > 0 || warning > 0 || info > 0;
-
-  if (!hasAny) return null;
-
-  // Show highest severity only
-  const highestSeverity = error > 0 ? "error" : warning > 0 ? "warning" : "info";
-  const colorClasses = {
-    error: "bg-error/80",
-    warning: "bg-warning/80",
-    info: "bg-info/80",
-  };
-
-  return (
-    <div className="flex items-center gap-1">
-      <div className={cn("w-1.5 h-1.5 rounded-full", colorClasses[highestSeverity])} />
-    </div>
-  );
-}
-
-/**
- * Severity indicators section
- */
-function SeverityIndicators({
-  severityCounts,
-  showCounts,
-  compact = false,
-}: {
-  severityCounts: TileItem["severityCounts"];
-  showCounts: boolean;
-  compact?: boolean;
-}) {
-  if (!severityCounts) return null;
-
-  const hasAny =
-    severityCounts.error > 0 ||
-    severityCounts.warning > 0 ||
-    severityCounts.info > 0;
-
-  if (!hasAny) return null;
-
-  // For compact (xs) tiles, show single highest severity dot
-  if (compact) {
-    return <CompactSeverityIndicator severityCounts={severityCounts} />;
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <SeverityDot type="error" count={severityCounts.error} showCount={showCounts} />
-      <SeverityDot type="warning" count={severityCounts.warning} showCount={showCounts} />
-      <SeverityDot type="info" count={severityCounts.info} showCount={showCounts} />
-    </div>
-  );
-}
-
-/**
  * Hover highlight overlay - subtle top-left shine
  */
 function HoverOverlay({ isHovered }: { isHovered: boolean }) {
@@ -213,7 +111,7 @@ function HoverOverlay({ isHovered }: { isHovered: boolean }) {
 }
 
 /**
- * Preview content for large tiles - shows issue messages or file info
+ * Preview content for large tiles - shows issue preview messages
  */
 function LargeTilePreview({
   item,
@@ -227,12 +125,11 @@ function LargeTilePreview({
 
   // Use direct fields, fall back to metadata for backwards compatibility
   const previewMessages = item.previewMessages ?? (item.metadata?.previewMessages as string[] | undefined);
-  const fileCount = item.fileCount ?? (item.metadata?.fileCount as number | undefined);
 
   const maxMessages = bucket === "xl" ? 2 : 1;
   const messagesToShow = previewMessages?.slice(0, maxMessages) || [];
 
-  if (messagesToShow.length === 0 && !fileCount) return null;
+  if (messagesToShow.length === 0) return null;
 
   return (
     <div className="mt-2 space-y-1">
@@ -245,13 +142,6 @@ function LargeTilePreview({
           {msg}
         </div>
       ))}
-
-      {/* File count badge */}
-      {fileCount !== undefined && fileCount > 0 && (
-        <div className="text-[10px] text-muted-foreground/40 font-medium tracking-wide">
-          {fileCount} {fileCount === 1 ? "file" : "files"}
-        </div>
-      )}
     </div>
   );
 }
@@ -310,7 +200,6 @@ export function Tile({ item, bucket, tileWidth = 166, isSelected, onClick, onOpe
 
   // Determine tile characteristics
   const isCompact = bucket === "xs" || bucket === "sm";
-  const isXs = bucket === "xs";
   const isLarge = bucket === "lg" || bucket === "xl";
 
   const handleOpenInInspector = (e: React.MouseEvent) => {
@@ -320,10 +209,10 @@ export function Tile({ item, bucket, tileWidth = 166, isSelected, onClick, onOpe
 
   // Icon size based on bucket
   const iconSize = useMemo(() => {
-    if (isXs) return 10;
+    if (bucket === "xs") return 10;
     if (bucket === "sm") return 12;
     return 14;
-  }, [bucket, isXs]);
+  }, [bucket]);
 
   return (
     <motion.div
@@ -381,19 +270,12 @@ export function Tile({ item, bucket, tileWidth = 166, isSelected, onClick, onOpe
         )}
       </div>
 
-      {/* Bottom section: Count and severity */}
+      {/* Bottom section: Count */}
       <div className="flex items-end justify-between gap-2">
         {/* Large count number */}
         <span className={cn(countVariants({ size: bucket }))}>
           {item.count}
         </span>
-
-        {/* Severity indicators - compact for xs, minimal for sm, full for others */}
-        <SeverityIndicators
-          severityCounts={item.severityCounts}
-          showCounts={!isCompact}
-          compact={isXs}
-        />
       </div>
 
       {/* Hover highlight overlay */}

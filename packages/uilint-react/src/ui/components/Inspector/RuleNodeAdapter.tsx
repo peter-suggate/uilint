@@ -6,8 +6,6 @@
  * Level 1: Files (for each rule, which files have issues)
  */
 
-import React from "react";
-import { AlertCircle, AlertTriangle, Info } from "lucide-react";
 import type { HierarchyNode, SeverityCounts } from "../HierarchicalTiles";
 import type { FileGroup } from "../../../core/store/file-groups-selector";
 
@@ -62,17 +60,12 @@ export type FileForRuleNode = HierarchyNode<FileForRule>;
 // ============================================================================
 
 /**
- * Get severity icon based on severity type.
+ * Format count text: "X issues in Y files" or "X issue in Y file"
  */
-function getSeverityIcon(severity: "error" | "warning" | "info"): React.ReactNode {
-  switch (severity) {
-    case "error":
-      return <AlertCircle size={14} className="text-error" />;
-    case "warning":
-      return <AlertTriangle size={14} className="text-warning" />;
-    case "info":
-      return <Info size={14} className="text-info" />;
-  }
+function formatCountText(issueCount: number, fileCount: number): string {
+  const issuePlural = issueCount === 1 ? "issue" : "issues";
+  const filePlural = fileCount === 1 ? "file" : "files";
+  return `${issueCount} ${issuePlural} in ${fileCount} ${filePlural}`;
 }
 
 /**
@@ -176,22 +169,28 @@ export function fileGroupsToRuleNodes(fileGroups: FileGroup[]): RuleNode[] {
       // Then by count
       return b.totalCount - a.totalCount;
     })
-    .map((rule) => ({
-      id: rule.ruleId,
-      label: rule.ruleName,
-      subtitle: `${rule.files.size} file${rule.files.size === 1 ? "" : "s"}`,
-      icon: getSeverityIcon(rule.highestSeverity),
-      count: rule.totalCount,
-      severityCounts: rule.severityCounts,
-      data: {
-        ruleId: rule.ruleId,
-        ruleName: rule.ruleName,
-        highestSeverity: rule.highestSeverity,
-        files: Array.from(rule.files.values()),
-      },
-      hasChildren: true,
-      isLeaf: false,
-    }));
+    .map((rule) => {
+      // Gather top preview messages from issues across all files
+      const allIssues = Array.from(rule.files.values()).flatMap((f) => f.issues);
+      const previewMessages = allIssues.slice(0, 3).map((i) => i.message);
+
+      return {
+        id: rule.ruleId,
+        label: rule.ruleName,
+        subtitle: formatCountText(rule.totalCount, rule.files.size),
+        count: rule.totalCount,
+        previewMessages,
+        fileCount: rule.files.size,
+        data: {
+          ruleId: rule.ruleId,
+          ruleName: rule.ruleName,
+          highestSeverity: rule.highestSeverity,
+          files: Array.from(rule.files.values()),
+        },
+        hasChildren: true,
+        isLeaf: false,
+      };
+    });
 
   return ruleNodes;
 }

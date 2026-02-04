@@ -281,10 +281,10 @@ export function ExpandableTileGrid<T extends BaseTileItem>({
                 subtitle={item.subtitle}
                 icon={item.icon}
                 count={item.count}
-                severityCounts={item.severityCounts}
                 bucket={originalLayoutItem.bucket}
                 isSelected={isSelected}
                 onClick={() => onTileClick(item)}
+                previewMessages={item.previewMessages}
               />
             </motion.div>
           );

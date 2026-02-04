@@ -106,6 +106,17 @@ export interface HierarchyNode<T> {
   severityCounts?: SeverityCounts;
 
   /**
+   * Optional preview messages for large tiles.
+   * Typically the first few issue messages for preview.
+   */
+  previewMessages?: string[];
+
+  /**
+   * Optional file count for displaying in large tiles.
+   */
+  fileCount?: number;
+
+  /**
    * Arbitrary data payload associated with this node.
    * Contains domain-specific information for the use case.
    */
