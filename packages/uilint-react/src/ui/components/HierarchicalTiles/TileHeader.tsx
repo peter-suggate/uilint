@@ -63,13 +63,13 @@ export function TileHeader({
       exit="exit"
       transition={headerTransition}
       className={cn(
-        "flex items-center justify-between gap-3 px-4 py-3",
-        "border-b border-foreground/[0.06]",
+        "flex items-center justify-between gap-2 px-3 py-2",
+        "border-b border-foreground/[0.04]",
         className
       )}
     >
       {/* Left side: Back button + icon + label */}
-      <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div className="flex items-center gap-1.5 min-w-0 flex-1">
         {/* Back button */}
         <motion.button
           onClick={onBack}
@@ -80,61 +80,61 @@ export function TileHeader({
           transition={backButtonTransition}
           className={cn(
             "flex items-center justify-center",
-            "w-7 h-7 rounded-lg",
-            "text-muted-foreground hover:text-foreground",
+            "w-6 h-6 rounded-md",
+            "text-muted-foreground/70 hover:text-foreground",
             "hover:bg-foreground/[0.05]",
-            "transition-colors duration-150",
+            "transition-colors duration-100",
             "flex-shrink-0"
           )}
           aria-label="Go back"
         >
-          <ChevronLeft size={18} strokeWidth={2} />
+          <ChevronLeft size={16} strokeWidth={2} />
         </motion.button>
 
         {/* Optional icon */}
         {icon && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.2, ease: crispEase, delay: 0.05 }}
-            className="flex-shrink-0 text-muted-foreground"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.1 }}
+            className="flex-shrink-0 text-muted-foreground/70"
           >
             {icon}
           </motion.div>
         )}
 
-        {/* Label and subtitle */}
-        <div className="min-w-0 flex-1">
+        {/* Label and subtitle - inline */}
+        <div className="min-w-0 flex-1 flex items-baseline gap-2">
           <motion.h3
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.2, ease: crispEase, delay: 0.05 }}
-            className="text-base font-medium text-foreground truncate"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.1 }}
+            className="text-sm font-medium text-foreground truncate"
           >
             {label}
           </motion.h3>
           {subtitle && (
-            <motion.p
+            <motion.span
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.2, ease: crispEase, delay: 0.1 }}
-              className="text-xs text-muted-foreground/70 truncate mt-0.5"
+              transition={{ duration: 0.1, delay: 0.05 }}
+              className="text-[11px] text-muted-foreground/50 truncate hidden sm:inline"
             >
               {subtitle}
-            </motion.p>
+            </motion.span>
           )}
         </div>
       </div>
 
-      {/* Right side: Count */}
+      {/* Right side: Count - smaller */}
       {count !== undefined && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.2, ease: crispEase, delay: 0.1 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.1 }}
           className="flex-shrink-0"
         >
-          <span className="text-2xl font-extralight text-foreground/60 tabular-nums">
+          <span className="text-lg font-light text-foreground/50 tabular-nums">
             {count}
           </span>
         </motion.div>
