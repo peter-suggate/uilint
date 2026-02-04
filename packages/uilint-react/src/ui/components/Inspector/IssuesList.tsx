@@ -22,6 +22,7 @@ import { IssuesSummary } from "./IssuesSummary";
 import { RuleHeader } from "./RuleHeader";
 import { FileSourceView } from "./FileSourceView";
 import { IssueSummaryView } from "./IssueSummaryView";
+import { Breadcrumbs } from "./Breadcrumbs";
 import {
   ExpandableTileGrid,
   TileHeader,
@@ -155,13 +156,20 @@ export function IssuesList({ className }: IssuesListProps) {
     [fileNodes]
   );
 
-  // Get full issues for the expanded file from fileGroups
-  // eslint-disable-next-line uilint/prefer-store-selectors -- depends on local expandedFilePath state
+  // Get issues for the expanded file, FILTERED by the expanded rule
+  // Uses expandedFile.data.issues which contains only issues for this rule
+  // eslint-disable-next-line uilint/prefer-store-selectors -- depends on local derived state
   const expandedFileIssues = useMemo(() => {
-    if (!expandedFilePath) return [];
-    const fileGroup = fileGroups.find((fg) => fg.filePath === expandedFilePath);
-    return fileGroup?.issues ?? [];
-  }, [expandedFilePath, fileGroups]);
+    if (!expandedFilePath || !expandedFile || !expandedRule) return [];
+    // Enrich the simplified issue data with full Issue fields
+    return expandedFile.data.issues.map((issue) => ({
+      ...issue,
+      ruleId: expandedRule.id,
+      pluginId: "eslint",
+      filePath: expandedFilePath,
+      dataLoc: `${expandedFilePath}:${issue.line}:${issue.column ?? 0}`,
+    }));
+  }, [expandedFilePath, expandedFile, expandedRule]);
 
   // No auto-expand - user must click to expand a rule
 
@@ -369,6 +377,14 @@ export function IssuesList({ className }: IssuesListProps) {
           totalRules={expandedRule ? undefined : summary.totalRules}
         />
       )}
+
+      {/* Breadcrumb navigation - shows when rule or file is expanded */}
+      <Breadcrumbs
+        expandedRuleName={expandedRule?.label ?? null}
+        expandedFileName={expandedFile?.label ?? null}
+        onCollapseToRoot={collapseRule}
+        onCollapseFile={collapseFileInRule}
+      />
 
       {/* Main content - mosaic tile grid with in-place expansion */}
       <div className="flex-1 p-4">
