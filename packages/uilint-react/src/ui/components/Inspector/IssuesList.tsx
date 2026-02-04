@@ -123,7 +123,6 @@ export function IssuesList({ className }: IssuesListProps) {
   const collapseFileInRule = useComposedStore((s) => s.collapseFileInRule);
   const selectIssue = useComposedStore((s) => s.selectIssue);
   const showFullSourceView = useComposedStore((s) => s.showFullSourceView);
-  const showIssueSummaryView = useComposedStore((s) => s.showIssueSummaryView);
 
   // Transform fileGroups to rule nodes
   const ruleNodes = useMemo(() => fileGroupsToRuleNodes(fileGroups), [fileGroups]);
@@ -154,7 +153,7 @@ export function IssuesList({ className }: IssuesListProps) {
 
   // Get issues for the expanded file, FILTERED by the expanded rule
   // Uses expandedFile.data.issues which contains only issues for this rule
-  // eslint-disable-next-line uilint/prefer-store-selectors -- depends on local derived state
+   
   const expandedFileIssues = useMemo(() => {
     if (!expandedFilePath || !expandedFile || !expandedRule) return [];
     // Enrich the simplified issue data with full Issue fields
