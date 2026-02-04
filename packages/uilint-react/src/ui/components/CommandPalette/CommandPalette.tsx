@@ -23,8 +23,10 @@ import { useTileItems, useTileNavigation } from "../../hooks";
 import { SearchInput } from "./SearchInput";
 import { TileGrid } from "./TileGrid";
 import { ExpandableTileGrid } from "./ExpandableTileGrid";
+import { OnboardingState } from "./OnboardingState";
 import { GlassPanel } from "../primitives";
 import type { TileItem } from "../../../core/plugin-system/types";
+import type { ScanStatus } from "../../../plugins/eslint/slice";
 
 // Crisp easing for panel motion
 const panelTransition = {
@@ -46,6 +48,34 @@ export function CommandPalette() {
 
   // Mobile detection from store
   const isMobile = useComposedStore((s) => s.mobile.isMobile);
+
+  // Connection status for onboarding
+  const wsConnected = useComposedStore((s) => s.wsConnected);
+  const connectionStatus = useComposedStore((s) => s.connectionStatus);
+  const scanStatus = useComposedStore(
+    (s) => (s.plugins?.eslint as { scanStatus?: ScanStatus } | undefined)?.scanStatus
+  );
+
+  // Determine if we should show onboarding state
+  const showOnboarding = React.useMemo(() => {
+    // In websocket mode, show onboarding if not connected
+    if (connectionStatus.mode === "websocket" && !wsConnected) {
+      return true;
+    }
+    // In static mode, show onboarding if scan status is error
+    if (connectionStatus.mode === "static" && scanStatus === "error") {
+      return true;
+    }
+    return false;
+  }, [connectionStatus.mode, wsConnected, scanStatus]);
+
+  // Determine onboarding variant
+  const onboardingVariant = React.useMemo(() => {
+    if (connectionStatus.mode === "static" && scanStatus === "error") {
+      return "manifest-error" as const;
+    }
+    return "disconnected" as const;
+  }, [connectionStatus.mode, scanStatus]);
 
   // Current expansion level
   const expansionLevel = expansionPath.length;
@@ -219,7 +249,7 @@ export function CommandPalette() {
                 size={isMobile ? "default" : "large"}
               />
 
-              {/* Content Area: Tile Grid */}
+              {/* Content Area: Tile Grid or Onboarding */}
               <div
                 style={{
                   maxHeight: isMobile ? "none" : 440,
@@ -231,8 +261,19 @@ export function CommandPalette() {
                 }}
               >
                   <AnimatePresence mode={isMobile ? "sync" : "wait"}>
-                    {/* Loading state */}
-                    {isLoading ? (
+                    {/* Onboarding state - show when not connected */}
+                    {showOnboarding ? (
+                      <motion.div
+                        key="onboarding"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        <OnboardingState variant={onboardingVariant} />
+                      </motion.div>
+                    ) : isLoading ? (
+                      /* Loading state */
                       <motion.div
                         key="loading"
                         initial={{ opacity: 0 }}

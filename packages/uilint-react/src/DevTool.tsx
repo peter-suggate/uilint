@@ -12,9 +12,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { devLog, devWarn } from "uilint-core";
 import { UILint } from "./ui";
-import { websocket } from "./core/services/websocket";
+import { websocket, MAX_RECONNECT_ATTEMPTS } from "./core/services/websocket";
 import { domObserver } from "./core/services/dom-observer";
-import { initializePlugins } from "./core/store";
+import { initializePlugins, getStoreApi } from "./core/store";
 import { pluginRegistry } from "./core/plugin-system/registry";
 import { eslintPlugin, configureStaticMode, clearStaticMode } from "./plugins/eslint";
 import { visionPlugin } from "./plugins/vision";
@@ -151,6 +151,15 @@ export function DevTool({
         await initializePlugins({ websocket, domObserver });
         pluginsInitialized = true;
         devLog("[DevTool] Plugins initialized in", isStaticMode ? "static" : "websocket", "mode");
+      }
+
+      // Set connection mode in the store
+      const storeApi = getStoreApi();
+      if (storeApi) {
+        storeApi.getState().setConnectionStatus({
+          mode: isStaticMode ? "static" : "websocket",
+          maxReconnectAttempts: MAX_RECONNECT_ATTEMPTS,
+        });
       }
 
       // Mark as ready so UI can render
