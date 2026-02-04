@@ -5,7 +5,7 @@
  */
 import React from "react";
 import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
-import { render, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { render, cleanup, fireEvent } from "@testing-library/react";
 import { FileSourceView } from "./FileSourceView";
 import type { Issue } from "../../types";
 
@@ -341,7 +341,7 @@ describe("FileSourceView - interactions", () => {
       createTestIssue({ id: "2", line: 90 }),
     ];
 
-    const { container, rerender } = render(
+    const { container } = render(
       <FileSourceView
         filePath="/test/file.ts"
         issues={issues}

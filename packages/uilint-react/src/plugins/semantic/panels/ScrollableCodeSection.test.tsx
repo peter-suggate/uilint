@@ -338,7 +338,7 @@ describe("ScrollableCodeSection - code formatting", () => {
     );
 
     // Find code container with monospace font
-    const codeContainer = container.querySelector('[style*="font-family"]');
+    const _codeContainer = container.querySelector('[style*="font-family"]');
     // Component uses monospace styling
     expect(container.firstChild).toBeTruthy();
   });
