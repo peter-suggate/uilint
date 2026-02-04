@@ -100,7 +100,7 @@ export function FileSourceView({
 
     // Expand each gap that's been clicked
     for (const gapId of expandedGapIds) {
-      current = expandGap(current, gapId, totalLines);
+      current = expandGap(current, gapId);
     }
 
     return current;
