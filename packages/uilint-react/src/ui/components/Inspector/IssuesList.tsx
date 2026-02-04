@@ -23,7 +23,6 @@ import { IssueSummaryView } from "./IssueSummaryView";
 import { Breadcrumbs } from "./Breadcrumbs";
 import {
   ExpandableTileGrid,
-  TileHeader,
   TileGrid,
   crispEase,
   DURATIONS,
@@ -300,15 +299,6 @@ export function IssuesList({ className }: IssuesListProps) {
             "h-full flex flex-col"
           )}
         >
-          {/* Back button header */}
-          <TileHeader
-            label={item.label}
-            subtitle={item.subtitle}
-            icon={item.icon}
-            count={item.count}
-            onBack={collapseRule}
-          />
-
           {/* Content area */}
           <div className="flex-1">
             {/* Rule description & config popover */}
@@ -401,9 +391,6 @@ export function IssuesList({ className }: IssuesListProps) {
         ) : !showFullSource ? (
           /* Level 2a: Issue summary view (intermediate) */
           <IssueSummaryView
-            filePath={expandedFilePath}
-            fileName={expandedFile?.label ?? ""}
-            directory={expandedFile?.subtitle}
             issues={expandedFileIssues}
             selectedIssueId={selectedIssueId}
             onIssueClick={(issue) => {
@@ -412,7 +399,6 @@ export function IssuesList({ className }: IssuesListProps) {
               showFullSourceView();
             }}
             onShowFullSource={showFullSourceView}
-            onBack={collapseFileInRule}
           />
         ) : (
           /* Level 2b: Full source view */
@@ -423,23 +409,14 @@ export function IssuesList({ className }: IssuesListProps) {
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: DURATIONS.standard, ease: crispEase }}
           >
-            <TileHeader
-              label={expandedFile?.label ?? ""}
-              subtitle={expandedFile?.subtitle}
-              count={expandedFile?.count ?? 0}
-              onBack={showIssueSummaryView}
-              level={1}
+            <FileSourceView
+              filePath={expandedFilePath}
+              issues={expandedFileIssues}
+              contextLines={2}
+              selectedIssueId={selectedIssueId}
+              onIssueSelect={handleIssueSelect}
+              enabled={true}
             />
-            <div className="mt-4">
-              <FileSourceView
-                filePath={expandedFilePath}
-                issues={expandedFileIssues}
-                contextLines={2}
-                selectedIssueId={selectedIssueId}
-                onIssueSelect={handleIssueSelect}
-                enabled={true}
-              />
-            </div>
           </motion.div>
         )}
       </div>
