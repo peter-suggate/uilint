@@ -14,11 +14,9 @@ import { motion } from "motion/react";
 import { useComposedStore } from "../../../core/store";
 import {
   selectFileGroups,
-  selectFileGroupsSummary,
 } from "../../../core/store/file-groups-selector";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
 import type { ESLintPluginSlice } from "../../../plugins/eslint/slice";
-import { IssuesSummary } from "./IssuesSummary";
 import { RuleHeader } from "./RuleHeader";
 import { FileSourceView } from "./FileSourceView";
 import { IssueSummaryView } from "./IssueSummaryView";
@@ -113,7 +111,6 @@ const RULE_HEADER_HEIGHT = 40;
 export function IssuesList({ className }: IssuesListProps) {
   // Store selectors
   const fileGroups = useComposedStore(selectFileGroups);
-  const summary = useComposedStore(selectFileGroupsSummary);
   const expandedRuleId = useComposedStore((s) => s.inspector.expandedRuleId);
   const expandedFilePath = useComposedStore((s) => s.inspector.expandedFilePath);
   const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
@@ -369,15 +366,6 @@ export function IssuesList({ className }: IssuesListProps) {
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
-      {/* Summary bar */}
-      {fileGroups.length > 0 && (
-        <IssuesSummary
-          totalIssues={summary.totalIssues}
-          totalFiles={summary.totalFiles}
-          totalRules={expandedRule ? undefined : summary.totalRules}
-        />
-      )}
-
       {/* Breadcrumb navigation - shows when rule or file is expanded */}
       <Breadcrumbs
         expandedRuleName={expandedRule?.label ?? null}
