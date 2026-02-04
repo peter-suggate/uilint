@@ -32,6 +32,10 @@ export interface BaseTileItem {
   subtitle?: string;
   icon?: React.ReactNode;
   severityCounts?: { error: number; warning: number; info: number };
+  /** Optional preview messages for large tiles */
+  previewMessages?: string[];
+  /** Optional file count for large tiles */
+  fileCount?: number;
 }
 
 export interface TileGridProps<T extends BaseTileItem> {
@@ -174,9 +178,12 @@ export function TileGrid<T extends BaseTileItem>({
                 count={item.count}
                 severityCounts={item.severityCounts}
                 bucket={tileLayout.bucket}
+                tileWidth={tileLayout.height ? parseFloat(tileLayout.width) : 166}
                 isSelected={globalIndex === selectedIndex}
                 onClick={() => onTileClick(item)}
                 onOpenInInspector={onOpenInInspector ? () => onOpenInInspector(item) : undefined}
+                previewMessages={item.previewMessages}
+                fileCount={item.fileCount}
               />
             </motion.div>
           );

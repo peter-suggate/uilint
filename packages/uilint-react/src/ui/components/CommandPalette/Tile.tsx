@@ -6,13 +6,19 @@
  * - Minimal color palette with proper light/dark mode contrast
  * - Large, light-weight fonts
  * - Clean, modern aesthetic using shadcn conventions
+ *
+ * Responsive features:
+ * - Dynamic font scaling for small tiles to ensure readability
+ * - Extra context display for large tiles
+ * - Compact severity indicators for xs tiles
  */
-import React from "react";
+import React, { useMemo } from "react";
 import { motion } from "motion/react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../../lib/utils";
 import { ExternalLinkIcon } from "../../icons";
 import type { TileItem, TileBucket } from "../../../core/plugin-system/types";
+import { useTileAdaptiveText } from "../../hooks/useAdaptiveText";
 
 // ============================================================================
 // Variants
@@ -32,8 +38,8 @@ const tileVariants = cva(
         false: "border border-foreground/[0.04] hover:bg-foreground/[0.03] hover:border-foreground/[0.08]",
       },
       size: {
-        xs: "p-4",
-        sm: "p-4",
+        xs: "p-3",
+        sm: "p-3.5",
         md: "p-5",
         lg: "p-6",
         xl: "p-6",
@@ -41,29 +47,6 @@ const tileVariants = cva(
     },
     defaultVariants: {
       selected: false,
-      size: "md",
-    },
-  }
-);
-
-const titleVariants = cva(
-  [
-    "font-light leading-tight tracking-tight",
-    "text-foreground",
-    "overflow-hidden text-ellipsis",
-    "[-webkit-box-orient:vertical] [-webkit-line-clamp:2] [display:-webkit-box]",
-  ],
-  {
-    variants: {
-      size: {
-        xs: "text-[15px] [-webkit-line-clamp:1]",
-        sm: "text-[17px] [-webkit-line-clamp:1]",
-        md: "text-xl",
-        lg: "text-2xl",
-        xl: "text-[28px]",
-      },
-    },
-    defaultVariants: {
       size: "md",
     },
   }
@@ -77,8 +60,8 @@ const countVariants = cva(
   {
     variants: {
       size: {
-        xs: "text-xl",
-        sm: "text-2xl",
+        xs: "text-lg",
+        sm: "text-xl",
         md: "text-[32px]",
         lg: "text-[40px]",
         xl: "text-[52px]",
@@ -97,6 +80,8 @@ const countVariants = cva(
 interface TileProps extends VariantProps<typeof tileVariants> {
   item: TileItem;
   bucket: TileBucket;
+  /** Width of the tile in pixels (for adaptive text calculation) */
+  tileWidth?: number;
   isSelected: boolean;
   onClick: () => void;
   onOpenInInspector?: () => void;
@@ -119,10 +104,12 @@ function SeverityDot({
   type,
   count,
   showCount,
+  size = "normal",
 }: {
   type: "error" | "warning" | "info";
   count: number;
   showCount: boolean;
+  size?: "compact" | "normal";
 }) {
   if (count === 0) return null;
 
@@ -132,9 +119,11 @@ function SeverityDot({
     info: "bg-info/70",
   };
 
+  const dotSize = size === "compact" ? "w-1 h-1" : "w-1.5 h-1.5";
+
   return (
     <div className="flex items-center gap-1.5">
-      <div className={cn("w-1.5 h-1.5 rounded-full", colorClasses[type])} />
+      <div className={cn(dotSize, "rounded-full", colorClasses[type])} />
       {showCount && (
         <span className="text-[11px] font-normal text-muted-foreground/70">
           {count}
@@ -145,14 +134,46 @@ function SeverityDot({
 }
 
 /**
+ * Compact severity indicator - single dot showing highest severity
+ */
+function CompactSeverityIndicator({
+  severityCounts,
+}: {
+  severityCounts: TileItem["severityCounts"];
+}) {
+  if (!severityCounts) return null;
+
+  const { error, warning, info } = severityCounts;
+  const hasAny = error > 0 || warning > 0 || info > 0;
+
+  if (!hasAny) return null;
+
+  // Show highest severity only
+  const highestSeverity = error > 0 ? "error" : warning > 0 ? "warning" : "info";
+  const colorClasses = {
+    error: "bg-error/80",
+    warning: "bg-warning/80",
+    info: "bg-info/80",
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <div className={cn("w-1.5 h-1.5 rounded-full", colorClasses[highestSeverity])} />
+    </div>
+  );
+}
+
+/**
  * Severity indicators section
  */
 function SeverityIndicators({
   severityCounts,
   showCounts,
+  compact = false,
 }: {
   severityCounts: TileItem["severityCounts"];
   showCounts: boolean;
+  compact?: boolean;
 }) {
   if (!severityCounts) return null;
 
@@ -162,6 +183,11 @@ function SeverityIndicators({
     severityCounts.info > 0;
 
   if (!hasAny) return null;
+
+  // For compact (xs) tiles, show single highest severity dot
+  if (compact) {
+    return <CompactSeverityIndicator severityCounts={severityCounts} />;
+  }
 
   return (
     <div className="flex items-center gap-2">
@@ -186,18 +212,118 @@ function HoverOverlay({ isHovered }: { isHovered: boolean }) {
   );
 }
 
+/**
+ * Preview content for large tiles - shows issue messages or file info
+ */
+function LargeTilePreview({
+  item,
+  bucket,
+}: {
+  item: TileItem;
+  bucket: TileBucket;
+}) {
+  const showPreview = bucket === "xl" || bucket === "lg";
+  if (!showPreview) return null;
+
+  // Use direct fields, fall back to metadata for backwards compatibility
+  const previewMessages = item.previewMessages ?? (item.metadata?.previewMessages as string[] | undefined);
+  const fileCount = item.fileCount ?? (item.metadata?.fileCount as number | undefined);
+
+  const maxMessages = bucket === "xl" ? 2 : 1;
+  const messagesToShow = previewMessages?.slice(0, maxMessages) || [];
+
+  if (messagesToShow.length === 0 && !fileCount) return null;
+
+  return (
+    <div className="mt-2 space-y-1">
+      {/* Preview messages */}
+      {messagesToShow.map((msg, i) => (
+        <div
+          key={i}
+          className="text-[11px] text-muted-foreground/50 truncate leading-tight"
+        >
+          {msg}
+        </div>
+      ))}
+
+      {/* File count badge */}
+      {fileCount !== undefined && fileCount > 0 && (
+        <div className="text-[10px] text-muted-foreground/40 font-medium tracking-wide">
+          {fileCount} {fileCount === 1 ? "file" : "files"}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Adaptive title component with dynamic font scaling
+ */
+function AdaptiveTitle({
+  label,
+  bucket,
+  tileWidth,
+}: {
+  label: string;
+  bucket: TileBucket;
+  tileWidth: number;
+}) {
+  const { fontSize, isScaled, needsTruncation } = useTileAdaptiveText(
+    label,
+    bucket,
+    tileWidth
+  );
+
+  // Base styles for title
+  const baseStyles = cn(
+    "font-light leading-tight tracking-tight",
+    "text-foreground",
+    "overflow-hidden text-ellipsis",
+    // Line clamp based on size
+    bucket === "xs" || bucket === "sm"
+      ? "[-webkit-line-clamp:1]"
+      : "[-webkit-line-clamp:2]",
+    "[-webkit-box-orient:vertical] [display:-webkit-box]"
+  );
+
+  return (
+    <span
+      className={baseStyles}
+      style={{
+        fontSize: `${fontSize}px`,
+        // Slightly tighter tracking when scaled down
+        letterSpacing: isScaled ? "-0.03em" : "-0.025em",
+      }}
+      title={needsTruncation ? label : undefined}
+    >
+      {label}
+    </span>
+  );
+}
+
 // ============================================================================
 // Main Component
 // ============================================================================
 
-export function Tile({ item, bucket, isSelected, onClick, onOpenInInspector }: TileProps) {
+export function Tile({ item, bucket, tileWidth = 166, isSelected, onClick, onOpenInInspector }: TileProps) {
   const [isHovered, setIsHovered] = React.useState(false);
+
+  // Determine tile characteristics
   const isCompact = bucket === "xs" || bucket === "sm";
+  const isXs = bucket === "xs";
+  const isLarge = bucket === "lg" || bucket === "xl";
 
   const handleOpenInInspector = (e: React.MouseEvent) => {
     e.stopPropagation();
     onOpenInInspector?.();
   };
+
+  // Icon size based on bucket
+  const iconSize = useMemo(() => {
+    if (isXs) return 10;
+    if (bucket === "sm") return 12;
+    return 14;
+  }, [bucket, isXs]);
 
   return (
     <motion.div
@@ -213,17 +339,27 @@ export function Tile({ item, bucket, isSelected, onClick, onOpenInInspector }: T
       className={cn(tileVariants({ selected: isSelected, size: bucket }))}
     >
       {/* Top section: Label and open in inspector button */}
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-1.5">
         <div className="flex-1 min-w-0">
-          <span className={cn(titleVariants({ size: bucket }))}>
-            {item.label}
-          </span>
+          <AdaptiveTitle
+            label={item.label}
+            bucket={bucket}
+            tileWidth={tileWidth}
+          />
 
-          {/* Subtitle - path or description */}
+          {/* Subtitle - path or description (hidden for compact tiles) */}
           {item.subtitle && !isCompact && (
             <div className="mt-2 text-xs font-normal text-muted-foreground/60 truncate tracking-wide">
               {item.subtitle}
             </div>
+          )}
+
+          {/* Large tile preview content */}
+          {isLarge && (
+            <LargeTilePreview
+              item={item}
+              bucket={bucket}
+            />
           )}
         </div>
 
@@ -236,26 +372,27 @@ export function Tile({ item, bucket, isSelected, onClick, onOpenInInspector }: T
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             transition={{ duration: 0.1 }}
-            className="flex-shrink-0 p-1.5 -mt-1 -mr-1 rounded-lg text-muted-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.06] transition-colors"
+            className="flex-shrink-0 p-1 -mt-0.5 -mr-0.5 rounded-lg text-muted-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.06] transition-colors"
             title="Open in inspector"
             aria-label="Open in inspector"
           >
-            <ExternalLinkIcon size={isCompact ? 12 : 14} />
+            <ExternalLinkIcon size={iconSize} />
           </motion.button>
         )}
       </div>
 
       {/* Bottom section: Count and severity */}
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex items-end justify-between gap-2">
         {/* Large count number */}
         <span className={cn(countVariants({ size: bucket }))}>
           {item.count}
         </span>
 
-        {/* Severity indicators - minimal dots */}
+        {/* Severity indicators - compact for xs, minimal for sm, full for others */}
         <SeverityIndicators
           severityCounts={item.severityCounts}
           showCounts={!isCompact}
+          compact={isXs}
         />
       </div>
 
