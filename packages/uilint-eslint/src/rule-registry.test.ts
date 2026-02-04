@@ -29,7 +29,7 @@ import noSecretsInCode from "./rules/no-secrets-in-code.js";
 import requireInputValidation from "./rules/require-input-validation.js";
 import noSemanticDuplicates from "./rules/no-semantic-duplicates.js";
 import requireTestCoverage from "./rules/require-test-coverage/index.js";
-import preferTailwind from "./rules/prefer-tailwind.js";
+import preferTailwind from "./rules/prefer-tailwind/index.js";
 import noUnsafeTypeCasts from "./rules/no-unsafe-type-casts.js";
 import preferStoreSelectors from "./rules/prefer-store-selectors.js";
 
