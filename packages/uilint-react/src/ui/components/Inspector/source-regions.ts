@@ -180,7 +180,6 @@ export function calculateRegions(
  *
  * @param result - Current region calculation result
  * @param gapId - ID of the gap to expand
- * @param totalLines - Total lines in file (for validation)
  * @returns New result with the gap expanded
  */
 export function expandGap(
