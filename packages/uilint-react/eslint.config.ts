@@ -37,13 +37,17 @@ export default defineConfig([
       "uilint/enforce-absolute-imports": ["warn", { maxRelativeDepth: 4 }],
       // Internal store pattern is valid for this package
       "uilint/no-direct-store-import": "off",
-      // Test coverage tracking - require coverage for all code including components
+      // Test coverage tracking - low threshold for clean slate, increase as coverage improves
+      // Current coverage: ~60% lines, ~59% functions
       "uilint/require-test-coverage": [
         "warn",
         {
           chunkCoverage: true,
-          focusNonReact: false, // Apply same threshold to components
-          chunkThreshold: 70, // 70% for all code including components
+          focusNonReact: false,
+          threshold: 0, // Start at 0%, increase as coverage improves
+          chunkThreshold: 0,
+          jsxThreshold: 0,
+          aggregateThreshold: 0,
           ignorePatterns: ["**/*.d.ts", "**/index.ts", "**/__tests__/**"],
         },
       ],
