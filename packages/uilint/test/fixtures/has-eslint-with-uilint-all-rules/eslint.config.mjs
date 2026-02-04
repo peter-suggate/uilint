@@ -25,6 +25,8 @@ export default [
       "uilint/no-secrets-in-code": "error",
       "uilint/require-input-validation": "warn",
       "uilint/require-test-coverage": "warn",
+      "uilint/no-unsafe-type-casts": "error",
+      "uilint/prefer-store-selectors": "warn",
       // Semantic rules
       "uilint/semantic": "warn",
       "uilint/semantic-vision": "warn",
