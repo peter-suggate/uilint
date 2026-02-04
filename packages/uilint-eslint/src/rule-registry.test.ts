@@ -14,6 +14,46 @@ import {
   type RuleMeta,
 } from "./rule-registry.js";
 
+// Import individual rules for ESLint schema validation
+import consistentDarkMode from "./rules/consistent-dark-mode.js";
+import noDirectStoreImport from "./rules/no-direct-store-import.js";
+import preferZustandStateManagement from "./rules/prefer-zustand-state-management.js";
+import noMixedComponentLibraries from "./rules/no-mixed-component-libraries/index.js";
+import semantic from "./rules/semantic/index.js";
+import semanticVision from "./rules/semantic-vision.js";
+import enforceAbsoluteImports from "./rules/enforce-absolute-imports.js";
+import noAnyInProps from "./rules/no-any-in-props.js";
+import zustandUseSelectors from "./rules/zustand-use-selectors.js";
+import noPropDrillingDepth from "./rules/no-prop-drilling-depth.js";
+import noSecretsInCode from "./rules/no-secrets-in-code.js";
+import requireInputValidation from "./rules/require-input-validation.js";
+import noSemanticDuplicates from "./rules/no-semantic-duplicates.js";
+import requireTestCoverage from "./rules/require-test-coverage/index.js";
+import preferTailwind from "./rules/prefer-tailwind.js";
+import noUnsafeTypeCasts from "./rules/no-unsafe-type-casts.js";
+import preferStoreSelectors from "./rules/prefer-store-selectors.js";
+
+// Map of rule IDs to their ESLint rule modules
+const eslintRules: Record<string, { meta?: { schema?: unknown[] }; defaultOptions?: unknown[] }> = {
+  "consistent-dark-mode": consistentDarkMode,
+  "no-direct-store-import": noDirectStoreImport,
+  "prefer-zustand-state-management": preferZustandStateManagement,
+  "no-mixed-component-libraries": noMixedComponentLibraries,
+  "semantic": semantic,
+  "semantic-vision": semanticVision,
+  "enforce-absolute-imports": enforceAbsoluteImports,
+  "no-any-in-props": noAnyInProps,
+  "zustand-use-selectors": zustandUseSelectors,
+  "no-prop-drilling-depth": noPropDrillingDepth,
+  "no-secrets-in-code": noSecretsInCode,
+  "require-input-validation": requireInputValidation,
+  "no-semantic-duplicates": noSemanticDuplicates,
+  "require-test-coverage": requireTestCoverage,
+  "prefer-tailwind": preferTailwind,
+  "no-unsafe-type-casts": noUnsafeTypeCasts,
+  "prefer-store-selectors": preferStoreSelectors,
+};
+
 describe("ruleRegistry", () => {
   it("should contain rules", () => {
     expect(ruleRegistry.length).toBeGreaterThan(0);
@@ -210,5 +250,130 @@ describe("getRulesByCategory", () => {
   it("should return semantic rules", () => {
     const rules = getRulesByCategory("semantic");
     expect(rules.every((r) => r.category === "semantic")).toBe(true);
+  });
+});
+
+describe("ESLint schema consistency", () => {
+  /**
+   * Extract property names from an ESLint JSON schema
+   */
+  function getSchemaProperties(schema: unknown[]): Set<string> {
+    const properties = new Set<string>();
+    if (!schema || schema.length === 0) return properties;
+
+    const firstSchema = schema[0];
+    if (
+      firstSchema &&
+      typeof firstSchema === "object" &&
+      "properties" in firstSchema &&
+      firstSchema.properties
+    ) {
+      const props = firstSchema.properties as Record<string, unknown>;
+      for (const key of Object.keys(props)) {
+        properties.add(key);
+      }
+    }
+
+    return properties;
+  }
+
+  it("all optionSchema.fields should be present in ESLint schema", () => {
+    const rulesWithOptions = ruleRegistry.filter(
+      (r) => r.optionSchema && r.optionSchema.fields.length > 0
+    );
+
+    for (const ruleMeta of rulesWithOptions) {
+      const eslintRule = eslintRules[ruleMeta.id];
+      if (!eslintRule?.meta?.schema) {
+        // Rule doesn't have ESLint schema - skip (may be intentional)
+        continue;
+      }
+
+      const schemaProperties = getSchemaProperties(eslintRule.meta.schema);
+      const optionFields = ruleMeta.optionSchema!.fields.map((f) => f.key);
+
+      for (const field of optionFields) {
+        expect(
+          schemaProperties.has(field),
+          `Rule "${ruleMeta.id}": optionSchema field "${field}" is not in ESLint schema. ` +
+            `ESLint schema has: [${[...schemaProperties].join(", ")}]. ` +
+            `This will cause ESLint config validation to fail when the option is used.`
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("all defaultOptions properties should be present in ESLint schema", () => {
+    for (const ruleMeta of ruleRegistry) {
+      const eslintRule = eslintRules[ruleMeta.id];
+      if (!eslintRule?.meta?.schema) {
+        continue;
+      }
+
+      const schemaProperties = getSchemaProperties(eslintRule.meta.schema);
+      if (schemaProperties.size === 0) {
+        continue;
+      }
+
+      // Get defaultOptions from the ESLint rule itself
+      const ruleWithDefaults = eslintRule as {
+        meta?: { schema?: unknown[] };
+        defaultOptions?: unknown[];
+      };
+      const defaultOptions = ruleWithDefaults.defaultOptions;
+
+      if (!defaultOptions || defaultOptions.length === 0) {
+        continue;
+      }
+
+      const firstDefault = defaultOptions[0];
+      if (!firstDefault || typeof firstDefault !== "object") {
+        continue;
+      }
+
+      const defaultKeys = Object.keys(firstDefault);
+
+      for (const key of defaultKeys) {
+        expect(
+          schemaProperties.has(key),
+          `Rule "${ruleMeta.id}": defaultOptions property "${key}" is not in ESLint schema. ` +
+            `ESLint schema has: [${[...schemaProperties].join(", ")}]. ` +
+            `This will cause ESLint config validation to fail when the default option is applied.`
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("ESLint schema should not have additionalProperties:false without all option fields", () => {
+    // This catches the exact bug we encountered: schema had additionalProperties: false
+    // but was missing properties that optionSchema and defaultOptions had
+    const rulesWithOptions = ruleRegistry.filter(
+      (r) => r.optionSchema && r.optionSchema.fields.length > 0
+    );
+
+    for (const ruleMeta of rulesWithOptions) {
+      const eslintRule = eslintRules[ruleMeta.id];
+      if (!eslintRule?.meta?.schema || eslintRule.meta.schema.length === 0) {
+        continue;
+      }
+
+      const firstSchema = eslintRule.meta.schema[0] as Record<string, unknown> | undefined;
+      if (!firstSchema || firstSchema.additionalProperties !== false) {
+        continue;
+      }
+
+      // Schema has additionalProperties: false - all options MUST be in schema
+      const schemaProperties = getSchemaProperties(eslintRule.meta.schema);
+      const optionFields = ruleMeta.optionSchema!.fields.map((f) => f.key);
+
+      for (const field of optionFields) {
+        expect(
+          schemaProperties.has(field),
+          `Rule "${ruleMeta.id}": ESLint schema has additionalProperties:false but is missing ` +
+            `optionSchema field "${field}". This WILL break ESLint validation! ` +
+            `Add "${field}" to the schema properties.`
+        ).toBe(true);
+      }
+    }
   });
 });
