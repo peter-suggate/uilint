@@ -15,6 +15,7 @@ export const RECONNECT_BASE_DELAY = 1000;
 // Type definitions
 export type MessageHandler<T = unknown> = (data: T) => void;
 export type ConnectionHandler = (connected: boolean) => void;
+export type ReconnectHandler = (attempts: number, maxAttempts: number, exhausted: boolean) => void;
 
 /**
  * Options for dependency injection in WebSocketService
@@ -35,11 +36,13 @@ export interface WebSocketServiceOptions {
 export interface WebSocketService {
   readonly isConnected: boolean;
   readonly url: string;
+  readonly reconnectAttempts: number;
   connect(url?: string): void;
   disconnect(): void;
   send(message: unknown): void;
   on<T>(type: string, handler: MessageHandler<T>): () => void;
   onConnectionChange(handler: ConnectionHandler): () => void;
+  onReconnectAttempt(handler: ReconnectHandler): () => void;
 }
 
 /**
@@ -49,7 +52,8 @@ export class WebSocketServiceImpl implements WebSocketService {
   private ws: WebSocket | null = null;
   private handlers: Map<string, Set<MessageHandler>> = new Map();
   private connectionHandlers: Set<ConnectionHandler> = new Set();
-  private reconnectAttempts: number = 0;
+  private reconnectHandlers: Set<ReconnectHandler> = new Set();
+  private _reconnectAttempts: number = 0;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private intentionalDisconnect: boolean = false;
 
@@ -60,6 +64,11 @@ export class WebSocketServiceImpl implements WebSocketService {
 
   public isConnected: boolean = false;
   public url: string = DEFAULT_WS_URL;
+
+  /** Current reconnection attempt count */
+  public get reconnectAttempts(): number {
+    return this._reconnectAttempts;
+  }
 
   /**
    * Create a new WebSocket service instance
@@ -126,7 +135,7 @@ export class WebSocketServiceImpl implements WebSocketService {
     }
 
     this.isConnected = false;
-    this.reconnectAttempts = 0;
+    this._reconnectAttempts = 0;
   }
 
   /**
@@ -187,6 +196,38 @@ export class WebSocketServiceImpl implements WebSocketService {
   }
 
   /**
+   * Subscribe to reconnection attempt changes
+   * @param handler - Handler called when reconnect attempts change
+   * @returns Unsubscribe function
+   */
+  onReconnectAttempt(handler: ReconnectHandler): () => void {
+    this.reconnectHandlers.add(handler);
+
+    // Immediately notify of current state
+    const exhausted = this._reconnectAttempts >= MAX_RECONNECT_ATTEMPTS;
+    handler(this._reconnectAttempts, MAX_RECONNECT_ATTEMPTS, exhausted);
+
+    // Return unsubscribe function
+    return () => {
+      this.reconnectHandlers.delete(handler);
+    };
+  }
+
+  /**
+   * Notify all reconnect handlers of attempt changes
+   */
+  private notifyReconnectAttempt(): void {
+    const exhausted = this._reconnectAttempts >= MAX_RECONNECT_ATTEMPTS;
+    this.reconnectHandlers.forEach((handler) => {
+      try {
+        handler(this._reconnectAttempts, MAX_RECONNECT_ATTEMPTS, exhausted);
+      } catch (error) {
+        devError("[WebSocket] Reconnect handler error:", error);
+      }
+    });
+  }
+
+  /**
    * Set up WebSocket event handlers
    */
   private setupEventHandlers(): void {
@@ -195,8 +236,9 @@ export class WebSocketServiceImpl implements WebSocketService {
     this.ws.onopen = () => {
       devLog(`[WebSocket] Connected to ${this.url}`);
       this.isConnected = true;
-      this.reconnectAttempts = 0;
+      this._reconnectAttempts = 0;
       this.notifyConnectionChange(true);
+      this.notifyReconnectAttempt();
     };
 
     this.ws.onclose = (event) => {
@@ -287,10 +329,12 @@ export class WebSocketServiceImpl implements WebSocketService {
       return;
     }
 
-    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    if (this._reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       devWarn(
         `[WebSocket] Max reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached`
       );
+      // Notify handlers that reconnection is exhausted
+      this.notifyReconnectAttempt();
       return;
     }
 
@@ -300,11 +344,14 @@ export class WebSocketServiceImpl implements WebSocketService {
     }
 
     // Calculate delay with exponential backoff
-    const delay = RECONNECT_BASE_DELAY * Math.pow(2, this.reconnectAttempts);
-    this.reconnectAttempts++;
+    const delay = RECONNECT_BASE_DELAY * Math.pow(2, this._reconnectAttempts);
+    this._reconnectAttempts++;
+
+    // Notify handlers of the new attempt count
+    this.notifyReconnectAttempt();
 
     devLog(
-      `[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
+      `[WebSocket] Reconnecting in ${delay}ms (attempt ${this._reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
     );
 
     this.reconnectTimeout = this._setTimeout(() => {

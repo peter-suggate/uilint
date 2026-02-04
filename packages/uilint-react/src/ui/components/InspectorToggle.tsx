@@ -23,6 +23,8 @@ export function InspectorToggle() {
   const openInspectorPanel = useComposedStore((s) => s.openInspectorPanel);
   const isMobile = useComposedStore((s) => s.mobile.isMobile);
   const isTouchDevice = useComposedStore((s) => s.mobile.isTouchDevice);
+  const wsConnected = useComposedStore((s) => s.wsConnected);
+  const connectionMode = useComposedStore((s) => s.connectionStatus.mode);
 
   const portalRoot = document.getElementById("uilint-portal") || document.body;
 
@@ -34,6 +36,9 @@ export function InspectorToggle() {
   const buttonSize = isMobile ? 44 : 36;
   const modKey = isMac() ? "⌘" : "Ctrl+";
   const showShortcutHint = !isTouchDevice;
+
+  // Show status indicator only in websocket mode when disconnected
+  const showStatusIndicator = connectionMode === "websocket" && !wsConnected;
 
   return createPortal(
     <AnimatePresence>
@@ -82,31 +87,53 @@ export function InspectorToggle() {
         )}
 
         {/* Inspector toggle button */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={openInspectorPanel}
-          aria-label="Open inspector"
-          title="Open inspector"
-          style={{
-            width: buttonSize,
-            height: buttonSize,
-            borderRadius: buttonSize / 2,
-            border: "none",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "var(--uilint-text-secondary)",
-            ...getGlassStyles("medium", "md", false),
-            borderTop: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
-            borderBottom: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
-            borderLeft: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
-            borderRight: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
-          }}
-        >
-          <UILintInspectorIcon size={isMobile ? 20 : 18} />
-        </motion.button>
+        <div style={{ position: "relative" }}>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={openInspectorPanel}
+            aria-label="Open inspector"
+            title={showStatusIndicator ? "Server not connected - click to see setup instructions" : "Open inspector"}
+            style={{
+              width: buttonSize,
+              height: buttonSize,
+              borderRadius: buttonSize / 2,
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--uilint-text-secondary)",
+              ...getGlassStyles("medium", "md", false),
+              borderTop: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
+              borderBottom: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
+              borderLeft: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
+              borderRight: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
+            }}
+          >
+            <UILintInspectorIcon size={isMobile ? 20 : 18} />
+          </motion.button>
+
+          {/* Status indicator dot - shows when not connected */}
+          {showStatusIndicator && (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              style={{
+                position: "absolute",
+                top: -2,
+                right: -2,
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                background: "var(--uilint-warning, #f59e0b)",
+                border: "2px solid var(--uilint-surface, #fff)",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
+              }}
+              title="Server not connected"
+            />
+          )}
+        </div>
       </motion.div>
     </AnimatePresence>,
     portalRoot

@@ -10,6 +10,7 @@ export {
   type CommandPaletteFilter,
   type InspectorState,
   type HeatmapFilterState,
+  type ConnectionStatus,
 } from "./core-slice";
 
 // Tile selectors

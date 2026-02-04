@@ -43,6 +43,23 @@ export interface MobileState {
 }
 
 /**
+ * Connection status for onboarding UI.
+ * Tracks the connection state and provides details for user feedback.
+ */
+export interface ConnectionStatus {
+  /** Operating mode: websocket (live) or static (manifest-based) */
+  mode: "websocket" | "static";
+  /** Current reconnection attempt number (websocket mode) */
+  reconnectAttempts: number;
+  /** Maximum reconnection attempts before giving up */
+  maxReconnectAttempts: number;
+  /** Whether max reconnect attempts have been exhausted */
+  reconnectExhausted: boolean;
+  /** Error message if connection/manifest failed */
+  error: string | null;
+}
+
+/**
  * Filter chip for the command palette search.
  * @deprecated Use TileFilter from plugin-system/types instead
  */
@@ -243,6 +260,12 @@ export interface CoreSlice {
   wsConnected: boolean;
   /** WebSocket server URL */
   wsUrl: string;
+  /** Detailed connection status for onboarding UI */
+  connectionStatus: ConnectionStatus;
+  /** Update connection status (called by DevTool/websocket handlers) */
+  setConnectionStatus: (status: Partial<ConnectionStatus>) => void;
+  /** Retry the connection (websocket mode only) */
+  retryConnection: () => void;
 
   // ============ Heatmap Filtering ============
   /** Heat map filter state for focusing on related elements */
@@ -339,6 +362,14 @@ const DEFAULT_MOBILE_STATE: MobileState = {
   isTablet: false,
   isTouchDevice: false,
   isSmallScreen: false,
+};
+
+const DEFAULT_CONNECTION_STATUS: ConnectionStatus = {
+  mode: "websocket",
+  reconnectAttempts: 0,
+  maxReconnectAttempts: 5,
+  reconnectExhausted: false,
+  error: null,
 };
 
 /**
@@ -731,6 +762,34 @@ export const createCoreSlice = (
   // ============ Connection (delegated from websocket service) ============
   wsConnected: services.websocket.isConnected,
   wsUrl: services.websocket.url,
+  connectionStatus: { ...DEFAULT_CONNECTION_STATUS },
+
+  setConnectionStatus: (status) => {
+    const current = get().connectionStatus;
+    set({
+      connectionStatus: {
+        ...current,
+        ...status,
+      },
+    });
+  },
+
+  retryConnection: () => {
+    const { connectionStatus } = get();
+    if (connectionStatus.mode === "websocket") {
+      // Reset reconnect state and trigger reconnection
+      set({
+        connectionStatus: {
+          ...connectionStatus,
+          reconnectAttempts: 0,
+          reconnectExhausted: false,
+          error: null,
+        },
+      });
+      // Trigger websocket reconnection
+      services.websocket.connect();
+    }
+  },
 
   // ============ Heatmap Filtering ============
   heatmapFilter: { ...DEFAULT_HEATMAP_FILTER_STATE },
