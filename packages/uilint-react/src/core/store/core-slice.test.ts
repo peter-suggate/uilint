@@ -1,30 +1,22 @@
 /**
  * Unit tests for core-slice.ts
  *
- * Tests the core UI state slice including:
- * - Initial state values
- * - Command palette actions
- * - Inspector actions
- * - Alt key mode actions
- * - Selection actions
+ * Tests are organized around USER SCENARIOS and BEHAVIORS rather than
+ * individual state properties. Each test describes a meaningful workflow.
  */
 
 import { describe, it, expect, vi } from "vitest";
 import {
   createCoreSlice,
   type CoreSlice,
-  type CommandPaletteFilter,
   type MobileState,
 } from "./core-slice";
-import type { PluginServices, WebSocketService, DOMObserverService } from "../plugin-system/types";
+import type { PluginServices, WebSocketService, DOMObserverService, TileItem } from "../plugin-system/types";
 
 // ============================================================================
 // Test Helpers
 // ============================================================================
 
-/**
- * Create mock WebSocket service
- */
 function createMockWebSocketService(overrides?: Partial<WebSocketService>): WebSocketService {
   return {
     isConnected: false,
@@ -38,9 +30,6 @@ function createMockWebSocketService(overrides?: Partial<WebSocketService>): WebS
   };
 }
 
-/**
- * Create mock DOM observer service
- */
 function createMockDOMObserverService(overrides?: Partial<DOMObserverService>): DOMObserverService {
   return {
     start: vi.fn(),
@@ -51,9 +40,6 @@ function createMockDOMObserverService(overrides?: Partial<DOMObserverService>): 
   };
 }
 
-/**
- * Create mock plugin services
- */
 function createMockServices(overrides?: Partial<PluginServices>): PluginServices {
   return {
     websocket: createMockWebSocketService(),
@@ -66,18 +52,12 @@ function createMockServices(overrides?: Partial<PluginServices>): PluginServices
   };
 }
 
-/**
- * Create a test instance of the core slice with mock set/get functions.
- * Returns the slice state/actions and the mocked set function for verification.
- */
 function createTestSlice(services?: PluginServices) {
   const mockServices = services ?? createMockServices();
   const sliceCreator = createCoreSlice(mockServices);
 
-  // Track state updates
   let currentState: CoreSlice;
 
-  // Mock set function that merges partial state
   const mockSet = vi.fn((partial: Partial<CoreSlice> | ((state: CoreSlice) => Partial<CoreSlice>)) => {
     if (typeof partial === "function") {
       const updates = partial(currentState);
@@ -87,10 +67,8 @@ function createTestSlice(services?: PluginServices) {
     }
   });
 
-  // Mock get function that returns current state
   const mockGet = vi.fn(() => currentState);
 
-  // Initialize the slice
   // @ts-expect-error - We're using simplified mock functions
   currentState = sliceCreator(mockSet, mockGet);
 
@@ -102,802 +80,541 @@ function createTestSlice(services?: PluginServices) {
   };
 }
 
+function createMockTile(id: string, label: string): TileItem {
+  return {
+    id,
+    label,
+    icon: "test-icon",
+    count: 1,
+    severity: "warning",
+    onClick: vi.fn(),
+  };
+}
+
 // ============================================================================
-// Initial State Tests
+// Initial State - App starts in a clean, closed state
 // ============================================================================
 
 describe("Core Slice - Initial State", () => {
-  it("has altKeyHeld as false by default", () => {
+  it("starts with nothing selected and all UI panels closed", () => {
     const { getState } = createTestSlice();
+    const state = getState();
+
+    // No element interaction happening
+    expect(state.selectedElementId).toBeNull();
+    expect(state.hoveredElementId).toBeNull();
+    expect(state.altKeyHeld).toBe(false);
+
+    // Command palette is closed with no search
+    expect(state.commandPalette.open).toBe(false);
+    expect(state.commandPalette.query).toBe("");
+    expect(state.commandPalette.selectedIndex).toBe(0);
+    expect(state.commandPalette.expansionPath).toEqual([]);
+
+    // Inspector is closed with default layout
+    expect(state.inspector.open).toBe(false);
+    expect(state.inspector.panelId).toBeNull();
+    expect(state.inspector.data).toBeNull();
+    expect(state.inspector.docked).toBe(true);
+    expect(state.inspector.width).toBe(400);
+
+    // Heatmap shows all elements by default
+    expect(state.heatmapFilter.mode).toBe("all");
+    expect(state.heatmapFilter.highlightedLocs).toEqual([]);
+
+    // Assumes desktop by default
+    expect(state.mobile.isMobile).toBe(false);
+    expect(state.mobile.isTablet).toBe(false);
+    expect(state.mobile.isTouchDevice).toBe(false);
+  });
+
+  it("reflects websocket service connection state", () => {
+    const connectedServices = createMockServices({
+      websocket: createMockWebSocketService({ isConnected: true, url: "ws://custom:8080" }),
+    });
+    const { getState } = createTestSlice(connectedServices);
+
+    expect(getState().wsConnected).toBe(true);
+    expect(getState().wsUrl).toBe("ws://custom:8080");
+  });
+});
+
+// ============================================================================
+// Command Palette Workflows
+// ============================================================================
+
+describe("Command Palette - Search and Navigation", () => {
+  it("opening command palette resets any existing query and selection", () => {
+    const { getState } = createTestSlice();
+
+    // Simulate previous session with leftover state
+    getState().setCommandPaletteQuery("old search");
+    getState().setCommandPaletteSelectedIndex(5);
+
+    // Open should give a fresh start
+    getState().openCommandPalette();
+
+    expect(getState().commandPalette.open).toBe(true);
+    expect(getState().commandPalette.query).toBe("");
+    expect(getState().commandPalette.selectedIndex).toBe(0);
+  });
+
+  it("typing a search query resets keyboard selection to first result", () => {
+    const { getState } = createTestSlice();
+
+    getState().openCommandPalette();
+    getState().setCommandPaletteSelectedIndex(3); // User navigated down
+
+    // Typing should reset to first result
+    getState().setCommandPaletteQuery("button");
+
+    expect(getState().commandPalette.query).toBe("button");
+    expect(getState().commandPalette.selectedIndex).toBe(0);
+  });
+
+  it("closing command palette clears all search state", () => {
+    const { getState } = createTestSlice();
+
+    getState().openCommandPalette();
+    getState().setCommandPaletteQuery("search term");
+    getState().setCommandPaletteSelectedIndex(2);
+
+    getState().closeCommandPalette();
+
+    expect(getState().commandPalette.open).toBe(false);
+    expect(getState().commandPalette.query).toBe("");
+    expect(getState().commandPalette.selectedIndex).toBe(0);
+  });
+
+  it("navigating with keyboard preserves the current search query", () => {
+    const { getState } = createTestSlice();
+
+    getState().openCommandPalette();
+    getState().setCommandPaletteQuery("test query");
+
+    getState().setCommandPaletteSelectedIndex(2);
+
+    expect(getState().commandPalette.query).toBe("test query");
+    expect(getState().commandPalette.selectedIndex).toBe(2);
+  });
+});
+
+// ============================================================================
+// Tile Expansion - Hierarchical Navigation
+// ============================================================================
+
+describe("Command Palette - Tile Expansion", () => {
+  it("expanding a tile shows its children and tracks the path", () => {
+    const { getState } = createTestSlice();
+    getState().openCommandPalette();
+
+    const ruleTile = createMockTile("rule-1", "No Alt Text");
+    const children = [createMockTile("file-1", "App.tsx"), createMockTile("file-2", "Button.tsx")];
+    const siblings = [createMockTile("rule-2", "Color Contrast")];
+
+    getState().expandTile(ruleTile, children, siblings, "issues");
+
+    expect(getState().commandPalette.expansionPath).toHaveLength(1);
+    expect(getState().commandPalette.expansionPath[0].item.id).toBe("rule-1");
+    expect(getState().commandPalette.expansionPath[0].children).toHaveLength(2);
+    expect(getState().commandPalette.selectedIndex).toBe(0); // Reset on expand
+    expect(getState().commandPalette.query).toBe(""); // Clear search on expand
+  });
+
+  it("collapsing returns to the previous level", () => {
+    const { getState } = createTestSlice();
+    getState().openCommandPalette();
+
+    // Expand to level 1
+    getState().expandTile(createMockTile("rule-1", "Rule"), [], [], "issues");
+    expect(getState().getCurrentExpansionLevel()).toBe(1);
+
+    // Collapse back to root
+    getState().collapseTile();
+
+    expect(getState().getCurrentExpansionLevel()).toBe(0);
+    expect(getState().commandPalette.expansionPath).toEqual([]);
+  });
+
+  it("can navigate two levels deep (rules -> files -> issues)", () => {
+    const { getState } = createTestSlice();
+    getState().openCommandPalette();
+
+    // Level 0 -> Level 1 (expand rule)
+    getState().expandTile(createMockTile("rule-1", "Rule"), [], [], "issues");
+    expect(getState().getCurrentExpansionLevel()).toBe(1);
+
+    // Level 1 -> Level 2 (expand file)
+    getState().expandTile(createMockTile("file-1", "File"), [], [], "issues");
+    expect(getState().getCurrentExpansionLevel()).toBe(2);
+
+    // Cannot expand beyond level 2
+    getState().expandTile(createMockTile("issue-1", "Issue"), [], [], "issues");
+    expect(getState().getCurrentExpansionLevel()).toBe(2); // Still at 2
+  });
+
+  it("collapse all returns to root from any depth", () => {
+    const { getState } = createTestSlice();
+    getState().openCommandPalette();
+
+    // Go two levels deep
+    getState().expandTile(createMockTile("rule-1", "Rule"), [], [], "issues");
+    getState().expandTile(createMockTile("file-1", "File"), [], [], "issues");
+    expect(getState().getCurrentExpansionLevel()).toBe(2);
+
+    getState().collapseAll();
+
+    expect(getState().getCurrentExpansionLevel()).toBe(0);
+    expect(getState().commandPalette.expansionPath).toEqual([]);
+  });
+
+  it("collapse to specific level preserves tiles up to that level", () => {
+    const { getState } = createTestSlice();
+    getState().openCommandPalette();
+
+    // Go two levels deep
+    getState().expandTile(createMockTile("rule-1", "Rule"), [], [], "issues");
+    getState().expandTile(createMockTile("file-1", "File"), [], [], "issues");
+
+    // Collapse to level 1 (keep rule expanded, collapse file)
+    getState().collapseToLevel(1);
+
+    expect(getState().getCurrentExpansionLevel()).toBe(1);
+    expect(getState().commandPalette.expansionPath[0].item.id).toBe("rule-1");
+  });
+});
+
+// ============================================================================
+// Inspector - Panel Management
+// ============================================================================
+
+describe("Inspector - Opening and Closing", () => {
+  it("opening inspector with data shows the panel with that data", () => {
+    const { getState } = createTestSlice();
+
+    const issueData = { elementId: "el-123", ruleId: "uilint/alt-text" };
+    getState().openInspector("issue-details", issueData);
+
+    expect(getState().inspector.open).toBe(true);
+    expect(getState().inspector.panelId).toBe("issue-details");
+    expect(getState().inspector.data).toEqual(issueData);
+  });
+
+  it("switching panels while inspector is open updates the content", () => {
+    const { getState } = createTestSlice();
+
+    getState().openInspector("panel-1", { foo: "bar" });
+    getState().openInspector("panel-2", { baz: "qux" });
+
+    expect(getState().inspector.open).toBe(true);
+    expect(getState().inspector.panelId).toBe("panel-2");
+    expect(getState().inspector.data).toEqual({ baz: "qux" });
+  });
+
+  it("closing inspector clears panel data but preserves layout preferences", () => {
+    const { getState } = createTestSlice();
+
+    // Setup: customize layout
+    getState().setInspectorWidth(600);
+    getState().toggleInspectorDocked(); // Now floating
+    getState().setInspectorFloatingPosition({ x: 100, y: 200 });
+
+    // Open and close
+    getState().openInspector("test-panel", { key: "value" });
+    getState().closeInspector();
+
+    // Panel data is cleared
+    expect(getState().inspector.open).toBe(false);
+    expect(getState().inspector.panelId).toBeNull();
+    expect(getState().inspector.data).toBeNull();
+
+    // Layout preferences are preserved
+    expect(getState().inspector.width).toBe(600);
+    expect(getState().inspector.docked).toBe(false);
+    expect(getState().inspector.floatingPosition).toEqual({ x: 100, y: 200 });
+  });
+
+  it("opening inspector panel (unified view) preserves existing state", () => {
+    const { getState } = createTestSlice();
+
+    getState().setInspectorWidth(500);
+    getState().openInspectorPanel();
+
+    expect(getState().inspector.open).toBe(true);
+    expect(getState().inspector.width).toBe(500);
+  });
+});
+
+// ============================================================================
+// Inspector - Layout Modes
+// ============================================================================
+
+describe("Inspector - Docked and Floating Modes", () => {
+  it("toggles between docked and floating mode", () => {
+    const { getState } = createTestSlice();
+
+    expect(getState().inspector.docked).toBe(true);
+
+    getState().toggleInspectorDocked();
+    expect(getState().inspector.docked).toBe(false);
+
+    getState().toggleInspectorDocked();
+    expect(getState().inspector.docked).toBe(true);
+  });
+
+  it("resizing and repositioning preserves panel content", () => {
+    const { getState } = createTestSlice();
+
+    getState().openInspector("test-panel", { key: "value" });
+    getState().toggleInspectorDocked();
+
+    getState().setInspectorWidth(500);
+    getState().setInspectorFloatingPosition({ x: 150, y: 250 });
+    getState().setInspectorFloatingSize({ width: 400, height: 600 });
+
+    expect(getState().inspector.open).toBe(true);
+    expect(getState().inspector.panelId).toBe("test-panel");
+    expect(getState().inspector.data).toEqual({ key: "value" });
+    expect(getState().inspector.width).toBe(500);
+    expect(getState().inspector.floatingPosition).toEqual({ x: 150, y: 250 });
+    expect(getState().inspector.floatingSize).toEqual({ width: 400, height: 600 });
+  });
+});
+
+// ============================================================================
+// Inspector - Hierarchical Issue Navigation
+// ============================================================================
+
+describe("Inspector - Issue Navigation Hierarchy", () => {
+  it("expanding a rule shows its files, collapsing clears expansion", () => {
+    const { getState } = createTestSlice();
+
+    getState().expandRule("no-alt-text");
+    expect(getState().inspector.expandedRuleId).toBe("no-alt-text");
+
+    getState().collapseRule();
+    expect(getState().inspector.expandedRuleId).toBeNull();
+    expect(getState().inspector.expandedFilePath).toBeNull();
+  });
+
+  it("clicking same rule toggles it closed", () => {
+    const { getState } = createTestSlice();
+
+    getState().expandRule("no-alt-text");
+    getState().expandRule("no-alt-text"); // Click again
+
+    expect(getState().inspector.expandedRuleId).toBeNull();
+  });
+
+  it("expanding a file within a rule drills down to issues", () => {
+    const { getState } = createTestSlice();
+
+    getState().expandRule("no-alt-text");
+    getState().expandFileInRule("/src/App.tsx");
+
+    expect(getState().inspector.expandedRuleId).toBe("no-alt-text");
+    expect(getState().inspector.expandedFilePath).toBe("/src/App.tsx");
+  });
+
+  it("collapsing file keeps rule expanded", () => {
+    const { getState } = createTestSlice();
+
+    getState().expandRule("no-alt-text");
+    getState().expandFileInRule("/src/App.tsx");
+    getState().collapseFileInRule();
+
+    expect(getState().inspector.expandedRuleId).toBe("no-alt-text");
+    expect(getState().inspector.expandedFilePath).toBeNull();
+  });
+
+  it("collapse all clears both rule and file expansion", () => {
+    const { getState } = createTestSlice();
+
+    getState().expandRule("no-alt-text");
+    getState().expandFileInRule("/src/App.tsx");
+    getState().selectIssue("issue-123");
+    getState().showFullSourceView();
+
+    getState().collapseAllInspector();
+
+    expect(getState().inspector.expandedRuleId).toBeNull();
+    expect(getState().inspector.expandedFilePath).toBeNull();
+    expect(getState().inspector.selectedIssueId).toBeNull();
+    expect(getState().inspector.showFullSource).toBe(false);
+  });
+
+  it("toggling files in issues list works independently", () => {
+    const { getState } = createTestSlice();
+
+    getState().expandFile("/src/App.tsx");
+    getState().expandFile("/src/Button.tsx");
+
+    expect(getState().inspector.expandedFiles).toContain("/src/App.tsx");
+    expect(getState().inspector.expandedFiles).toContain("/src/Button.tsx");
+
+    getState().toggleFileExpanded("/src/App.tsx"); // Collapse
+
+    expect(getState().inspector.expandedFiles).not.toContain("/src/App.tsx");
+    expect(getState().inspector.expandedFiles).toContain("/src/Button.tsx");
+  });
+
+  it("selecting an issue syncs with heatmap highlighting", () => {
+    const { getState } = createTestSlice();
+
+    getState().selectIssue("issue-456");
+
+    expect(getState().inspector.selectedIssueId).toBe("issue-456");
+
+    getState().selectIssue(null);
+
+    expect(getState().inspector.selectedIssueId).toBeNull();
+  });
+
+  it("toggling between issue summary and full source views", () => {
+    const { getState } = createTestSlice();
+
+    expect(getState().inspector.showFullSource).toBe(false);
+
+    getState().showFullSourceView();
+    expect(getState().inspector.showFullSource).toBe(true);
+
+    getState().showIssueSummaryView();
+    expect(getState().inspector.showFullSource).toBe(false);
+  });
+
+  it("toggling rule config section", () => {
+    const { getState } = createTestSlice();
+
+    expect(getState().inspector.ruleConfigExpanded).toBe(false);
+
+    getState().toggleRuleConfig();
+    expect(getState().inspector.ruleConfigExpanded).toBe(true);
+
+    getState().toggleRuleConfig();
+    expect(getState().inspector.ruleConfigExpanded).toBe(false);
+  });
+});
+
+// ============================================================================
+// Element Selection and Hover
+// ============================================================================
+
+describe("Element Selection and Hover", () => {
+  it("selecting and hovering elements are independent operations", () => {
+    const { getState } = createTestSlice();
+
+    getState().setSelectedElementId("element-1");
+    getState().setHoveredElementId("element-2");
+
+    expect(getState().selectedElementId).toBe("element-1");
+    expect(getState().hoveredElementId).toBe("element-2");
+
+    // Changing hover doesn't affect selection
+    getState().setHoveredElementId("element-3");
+    expect(getState().selectedElementId).toBe("element-1");
+
+    // Clearing selection doesn't affect hover
+    getState().setSelectedElementId(null);
+    expect(getState().hoveredElementId).toBe("element-3");
+  });
+
+  it("same element can be both selected and hovered", () => {
+    const { getState } = createTestSlice();
+
+    getState().setSelectedElementId("element-1");
+    getState().setHoveredElementId("element-1");
+
+    expect(getState().selectedElementId).toBe("element-1");
+    expect(getState().hoveredElementId).toBe("element-1");
+  });
+
+  it("alt key mode can be toggled for inspection mode", () => {
+    const { getState } = createTestSlice();
+
+    getState().setAltKeyHeld(true);
+    expect(getState().altKeyHeld).toBe(true);
+
+    getState().setAltKeyHeld(false);
     expect(getState().altKeyHeld).toBe(false);
   });
+});
 
-  it("has selectedElementId as null by default", () => {
+// ============================================================================
+// Heatmap Filtering
+// ============================================================================
+
+describe("Heatmap - Filtering Related Elements", () => {
+  it("setting filter highlights specific elements and shows label", () => {
     const { getState } = createTestSlice();
-    expect(getState().selectedElementId).toBeNull();
+
+    const locs = ["file.tsx:10:5", "file.tsx:25:10"];
+    getState().setHeatmapFilter(locs, "Duplicate Pair");
+
+    expect(getState().heatmapFilter.mode).toBe("related-only");
+    expect(getState().heatmapFilter.highlightedLocs).toEqual(locs);
+    expect(getState().heatmapFilter.filterLabel).toBe("Duplicate Pair");
   });
 
-  it("has hoveredElementId as null by default", () => {
+  it("clearing filter shows all elements again", () => {
     const { getState } = createTestSlice();
-    expect(getState().hoveredElementId).toBeNull();
+
+    getState().setHeatmapFilter(["loc1", "loc2"], "Test Filter");
+    getState().clearHeatmapFilter();
+
+    expect(getState().heatmapFilter.mode).toBe("all");
+    expect(getState().heatmapFilter.highlightedLocs).toEqual([]);
+    expect(getState().heatmapFilter.filterLabel).toBeNull();
   });
 
-  describe("Command Palette Initial State", () => {
-    it("has command palette closed by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().commandPalette.open).toBe(false);
-    });
+  it("setting empty locs array switches to 'all' mode", () => {
+    const { getState } = createTestSlice();
 
-    it("has empty query by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().commandPalette.query).toBe("");
-    });
+    getState().setHeatmapFilter(["loc1"]);
+    expect(getState().heatmapFilter.mode).toBe("related-only");
 
-    it("has selectedIndex as 0 by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().commandPalette.selectedIndex).toBe(0);
-    });
-
-  });
-
-  describe("Inspector Initial State", () => {
-    it("has inspector closed by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().inspector.open).toBe(false);
-    });
-
-    it("has panelId as null by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().inspector.panelId).toBeNull();
-    });
-
-    it("has data as null by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().inspector.data).toBeNull();
-    });
-
-    it("has docked as true by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().inspector.docked).toBe(true);
-    });
-
-    it("has default width of 400", () => {
-      const { getState } = createTestSlice();
-      expect(getState().inspector.width).toBe(400);
-    });
-
-    it("has floatingPosition as null by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().inspector.floatingPosition).toBeNull();
-    });
-
-    it("has floatingSize as null by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().inspector.floatingSize).toBeNull();
-    });
-  });
-
-  describe("WebSocket Initial State", () => {
-    it("has wsConnected reflecting service state", () => {
-      const services = createMockServices({
-        websocket: createMockWebSocketService({ isConnected: true }),
-      });
-      const { getState } = createTestSlice(services);
-      expect(getState().wsConnected).toBe(true);
-    });
-
-    it("has wsUrl reflecting service url", () => {
-      const services = createMockServices({
-        websocket: createMockWebSocketService({ url: "ws://custom:8080" }),
-      });
-      const { getState } = createTestSlice(services);
-      expect(getState().wsUrl).toBe("ws://custom:8080");
-    });
-
-    it("has default wsUrl as ws://localhost:9234", () => {
-      const { getState } = createTestSlice();
-      expect(getState().wsUrl).toBe("ws://localhost:9234");
-    });
-  });
-
-  describe("Mobile State Initial Values", () => {
-    it("has isMobile as false by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().mobile.isMobile).toBe(false);
-    });
-
-    it("has isTablet as false by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().mobile.isTablet).toBe(false);
-    });
-
-    it("has isTouchDevice as false by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().mobile.isTouchDevice).toBe(false);
-    });
-
-    it("has isSmallScreen as false by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().mobile.isSmallScreen).toBe(false);
-    });
+    getState().setHeatmapFilter([]);
+    expect(getState().heatmapFilter.mode).toBe("all");
   });
 });
 
 // ============================================================================
-// Command Palette Actions Tests
+// Mobile/Responsive State
 // ============================================================================
 
-describe("Core Slice - Command Palette Actions", () => {
-  describe("openCommandPalette", () => {
-    it("sets open to true", () => {
-      const { getState } = createTestSlice();
-
-      getState().openCommandPalette();
-
-      expect(getState().commandPalette.open).toBe(true);
-    });
-
-    it("resets query to empty string", () => {
-      const { getState } = createTestSlice();
-
-      // First set a query
-      getState().setCommandPaletteQuery("test query");
-      expect(getState().commandPalette.query).toBe("test query");
-
-      // Open should reset query
-      getState().openCommandPalette();
-
-      expect(getState().commandPalette.query).toBe("");
-    });
-
-    it("resets selectedIndex to 0", () => {
-      const { getState } = createTestSlice();
-
-      // First set a selected index
-      getState().setCommandPaletteSelectedIndex(5);
-      expect(getState().commandPalette.selectedIndex).toBe(5);
-
-      // Open should reset index
-      getState().openCommandPalette();
-
-      expect(getState().commandPalette.selectedIndex).toBe(0);
-    });
-
-  });
-
-  describe("closeCommandPalette", () => {
-    it("sets open to false", () => {
-      const { getState } = createTestSlice();
-
-      getState().openCommandPalette();
-      expect(getState().commandPalette.open).toBe(true);
-
-      getState().closeCommandPalette();
-
-      expect(getState().commandPalette.open).toBe(false);
-    });
-
-    it("resets query and index", () => {
-      const { getState } = createTestSlice();
-
-      // Set up various state
-      getState().openCommandPalette();
-      getState().setCommandPaletteQuery("search term");
-      getState().setCommandPaletteSelectedIndex(3);
-
-      getState().closeCommandPalette();
-
-      expect(getState().commandPalette.open).toBe(false);
-      expect(getState().commandPalette.query).toBe("");
-      expect(getState().commandPalette.selectedIndex).toBe(0);
-    });
-  });
-
-  describe("setCommandPaletteQuery", () => {
-    it("updates the query", () => {
-      const { getState } = createTestSlice();
-
-      getState().setCommandPaletteQuery("new search");
-
-      expect(getState().commandPalette.query).toBe("new search");
-    });
-
-    it("resets selectedIndex to 0 when query changes", () => {
-      const { getState } = createTestSlice();
-
-      getState().setCommandPaletteSelectedIndex(5);
-
-      getState().setCommandPaletteQuery("search");
-
-      expect(getState().commandPalette.selectedIndex).toBe(0);
-    });
-
-    it("can set empty query", () => {
-      const { getState } = createTestSlice();
-
-      getState().setCommandPaletteQuery("test");
-      getState().setCommandPaletteQuery("");
-
-      expect(getState().commandPalette.query).toBe("");
-    });
-  });
-
-  describe("setCommandPaletteSelectedIndex", () => {
-    it("updates the selected index", () => {
-      const { getState } = createTestSlice();
-
-      getState().setCommandPaletteSelectedIndex(3);
-
-      expect(getState().commandPalette.selectedIndex).toBe(3);
-    });
-
-    it("can set index to 0", () => {
-      const { getState } = createTestSlice();
-
-      getState().setCommandPaletteSelectedIndex(5);
-      getState().setCommandPaletteSelectedIndex(0);
-
-      expect(getState().commandPalette.selectedIndex).toBe(0);
-    });
-
-    it("preserves query when changing index", () => {
-      const { getState } = createTestSlice();
-
-      getState().setCommandPaletteQuery("test query");
-      getState().setCommandPaletteSelectedIndex(2);
-
-      expect(getState().commandPalette.query).toBe("test query");
-    });
-  });
-
-});
-
-// ============================================================================
-// Inspector Actions Tests
-// ============================================================================
-
-describe("Core Slice - Inspector Actions", () => {
-  describe("openInspector", () => {
-    it("sets open to true", () => {
-      const { getState } = createTestSlice();
-
-      getState().openInspector("test-panel");
-
-      expect(getState().inspector.open).toBe(true);
-    });
-
-    it("sets panelId to the provided value", () => {
-      const { getState } = createTestSlice();
-
-      getState().openInspector("element-inspector");
-
-      expect(getState().inspector.panelId).toBe("element-inspector");
-    });
-
-    it("sets data when provided", () => {
-      const { getState } = createTestSlice();
-
-      const data = { elementId: "el-123", ruleId: "uilint/semantic" };
-      getState().openInspector("issue-panel", data);
-
-      expect(getState().inspector.data).toEqual(data);
-    });
-
-    it("sets data to null when not provided", () => {
-      const { getState } = createTestSlice();
-
-      getState().openInspector("test-panel");
-
-      expect(getState().inspector.data).toBeNull();
-    });
-
-    it("preserves docked state when opening", () => {
-      const { getState } = createTestSlice();
-
-      // Toggle to floating
-      getState().toggleInspectorDocked();
-      expect(getState().inspector.docked).toBe(false);
-
-      getState().openInspector("test-panel");
-
-      expect(getState().inspector.docked).toBe(false);
-    });
-
-    it("preserves width when opening", () => {
-      const { getState } = createTestSlice();
-
-      getState().setInspectorWidth(500);
-
-      getState().openInspector("test-panel");
-
-      expect(getState().inspector.width).toBe(500);
-    });
-
-    it("can switch panels while open", () => {
-      const { getState } = createTestSlice();
-
-      getState().openInspector("panel-1", { foo: "bar" });
-      expect(getState().inspector.panelId).toBe("panel-1");
-      expect(getState().inspector.data).toEqual({ foo: "bar" });
-
-      getState().openInspector("panel-2", { baz: "qux" });
-
-      expect(getState().inspector.open).toBe(true);
-      expect(getState().inspector.panelId).toBe("panel-2");
-      expect(getState().inspector.data).toEqual({ baz: "qux" });
-    });
-  });
-
-  describe("closeInspector", () => {
-    it("sets open to false", () => {
-      const { getState } = createTestSlice();
-
-      getState().openInspector("test-panel");
-      expect(getState().inspector.open).toBe(true);
-
-      getState().closeInspector();
-
-      expect(getState().inspector.open).toBe(false);
-    });
-
-    it("clears panelId to null", () => {
-      const { getState } = createTestSlice();
-
-      getState().openInspector("test-panel");
-
-      getState().closeInspector();
-
-      expect(getState().inspector.panelId).toBeNull();
-    });
-
-    it("clears data to null", () => {
-      const { getState } = createTestSlice();
-
-      getState().openInspector("test-panel", { key: "value" });
-
-      getState().closeInspector();
-
-      expect(getState().inspector.data).toBeNull();
-    });
-
-    it("preserves docked state when closing", () => {
-      const { getState } = createTestSlice();
-
-      getState().toggleInspectorDocked();
-      getState().openInspector("test-panel");
-
-      getState().closeInspector();
-
-      expect(getState().inspector.docked).toBe(false);
-    });
-
-    it("preserves width when closing", () => {
-      const { getState } = createTestSlice();
-
-      getState().setInspectorWidth(600);
-      getState().openInspector("test-panel");
-
-      getState().closeInspector();
-
-      expect(getState().inspector.width).toBe(600);
-    });
-
-    it("preserves floating position when closing", () => {
-      const { getState } = createTestSlice();
-
-      getState().setInspectorFloatingPosition({ x: 100, y: 200 });
-      getState().openInspector("test-panel");
-
-      getState().closeInspector();
-
-      expect(getState().inspector.floatingPosition).toEqual({ x: 100, y: 200 });
-    });
-  });
-
-  describe("toggleInspectorDocked", () => {
-    it("toggles from docked to floating", () => {
-      const { getState } = createTestSlice();
-
-      expect(getState().inspector.docked).toBe(true);
-
-      getState().toggleInspectorDocked();
-
-      expect(getState().inspector.docked).toBe(false);
-    });
-
-    it("toggles from floating to docked", () => {
-      const { getState } = createTestSlice();
-
-      getState().toggleInspectorDocked();
-      expect(getState().inspector.docked).toBe(false);
-
-      getState().toggleInspectorDocked();
-
-      expect(getState().inspector.docked).toBe(true);
-    });
-
-    it("preserves open state when toggling", () => {
-      const { getState } = createTestSlice();
-
-      getState().openInspector("test-panel");
-
-      getState().toggleInspectorDocked();
-
-      expect(getState().inspector.open).toBe(true);
-    });
-  });
-
-  describe("setInspectorWidth", () => {
-    it("updates the width", () => {
-      const { getState } = createTestSlice();
-
-      getState().setInspectorWidth(500);
-
-      expect(getState().inspector.width).toBe(500);
-    });
-
-    it("can set various widths", () => {
-      const { getState } = createTestSlice();
-
-      const widths = [200, 300, 400, 500, 600, 800];
-      widths.forEach((width) => {
-        getState().setInspectorWidth(width);
-        expect(getState().inspector.width).toBe(width);
-      });
-    });
-
-    it("preserves other inspector state when updating width", () => {
-      const { getState } = createTestSlice();
-
-      getState().openInspector("test-panel", { key: "value" });
-      getState().toggleInspectorDocked();
-
-      getState().setInspectorWidth(550);
-
-      expect(getState().inspector.open).toBe(true);
-      expect(getState().inspector.panelId).toBe("test-panel");
-      expect(getState().inspector.data).toEqual({ key: "value" });
-      expect(getState().inspector.docked).toBe(false);
-    });
-  });
-
-  describe("setInspectorFloatingPosition", () => {
-    it("updates the floating position", () => {
-      const { getState } = createTestSlice();
-
-      getState().setInspectorFloatingPosition({ x: 100, y: 200 });
-
-      expect(getState().inspector.floatingPosition).toEqual({ x: 100, y: 200 });
-    });
-
-    it("can update position multiple times", () => {
-      const { getState } = createTestSlice();
-
-      getState().setInspectorFloatingPosition({ x: 0, y: 0 });
-      expect(getState().inspector.floatingPosition).toEqual({ x: 0, y: 0 });
-
-      getState().setInspectorFloatingPosition({ x: 500, y: 300 });
-      expect(getState().inspector.floatingPosition).toEqual({ x: 500, y: 300 });
-    });
-
-    it("preserves other inspector state", () => {
-      const { getState } = createTestSlice();
-
-      getState().openInspector("test-panel");
-      getState().setInspectorWidth(500);
-
-      getState().setInspectorFloatingPosition({ x: 150, y: 250 });
-
-      expect(getState().inspector.open).toBe(true);
-      expect(getState().inspector.width).toBe(500);
-    });
-  });
-
-  describe("setInspectorFloatingSize", () => {
-    it("updates the floating size", () => {
-      const { getState } = createTestSlice();
-
-      getState().setInspectorFloatingSize({ width: 400, height: 600 });
-
-      expect(getState().inspector.floatingSize).toEqual({ width: 400, height: 600 });
-    });
-
-    it("can update size multiple times", () => {
-      const { getState } = createTestSlice();
-
-      getState().setInspectorFloatingSize({ width: 300, height: 400 });
-      expect(getState().inspector.floatingSize).toEqual({ width: 300, height: 400 });
-
-      getState().setInspectorFloatingSize({ width: 500, height: 700 });
-      expect(getState().inspector.floatingSize).toEqual({ width: 500, height: 700 });
-    });
-
-    it("preserves other inspector state", () => {
-      const { getState } = createTestSlice();
-
-      getState().openInspector("test-panel");
-      getState().setInspectorFloatingPosition({ x: 100, y: 100 });
-
-      getState().setInspectorFloatingSize({ width: 350, height: 450 });
-
-      expect(getState().inspector.open).toBe(true);
-      expect(getState().inspector.floatingPosition).toEqual({ x: 100, y: 100 });
-    });
+describe("Mobile/Responsive Detection", () => {
+  it("updates device detection state when viewport changes", () => {
+    const { getState } = createTestSlice();
+
+    // Simulate mobile device
+    const mobileState: MobileState = {
+      isMobile: true,
+      isTablet: false,
+      isTouchDevice: true,
+      isSmallScreen: true,
+    };
+
+    getState().setMobileState(mobileState);
+    expect(getState().mobile).toEqual(mobileState);
+
+    // Simulate resize to tablet
+    const tabletState: MobileState = {
+      isMobile: false,
+      isTablet: true,
+      isTouchDevice: true,
+      isSmallScreen: false,
+    };
+
+    getState().setMobileState(tabletState);
+    expect(getState().mobile).toEqual(tabletState);
   });
 });
 
 // ============================================================================
-// Alt Key Mode Actions Tests
+// Integration - Cross-feature Interactions
 // ============================================================================
 
-describe("Core Slice - Alt Key Mode Actions", () => {
-  describe("setAltKeyHeld", () => {
-    it("sets altKeyHeld to true", () => {
-      const { getState } = createTestSlice();
-
-      getState().setAltKeyHeld(true);
-
-      expect(getState().altKeyHeld).toBe(true);
-    });
-
-    it("sets altKeyHeld to false", () => {
-      const { getState } = createTestSlice();
-
-      getState().setAltKeyHeld(true);
-      getState().setAltKeyHeld(false);
-
-      expect(getState().altKeyHeld).toBe(false);
-    });
-
-    it("can toggle multiple times", () => {
-      const { getState } = createTestSlice();
-
-      getState().setAltKeyHeld(true);
-      expect(getState().altKeyHeld).toBe(true);
-
-      getState().setAltKeyHeld(false);
-      expect(getState().altKeyHeld).toBe(false);
-
-      getState().setAltKeyHeld(true);
-      expect(getState().altKeyHeld).toBe(true);
-    });
-  });
-});
-
-// ============================================================================
-// Selection Actions Tests
-// ============================================================================
-
-describe("Core Slice - Selection Actions", () => {
-  describe("setSelectedElementId", () => {
-    it("sets the selected element ID", () => {
-      const { getState } = createTestSlice();
-
-      getState().setSelectedElementId("element-123");
-
-      expect(getState().selectedElementId).toBe("element-123");
-    });
-
-    it("can clear selection by setting to null", () => {
-      const { getState } = createTestSlice();
-
-      getState().setSelectedElementId("element-123");
-      expect(getState().selectedElementId).toBe("element-123");
-
-      getState().setSelectedElementId(null);
-
-      expect(getState().selectedElementId).toBeNull();
-    });
-
-    it("can change selection", () => {
-      const { getState } = createTestSlice();
-
-      getState().setSelectedElementId("element-1");
-      getState().setSelectedElementId("element-2");
-
-      expect(getState().selectedElementId).toBe("element-2");
-    });
-
-    it("does not affect hovered element", () => {
-      const { getState } = createTestSlice();
-
-      getState().setHoveredElementId("hovered-element");
-
-      getState().setSelectedElementId("selected-element");
-
-      expect(getState().hoveredElementId).toBe("hovered-element");
-      expect(getState().selectedElementId).toBe("selected-element");
-    });
-  });
-
-  describe("setHoveredElementId", () => {
-    it("sets the hovered element ID", () => {
-      const { getState } = createTestSlice();
-
-      getState().setHoveredElementId("element-456");
-
-      expect(getState().hoveredElementId).toBe("element-456");
-    });
-
-    it("can clear hover by setting to null", () => {
-      const { getState } = createTestSlice();
-
-      getState().setHoveredElementId("element-456");
-      expect(getState().hoveredElementId).toBe("element-456");
-
-      getState().setHoveredElementId(null);
-
-      expect(getState().hoveredElementId).toBeNull();
-    });
-
-    it("can change hovered element rapidly", () => {
-      const { getState } = createTestSlice();
-
-      const elementIds = ["el-1", "el-2", "el-3", "el-4", "el-5"];
-      elementIds.forEach((id) => {
-        getState().setHoveredElementId(id);
-        expect(getState().hoveredElementId).toBe(id);
-      });
-    });
-
-    it("does not affect selected element", () => {
-      const { getState } = createTestSlice();
-
-      getState().setSelectedElementId("selected-element");
-
-      getState().setHoveredElementId("hovered-element");
-
-      expect(getState().selectedElementId).toBe("selected-element");
-      expect(getState().hoveredElementId).toBe("hovered-element");
-    });
-  });
-
-  describe("selection and hover interaction", () => {
-    it("allows same element to be both selected and hovered", () => {
-      const { getState } = createTestSlice();
-
-      getState().setSelectedElementId("element-1");
-      getState().setHoveredElementId("element-1");
-
-      expect(getState().selectedElementId).toBe("element-1");
-      expect(getState().hoveredElementId).toBe("element-1");
-    });
-
-    it("allows independent clearing of selection and hover", () => {
-      const { getState } = createTestSlice();
-
-      getState().setSelectedElementId("element-1");
-      getState().setHoveredElementId("element-2");
-
-      getState().setHoveredElementId(null);
-
-      expect(getState().selectedElementId).toBe("element-1");
-      expect(getState().hoveredElementId).toBeNull();
-    });
-  });
-});
-
-// ============================================================================
-// Mobile State Actions Tests
-// ============================================================================
-
-describe("Core Slice - Mobile State Actions", () => {
-  describe("setMobileState", () => {
-    it("updates all mobile state properties", () => {
-      const { getState } = createTestSlice();
-
-      const newState: MobileState = {
-        isMobile: true,
-        isTablet: false,
-        isTouchDevice: true,
-        isSmallScreen: true,
-      };
-
-      getState().setMobileState(newState);
-
-      expect(getState().mobile).toEqual(newState);
-    });
-
-    it("can set mobile device state", () => {
-      const { getState } = createTestSlice();
-
-      getState().setMobileState({
-        isMobile: true,
-        isTablet: false,
-        isTouchDevice: true,
-        isSmallScreen: false,
-      });
-
-      expect(getState().mobile.isMobile).toBe(true);
-      expect(getState().mobile.isTouchDevice).toBe(true);
-    });
-
-    it("can set tablet device state", () => {
-      const { getState } = createTestSlice();
-
-      getState().setMobileState({
-        isMobile: false,
-        isTablet: true,
-        isTouchDevice: true,
-        isSmallScreen: false,
-      });
-
-      expect(getState().mobile.isTablet).toBe(true);
-      expect(getState().mobile.isMobile).toBe(false);
-    });
-
-    it("can set small screen state", () => {
-      const { getState } = createTestSlice();
-
-      getState().setMobileState({
-        isMobile: true,
-        isTablet: false,
-        isTouchDevice: false,
-        isSmallScreen: true,
-      });
-
-      expect(getState().mobile.isSmallScreen).toBe(true);
-    });
-
-    it("can update state multiple times (simulating resize)", () => {
-      const { getState } = createTestSlice();
-
-      // Start at desktop
-      getState().setMobileState({
-        isMobile: false,
-        isTablet: false,
-        isTouchDevice: false,
-        isSmallScreen: false,
-      });
-      expect(getState().mobile.isMobile).toBe(false);
-
-      // Resize to tablet
-      getState().setMobileState({
-        isMobile: false,
-        isTablet: true,
-        isTouchDevice: false,
-        isSmallScreen: false,
-      });
-      expect(getState().mobile.isTablet).toBe(true);
-
-      // Resize to mobile
-      getState().setMobileState({
-        isMobile: true,
-        isTablet: false,
-        isTouchDevice: false,
-        isSmallScreen: false,
-      });
-      expect(getState().mobile.isMobile).toBe(true);
-      expect(getState().mobile.isTablet).toBe(false);
-    });
-
-    it("does not affect other state when updating mobile state", () => {
-      const { getState } = createTestSlice();
-
-      // Set up various state
-      getState().openCommandPalette();
-      getState().setSelectedElementId("element-123");
-
-      getState().setMobileState({
-        isMobile: true,
-        isTablet: false,
-        isTouchDevice: true,
-        isSmallScreen: true,
-      });
-
-      // Verify other state is preserved
-      expect(getState().commandPalette.open).toBe(true);
-      expect(getState().selectedElementId).toBe("element-123");
-    });
-  });
-});
-
-// ============================================================================
-// Integration Tests
-// ============================================================================
-
-describe("Core Slice - Integration", () => {
-  it("maintains independent state between command palette and inspector", () => {
+describe("Integration - Feature Independence", () => {
+  it("command palette and inspector can be open simultaneously", () => {
     const { getState } = createTestSlice();
 
     getState().openCommandPalette();
@@ -906,38 +623,38 @@ describe("Core Slice - Integration", () => {
     expect(getState().commandPalette.open).toBe(true);
     expect(getState().inspector.open).toBe(true);
 
+    // Closing one doesn't affect the other
     getState().closeCommandPalette();
 
     expect(getState().commandPalette.open).toBe(false);
     expect(getState().inspector.open).toBe(true);
   });
 
-  it("maintains selection state when opening/closing UI elements", () => {
+  it("element selection persists through opening and closing UI panels", () => {
     const { getState } = createTestSlice();
 
     getState().setSelectedElementId("element-123");
     getState().setHoveredElementId("element-456");
 
+    // Open and close various UI elements
     getState().openCommandPalette();
     getState().openInspector("panel");
-
-    expect(getState().selectedElementId).toBe("element-123");
-    expect(getState().hoveredElementId).toBe("element-456");
-
     getState().closeCommandPalette();
     getState().closeInspector();
 
+    // Selection state unchanged
     expect(getState().selectedElementId).toBe("element-123");
     expect(getState().hoveredElementId).toBe("element-456");
   });
 
-  it("preserves alt key state through other state changes", () => {
+  it("alt key state persists through other state changes", () => {
     const { getState } = createTestSlice();
 
     getState().setAltKeyHeld(true);
 
     getState().openCommandPalette();
     getState().openInspector("panel");
+    getState().setSelectedElementId("element-1");
 
     expect(getState().altKeyHeld).toBe(true);
 
@@ -946,186 +663,35 @@ describe("Core Slice - Integration", () => {
 
     expect(getState().altKeyHeld).toBe(true);
   });
-});
 
-// ============================================================================
-// Heatmap Filter Actions Tests
-// ============================================================================
+  it("heatmap filter persists through UI changes", () => {
+    const { getState } = createTestSlice();
 
-describe("Core Slice - Heatmap Filter Actions", () => {
-  describe("heatmapFilter Initial State", () => {
-    it("has mode as 'all' by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().heatmapFilter.mode).toBe("all");
-    });
+    getState().setHeatmapFilter(["loc1", "loc2"], "Duplicate Pair");
 
-    it("has empty highlightedLocs array by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().heatmapFilter.highlightedLocs).toEqual([]);
-    });
+    getState().openCommandPalette();
+    getState().setSelectedElementId("element-1");
+    getState().openInspector("test-panel");
 
-    it("has filterLabel as null by default", () => {
-      const { getState } = createTestSlice();
-      expect(getState().heatmapFilter.filterLabel).toBeNull();
-    });
+    expect(getState().heatmapFilter.mode).toBe("related-only");
+    expect(getState().heatmapFilter.highlightedLocs).toEqual(["loc1", "loc2"]);
+    expect(getState().heatmapFilter.filterLabel).toBe("Duplicate Pair");
   });
 
-  describe("setHeatmapFilter", () => {
-    it("sets mode to 'related-only' when locs provided", () => {
-      const { getState } = createTestSlice();
+  it("mobile state changes do not affect UI panel states", () => {
+    const { getState } = createTestSlice();
 
-      getState().setHeatmapFilter(["loc1", "loc2"]);
+    getState().openCommandPalette();
+    getState().setSelectedElementId("element-123");
 
-      expect(getState().heatmapFilter.mode).toBe("related-only");
+    getState().setMobileState({
+      isMobile: true,
+      isTablet: false,
+      isTouchDevice: true,
+      isSmallScreen: true,
     });
 
-    it("sets mode to 'all' when empty locs provided", () => {
-      const { getState } = createTestSlice();
-
-      getState().setHeatmapFilter(["loc1"]);
-      expect(getState().heatmapFilter.mode).toBe("related-only");
-
-      getState().setHeatmapFilter([]);
-
-      expect(getState().heatmapFilter.mode).toBe("all");
-    });
-
-    it("stores the provided locations", () => {
-      const { getState } = createTestSlice();
-      const locs = ["file.tsx:10:5", "file.tsx:25:10"];
-
-      getState().setHeatmapFilter(locs);
-
-      expect(getState().heatmapFilter.highlightedLocs).toEqual(locs);
-    });
-
-    it("sets filterLabel when provided", () => {
-      const { getState } = createTestSlice();
-
-      getState().setHeatmapFilter(["loc1"], "Duplicate Pair");
-
-      expect(getState().heatmapFilter.filterLabel).toBe("Duplicate Pair");
-    });
-
-    it("sets filterLabel to null when not provided", () => {
-      const { getState } = createTestSlice();
-
-      getState().setHeatmapFilter(["loc1"]);
-
-      expect(getState().heatmapFilter.filterLabel).toBeNull();
-    });
-
-    it("can update filter multiple times", () => {
-      const { getState } = createTestSlice();
-
-      getState().setHeatmapFilter(["loc1"], "First");
-      expect(getState().heatmapFilter.highlightedLocs).toEqual(["loc1"]);
-      expect(getState().heatmapFilter.filterLabel).toBe("First");
-
-      getState().setHeatmapFilter(["loc2", "loc3"], "Second");
-      expect(getState().heatmapFilter.highlightedLocs).toEqual(["loc2", "loc3"]);
-      expect(getState().heatmapFilter.filterLabel).toBe("Second");
-    });
-  });
-
-  describe("clearHeatmapFilter", () => {
-    it("resets mode to 'all'", () => {
-      const { getState } = createTestSlice();
-
-      getState().setHeatmapFilter(["loc1", "loc2"]);
-      expect(getState().heatmapFilter.mode).toBe("related-only");
-
-      getState().clearHeatmapFilter();
-
-      expect(getState().heatmapFilter.mode).toBe("all");
-    });
-
-    it("clears highlightedLocs to empty array", () => {
-      const { getState } = createTestSlice();
-
-      getState().setHeatmapFilter(["loc1", "loc2"]);
-
-      getState().clearHeatmapFilter();
-
-      expect(getState().heatmapFilter.highlightedLocs).toEqual([]);
-    });
-
-    it("clears filterLabel to null", () => {
-      const { getState } = createTestSlice();
-
-      getState().setHeatmapFilter(["loc1"], "Some Label");
-
-      getState().clearHeatmapFilter();
-
-      expect(getState().heatmapFilter.filterLabel).toBeNull();
-    });
-
-    it("can be called when filter is already clear", () => {
-      const { getState } = createTestSlice();
-
-      getState().clearHeatmapFilter();
-      getState().clearHeatmapFilter();
-
-      expect(getState().heatmapFilter.mode).toBe("all");
-      expect(getState().heatmapFilter.highlightedLocs).toEqual([]);
-      expect(getState().heatmapFilter.filterLabel).toBeNull();
-    });
-  });
-
-  describe("heatmap filter integration", () => {
-    it("preserves other state when setting filter", () => {
-      const { getState } = createTestSlice();
-
-      getState().setSelectedElementId("element-1");
-      getState().openInspector("test-panel");
-
-      getState().setHeatmapFilter(["loc1"], "Test");
-
-      expect(getState().selectedElementId).toBe("element-1");
-      expect(getState().inspector.open).toBe(true);
-    });
-
-    it("preserves filter when other state changes", () => {
-      const { getState } = createTestSlice();
-
-      getState().setHeatmapFilter(["loc1", "loc2"], "Duplicate Pair");
-
-      getState().openCommandPalette();
-      getState().setSelectedElementId("element-1");
-
-      expect(getState().heatmapFilter.mode).toBe("related-only");
-      expect(getState().heatmapFilter.highlightedLocs).toEqual(["loc1", "loc2"]);
-      expect(getState().heatmapFilter.filterLabel).toBe("Duplicate Pair");
-    });
-  });
-});
-
-// ============================================================================
-// Service Integration Tests
-// ============================================================================
-
-describe("Core Slice - Service Integration", () => {
-  it("uses websocket service isConnected value", () => {
-    const connectedServices = createMockServices({
-      websocket: createMockWebSocketService({ isConnected: true }),
-    });
-    const { getState: getConnectedState } = createTestSlice(connectedServices);
-
-    const disconnectedServices = createMockServices({
-      websocket: createMockWebSocketService({ isConnected: false }),
-    });
-    const { getState: getDisconnectedState } = createTestSlice(disconnectedServices);
-
-    expect(getConnectedState().wsConnected).toBe(true);
-    expect(getDisconnectedState().wsConnected).toBe(false);
-  });
-
-  it("uses websocket service url value", () => {
-    const customUrlServices = createMockServices({
-      websocket: createMockWebSocketService({ url: "ws://custom-server:8080" }),
-    });
-    const { getState } = createTestSlice(customUrlServices);
-
-    expect(getState().wsUrl).toBe("ws://custom-server:8080");
+    expect(getState().commandPalette.open).toBe(true);
+    expect(getState().selectedElementId).toBe("element-123");
   });
 });
