@@ -79,4 +79,16 @@ export default defineConfig([
       "uilint/consistent-dark-mode": "off",
     },
   },
+  // Test file specific rules
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx"],
+    rules: {
+      // Allow require() for mocking modules in tests
+      "@typescript-eslint/no-require-imports": "off",
+      // Display names not needed for test mock components
+      "react/display-name": "off",
+      // Skip coverage checks for test files themselves
+      "uilint/require-test-coverage": "off",
+    },
+  },
 ]);

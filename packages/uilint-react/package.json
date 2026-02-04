@@ -41,8 +41,9 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "lint": "test -f coverage/coverage-final.json || vitest run --coverage; eslint src/",
-    "lint:uilint": "npx uilint analyze --input-file src/components/ui-lint/toolbar/index.tsx --styleguide-path ./.uilint/styleguide.md",
+    "lint": "eslint src/",
+    "lint:strict": "eslint src/ --max-warnings 0",
+    "lint:with-coverage": "test -f coverage/coverage-final.json || vitest run --coverage; eslint src/",
     "prepare": "vitest run --coverage",
     "prepublishOnly": "npm run build"
   },
