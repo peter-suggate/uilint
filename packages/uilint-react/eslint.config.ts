@@ -44,10 +44,10 @@ export default defineConfig([
         {
           chunkCoverage: true,
           focusNonReact: false,
-          threshold: 0, // Start at 0%, increase as coverage improves
-          chunkThreshold: 0,
-          jsxThreshold: 0,
-          aggregateThreshold: 0,
+          threshold: 1, // Require at least some coverage
+          chunkThreshold: 1,
+          jsxThreshold: 1,
+          aggregateThreshold: 1,
           ignorePatterns: ["**/*.d.ts", "**/index.ts", "**/__tests__/**"],
         },
       ],
