@@ -583,6 +583,24 @@ export default createRule<Options, MessageIds>({
             minimum: 1,
             description: "Minimum number of lines for a chunk to be reported",
           },
+          confidenceLevel: {
+            type: "string",
+            enum: ["high", "medium", "low"],
+            description: "Minimum confidence level to report",
+          },
+          useStructuralBoost: {
+            type: "boolean",
+            description: "Use structural similarity boost (props, JSX, hooks overlap)",
+          },
+          includeSameFile: {
+            type: "boolean",
+            description: "Include duplicates within the same file",
+          },
+          kind: {
+            type: "string",
+            enum: ["component", "hook", "function", "all"],
+            description: "Filter by code kind",
+          },
         },
         additionalProperties: false,
       },
@@ -590,9 +608,13 @@ export default createRule<Options, MessageIds>({
   },
   defaultOptions: [
     {
-      threshold: 0.85,
+      threshold: 0.75,
       indexPath: ".uilint/.duplicates-index",
       minLines: 3,
+      confidenceLevel: "low" as const,
+      useStructuralBoost: true,
+      includeSameFile: false,
+      kind: "all" as const,
     },
   ],
   create(context) {
