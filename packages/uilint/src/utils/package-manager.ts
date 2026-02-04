@@ -286,6 +286,46 @@ export function getInstalledUilintPackages(
 }
 
 /**
+ * Uninstall dependencies from a project
+ */
+export async function uninstallDependencies(
+  pm: PackageManager,
+  projectPath: string,
+  packages: string[]
+): Promise<void> {
+  if (!packages.length) return;
+
+  // Only uninstall packages that are actually installed
+  const installed = getInstalledPackages(projectPath);
+  const packagesToUninstall = packages.filter((pkg) => {
+    const name = getPackageName(pkg);
+    return installed.has(name);
+  });
+
+  if (!packagesToUninstall.length) return;
+
+  switch (pm) {
+    case "pnpm":
+      await spawnAsync("pnpm", ["remove", ...packagesToUninstall], projectPath);
+      return;
+    case "yarn":
+      await spawnAsync("yarn", ["remove", ...packagesToUninstall], projectPath);
+      return;
+    case "bun":
+      await spawnAsync("bun", ["remove", ...packagesToUninstall], projectPath);
+      return;
+    case "npm":
+    default:
+      await spawnAsync(
+        "npm",
+        ["uninstall", ...packagesToUninstall],
+        projectPath
+      );
+      return;
+  }
+}
+
+/**
  * Update packages to their latest versions
  */
 export async function updatePackages(

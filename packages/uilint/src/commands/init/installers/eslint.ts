@@ -703,6 +703,13 @@ export const eslintInstaller: Installer = {
         type: "remove_directory",
         path: rulesDir,
       });
+
+      // Remove uilint-eslint dependency from package.json
+      actions.push({
+        type: "remove_dependencies",
+        packagePath: target.path,
+        packages: ["uilint-eslint"],
+      });
     }
 
     return { actions };

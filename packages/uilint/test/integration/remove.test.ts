@@ -15,7 +15,7 @@ import { gatherChoices } from "../../src/commands/init/test-helpers.js";
 import { getAllInstallers } from "../../src/commands/init/installers/registry.js";
 import type { ProjectState, InstallAction } from "../../src/commands/init/types.js";
 import type { InstallerSelection, InstallTarget } from "../../src/commands/init/installers/types.js";
-import { writeFileSync, mkdirSync } from "fs";
+import { writeFileSync, mkdirSync, readFileSync } from "fs";
 import { join } from "path";
 
 // Import installers to trigger registration
@@ -625,5 +625,222 @@ describe("Removal error handling", () => {
     );
 
     expect(result.success).toBe(true);
+  });
+});
+
+// ============================================================================
+// Package.json Dependency Removal Tests
+// ============================================================================
+
+describe("Package.json dependency removal", () => {
+  it("includes remove_dependencies action in Next.js overlay removal plan", async () => {
+    fixture = useFixture("nextjs-with-uilint-overlay");
+    const state = await analyze(fixture.path);
+
+    // Get the Next.js installer
+    const installers = getAllInstallers();
+    const nextInstaller = installers.find((i) => i.id === "next");
+    expect(nextInstaller).toBeDefined();
+
+    // Build remove selection
+    const appInfo = state.nextApps[0];
+    expect(appInfo).toBeDefined();
+
+    const removeSelections: InstallerSelection[] = [
+      {
+        installer: nextInstaller!,
+        targets: [
+          {
+            id: `next-${appInfo!.projectPath}`,
+            label: "nextjs-with-uilint-overlay",
+            path: appInfo!.projectPath,
+            isInstalled: true,
+          },
+        ],
+        selected: true,
+      },
+    ];
+
+    // Build removal plan
+    const removeActions = buildRemovalPlan(removeSelections, state);
+
+    // Verify remove_dependencies action is included
+    const removeDepsAction = removeActions.find(
+      (a) => a.type === "remove_dependencies"
+    );
+    expect(removeDepsAction).toBeDefined();
+    expect(removeDepsAction?.type).toBe("remove_dependencies");
+    if (removeDepsAction?.type === "remove_dependencies") {
+      expect(removeDepsAction.packages).toContain("uilint-react");
+      expect(removeDepsAction.packages).toContain("uilint-core");
+      expect(removeDepsAction.packages).toContain("jsx-loc-plugin");
+    }
+  });
+
+  it("includes remove_dependencies action in ESLint removal plan", async () => {
+    const { fixture: f, state } = await installFirst("has-eslint-flat", [
+      "eslint",
+    ]);
+    fixture = f;
+
+    // Get the ESLint installer
+    const installers = getAllInstallers();
+    const eslintInstaller = installers.find((i) => i.id === "eslint");
+    expect(eslintInstaller).toBeDefined();
+
+    // Build remove selection
+    const pkg = state.packages.find((p) => p.hasUilintRules);
+    expect(pkg).toBeDefined();
+
+    const removeSelections: InstallerSelection[] = [
+      {
+        installer: eslintInstaller!,
+        targets: [
+          {
+            id: pkg!.path,
+            label: "ESLint",
+            path: pkg!.path,
+            isInstalled: true,
+          },
+        ],
+        selected: true,
+      },
+    ];
+
+    // Build removal plan
+    const removeActions = buildRemovalPlan(removeSelections, state);
+
+    // Verify remove_dependencies action is included
+    const removeDepsAction = removeActions.find(
+      (a) => a.type === "remove_dependencies"
+    );
+    expect(removeDepsAction).toBeDefined();
+    expect(removeDepsAction?.type).toBe("remove_dependencies");
+    if (removeDepsAction?.type === "remove_dependencies") {
+      expect(removeDepsAction.packages).toContain("uilint-eslint");
+    }
+  });
+
+  it("calls uninstallDependencies when executing remove_dependencies action", async () => {
+    fixture = useFixture("nextjs-with-uilint-overlay");
+    const state = await analyze(fixture.path);
+
+    // Track uninstall calls
+    const uninstallCalls: { pm: string; path: string; packages: string[] }[] = [];
+    const mockUninstallDependencies = async (
+      pm: string,
+      projectPath: string,
+      packages: string[]
+    ) => {
+      uninstallCalls.push({ pm, path: projectPath, packages });
+    };
+
+    // Get the Next.js installer
+    const installers = getAllInstallers();
+    const nextInstaller = installers.find((i) => i.id === "next");
+    expect(nextInstaller).toBeDefined();
+
+    // Build remove selection
+    const appInfo = state.nextApps[0];
+    expect(appInfo).toBeDefined();
+
+    const removeSelections: InstallerSelection[] = [
+      {
+        installer: nextInstaller!,
+        targets: [
+          {
+            id: `next-${appInfo!.projectPath}`,
+            label: "nextjs-with-uilint-overlay",
+            path: appInfo!.projectPath,
+            isInstalled: true,
+          },
+        ],
+        selected: true,
+      },
+    ];
+
+    // Build and execute removal plan
+    const removeActions = buildRemovalPlan(removeSelections, state);
+
+    const result = await execute(
+      { actions: removeActions, dependencies: [] },
+      {
+        dryRun: false,
+        installDependencies: mockInstallDependencies,
+        uninstallDependencies: mockUninstallDependencies,
+      }
+    );
+
+    expect(result.success).toBe(true);
+
+    // Verify uninstallDependencies was called
+    expect(uninstallCalls.length).toBeGreaterThan(0);
+    const call = uninstallCalls[0];
+    expect(call.packages).toContain("uilint-react");
+    expect(call.packages).toContain("uilint-core");
+    expect(call.packages).toContain("jsx-loc-plugin");
+  });
+
+  it("dry run does not call uninstallDependencies", async () => {
+    fixture = useFixture("nextjs-with-uilint-overlay");
+    const state = await analyze(fixture.path);
+
+    // Track uninstall calls
+    const uninstallCalls: { pm: string; path: string; packages: string[] }[] = [];
+    const mockUninstallDependencies = async (
+      pm: string,
+      projectPath: string,
+      packages: string[]
+    ) => {
+      uninstallCalls.push({ pm, path: projectPath, packages });
+    };
+
+    // Get the Next.js installer
+    const installers = getAllInstallers();
+    const nextInstaller = installers.find((i) => i.id === "next");
+    expect(nextInstaller).toBeDefined();
+
+    // Build remove selection
+    const appInfo = state.nextApps[0];
+    expect(appInfo).toBeDefined();
+
+    const removeSelections: InstallerSelection[] = [
+      {
+        installer: nextInstaller!,
+        targets: [
+          {
+            id: `next-${appInfo!.projectPath}`,
+            label: "nextjs-with-uilint-overlay",
+            path: appInfo!.projectPath,
+            isInstalled: true,
+          },
+        ],
+        selected: true,
+      },
+    ];
+
+    // Build and execute removal plan with dryRun
+    const removeActions = buildRemovalPlan(removeSelections, state);
+
+    const result = await execute(
+      { actions: removeActions, dependencies: [] },
+      {
+        dryRun: true,
+        installDependencies: mockInstallDependencies,
+        uninstallDependencies: mockUninstallDependencies,
+      }
+    );
+
+    expect(result.success).toBe(true);
+
+    // Verify uninstallDependencies was NOT called
+    expect(uninstallCalls.length).toBe(0);
+
+    // Verify wouldDo message is set
+    const removeDepsResult = result.actionsPerformed.find(
+      (r) => r.action.type === "remove_dependencies"
+    );
+    expect(removeDepsResult).toBeDefined();
+    expect(removeDepsResult?.wouldDo).toContain("Remove dependencies");
   });
 });

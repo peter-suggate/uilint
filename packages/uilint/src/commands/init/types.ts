@@ -268,6 +268,12 @@ export interface RemoveDirectoryAction {
   path: string;
 }
 
+export interface RemoveDependenciesAction {
+  type: "remove_dependencies";
+  packagePath: string;
+  packages: string[];
+}
+
 export interface UpdateManifestAction {
   type: "update_manifest";
   projectPath: string;
@@ -294,6 +300,7 @@ export type InstallAction =
   | RemoveViteConfigAction
   | RemoveNextRoutesAction
   | RemoveDirectoryAction
+  | RemoveDependenciesAction
   | UpdateManifestAction;
 
 export interface DependencyInstall {
@@ -376,6 +383,12 @@ export interface ExecuteOptions {
   dryRun?: boolean;
   /** Injectable dependency installer (for testing) */
   installDependencies?: (
+    pm: PackageManager,
+    projectPath: string,
+    packages: string[]
+  ) => Promise<void>;
+  /** Injectable dependency uninstaller (for testing) */
+  uninstallDependencies?: (
     pm: PackageManager,
     projectPath: string,
     packages: string[]
