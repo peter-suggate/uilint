@@ -143,6 +143,7 @@ export function TileGrid({
               <Tile
                 item={item}
                 bucket={tileLayout.bucket}
+                tileWidth={tileLayout.height ? parseFloat(tileLayout.width) : 166}
                 isSelected={globalIndex === selectedIndex}
                 onClick={() => onTileClick(item)}
                 onOpenInInspector={onOpenInInspector ? () => onOpenInInspector(item) : undefined}

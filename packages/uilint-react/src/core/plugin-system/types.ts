@@ -630,6 +630,17 @@ export interface TileItem {
   count: number;
   /** Optional severity breakdown for visual indicator */
   severityCounts?: TileSeverityCounts;
+  /**
+   * Optional preview messages for large tiles (lg/xl buckets).
+   * These are displayed as additional context when space permits.
+   * @example ["Unused variable 'foo'", "Missing return type"]
+   */
+  previewMessages?: string[];
+  /**
+   * Optional file count for large tiles (lg/xl buckets).
+   * Shows "X files" badge when present.
+   */
+  fileCount?: number;
   /** Additional metadata for filtering/identification */
   metadata?: Record<string, unknown>;
 }
