@@ -16,6 +16,11 @@ import type { ESLintPluginSlice } from "./slice";
 import type { AvailableRule } from "./types";
 
 /**
+ * Tile type for distinguishing rule tiles from file tiles
+ */
+export type TileType = "rule" | "file";
+
+/**
  * Count issues by severity level.
  *
  * @param issues - Array of issues to count
@@ -87,6 +92,7 @@ export function aggregateByRule(
       metadata: {
         isRule: true,
         ruleId,
+        tileType: "rule" as TileType,
       },
     });
   }
@@ -147,6 +153,7 @@ export function aggregateByFile(issues: Issue[], ruleId: string): TileItem[] {
         isFile: true,
         filePath,
         ruleId,
+        tileType: "file" as TileType,
       },
     });
   }
@@ -159,6 +166,163 @@ export function aggregateByFile(issues: Issue[], ruleId: string): TileItem[] {
 
     return b.count - a.count;
   });
+
+  return tiles;
+}
+
+/**
+ * Aggregate all issues by file globally (across all rules).
+ * Returns a single tile per file showing total issues.
+ *
+ * @param issues - Flat array of all issues
+ * @returns Array of TileItem objects, one per unique file
+ */
+export function aggregateByFileGlobal(issues: Issue[]): TileItem[] {
+  // Group all issues by file path
+  const issuesByFile = new Map<string, Issue[]>();
+
+  for (const issue of issues) {
+    const filePath = issue.filePath;
+    const existing = issuesByFile.get(filePath) || [];
+    issuesByFile.set(filePath, [...existing, issue]);
+  }
+
+  // Convert to tiles
+  const tiles: TileItem[] = [];
+
+  for (const [filePath, fileIssues] of issuesByFile) {
+    const severityCounts = countSeverities(fileIssues);
+
+    // Extract filename and directory for display
+    const parts = filePath.split("/");
+    const fileName = parts.pop() || filePath;
+    const directory = parts.join("/") || "/";
+
+    // Get unique rule count for this file
+    const uniqueRules = new Set(fileIssues.map((i) => i.ruleId));
+
+    tiles.push({
+      id: `file:${filePath}`,
+      label: fileName,
+      subtitle: directory,
+      count: fileIssues.length,
+      severityCounts,
+      metadata: {
+        isFile: true,
+        filePath,
+        tileType: "file" as TileType,
+        ruleCount: uniqueRules.size,
+        // Store issues for search filtering
+        issues: fileIssues,
+      },
+    });
+  }
+
+  // Sort by count (descending), then by errors (descending)
+  tiles.sort((a, b) => {
+    const aErrors = a.severityCounts?.error ?? 0;
+    const bErrors = b.severityCounts?.error ?? 0;
+    if (aErrors !== bErrors) return bErrors - aErrors;
+
+    return b.count - a.count;
+  });
+
+  return tiles;
+}
+
+/**
+ * Get all tiles (rules + files) in a flat list, sorted by issue count.
+ * This is the new primary method for the redesigned command palette.
+ *
+ * @param issues - Flat array of all issues
+ * @param availableRules - Available rule metadata for descriptions
+ * @returns Array of TileItem objects (both rules and files), sorted by count
+ */
+export function getAllTilesFlat(
+  issues: Issue[],
+  availableRules: AvailableRule[] = []
+): TileItem[] {
+  if (issues.length === 0) {
+    return [];
+  }
+
+  // Get rule tiles (with issues stored for search filtering)
+  const ruleTiles = aggregateByRuleWithIssues(issues, availableRules);
+
+  // Get global file tiles
+  const fileTiles = aggregateByFileGlobal(issues);
+
+  // Combine all tiles
+  const allTiles = [...ruleTiles, ...fileTiles];
+
+  // Sort by count (descending), then by errors (descending)
+  allTiles.sort((a, b) => {
+    const aErrors = a.severityCounts?.error ?? 0;
+    const bErrors = b.severityCounts?.error ?? 0;
+    if (aErrors !== bErrors) return bErrors - aErrors;
+
+    return b.count - a.count;
+  });
+
+  return allTiles;
+}
+
+/**
+ * Aggregate issues by rule, including issues in metadata for search filtering.
+ * Internal helper for getAllTilesFlat.
+ *
+ * @param issues - Flat array of all issues
+ * @param availableRules - Available rule metadata for descriptions
+ * @returns Array of TileItem objects, one per rule
+ */
+function aggregateByRuleWithIssues(
+  issues: Issue[],
+  availableRules: AvailableRule[] = []
+): TileItem[] {
+  // Group issues by ruleId
+  const issuesByRule = new Map<string, Issue[]>();
+
+  for (const issue of issues) {
+    const ruleId = issue.ruleId;
+    const existing = issuesByRule.get(ruleId) || [];
+    issuesByRule.set(ruleId, [...existing, issue]);
+  }
+
+  // Create a lookup map for rule metadata
+  const ruleMetadata = new Map<string, AvailableRule>();
+  for (const rule of availableRules) {
+    ruleMetadata.set(rule.id, rule);
+  }
+
+  // Convert to tiles
+  const tiles: TileItem[] = [];
+
+  for (const [ruleId, ruleIssues] of issuesByRule) {
+    const meta = ruleMetadata.get(ruleId);
+    const severityCounts = countSeverities(ruleIssues);
+
+    // Extract short rule name (e.g., "no-unused-vars" from "@typescript-eslint/no-unused-vars")
+    const shortName = ruleId.includes("/") ? ruleId.split("/").pop()! : ruleId;
+
+    // Get unique file count for this rule
+    const uniqueFiles = new Set(ruleIssues.map((i) => i.filePath));
+
+    tiles.push({
+      id: `rule:${ruleId}`,
+      label: meta?.name || shortName,
+      subtitle: meta?.description || ruleId,
+      count: ruleIssues.length,
+      severityCounts,
+      fileCount: uniqueFiles.size,
+      metadata: {
+        isRule: true,
+        ruleId,
+        tileType: "rule" as TileType,
+        // Store issues for search filtering
+        issues: ruleIssues,
+      },
+    });
+  }
 
   return tiles;
 }
@@ -202,17 +366,17 @@ export function getAvailableRules(services: PluginServices): AvailableRule[] {
 /**
  * Get tile items based on current filter state.
  *
- * - No filters: Return rules as tiles (aggregateByRule)
- * - Has rule filter: Return files for that rule as tiles (aggregateByFile)
- * - Has rule + file filter: Return empty (terminal state)
+ * NEW BEHAVIOR (flat command palette):
+ * - Always returns all tiles (rules + files) in a flat list
+ * - Filters are ignored (flat design has no drill-down)
  *
  * @param services - Plugin services for state access
- * @param filters - Currently active tile filters
- * @returns Array of tile items
+ * @param filters - Currently active tile filters (ignored in flat mode)
+ * @returns Array of tile items (rules and files combined)
  */
 export function getTileItems(
   services: PluginServices,
-  filters: TileFilter[]
+  _filters: TileFilter[]
 ): TileItem[] {
   const allIssues = getAllIssues(services);
 
@@ -220,23 +384,9 @@ export function getTileItems(
     return [];
   }
 
-  // Find rule and file filters
-  const ruleFilter = filters.find((f) => f.type === "rule");
-  const fileFilter = filters.find((f) => f.type === "file");
-
-  // Terminal state: has both rule and file filter
-  if (ruleFilter && fileFilter) {
-    return [];
-  }
-
-  // Has rule filter: show files for that rule
-  if (ruleFilter) {
-    return aggregateByFile(allIssues, ruleFilter.id);
-  }
-
-  // No filters: show rules
+  // Use the new flat tile generation
   const availableRules = getAvailableRules(services);
-  return aggregateByRule(allIssues, availableRules);
+  return getAllTilesFlat(allIssues, availableRules);
 }
 
 /**

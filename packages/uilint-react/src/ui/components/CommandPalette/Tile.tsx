@@ -15,9 +15,10 @@ import React, { useMemo } from "react";
 import { motion } from "motion/react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../../lib/utils";
-import { ExternalLinkIcon } from "../../icons";
+import { ExternalLinkIcon, RuleScaleIcon, FileCodeIcon } from "../../icons";
 import type { TileItem, TileBucket } from "../../../core/plugin-system/types";
 import { useTileAdaptiveText } from "../../hooks/useAdaptiveText";
+import type { TileType } from "../../../plugins/eslint/tile-provider";
 
 // ============================================================================
 // Variants
@@ -95,6 +96,35 @@ const crispEase = [0.32, 0.72, 0, 1] as const;
 // ============================================================================
 // Sub-components
 // ============================================================================
+
+/**
+ * Icon component to visually distinguish rule vs file tiles
+ */
+function TileTypeIcon({
+  tileType,
+  size = 14,
+}: {
+  tileType?: TileType;
+  size?: number;
+}) {
+  if (tileType === "rule") {
+    return (
+      <RuleScaleIcon
+        size={size}
+        className="text-muted-foreground/50 flex-shrink-0"
+      />
+    );
+  }
+  if (tileType === "file") {
+    return (
+      <FileCodeIcon
+        size={size}
+        className="text-muted-foreground/50 flex-shrink-0"
+      />
+    );
+  }
+  return null;
+}
 
 /**
  * Hover highlight overlay - subtle top-left shine
@@ -202,6 +232,9 @@ export function Tile({ item, bucket, tileWidth = 166, isSelected, onClick, onOpe
   const isCompact = bucket === "xs" || bucket === "sm";
   const isLarge = bucket === "lg" || bucket === "xl";
 
+  // Get tile type from metadata for icon display
+  const tileType = item.metadata?.tileType as TileType | undefined;
+
   const handleOpenInInspector = (e: React.MouseEvent) => {
     e.stopPropagation();
     onOpenInInspector?.();
@@ -212,6 +245,13 @@ export function Tile({ item, bucket, tileWidth = 166, isSelected, onClick, onOpe
     if (bucket === "xs") return 10;
     if (bucket === "sm") return 12;
     return 14;
+  }, [bucket]);
+
+  // Tile type icon size (slightly larger for visibility)
+  const tileTypeIconSize = useMemo(() => {
+    if (bucket === "xs") return 12;
+    if (bucket === "sm") return 14;
+    return 16;
   }, [bucket]);
 
   return (
@@ -230,11 +270,15 @@ export function Tile({ item, bucket, tileWidth = 166, isSelected, onClick, onOpe
       {/* Top section: Label and open in inspector button */}
       <div className="flex items-start justify-between gap-1.5">
         <div className="flex-1 min-w-0">
-          <AdaptiveTitle
-            label={item.label}
-            bucket={bucket}
-            tileWidth={tileWidth}
-          />
+          {/* Tile type icon + label row */}
+          <div className="flex items-center gap-1.5">
+            <TileTypeIcon tileType={tileType} size={tileTypeIconSize} />
+            <AdaptiveTitle
+              label={item.label}
+              bucket={bucket}
+              tileWidth={tileWidth - (tileType ? tileTypeIconSize + 6 : 0)}
+            />
+          </div>
 
           {/* Subtitle - path or description (hidden for compact tiles) */}
           {item.subtitle && !isCompact && (
