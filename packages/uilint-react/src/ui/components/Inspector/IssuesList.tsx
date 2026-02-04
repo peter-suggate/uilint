@@ -105,10 +105,10 @@ function EmptyState() {
 // Constants for height calculation
 // ============================================================================
 
-/** Approximate height of RuleHeader component */
-const RULE_HEADER_HEIGHT = 120;
+/** Approximate height of compact RuleHeader component */
+const RULE_HEADER_HEIGHT = 40;
 /** Approximate height of RuleConfig component when expanded */
-const RULE_CONFIG_HEIGHT = 200;
+const RULE_CONFIG_HEIGHT = 180;
 
 // ============================================================================
 // Component
@@ -300,11 +300,11 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
           exit={{ opacity: 0.9 }}
           transition={{ duration: DURATIONS.expand, ease: crispEase }}
           className={cn(
-            "rounded-2xl",
-            "border border-foreground/[0.08]",
-            "bg-background/60 backdrop-blur-md",
+            "rounded-xl",
+            "border border-foreground/[0.05]",
+            "bg-background/80",
             "overflow-hidden",
-            "shadow-lg",
+            "shadow-sm",
             "h-full flex flex-col"
           )}
         >
@@ -317,8 +317,8 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
             onBack={collapseRule}
           />
 
-          {/* Scrollable content area */}
-          <div className="flex-1 overflow-y-auto">
+          {/* Content area */}
+          <div className="flex-1">
             {/* Rule description & config toggle */}
             <RuleHeader
               ruleFilter={{ type: "rule", id: item.id, label: item.label }}
@@ -396,7 +396,7 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
       )}
 
       {/* Main content - mosaic tile grid with in-place expansion */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 p-4">
         {fileGroups.length === 0 ? (
           <EmptyState />
         ) : !expandedFilePath ? (

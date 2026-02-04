@@ -1,12 +1,10 @@
 /**
- * IssueSummaryView - Intermediate view between file tile and full source view
+ * IssueSummaryView - Lightweight intermediate view between file tile and source
  *
- * Shows a compact list of issues for a file with:
- * - Severity indicator
- * - Line number
- * - Issue message
- * - Click to select an issue
- * - "Show full source" button at the bottom
+ * Compact list of issues with minimal chrome:
+ * - Severity indicator + line number + message
+ * - Click to select and view in source
+ * - No redundant containers or summary bars
  */
 import React, { useCallback } from "react";
 import { motion } from "motion/react";
@@ -14,7 +12,6 @@ import { AlertCircle, AlertTriangle, Info, Code2, ChevronRight } from "lucide-re
 import { cn } from "../../../lib/utils";
 import { TileHeader } from "../HierarchicalTiles/TileHeader";
 import type { Issue } from "../../types";
-import { crispEase, DURATIONS } from "../HierarchicalTiles/animations/expansion-animations";
 
 // ============================================================================
 // Types
@@ -60,7 +57,7 @@ function SeverityIcon({ severity }: { severity: Issue["severity"] }) {
 }
 
 /**
- * Individual issue row component
+ * Individual issue row - compact single-line format
  */
 function IssueRow({
   issue,
@@ -75,52 +72,38 @@ function IssueRow({
 }) {
   return (
     <motion.button
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={{
-        duration: DURATIONS.standard,
-        ease: crispEase,
-        delay: Math.min(index * 0.03, 0.3),
+        duration: 0.1,
+        delay: Math.min(index * 0.02, 0.2),
       }}
       onClick={onClick}
       className={cn(
         "w-full text-left",
-        "flex items-start gap-3 px-4 py-3",
-        "border-b border-foreground/[0.04]",
-        "transition-colors duration-150",
+        "flex items-center gap-2 px-3 py-2",
+        "border-b border-foreground/[0.03]",
+        "transition-colors duration-100",
         "hover:bg-foreground/[0.03]",
         "group",
         isSelected && "bg-foreground/[0.05]"
       )}
     >
       {/* Severity icon */}
-      <div className="mt-0.5">
-        <SeverityIcon severity={issue.severity} />
-      </div>
+      <SeverityIcon severity={issue.severity} />
 
       {/* Line number */}
-      <div className="flex-shrink-0 w-12">
-        <span className="text-xs font-mono text-muted-foreground/70 tabular-nums">
-          L{issue.line}
-        </span>
-      </div>
+      <span className="flex-shrink-0 text-[11px] font-mono text-muted-foreground/60 tabular-nums w-8">
+        {issue.line}
+      </span>
 
-      {/* Message */}
-      <div className="flex-1 min-w-0">
-        <p
-          className={cn(
-            "text-sm text-foreground/80 leading-snug",
-            "line-clamp-2"
-          )}
-        >
-          {issue.message}
-        </p>
-      </div>
+      {/* Message - single line */}
+      <span className="flex-1 min-w-0 text-xs text-foreground/70 truncate">
+        {issue.message}
+      </span>
 
       {/* Chevron indicator */}
-      <div className="flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <ChevronRight size={14} className="text-muted-foreground/50" />
-      </div>
+      <ChevronRight size={12} className="flex-shrink-0 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity" />
     </motion.button>
   );
 }
@@ -146,15 +129,6 @@ export function IssueSummaryView({
     [issues]
   );
 
-  // Count severities for summary
-  const severityCounts = React.useMemo(() => {
-    const counts = { error: 0, warning: 0, info: 0 };
-    for (const issue of issues) {
-      counts[issue.severity]++;
-    }
-    return counts;
-  }, [issues]);
-
   const handleIssueClick = useCallback(
     (issue: Issue) => {
       onIssueClick(issue);
@@ -164,21 +138,16 @@ export function IssueSummaryView({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
-      transition={{ duration: DURATIONS.standard, ease: crispEase }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.1 }}
       className={cn(
-        "flex flex-col h-full",
-        "rounded-2xl",
-        "border border-foreground/[0.08]",
-        "bg-background/60 backdrop-blur-md",
-        "overflow-hidden",
-        "shadow-lg",
+        "flex flex-col",
         className
       )}
     >
-      {/* Header with back button */}
+      {/* Compact header with back button */}
       <TileHeader
         label={fileName}
         subtitle={directory}
@@ -186,34 +155,8 @@ export function IssueSummaryView({
         onBack={onBack}
       />
 
-      {/* Severity summary bar */}
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-foreground/[0.04] bg-foreground/[0.02]">
-        {severityCounts.error > 0 && (
-          <div className="flex items-center gap-1.5">
-            <AlertCircle size={12} className="text-error" />
-            <span className="text-xs text-muted-foreground">{severityCounts.error}</span>
-          </div>
-        )}
-        {severityCounts.warning > 0 && (
-          <div className="flex items-center gap-1.5">
-            <AlertTriangle size={12} className="text-warning" />
-            <span className="text-xs text-muted-foreground">{severityCounts.warning}</span>
-          </div>
-        )}
-        {severityCounts.info > 0 && (
-          <div className="flex items-center gap-1.5">
-            <Info size={12} className="text-info" />
-            <span className="text-xs text-muted-foreground">{severityCounts.info}</span>
-          </div>
-        )}
-        <div className="flex-1" />
-        <span className="text-xs text-muted-foreground/60">
-          {issues.length} issue{issues.length !== 1 ? "s" : ""}
-        </span>
-      </div>
-
-      {/* Scrollable issue list */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Issue list - no scroll container, parent handles it */}
+      <div className="flex-1">
         {sortedIssues.map((issue, index) => (
           <IssueRow
             key={issue.id}
@@ -225,25 +168,21 @@ export function IssueSummaryView({
         ))}
       </div>
 
-      {/* Show full source button - always visible at bottom */}
-      <div className="flex-shrink-0 p-3 border-t border-foreground/[0.06]">
-        <motion.button
-          onClick={onShowFullSource}
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          className={cn(
-            "w-full flex items-center justify-center gap-2",
-            "px-4 py-2.5 rounded-xl",
-            "bg-foreground/[0.04] hover:bg-foreground/[0.07]",
-            "border border-foreground/[0.06]",
-            "text-sm font-medium text-foreground/70 hover:text-foreground/90",
-            "transition-colors duration-150"
-          )}
-        >
-          <Code2 size={16} />
-          <span>Show full source</span>
-        </motion.button>
-      </div>
+      {/* Show full source link - minimal styling */}
+      <button
+        onClick={onShowFullSource}
+        className={cn(
+          "flex items-center justify-center gap-1.5",
+          "px-3 py-2 mt-1",
+          "text-xs text-muted-foreground/60 hover:text-foreground/80",
+          "hover:bg-foreground/[0.03]",
+          "transition-colors duration-100",
+          "border-t border-foreground/[0.03]"
+        )}
+      >
+        <Code2 size={12} />
+        <span>View source</span>
+      </button>
     </motion.div>
   );
 }
