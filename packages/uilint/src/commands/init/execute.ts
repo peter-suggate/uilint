@@ -37,9 +37,14 @@ import type {
   RemoveViteConfigAction,
   RemoveNextRoutesAction,
   RemoveDirectoryAction,
+  RemoveDependenciesAction,
   UpdateManifestAction,
 } from "./types.js";
-import { installDependencies as defaultInstallDependencies } from "../../utils/package-manager.js";
+import {
+  installDependencies as defaultInstallDependencies,
+  uninstallDependencies as defaultUninstallDependencies,
+  detectPackageManager,
+} from "../../utils/package-manager.js";
 import { installEslintPlugin, removeEslintPlugin } from "../../utils/eslint-config-inject.js";
 import { installReactUILintOverlay, removeReactUILintOverlay } from "../../utils/react-inject.js";
 import { installJsxLocPlugin, removeJsxLocPlugin } from "../../utils/next-config-inject.js";
@@ -212,6 +217,10 @@ async function executeAction(
 
       case "remove_directory": {
         return await executeRemoveDirectory(action, options);
+      }
+
+      case "remove_dependencies": {
+        return await executeRemoveDependencies(action, options);
       }
 
       case "update_manifest": {
@@ -664,6 +673,36 @@ async function executeRemoveDirectory(
   }
 
   return { action, success: true };
+}
+
+/**
+ * Execute dependencies removal from package.json
+ */
+async function executeRemoveDependencies(
+  action: RemoveDependenciesAction,
+  options: ExecuteOptions
+): Promise<ActionResult> {
+  const { dryRun = false, uninstallDependencies = defaultUninstallDependencies } = options;
+
+  if (dryRun) {
+    return {
+      action,
+      success: true,
+      wouldDo: `Remove dependencies from ${action.packagePath}: ${action.packages.join(", ")}`,
+    };
+  }
+
+  try {
+    const pm = detectPackageManager(action.packagePath);
+    await uninstallDependencies(pm, action.packagePath, action.packages);
+    return { action, success: true };
+  } catch (error) {
+    return {
+      action,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 /**

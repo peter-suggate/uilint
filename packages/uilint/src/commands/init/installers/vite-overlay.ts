@@ -169,6 +169,13 @@ export const viteOverlayInstaller: Installer = {
       projectPath,
     });
 
+    // Remove dependencies from package.json
+    actions.push({
+      type: "remove_dependencies",
+      packagePath: projectPath,
+      packages: ["uilint-react", "uilint-core", "jsx-loc-plugin"],
+    });
+
     return { actions };
   },
 };
