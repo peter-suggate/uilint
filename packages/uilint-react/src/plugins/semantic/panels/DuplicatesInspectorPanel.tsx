@@ -150,7 +150,7 @@ function extractIssueData(data?: Record<string, unknown>): DuplicateIssueData | 
   };
 }
 
-export function DuplicatesInspectorPanel({ data, services }: InspectorPanelProps) {
+export function DuplicatesInspectorPanel({ data }: InspectorPanelProps) {
   const issueData = extractIssueData(data);
 
   // Get heatmap filter actions from store
@@ -159,7 +159,7 @@ export function DuplicatesInspectorPanel({ data, services }: InspectorPanelProps
   const heatmapFilter = useComposedStore((s) => s.heatmapFilter);
 
   // Track whether heatmap filter is active for this duplicate
-  const [isFilterActive, setIsFilterActive] = useState(false);
+  const [_isFilterActive, setIsFilterActive] = useState(false);
 
   // Extract issue info from the data prop (comes from the Issue object when clicking an issue)
   const issueInfo = useMemo(() => {

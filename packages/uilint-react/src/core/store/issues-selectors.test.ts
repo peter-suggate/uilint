@@ -20,10 +20,9 @@ import {
   selectSeverityCounts,
   selectHasIssues,
   selectHasErrors,
-  type SeverityCounts,
 } from "./issues-selectors";
 import type { ComposedState } from "./composed-store";
-import type { Issue, IssueSeverity } from "../../ui/types";
+import type { Issue } from "../../ui/types";
 
 // ============================================================================
 // Test Helpers

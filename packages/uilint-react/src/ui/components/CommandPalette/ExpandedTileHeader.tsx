@@ -44,7 +44,6 @@ export function ExpandedTileHeader({
   item,
   onBack,
   className,
-  level = 0,
 }: ExpandedTileHeaderProps) {
   return (
     <motion.div

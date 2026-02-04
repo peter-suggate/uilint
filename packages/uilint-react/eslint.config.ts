@@ -91,4 +91,24 @@ export default defineConfig([
       "uilint/require-test-coverage": "off",
     },
   },
+  // Store composition requires type casting for Zustand slice composition
+  {
+    files: ["src/core/store/composed-store.ts"],
+    rules: {
+      "uilint/no-unsafe-type-casts": "off",
+    },
+  },
+  // Tile components use 'children' as a data prop for child tiles (not React children)
+  // This is a naming choice for the tile hierarchy API
+  {
+    files: [
+      "src/ui/components/CommandPalette/ExpandableTile.tsx",
+      "src/ui/components/CommandPalette/ExpandableTileGrid.tsx",
+      "src/ui/components/HierarchicalTiles/ExpandableContainer.tsx",
+      "src/ui/components/HierarchicalTiles/ExpandableTileGrid.tsx",
+    ],
+    rules: {
+      "react/no-children-prop": "off",
+    },
+  },
 ]);

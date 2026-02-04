@@ -16,7 +16,6 @@ import type { TileItem, TileBucket, TileVisualState } from "../../../core/plugin
 import { Tile } from "./Tile";
 import { ExpandedTileHeader } from "./ExpandedTileHeader";
 import { CollapsedTileStrip } from "./CollapsedTileStrip";
-import { TileGrid } from "./TileGrid";
 import {
   tileContainerVariants,
   tileContainerTransition,
@@ -190,13 +189,9 @@ function ChildTile({
   item: TileItem;
   onClick: () => void;
 }) {
-  const [isHovered, setIsHovered] = React.useState(false);
-
   return (
     <motion.button
       onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       className={cn(
@@ -243,7 +238,6 @@ export function ExpandableTile({
   onBack,
   onChildClick,
   onSiblingClick,
-  animIndex = 0,
 }: ExpandableTileProps) {
   const isExpanded = visualState === "expanded" || visualState === "nested-expanded";
   const isCollapsedSibling = visualState === "collapsed-sibling";

@@ -56,11 +56,6 @@ export function RuleHeader({
 }: RuleHeaderProps) {
   const [showDescription, setShowDescription] = useState(false);
 
-  // Extract short name from potentially namespaced rule ID
-  const shortName = ruleFilter.id.includes("/")
-    ? ruleFilter.id.split("/").pop()!
-    : ruleFilter.id;
-
   // Get namespace if present
   const namespace = ruleFilter.id.includes("/")
     ? ruleFilter.id.split("/")[0]

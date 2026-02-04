@@ -15,7 +15,7 @@
  */
 
 import { calculateMosaicLayout } from "./mosaic-layout";
-import type { LayoutItem, MosaicLayoutConfig } from "./types";
+import type { LayoutItem } from "./types";
 
 // ============================================================================
 // Types

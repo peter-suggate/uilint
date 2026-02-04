@@ -44,7 +44,6 @@ export interface RuleOptionsFormProps {
 // ============================================================================
 
 export function RuleOptionsForm({
-  ruleId,
   optionSchema,
   currentOptions,
   defaultOptions,

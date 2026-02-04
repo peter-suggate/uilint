@@ -185,8 +185,7 @@ export function calculateRegions(
  */
 export function expandGap(
   result: RegionCalculationResult,
-  gapId: number,
-  totalLines: number
+  gapId: number
 ): RegionCalculationResult {
   const gapIndex = result.gaps.findIndex((g) => g.id === gapId);
   if (gapIndex === -1) {

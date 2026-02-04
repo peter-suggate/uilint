@@ -1270,7 +1270,7 @@ describe("Vision Plugin - fetchPersistedScreenshots", () => {
   it("handles fetch error gracefully", async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
 
-    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const setCalls: Array<Partial<VisionSlice>> = [];
     const set = vi.fn((partial: Partial<VisionSlice>) => {

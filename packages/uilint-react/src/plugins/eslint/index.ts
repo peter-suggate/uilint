@@ -26,13 +26,7 @@ import { fromESLintIssue } from "../../ui/types";
 import type { Issue } from "../../ui/types";
 import { extractUniqueFilePaths } from "./scanner";
 import { RulePanel } from "./panels";
-import {
-  isStaticMode,
-  initializeStaticMode,
-  configureStaticMode,
-  clearStaticMode,
-  getManifestMetadata,
-} from "./static-handler";
+import { isStaticMode, initializeStaticMode } from "./static-handler";
 import {
   getTileItems,
   createFilter,

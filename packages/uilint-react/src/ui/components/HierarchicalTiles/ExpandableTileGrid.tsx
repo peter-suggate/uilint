@@ -68,7 +68,6 @@ export interface ExpandableTileGridProps<T extends BaseTileItem> {
 
 const DEFAULT_GAP = 14;
 const DEFAULT_PADDING = { top: 0, right: 0, bottom: 0, left: 0 };
-const EXPANDED_HEADER_HEIGHT = 52;
 const EXPANDED_CONTENT_PADDING = 12;
 
 // ============================================================================

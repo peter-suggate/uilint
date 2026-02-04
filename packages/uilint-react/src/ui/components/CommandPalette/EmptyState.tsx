@@ -131,7 +131,7 @@ function ClearFiltersButton({ onClick }: { onClick: () => void }) {
 /**
  * EmptyState - Main component
  */
-export function EmptyState({ variant, query, onClearFilters }: EmptyStateProps) {
+export function EmptyState({ variant, onClearFilters }: EmptyStateProps) {
   const content = React.useMemo(() => {
     switch (variant) {
       case "no-results":

@@ -56,7 +56,6 @@ interface ExpandableTileGridProps {
 const GRID_PADDING = { top: 20, right: 24, bottom: 20, left: 24 };
 const GRID_AVAILABLE_WIDTH = 532;
 const GRID_GAP = 14;
-const EXPANDED_HEADER_HEIGHT = 52;
 const EXPANDED_PADDING = 12;
 
 // ============================================================================
@@ -223,7 +222,6 @@ export function ExpandableTileGrid({
   selectedIndex,
   onTileClick,
   onOpenInInspector,
-  isTerminal = false,
 }: ExpandableTileGridProps) {
   // Use single source of truth from the hook
   const {
