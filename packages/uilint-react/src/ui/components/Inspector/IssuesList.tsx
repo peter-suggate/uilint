@@ -22,6 +22,7 @@ import { IssuesSummary } from "./IssuesSummary";
 import { RuleHeader } from "./RuleHeader";
 import { RuleConfig } from "./RuleConfig";
 import { FileSourceView } from "./FileSourceView";
+import { IssueSummaryView } from "./IssueSummaryView";
 import {
   ExpandableTileGrid,
   TileHeader,
@@ -123,6 +124,7 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
   const expandedFilePath = useComposedStore((s) => s.inspector.expandedFilePath);
   const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
   const ruleConfigExpanded = useComposedStore((s) => s.inspector.ruleConfigExpanded);
+  const showFullSource = useComposedStore((s) => s.inspector.showFullSource);
 
   // Store actions
   const expandRule = useComposedStore((s) => s.expandRule);
@@ -131,6 +133,8 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
   const collapseFileInRule = useComposedStore((s) => s.collapseFileInRule);
   const selectIssue = useComposedStore((s) => s.selectIssue);
   const toggleRuleConfig = useComposedStore((s) => s.toggleRuleConfig);
+  const showFullSourceView = useComposedStore((s) => s.showFullSourceView);
+  const showIssueSummaryView = useComposedStore((s) => s.showIssueSummaryView);
 
   // Transform fileGroups to rule nodes
   const ruleNodes = useMemo(() => fileGroupsToRuleNodes(fileGroups), [fileGroups]);
@@ -416,8 +420,24 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
             padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
             renderExpandedContent={renderExpandedRuleContent}
           />
+        ) : !showFullSource ? (
+          /* Level 2a: Issue summary view (intermediate) */
+          <IssueSummaryView
+            filePath={expandedFilePath}
+            fileName={expandedFile?.label ?? ""}
+            directory={expandedFile?.subtitle}
+            issues={expandedFileIssues}
+            selectedIssueId={selectedIssueId}
+            onIssueClick={(issue) => {
+              selectIssue(issue.id);
+              // After selecting, go to full source view
+              showFullSourceView();
+            }}
+            onShowFullSource={showFullSourceView}
+            onBack={collapseFileInRule}
+          />
         ) : (
-          /* Level 2: Source view for the expanded file */
+          /* Level 2b: Full source view */
           <motion.div
             key="source-view"
             initial={{ opacity: 0, y: 10 }}
@@ -429,7 +449,7 @@ export function IssuesList({ className, availableWidth = DEFAULT_AVAILABLE_WIDTH
               label={expandedFile?.label ?? ""}
               subtitle={expandedFile?.subtitle}
               count={expandedFile?.count ?? 0}
-              onBack={collapseFileInRule}
+              onBack={showIssueSummaryView}
               level={1}
             />
             <div className="mt-4">

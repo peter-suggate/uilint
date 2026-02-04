@@ -7,6 +7,7 @@
  */
 
 import type { RuleOptionSchema } from "uilint-eslint";
+import type { ScopeInfo } from "../../scope-extractor.js";
 
 /**
  * A single lint issue in the manifest
@@ -22,6 +23,8 @@ export interface ManifestIssue {
   ruleId?: string;
   /** data-loc attribute value (e.g., "app/page.tsx:45:10") */
   dataLoc: string;
+  /** Scope context information for the issue location */
+  scopeInfo?: ScopeInfo;
 }
 
 /**

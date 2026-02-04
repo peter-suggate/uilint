@@ -65,6 +65,7 @@ const EXPANDED_PADDING = 12;
 
 /**
  * Hook to manage expansion state and actions
+ * Returns expansionPath as single source of truth for all expansion state
  */
 function useExpansion(items: TileItem[]) {
   const expansionPath = useComposedStore((s) => s.commandPalette.expansionPath);
@@ -74,7 +75,7 @@ function useExpansion(items: TileItem[]) {
   const openInspectorPanel = useComposedStore((s) => s.openInspectorPanel);
 
   const currentLevel = expansionPath.length;
-  const currentExpansion = expansionPath[currentLevel - 1] || null;
+  const currentExpansion = currentLevel > 0 ? expansionPath[currentLevel - 1] : null;
   const expandedTileId = currentExpansion?.item.id || null;
 
   const handleTileClick = useCallback(
@@ -140,7 +141,15 @@ function useExpansion(items: TileItem[]) {
     if (currentLevel > 0) collapseTile();
   }, [currentLevel, collapseTile]);
 
-  return { currentExpansion, expandedTileId, handleTileClick, handleBack };
+  return {
+    expansionPath,
+    currentLevel,
+    currentExpansion,
+    expandedTileId,
+    handleTileClick,
+    handleBack,
+    expandTile,
+  };
 }
 
 // ============================================================================
@@ -216,7 +225,16 @@ export function ExpandableTileGrid({
   onOpenInInspector,
   isTerminal = false,
 }: ExpandableTileGridProps) {
-  const { currentExpansion, expandedTileId, handleTileClick, handleBack } = useExpansion(items);
+  // Use single source of truth from the hook
+  const {
+    expansionPath,
+    currentLevel,
+    currentExpansion,
+    expandedTileId,
+    handleTileClick,
+    handleBack,
+    expandTile: expandTileAction,
+  } = useExpansion(items);
   const openInspectorPanelAction = useComposedStore((s) => s.openInspectorPanel);
   const closeCommandPaletteAction = useComposedStore((s) => s.closeCommandPalette);
 
@@ -283,13 +301,105 @@ export function ExpandableTileGrid({
 
   const onChildClick = useCallback(
     (item: TileItem) => {
+      const services = getPluginServices();
+      if (!services) {
+        openInspectorPanelAction();
+        closeCommandPaletteAction();
+        return;
+      }
+
+      // Check if child can expand (e.g., file tile to show issues)
+      const providerId = item.metadata?.providerId as string | undefined;
+      if (providerId) {
+        const tileProviders = pluginRegistry.getAllTileProviders();
+        const providerEntry = tileProviders.find((p) => p.pluginId === providerId);
+        if (providerEntry) {
+          const { provider } = providerEntry;
+          const canExpand = provider.canExpand?.(item) ?? false;
+
+          // Use currentLevel from hook (single source of truth)
+          if (canExpand && currentLevel < 2) {
+            const children = provider.getChildItems?.(item, services) ?? [];
+            if (children.length > 0) {
+              // Get siblings (other children of the currently expanded tile)
+              const siblings = currentExpansion?.children ?? [];
+              expandTileAction(item, children, siblings, providerId);
+              onTileClick?.(item, 1);
+              return;
+            }
+          }
+        }
+      }
+
+      // Terminal - open inspector
       openInspectorPanelAction();
       closeCommandPaletteAction();
       onTileClick?.(item, 1);
     },
-    [openInspectorPanelAction, closeCommandPaletteAction, onTileClick]
+    [currentLevel, currentExpansion, expandTileAction, openInspectorPanelAction, closeCommandPaletteAction, onTileClick]
   );
 
+  // Handle second level expansion (file expanded to show issues)
+  // Use currentLevel from hook for consistency (single source of truth)
+  const isSecondLevelExpansion = currentLevel === 2;
+  const secondLevelExpansion = isSecondLevelExpansion ? expansionPath[1] : null;
+
+  // Calculate layout for second level if needed
+  const secondLevelChildLayoutItems: LayoutItem[] = useMemo(
+    () => (secondLevelExpansion?.children ?? []).map((c) => ({ id: c.id, count: c.count })),
+    [secondLevelExpansion?.children]
+  );
+
+  const secondLevelLayoutResult = useMemo(() => {
+    if (!isSecondLevelExpansion || !secondLevelExpansion) return null;
+    return calculateExpandedLayout({
+      items: secondLevelExpansion.siblings.map((s) => ({ id: s.id, count: s.count })),
+      expandedId: secondLevelExpansion.item.id,
+      children: secondLevelChildLayoutItems,
+      config: {
+        availableWidth: GRID_AVAILABLE_WIDTH,
+        gap: GRID_GAP,
+        padding: GRID_PADDING,
+      },
+    });
+  }, [isSecondLevelExpansion, secondLevelExpansion, secondLevelChildLayoutItems]);
+
+  // Second level: show file's children (issues) with back navigation
+  if (isSecondLevelExpansion && secondLevelExpansion && secondLevelLayoutResult) {
+    const fileItem = secondLevelExpansion.item;
+    const issueItems = secondLevelExpansion.children;
+
+    return (
+      <div className="relative" style={{ height: secondLevelLayoutResult.totalHeight, minHeight: 200 }}>
+        {/* File header with back button */}
+        <ExpandedTileHeader item={fileItem} onBack={handleBack} level={1} />
+
+        {/* Issue tiles grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DURATIONS.standard, ease: crispEase }}
+          className="pt-14" // Account for header height
+        >
+          <TileGrid
+            items={issueItems}
+            onTileClick={(issue) => {
+              // Issue tiles are terminal - open inspector
+              openInspectorPanelAction();
+              closeCommandPaletteAction();
+              onTileClick?.(issue, 2);
+            }}
+            onOpenInInspector={onOpenInInspector}
+            selectedIndex={-1}
+            availableWidth={GRID_AVAILABLE_WIDTH}
+            padding={{ top: 0, right: GRID_PADDING.right, bottom: GRID_PADDING.bottom, left: GRID_PADDING.left }}
+          />
+        </motion.div>
+      </div>
+    );
+  }
+
+  // First level: normal rendering with root tiles
   return (
     <div className="relative" style={{ height: totalHeight, minHeight: 200 }}>
       <AnimatePresence mode="popLayout">

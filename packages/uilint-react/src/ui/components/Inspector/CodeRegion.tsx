@@ -9,6 +9,7 @@ import { AnimatePresence } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { IssueAnnotation } from "./IssueAnnotation";
 import { IssueReference } from "./IssueReference";
+import { CollapsedIssueIndicator } from "./CollapsedIssueIndicator";
 import { getIssuesForLine, getLineSeverity } from "./source-regions";
 import type { Issue } from "../../types";
 import type { FirstOccurrenceMap } from "./FileSourceView";
@@ -150,8 +151,24 @@ export function CodeRegion({
             </div>
 
             {/* Issue annotations below the line */}
-            <AnimatePresence>
+            <AnimatePresence mode="sync">
               {lineIssues.map((issue) => {
+                const isSelected = selectedIssueId === issue.id;
+                const hasSelection = selectedIssueId !== null;
+
+                // When another issue is selected, collapse non-selected issues
+                // to minimal indicators to help user focus
+                if (hasSelection && !isSelected) {
+                  return (
+                    <CollapsedIssueIndicator
+                      key={issue.id}
+                      issue={issue}
+                      onSelect={() => onIssueSelect(issue.id)}
+                      gutterWidth={gutterWidth}
+                    />
+                  );
+                }
+
                 // Check if this is the first occurrence of this message
                 const firstLine = firstOccurrenceMap?.get(issue.message);
                 const isFirstOccurrence = !firstLine || firstLine === lineNumber;
@@ -161,7 +178,7 @@ export function CodeRegion({
                     <IssueAnnotation
                       key={issue.id}
                       issue={issue}
-                      isSelected={selectedIssueId === issue.id}
+                      isSelected={isSelected}
                       onSelect={() => onIssueSelect(issue.id)}
                       gutterWidth={gutterWidth}
                     />
@@ -174,7 +191,7 @@ export function CodeRegion({
                     key={issue.id}
                     issue={issue}
                     firstLine={firstLine}
-                    isSelected={selectedIssueId === issue.id}
+                    isSelected={isSelected}
                     onSelect={() => onIssueSelect(issue.id)}
                     gutterWidth={gutterWidth}
                   />

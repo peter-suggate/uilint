@@ -19,6 +19,7 @@ import {
   normalizeDataLocFilePath,
   type LintIssue,
 } from "../../utils/eslint-utils.js";
+import { findEnclosingScopeBatch } from "../../scope-extractor.js";
 import type {
   LintManifest,
   ManifestFileEntry,
@@ -162,46 +163,63 @@ export async function generateManifest(
 
     if (issues.length === 0) continue;
 
-    // Convert to manifest format
-    const manifestIssues: ManifestIssue[] = issues
-      .filter((issue): issue is LintIssue & { dataLoc: string } => Boolean(issue.dataLoc))
-      .map((issue) => ({
-        line: issue.line,
-        column: issue.column,
-        message: issue.message,
-        ruleId: issue.ruleId,
-        dataLoc: issue.dataLoc,
-      }));
+    // Filter issues that have dataLoc
+    const filteredIssues = issues.filter(
+      (issue): issue is LintIssue & { dataLoc: string } => Boolean(issue.dataLoc)
+    );
 
-    if (manifestIssues.length === 0) continue;
+    if (filteredIssues.length === 0) continue;
 
-    // Read file content for source inclusion
+    // Read file content for source inclusion and scope extraction
     let fileContent: string | undefined;
     let snippets: Record<string, SourceSnippet> | undefined;
 
-    if (includeSource || includeSnippets) {
+    try {
+      fileContent = readFileSync(absolutePath, "utf-8");
+    } catch {
+      // Skip source/snippets if file can't be read
+      fileContent = undefined;
+    }
+
+    // Extract scope information for all issues in this file (optimized: parse AST once)
+    let scopeInfos: Array<ReturnType<typeof findEnclosingScopeBatch>[number]> = [];
+    if (fileContent) {
       try {
-        fileContent = readFileSync(absolutePath, "utf-8");
-
-        // Include snippets if requested (deprecated, for backwards compatibility)
-        if (includeSnippets) {
-          snippets = {};
-
-          // Group issues by dataLoc to avoid duplicate snippets
-          const issuesByDataLoc = new Map<string, ManifestIssue>();
-          for (const issue of manifestIssues) {
-            if (!issuesByDataLoc.has(issue.dataLoc)) {
-              issuesByDataLoc.set(issue.dataLoc, issue);
-            }
-          }
-
-          for (const [dataLoc, issue] of issuesByDataLoc) {
-            snippets[dataLoc] = extractSourceSnippet(fileContent, issue.line, snippetContextLines);
-          }
-        }
+        const positions = filteredIssues.map((issue) => ({
+          line: issue.line,
+          column: issue.column ?? 0,
+        }));
+        scopeInfos = findEnclosingScopeBatch(fileContent, positions);
       } catch {
-        // Skip source/snippets if file can't be read
-        fileContent = undefined;
+        // Scope extraction failed - continue without scope info
+        scopeInfos = filteredIssues.map(() => null);
+      }
+    }
+
+    // Convert to manifest format with scope info
+    const manifestIssues: ManifestIssue[] = filteredIssues.map((issue, index) => ({
+      line: issue.line,
+      column: issue.column,
+      message: issue.message,
+      ruleId: issue.ruleId,
+      dataLoc: issue.dataLoc,
+      scopeInfo: scopeInfos[index] ?? undefined,
+    }));
+
+    // Include snippets if requested (deprecated, for backwards compatibility)
+    if (includeSnippets && fileContent) {
+      snippets = {};
+
+      // Group issues by dataLoc to avoid duplicate snippets
+      const issuesByDataLoc = new Map<string, ManifestIssue>();
+      for (const issue of manifestIssues) {
+        if (!issuesByDataLoc.has(issue.dataLoc)) {
+          issuesByDataLoc.set(issue.dataLoc, issue);
+        }
+      }
+
+      for (const [dataLoc, issue] of issuesByDataLoc) {
+        snippets[dataLoc] = extractSourceSnippet(fileContent, issue.line, snippetContextLines);
       }
     }
 

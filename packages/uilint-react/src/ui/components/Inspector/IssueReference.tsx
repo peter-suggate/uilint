@@ -73,10 +73,16 @@ export function IssueReference({
       ref={ref}
       type="button"
       onClick={onSelect}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.1 }}
+      layout
+      layoutId={`issue-ref-${issue.id}`}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{
+        duration: 0.15,
+        ease: [0.32, 0.72, 0, 1],
+        layout: { duration: 0.2 }
+      }}
       className={cn(
         "flex items-center gap-1.5 cursor-pointer",
         "mx-2 my-0.5",
