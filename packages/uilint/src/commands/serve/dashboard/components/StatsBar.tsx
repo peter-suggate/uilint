@@ -4,12 +4,15 @@
 
 import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
+import type { OllamaStatusState } from "../types.js";
 
 export interface StatsBarProps {
   connectedClients: number;
   subscriptions: number;
   cacheEntries: number;
   startTime: Date;
+  ollamaStatus?: OllamaStatusState;
+  ollamaModel?: string;
 }
 
 function formatUptime(startTime: Date): string {
@@ -27,11 +30,23 @@ function formatUptime(startTime: Date): string {
   return `${seconds}s`;
 }
 
+const ollamaStatusConfig: Record<
+  OllamaStatusState,
+  { icon: string; color: string }
+> = {
+  checking: { icon: "\u25CB", color: "gray" },
+  connected: { icon: "\u25CF", color: "green" },
+  offline: { icon: "\u25CF", color: "red" },
+  error: { icon: "\u25CF", color: "yellow" },
+};
+
 export function StatsBar({
   connectedClients,
   subscriptions,
   cacheEntries,
   startTime,
+  ollamaStatus,
+  ollamaModel,
 }: StatsBarProps): React.ReactElement {
   const [, setTick] = useState(0);
 
@@ -42,6 +57,10 @@ export function StatsBar({
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const ollamaConfig = ollamaStatus
+    ? ollamaStatusConfig[ollamaStatus]
+    : ollamaStatusConfig.checking;
 
   return (
     <Box
@@ -60,6 +79,13 @@ export function StatsBar({
         <Box>
           <Text dimColor>Subs: </Text>
           <Text>{subscriptions}</Text>
+        </Box>
+        <Box>
+          <Text dimColor>Ollama: </Text>
+          <Text color={ollamaConfig.color}>{ollamaConfig.icon}</Text>
+          {ollamaModel && ollamaStatus === "connected" && (
+            <Text dimColor> {ollamaModel}</Text>
+          )}
         </Box>
       </Box>
       <Box gap={2}>
