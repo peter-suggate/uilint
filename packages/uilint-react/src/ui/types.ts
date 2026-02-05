@@ -86,7 +86,7 @@ export function severityFromNumber(num: 1 | 2 | number): IssueSeverity {
 export function severityToColor(severity: IssueSeverity): string {
   switch (severity) {
     case "error":
-      return "#ef4444"; // red-500
+      return "#f87171"; // red-400 (light red)
     case "warning":
       return "#f59e0b"; // amber-500
     case "info":

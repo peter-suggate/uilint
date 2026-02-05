@@ -15,9 +15,9 @@ const HEATMAP_COLORS = {
     h: 55.934, // Hue (amber/yellow)
   },
   error: {
-    l: 0.65, // Slightly darker
-    c: 0.22, // More saturated
-    h: 25, // Hue (red/orange)
+    l: 0.72, // Light red
+    c: 0.17, // Slightly less saturated
+    h: 25, // Hue (red)
   },
 };
 
