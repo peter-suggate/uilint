@@ -2,6 +2,7 @@
  * RuleHeader - Compact contextual rule info header for the inspector
  *
  * Shown when a rule filter is active. Displays:
+ * - Severity indicator showing highest issue severity
  * - Rule name, category, and inline actions
  * - Description revealed on hover/focus for reduced visual weight
  * - Configure button opens a popover with rule settings
@@ -11,12 +12,13 @@
 import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../../../lib/utils";
-import { CloseIcon, ExternalLinkIcon, SettingsIcon } from "../../icons";
+import { CloseIcon, ExternalLinkIcon, SettingsIcon, ErrorIcon, WarningIcon, InfoIcon } from "../../icons";
 import { IconButton, Popover } from "../primitives";
 import { RuleConfig } from "./RuleConfig";
 import type { TileFilter } from "../../../core/plugin-system/types";
 import type { RuleOptionSchema } from "../../../plugins/eslint/types";
 import type { RuleSeverity } from "./RuleConfig";
+import type { IssueSeverity } from "../../types";
 
 // ============================================================================
 // Types
@@ -35,6 +37,10 @@ export interface RuleHeaderProps {
   onClear: () => void;
   /** Whether to show the close button (default: true, set to false when inside expanded tile) */
   showCloseButton?: boolean;
+  /** Highest severity among issues for this rule */
+  highestSeverity?: IssueSeverity;
+  /** Total issue count for this rule */
+  issueCount?: number;
   /** Additional class name */
   className?: string;
 
@@ -68,6 +74,8 @@ export function RuleHeader({
   docsUrl,
   onClear,
   showCloseButton = true,
+  highestSeverity,
+  issueCount,
   className,
   // Rule config props
   currentSeverity = "warn",
@@ -119,6 +127,27 @@ export function RuleHeader({
       {/* Compact header - single row with all controls */}
       <div className="px-3 py-2">
         <div className="flex items-center gap-2">
+          {/* Severity indicator with count */}
+          {highestSeverity && (
+            <div
+              className={cn(
+                "flex items-center gap-1.5 px-2 py-1 rounded-md",
+                highestSeverity === "error" && "bg-error/10 text-error",
+                highestSeverity === "warning" && "bg-warning/10 text-warning",
+                highestSeverity === "info" && "bg-info/10 text-info"
+              )}
+            >
+              {highestSeverity === "error" && <ErrorIcon size={12} />}
+              {highestSeverity === "warning" && <WarningIcon size={12} />}
+              {highestSeverity === "info" && <InfoIcon size={12} />}
+              {issueCount !== undefined && (
+                <span className="text-[11px] font-medium tabular-nums">
+                  {issueCount}
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Category badge */}
           {(category || namespace) && (
             <span className="text-[10px] text-muted-foreground/50 uppercase tracking-wider flex-shrink-0">

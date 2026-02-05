@@ -9,7 +9,7 @@
  * Uses the additive selection model - all tiles visible, expanded ones emphasized.
  * Tiles expand IN PLACE using the mosaic layout algorithm, keeping siblings visible.
  */
-import React, { useCallback, useMemo, useEffect } from "react";
+import React, { useCallback, useMemo, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { useComposedStore } from "../../../core/store";
 import {
@@ -103,11 +103,17 @@ function EmptyState() {
 /** Approximate height of compact RuleHeader component */
 const RULE_HEADER_HEIGHT = 40;
 
+/** Height for file content area when showing inline (issue summary or source view) */
+const FILE_CONTENT_MIN_HEIGHT = 300;
+
 // ============================================================================
 // Component
 // ============================================================================
 
 export function IssuesList({ className }: IssuesListProps) {
+  // Ref for scrolling
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   // Store selectors
   const fileGroups = useComposedStore(selectFileGroups);
   const expandedRuleId = useComposedStore((s) => s.inspector.expandedRuleId);
@@ -191,6 +197,29 @@ export function IssuesList({ className }: IssuesListProps) {
     }
   }, [selectedIssueId, ruleNodes, expandedRuleId, expandedFilePath, expandRule, expandFileInRule]);
 
+  // Auto-scroll expanded tile to top of viewport when rule is expanded
+  useEffect(() => {
+    if (!expandedRuleId || !scrollContainerRef.current) return;
+
+    // Small delay to let the layout animation start
+    const timeoutId = setTimeout(() => {
+      // Find the expanded tile element by its data attribute
+      const expandedTile = scrollContainerRef.current?.querySelector(
+        `[data-tile-id="${expandedRuleId}"]`
+      );
+
+      if (expandedTile && typeof expandedTile.scrollIntoView === "function") {
+        // Scroll the tile to the top of the scroll container
+        expandedTile.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    }, 50); // Small delay to let layout settle
+
+    return () => clearTimeout(timeoutId);
+  }, [expandedRuleId]);
+
   // Handle issue selection
   const handleIssueSelect = useCallback(
     (issueId: string) => {
@@ -270,11 +299,14 @@ export function IssuesList({ className }: IssuesListProps) {
       : (ruleMetadata.defaultOptions as Record<string, unknown>) ?? {};
   }, [ruleMetadata?.defaultOptions]);
 
-  // Extra height for expanded tile (just RuleHeader, config is now in popover)
-  const extraExpandedHeight = RULE_HEADER_HEIGHT;
+  // Extra height for expanded tile
+  // When showing file content inline, we need more height
+  const extraExpandedHeight = expandedFilePath
+    ? RULE_HEADER_HEIGHT + FILE_CONTENT_MIN_HEIGHT
+    : RULE_HEADER_HEIGHT;
 
   // Custom render function for expanded rule tile content
-  // Renders RuleHeader (with config popover) and file tiles INSIDE the expanded tile
+  // Renders RuleHeader (with config popover) and either file tiles or file content INSIDE the expanded tile
   const renderExpandedRuleContent = useCallback(
     (
       item: BaseTileItem,
@@ -282,8 +314,12 @@ export function IssuesList({ className }: IssuesListProps) {
       childrenHeight: number,
       tileAvailableWidth: number
     ) => {
+      // Check if a file is expanded within this rule
+      const isFileExpanded = expandedFilePath !== null;
+
       return (
         <motion.div
+          data-tile-id={item.id}
           layoutId={`tile-${item.id}`}
           initial={{ opacity: 0.9 }}
           animate={{ opacity: 1 }}
@@ -299,7 +335,7 @@ export function IssuesList({ className }: IssuesListProps) {
           )}
         >
           {/* Content area */}
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col overflow-hidden">
             {/* Rule description & config popover */}
             <RuleHeader
               ruleFilter={{ type: "rule", id: item.id, label: item.label }}
@@ -308,6 +344,8 @@ export function IssuesList({ className }: IssuesListProps) {
               docsUrl={ruleMetadata?.docs ?? getRuleDocsUrl(item.id)}
               onClear={collapseRule}
               showCloseButton={false}
+              highestSeverity={expandedRule?.data.highestSeverity}
+              issueCount={expandedRule?.count}
               // Config props for popover
               currentSeverity={currentRuleSeverity}
               onSeverityChange={handleSeverityChange}
@@ -319,21 +357,50 @@ export function IssuesList({ className }: IssuesListProps) {
               isUpdating={isRuleUpdating}
             />
 
-            {/* File tiles grid */}
-            <div className="p-3">
-              <TileGrid
-                items={children}
-                onTileClick={(fileItem) => {
-                  const fileNode = fileNodes.find((f) => f.id === fileItem.id);
-                  if (fileNode) {
-                    expandFileInRule(fileNode.data.filePath);
-                  }
-                }}
-                selectedIndex={-1}
-                availableWidth={tileAvailableWidth - 24} // Account for padding
-                padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
-              />
-            </div>
+            {/* Content: either file tiles or file content */}
+            {!isFileExpanded ? (
+              /* File tiles grid - when no file is expanded */
+              <div className="p-3">
+                <TileGrid
+                  items={children}
+                  onTileClick={(fileItem) => {
+                    const fileNode = fileNodes.find((f) => f.id === fileItem.id);
+                    if (fileNode) {
+                      expandFileInRule(fileNode.data.filePath);
+                    }
+                  }}
+                  selectedIndex={-1}
+                  availableWidth={tileAvailableWidth - 24} // Account for padding
+                  padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
+                />
+              </div>
+            ) : !showFullSource ? (
+              /* Issue summary view - when file is expanded but not showing full source */
+              <div className="flex-1 overflow-auto">
+                <IssueSummaryView
+                  issues={expandedFileIssues}
+                  selectedIssueId={selectedIssueId}
+                  onIssueClick={(issue) => {
+                    selectIssue(issue.id);
+                    // After selecting, go to full source view
+                    showFullSourceView();
+                  }}
+                  onShowFullSource={showFullSourceView}
+                />
+              </div>
+            ) : (
+              /* Full source view - when file is expanded and showing full source */
+              <div className="flex-1 overflow-auto p-3">
+                <FileSourceView
+                  filePath={expandedFilePath}
+                  issues={expandedFileIssues}
+                  contextLines={2}
+                  selectedIssueId={selectedIssueId}
+                  onIssueSelect={handleIssueSelect}
+                  enabled={true}
+                />
+              </div>
+            )}
           </div>
         </motion.div>
       );
@@ -350,6 +417,14 @@ export function IssuesList({ className }: IssuesListProps) {
       isRuleUpdating,
       fileNodes,
       expandFileInRule,
+      expandedFilePath,
+      showFullSource,
+      expandedFileIssues,
+      selectedIssueId,
+      selectIssue,
+      showFullSourceView,
+      handleIssueSelect,
+      expandedRule,
     ]
   );
 
@@ -364,11 +439,11 @@ export function IssuesList({ className }: IssuesListProps) {
       />
 
       {/* Main content - mosaic tile grid with in-place expansion */}
-      <div className="flex-1 p-4">
+      {/* File views are now rendered INSIDE the expanded rule tile via renderExpandedContent */}
+      <div ref={scrollContainerRef} className="flex-1 p-4 overflow-auto">
         {fileGroups.length === 0 ? (
           <EmptyState />
-        ) : !expandedFilePath ? (
-          /* Level 0 & 1: Rule tiles with file tiles inside expanded rule */
+        ) : (
           <ExpandableTileGrid
             items={ruleTileItems}
             expandedId={expandedRuleId}
@@ -387,36 +462,6 @@ export function IssuesList({ className }: IssuesListProps) {
             padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
             renderExpandedContent={renderExpandedRuleContent}
           />
-        ) : !showFullSource ? (
-          /* Level 2a: Issue summary view (intermediate) */
-          <IssueSummaryView
-            issues={expandedFileIssues}
-            selectedIssueId={selectedIssueId}
-            onIssueClick={(issue) => {
-              selectIssue(issue.id);
-              // After selecting, go to full source view
-              showFullSourceView();
-            }}
-            onShowFullSource={showFullSourceView}
-          />
-        ) : (
-          /* Level 2b: Full source view */
-          <motion.div
-            key="source-view"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: DURATIONS.standard, ease: crispEase }}
-          >
-            <FileSourceView
-              filePath={expandedFilePath}
-              issues={expandedFileIssues}
-              contextLines={2}
-              selectedIssueId={selectedIssueId}
-              onIssueSelect={handleIssueSelect}
-              enabled={true}
-            />
-          </motion.div>
         )}
       </div>
     </div>
