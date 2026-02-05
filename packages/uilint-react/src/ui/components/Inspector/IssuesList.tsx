@@ -14,18 +14,15 @@ import { motion } from "motion/react";
 import { useComposedStore } from "../../../core/store";
 import {
   selectFileGroups,
-  selectFileGroupsSummary,
 } from "../../../core/store/file-groups-selector";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
 import type { ESLintPluginSlice } from "../../../plugins/eslint/slice";
-import { IssuesSummary } from "./IssuesSummary";
 import { RuleHeader } from "./RuleHeader";
 import { FileSourceView } from "./FileSourceView";
 import { IssueSummaryView } from "./IssueSummaryView";
 import { Breadcrumbs } from "./Breadcrumbs";
 import {
   ExpandableTileGrid,
-  TileHeader,
   TileGrid,
   crispEase,
   DURATIONS,
@@ -113,7 +110,6 @@ const RULE_HEADER_HEIGHT = 40;
 export function IssuesList({ className }: IssuesListProps) {
   // Store selectors
   const fileGroups = useComposedStore(selectFileGroups);
-  const summary = useComposedStore(selectFileGroupsSummary);
   const expandedRuleId = useComposedStore((s) => s.inspector.expandedRuleId);
   const expandedFilePath = useComposedStore((s) => s.inspector.expandedFilePath);
   const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
@@ -127,7 +123,6 @@ export function IssuesList({ className }: IssuesListProps) {
   const collapseFileInRule = useComposedStore((s) => s.collapseFileInRule);
   const selectIssue = useComposedStore((s) => s.selectIssue);
   const showFullSourceView = useComposedStore((s) => s.showFullSourceView);
-  const showIssueSummaryView = useComposedStore((s) => s.showIssueSummaryView);
 
   // Transform fileGroups to rule nodes
   const ruleNodes = useMemo(() => fileGroupsToRuleNodes(fileGroups), [fileGroups]);
@@ -158,7 +153,7 @@ export function IssuesList({ className }: IssuesListProps) {
 
   // Get issues for the expanded file, FILTERED by the expanded rule
   // Uses expandedFile.data.issues which contains only issues for this rule
-  // eslint-disable-next-line uilint/prefer-store-selectors -- depends on local derived state
+   
   const expandedFileIssues = useMemo(() => {
     if (!expandedFilePath || !expandedFile || !expandedRule) return [];
     // Enrich the simplified issue data with full Issue fields
@@ -303,15 +298,6 @@ export function IssuesList({ className }: IssuesListProps) {
             "h-full flex flex-col"
           )}
         >
-          {/* Back button header */}
-          <TileHeader
-            label={item.label}
-            subtitle={item.subtitle}
-            icon={item.icon}
-            count={item.count}
-            onBack={collapseRule}
-          />
-
           {/* Content area */}
           <div className="flex-1">
             {/* Rule description & config popover */}
@@ -369,15 +355,6 @@ export function IssuesList({ className }: IssuesListProps) {
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
-      {/* Summary bar */}
-      {fileGroups.length > 0 && (
-        <IssuesSummary
-          totalIssues={summary.totalIssues}
-          totalFiles={summary.totalFiles}
-          totalRules={expandedRule ? undefined : summary.totalRules}
-        />
-      )}
-
       {/* Breadcrumb navigation - shows when rule or file is expanded */}
       <Breadcrumbs
         expandedRuleName={expandedRule?.label ?? null}
@@ -413,9 +390,6 @@ export function IssuesList({ className }: IssuesListProps) {
         ) : !showFullSource ? (
           /* Level 2a: Issue summary view (intermediate) */
           <IssueSummaryView
-            filePath={expandedFilePath}
-            fileName={expandedFile?.label ?? ""}
-            directory={expandedFile?.subtitle}
             issues={expandedFileIssues}
             selectedIssueId={selectedIssueId}
             onIssueClick={(issue) => {
@@ -424,7 +398,6 @@ export function IssuesList({ className }: IssuesListProps) {
               showFullSourceView();
             }}
             onShowFullSource={showFullSourceView}
-            onBack={collapseFileInRule}
           />
         ) : (
           /* Level 2b: Full source view */
@@ -435,23 +408,14 @@ export function IssuesList({ className }: IssuesListProps) {
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: DURATIONS.standard, ease: crispEase }}
           >
-            <TileHeader
-              label={expandedFile?.label ?? ""}
-              subtitle={expandedFile?.subtitle}
-              count={expandedFile?.count ?? 0}
-              onBack={showIssueSummaryView}
-              level={1}
+            <FileSourceView
+              filePath={expandedFilePath}
+              issues={expandedFileIssues}
+              contextLines={2}
+              selectedIssueId={selectedIssueId}
+              onIssueSelect={handleIssueSelect}
+              enabled={true}
             />
-            <div className="mt-4">
-              <FileSourceView
-                filePath={expandedFilePath}
-                issues={expandedFileIssues}
-                contextLines={2}
-                selectedIssueId={selectedIssueId}
-                onIssueSelect={handleIssueSelect}
-                enabled={true}
-              />
-            </div>
           </motion.div>
         )}
       </div>

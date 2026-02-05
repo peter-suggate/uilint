@@ -10,7 +10,6 @@ import React, { useCallback } from "react";
 import { motion } from "motion/react";
 import { AlertCircle, AlertTriangle, Info, Code2, ChevronRight } from "lucide-react";
 import { cn } from "../../../lib/utils";
-import { TileHeader } from "../HierarchicalTiles/TileHeader";
 import type { Issue } from "../../types";
 
 // ============================================================================
@@ -18,12 +17,6 @@ import type { Issue } from "../../types";
 // ============================================================================
 
 export interface IssueSummaryViewProps {
-  /** File path being displayed */
-  filePath: string;
-  /** File name for display */
-  fileName: string;
-  /** Directory path for subtitle */
-  directory?: string;
   /** Issues in this file */
   issues: Issue[];
   /** Currently selected issue ID */
@@ -32,8 +25,6 @@ export interface IssueSummaryViewProps {
   onIssueClick: (issue: Issue) => void;
   /** Callback when "Show full source" is clicked */
   onShowFullSource: () => void;
-  /** Callback when back button is clicked */
-  onBack: () => void;
   /** Additional class name */
   className?: string;
 }
@@ -113,13 +104,10 @@ function IssueRow({
 // ============================================================================
 
 export function IssueSummaryView({
-  fileName,
-  directory,
   issues,
   selectedIssueId,
   onIssueClick,
   onShowFullSource,
-  onBack,
   className,
 }: IssueSummaryViewProps) {
   // Sort issues by line number
@@ -146,14 +134,6 @@ export function IssueSummaryView({
         className
       )}
     >
-      {/* Compact header with back button */}
-      <TileHeader
-        label={fileName}
-        subtitle={directory}
-        count={issues.length}
-        onBack={onBack}
-      />
-
       {/* Issue list - no scroll container, parent handles it */}
       <div className="flex-1">
         {sortedIssues.map((issue, index) => (
