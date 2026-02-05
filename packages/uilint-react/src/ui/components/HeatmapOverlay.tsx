@@ -74,7 +74,7 @@ function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, showDe
         boxShadow: isSelected ? `0 0 0 2px ${color}40, 0 0 12px ${color}60` : undefined,
       }}
     >
-      {/* Issue count badge - inset square, only clickable element */}
+      {/* Clickable indicator - inset square */}
       <span
         onClick={(e) => {
           e.stopPropagation();
@@ -86,33 +86,24 @@ function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, showDe
           position: "absolute",
           top: 0,
           right: 0,
-          minWidth: 14,
-          height: 14,
+          width: 8,
+          height: 8,
           borderRadius: 2,
           background: color,
-          color: "white",
-          fontSize: 9,
-          fontWeight: 600,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "0 3px",
           pointerEvents: "auto", // Only badge is clickable
           cursor: "pointer",
           boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
           transition: "transform 0.1s, box-shadow 0.1s",
         }}
         onMouseOver={(e) => {
-          (e.currentTarget as HTMLElement).style.transform = "scale(1.1)";
+          (e.currentTarget as HTMLElement).style.transform = "scale(1.2)";
           (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 6px rgba(0,0,0,0.4)";
         }}
         onMouseOut={(e) => {
           (e.currentTarget as HTMLElement).style.transform = "scale(1)";
           (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 3px rgba(0,0,0,0.3)";
         }}
-      >
-        {count}
-      </span>
+      />
 
       {/* Tooltip on Alt+hover badge */}
       {showDetails && isHovered && (
