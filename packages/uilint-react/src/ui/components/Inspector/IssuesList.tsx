@@ -208,7 +208,7 @@ export function IssuesList({ className }: IssuesListProps) {
         `[data-tile-id="${expandedRuleId}"]`
       );
 
-      if (expandedTile) {
+      if (expandedTile && typeof expandedTile.scrollIntoView === "function") {
         // Scroll the tile to the top of the scroll container
         expandedTile.scrollIntoView({
           behavior: "smooth",
