@@ -1,10 +1,7 @@
-#!/bin/sh
-set -e
+#!/bin/bash
+set -eo pipefail
 
 echo "Linting uilint-react..."
-pnpm --filter uilint-react lint:strict 2>&1 | tee /tmp/pre-commit-lint.log || {
-    echo "Lint failed! See /tmp/pre-commit-lint.log for details"
-    exit 1
-}
+pnpm --filter uilint-react lint:strict 2>&1 | tee /tmp/pre-commit-lint.log
 
 echo "Lint passed!"

@@ -402,7 +402,7 @@ describe("HeatmapOverlay", () => {
       expect(badge.style.borderRadius).toBe("2px");
     });
 
-    it("badge displays issue count", () => {
+    it("badge is a minimal indicator without count", () => {
       const issuesMap = new Map();
       issuesMap.set("src/App.tsx:10:5", [
         {
@@ -451,7 +451,8 @@ describe("HeatmapOverlay", () => {
       );
 
       expect(badge).not.toBeNull();
-      expect(badge?.textContent).toBe("3");
+      // Badge is now a minimal indicator without text count
+      expect(badge?.textContent).toBe("");
     });
   });
 
