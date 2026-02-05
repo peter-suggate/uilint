@@ -493,6 +493,31 @@ describe("IssuesList", () => {
     });
   });
 
+  describe("Severity Indicator", () => {
+    it("shows severity indicator with issue count in expanded rule header", async () => {
+      const store = setupStoreWithIssues(createMockIssues());
+      render(<IssuesList />);
+
+      // Expand a rule with error severity (no-console has 1 error)
+      store.getState().expandRule("no-console");
+
+      await waitFor(() => {
+        // Should show the issue count in the severity indicator
+        // no-console has 1 issue
+        expect(screen.getByText("1")).toBeTruthy();
+      });
+
+      // Collapse and expand a rule with warning severity
+      store.getState().collapseRule();
+      store.getState().expandRule("no-unused-vars");
+
+      await waitFor(() => {
+        // no-unused-vars has 3 issues
+        expect(screen.getByText("3")).toBeTruthy();
+      });
+    });
+  });
+
   describe("Multiple Rules", () => {
     it("only shows files for the expanded rule", async () => {
       const store = setupStoreWithIssues(createMockIssues());
@@ -538,12 +563,8 @@ describe("IssuesList", () => {
       await waitFor(() => {
         // Line 20 should be visible (no-console issue)
         expect(screen.getByText("20")).toBeTruthy();
-        // Lines 10 and 15 should NOT be visible in the issue summary
-        // (they're no-unused-vars issues from a different rule)
-        const issueList = screen.queryAllByText(/^(10|15)$/);
-        // These numbers might appear elsewhere (like in tile counts), so let's
-        // just verify the correct number of issue rows by checking the
-        // "View source" button exists (meaning we're in summary view)
+        // Verify we're in the issue summary view (meaning we're viewing
+        // the correct content and "View source" button is available)
         expect(screen.getByText("View source")).toBeTruthy();
       });
     });

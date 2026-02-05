@@ -9,7 +9,7 @@
  * Uses the additive selection model - all tiles visible, expanded ones emphasized.
  * Tiles expand IN PLACE using the mosaic layout algorithm, keeping siblings visible.
  */
-import React, { useCallback, useMemo, useEffect } from "react";
+import React, { useCallback, useMemo, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { useComposedStore } from "../../../core/store";
 import {
@@ -111,6 +111,9 @@ const FILE_CONTENT_MIN_HEIGHT = 300;
 // ============================================================================
 
 export function IssuesList({ className }: IssuesListProps) {
+  // Ref for scrolling
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   // Store selectors
   const fileGroups = useComposedStore(selectFileGroups);
   const expandedRuleId = useComposedStore((s) => s.inspector.expandedRuleId);
@@ -193,6 +196,29 @@ export function IssuesList({ className }: IssuesListProps) {
       }
     }
   }, [selectedIssueId, ruleNodes, expandedRuleId, expandedFilePath, expandRule, expandFileInRule]);
+
+  // Auto-scroll expanded tile to top of viewport when rule is expanded
+  useEffect(() => {
+    if (!expandedRuleId || !scrollContainerRef.current) return;
+
+    // Small delay to let the layout animation start
+    const timeoutId = setTimeout(() => {
+      // Find the expanded tile element by its data attribute
+      const expandedTile = scrollContainerRef.current?.querySelector(
+        `[data-tile-id="${expandedRuleId}"]`
+      );
+
+      if (expandedTile) {
+        // Scroll the tile to the top of the scroll container
+        expandedTile.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    }, 50); // Small delay to let layout settle
+
+    return () => clearTimeout(timeoutId);
+  }, [expandedRuleId]);
 
   // Handle issue selection
   const handleIssueSelect = useCallback(
@@ -293,6 +319,7 @@ export function IssuesList({ className }: IssuesListProps) {
 
       return (
         <motion.div
+          data-tile-id={item.id}
           layoutId={`tile-${item.id}`}
           initial={{ opacity: 0.9 }}
           animate={{ opacity: 1 }}
@@ -317,6 +344,8 @@ export function IssuesList({ className }: IssuesListProps) {
               docsUrl={ruleMetadata?.docs ?? getRuleDocsUrl(item.id)}
               onClear={collapseRule}
               showCloseButton={false}
+              highestSeverity={expandedRule?.data.highestSeverity}
+              issueCount={expandedRule?.count}
               // Config props for popover
               currentSeverity={currentRuleSeverity}
               onSeverityChange={handleSeverityChange}
@@ -395,6 +424,7 @@ export function IssuesList({ className }: IssuesListProps) {
       selectIssue,
       showFullSourceView,
       handleIssueSelect,
+      expandedRule,
     ]
   );
 
@@ -410,7 +440,7 @@ export function IssuesList({ className }: IssuesListProps) {
 
       {/* Main content - mosaic tile grid with in-place expansion */}
       {/* File views are now rendered INSIDE the expanded rule tile via renderExpandedContent */}
-      <div className="flex-1 p-4 overflow-auto">
+      <div ref={scrollContainerRef} className="flex-1 p-4 overflow-auto">
         {fileGroups.length === 0 ? (
           <EmptyState />
         ) : (
