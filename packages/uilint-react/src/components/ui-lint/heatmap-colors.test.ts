@@ -87,8 +87,8 @@ describe("getSeverityColor", () => {
     const color = getSeverityColor(0.4, "error");
 
     expect(color).toMatch(/^oklch\(/);
-    expect(color).toContain("0.65"); // Lightness (darker)
-    expect(color).toContain("0.22"); // Chroma (more saturated)
+    expect(color).toContain("0.72"); // Lightness (light red)
+    expect(color).toContain("0.17"); // Chroma
     expect(color).toContain("25"); // Hue (red)
     expect(color).toContain("0.400"); // Opacity
   });

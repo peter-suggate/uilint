@@ -97,10 +97,10 @@ describe("severityFromNumber", () => {
 });
 
 describe("severityToColor", () => {
-  it("returns red color for error severity", () => {
+  it("returns light red color for error severity", () => {
     const color = severityToColor("error");
 
-    expect(color).toBe("#ef4444");
+    expect(color).toBe("#f87171");
   });
 
   it("returns amber color for warning severity", () => {
