@@ -13,7 +13,12 @@ pluginReact.configs.flat.recommended.settings = {
 
 export default defineConfig([
   {
-    ignores: ["dist/**", "dist"],
+    ignores: [
+      "dist/**",
+      "dist",
+      "@/**", // Vendored shadcn components
+      "*.config.*", // Config files
+    ],
   },
   {
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
