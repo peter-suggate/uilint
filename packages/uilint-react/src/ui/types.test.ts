@@ -97,31 +97,31 @@ describe("severityFromNumber", () => {
 });
 
 describe("severityToColor", () => {
-  it("returns red color for error severity", () => {
+  it("returns CSS variable for error severity", () => {
     const color = severityToColor("error");
 
-    expect(color).toBe("#ef4444");
+    expect(color).toBe("var(--uilint-error, oklch(0.72 0.17 25))");
   });
 
-  it("returns amber color for warning severity", () => {
+  it("returns CSS variable for warning severity", () => {
     const color = severityToColor("warning");
 
-    expect(color).toBe("#f59e0b");
+    expect(color).toBe("var(--uilint-warning, oklch(0.82 0.165 80))");
   });
 
-  it("returns blue color for info severity", () => {
+  it("returns CSS variable for info severity", () => {
     const color = severityToColor("info");
 
-    expect(color).toBe("#3b82f6");
+    expect(color).toBe("var(--uilint-info, oklch(0.623 0.214 259))");
   });
 
-  it("returns valid hex colors", () => {
+  it("returns CSS variable format", () => {
     const errorColor = severityToColor("error");
     const warningColor = severityToColor("warning");
     const infoColor = severityToColor("info");
 
-    expect(errorColor).toMatch(/^#[0-9a-f]{6}$/i);
-    expect(warningColor).toMatch(/^#[0-9a-f]{6}$/i);
-    expect(infoColor).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(errorColor).toMatch(/^var\(--uilint-/);
+    expect(warningColor).toMatch(/^var\(--uilint-/);
+    expect(infoColor).toMatch(/^var\(--uilint-/);
   });
 });

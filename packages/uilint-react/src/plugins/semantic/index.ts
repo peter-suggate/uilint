@@ -43,7 +43,7 @@ export const semanticPlugin: Plugin<SemanticPluginSlice> = {
       ruleId: "no-semantic-duplicates",
       // Custom inspector for duplicates with side-by-side code comparison
       inspectorPanel: DuplicatesInspectorPanel,
-      heatmapColor: "#f59e0b", // Amber for duplicates
+      heatmapColor: "var(--uilint-warning, oklch(0.82 0.165 80))", // Amber for duplicates
     },
   ],
 
