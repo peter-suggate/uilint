@@ -27,6 +27,7 @@ import { useTileItems, useTileNavigation } from "../../hooks";
 import { SearchInput } from "./SearchInput";
 import { TileGrid } from "./TileGrid";
 import { OnboardingState } from "./OnboardingState";
+import { RuleToggleBar } from "./RuleToggleBar";
 import { GlassPanel } from "../primitives";
 import type { TileItem } from "../../../core/plugin-system/types";
 import type { ScanStatus } from "../../../plugins/eslint/slice";
@@ -219,6 +220,9 @@ export function CommandPalette() {
                 onChange={setQuery}
                 size={isMobile ? "default" : "large"}
               />
+
+              {/* Rule Toggle Bar - quick toggles for filtering rules */}
+              {!showOnboarding && <RuleToggleBar />}
 
               {/* Content Area: Tile Grid or Onboarding */}
               <div
