@@ -247,10 +247,10 @@ export function ScrollableCodeSection({
                   style={{
                     display: "flex",
                     background: isHighlighted
-                      ? "rgba(251, 191, 36, 0.12)"
+                      ? "var(--uilint-warning-bg)"
                       : "transparent",
                     borderLeft: isHighlighted
-                      ? "3px solid #f59e0b"
+                      ? "3px solid var(--uilint-warning)"
                       : "3px solid transparent",
                   }}
                 >

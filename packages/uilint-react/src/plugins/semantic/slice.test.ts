@@ -702,7 +702,7 @@ describe("semanticPlugin", () => {
       );
 
       expect(duplicatesContrib).toBeDefined();
-      expect(duplicatesContrib?.heatmapColor).toBe("#f59e0b");
+      expect(duplicatesContrib?.heatmapColor).toBe("var(--uilint-warning, oklch(0.82 0.165 80))");
     });
   });
 
