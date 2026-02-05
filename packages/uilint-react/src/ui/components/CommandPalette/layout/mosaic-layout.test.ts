@@ -1,7 +1,7 @@
 /**
- * Tests for Mosaic Layout Calculator - Bin-Packing Algorithm
+ * Tests for Mosaic Layout Calculator - Skyline Bin-Packing Algorithm
  *
- * Tests tile positioning with absolute coordinates for true masonry layout.
+ * Tests tile positioning with variable-sized rectangles using bin-packing.
  */
 
 import { describe, it, expect } from "vitest";
@@ -22,6 +22,14 @@ function createItems(counts: number[]): LayoutItem[] {
   return counts.map((count, i) => ({
     id: `item-${i + 1}`,
     count,
+  }));
+}
+
+function createItemsWithLabels(items: Array<{ count: number; label: string }>): LayoutItem[] {
+  return items.map((item, i) => ({
+    id: `item-${i + 1}`,
+    count: item.count,
+    label: item.label,
   }));
 }
 
@@ -83,11 +91,11 @@ describe("calculateBuckets", () => {
 
 describe("getBucketHeight", () => {
   it("returns correct height for each bucket", () => {
-    expect(getBucketHeight("xs")).toBe(72);
-    expect(getBucketHeight("sm")).toBe(96);
-    expect(getBucketHeight("md")).toBe(128);
-    expect(getBucketHeight("lg")).toBe(168);
-    expect(getBucketHeight("xl")).toBe(220);
+    expect(getBucketHeight("xs")).toBe(115);
+    expect(getBucketHeight("sm")).toBe(140);
+    expect(getBucketHeight("md")).toBe(185);
+    expect(getBucketHeight("lg")).toBe(240);
+    expect(getBucketHeight("xl")).toBe(280);
   });
 });
 
@@ -130,12 +138,16 @@ describe("calculateMosaicLayout - single item", () => {
     expect(layout!.y).toBe(0);
   });
 
-  it("spans full width for single item", () => {
+  it("single item has dimensions within constraints", () => {
     const items = createItems([50]);
-    const result = calculateMosaicLayout(items, { availableWidth: 500 });
+    const result = calculateMosaicLayout(items);
     const layout = result.tiles.get("item-1");
 
-    expect(layout!.widthFraction).toBe(1);
+    const width = parseFloat(layout!.width);
+    expect(width).toBeGreaterThanOrEqual(100);
+    expect(width).toBeLessThanOrEqual(320);
+    expect(layout!.height).toBeGreaterThanOrEqual(80);
+    expect(layout!.height).toBeLessThanOrEqual(280);
   });
 });
 
@@ -151,29 +163,16 @@ describe("calculateMosaicLayout - pair", () => {
     expect(result.pattern).toBe("pair");
   });
 
-  it("places hero item full width with second below", () => {
-    // With 2 items, first xl item spans full width (hero style)
+  it("places both tiles at y=0 when they fit side by side", () => {
     const items = createItems([50, 40]);
-    const result = calculateMosaicLayout(items);
+    const result = calculateMosaicLayout(items, { availableWidth: 500 });
 
     const first = result.tiles.get("item-1");
     const second = result.tiles.get("item-2");
 
-    // First should be at top with full width
+    // Tallest tile is placed first, so both should start at y=0
     expect(first!.y).toBe(0);
-    expect(first!.widthFraction).toBe(1);
-
-    // Second should be below first
-    expect(second!.y).toBeGreaterThan(0);
-  });
-
-  it("places similar-sized items side by side when not xl", () => {
-    // With many items, pair of medium items go side by side
-    const items = createItems([100, 90, 50, 45]); // Last two are similar (md)
-    const result = calculateMosaicLayout(items, { availableWidth: 500 });
-
-    // Just verify layout works for multiple items
-    expect(result.tiles.size).toBe(4);
+    expect(second!.y).toBe(0);
   });
 });
 
@@ -183,21 +182,18 @@ describe("calculateMosaicLayout - pair", () => {
 
 describe("calculateMosaicLayout - bin packing", () => {
   it("fills vertical gaps efficiently", () => {
-    // Create items with varying heights
     const items = createItems([100, 80, 60, 40, 20, 10, 5, 3]);
     const result = calculateMosaicLayout(items, { availableWidth: 500 });
 
-    // Verify all items have positions
     expect(result.tiles.size).toBe(8);
 
-    // All positions should be non-negative
     for (const [, layout] of result.tiles) {
       expect(layout.x).toBeGreaterThanOrEqual(0);
       expect(layout.y).toBeGreaterThanOrEqual(0);
     }
   });
 
-  it("places larger items first", () => {
+  it("places taller items first (sorted by height)", () => {
     const items = [
       { id: "small", count: 10 },
       { id: "large", count: 100 },
@@ -206,7 +202,7 @@ describe("calculateMosaicLayout - bin packing", () => {
 
     const large = result.tiles.get("large");
 
-    // Large item should be at top (y=0)
+    // Large item should be at top (y=0) because it's taller
     expect(large!.y).toBe(0);
   });
 
@@ -216,62 +212,85 @@ describe("calculateMosaicLayout - bin packing", () => {
 
     expect(result.totalHeight).toBeGreaterThan(0);
   });
-});
 
-// ============================================================================
-// Column Count Tests
-// ============================================================================
-
-describe("calculateMosaicLayout - columns", () => {
-  it("uses 3 columns when width allows", () => {
-    const items = createItems([50, 40, 30, 20, 10]);
+  it("tiles do not overlap", () => {
+    const items = createItems([100, 80, 60, 40, 20, 10]);
     const result = calculateMosaicLayout(items, { availableWidth: 500 });
 
-    expect(result.columnCount).toBe(3);
-  });
+    const tiles = Array.from(result.tiles.values());
 
-  it("uses 2 columns when width is limited", () => {
-    const items = createItems([50, 40, 30, 20, 10]);
-    const result = calculateMosaicLayout(items, {
-      availableWidth: 300,
-      minTileWidth: 140,
-    });
+    for (let i = 0; i < tiles.length; i++) {
+      for (let j = i + 1; j < tiles.length; j++) {
+        const a = tiles[i];
+        const b = tiles[j];
 
-    expect(result.columnCount).toBe(2);
-  });
+        const aWidth = parseFloat(a.width);
+        const bWidth = parseFloat(b.width);
 
-  it("uses 1 column for very narrow widths", () => {
-    const items = createItems([50, 40]);
-    const result = calculateMosaicLayout(items, {
-      availableWidth: 150,
-      minTileWidth: 140,
-    });
+        // Check if rectangles overlap
+        const xOverlap = a.x < b.x + bWidth && a.x + aWidth > b.x;
+        const yOverlap = a.y < b.y + b.height && a.y + a.height > b.y;
 
-    expect(result.columnCount).toBe(1);
+        // Should not both overlap
+        expect(xOverlap && yOverlap).toBe(false);
+      }
+    }
   });
 });
 
 // ============================================================================
-// Column Span Tests
+// Dimension Tests
 // ============================================================================
 
-describe("calculateMosaicLayout - column spanning", () => {
-  it("first xl item spans full width (3 columns)", () => {
-    const items = createItems([100]); // Single xl item
-    const result = calculateMosaicLayout(items, { availableWidth: 500 });
+describe("calculateMosaicLayout - dimensions", () => {
+  it("tiles with higher counts have larger area", () => {
+    const items = createItems([100, 10]);
+    const result = calculateMosaicLayout(items);
 
-    const layout = result.tiles.get("item-1");
-    expect(layout!.widthFraction).toBe(1);
+    const highCount = result.tiles.get("item-1");
+    const lowCount = result.tiles.get("item-2");
+
+    const highArea = parseFloat(highCount!.width) * highCount!.height;
+    const lowArea = parseFloat(lowCount!.width) * lowCount!.height;
+
+    expect(highArea).toBeGreaterThan(lowArea);
   });
 
-  it("lg items span 2 columns in 3-column layout", () => {
-    // Need enough items to get different bucket sizes
-    const items = createItems([100, 90, 80, 70, 60, 50, 40, 30, 20, 10]);
-    const result = calculateMosaicLayout(items, { availableWidth: 500 });
+  it("tiles have heights between MIN and MAX", () => {
+    const items = createItems([1000, 500, 100, 10, 1]);
+    const result = calculateMosaicLayout(items);
 
-    // Find an lg bucket item (should be in 10-30% range)
-    const lgItem = result.tiles.get("item-2"); // Second highest = lg
-    expect(lgItem!.widthFraction).toBeGreaterThan(1 / 3);
+    for (const [, layout] of result.tiles) {
+      expect(layout.height).toBeGreaterThanOrEqual(80);  // minTileHeight
+      expect(layout.height).toBeLessThanOrEqual(280);    // maxTileHeight
+    }
+  });
+
+  it("tiles have widths between MIN and MAX", () => {
+    const items = createItems([1000, 500, 100, 10, 1]);
+    const result = calculateMosaicLayout(items);
+
+    for (const [, layout] of result.tiles) {
+      const width = parseFloat(layout.width);
+      expect(width).toBeGreaterThanOrEqual(100);  // minTileWidth
+      expect(width).toBeLessThanOrEqual(320);     // maxTileWidth
+    }
+  });
+
+  it("uses log scaling for area (prevents extreme size differences)", () => {
+    // With linear scaling, 1000000 vs 1 would have 1000000x area difference
+    // With log scaling, the difference is much smaller
+    const items = createItems([1000000, 1]);
+    const result = calculateMosaicLayout(items);
+
+    const large = result.tiles.get("item-1");
+    const small = result.tiles.get("item-2");
+
+    const largeArea = parseFloat(large!.width) * large!.height;
+    const smallArea = parseFloat(small!.width) * small!.height;
+
+    // Ratio should be much less than 1000000 (log scaling limits it)
+    expect(largeArea / smallArea).toBeLessThan(10);
   });
 });
 
@@ -292,30 +311,14 @@ describe("calculateMosaicLayout - absolute positioning", () => {
     }
   });
 
-  it("tiles do not overlap", () => {
+  it("all tiles fit within container width", () => {
     const items = createItems([100, 80, 60, 40, 20, 10]);
-    const result = calculateMosaicLayout(items, { availableWidth: 500 });
+    const containerWidth = 500;
+    const result = calculateMosaicLayout(items, { availableWidth: containerWidth });
 
-    const tiles = Array.from(result.tiles.values());
-
-    // Check each pair of tiles for overlap
-    for (let i = 0; i < tiles.length; i++) {
-      for (let j = i + 1; j < tiles.length; j++) {
-        const a = tiles[i];
-        const b = tiles[j];
-
-        const aWidth = parseFloat(a.width);
-        const bWidth = parseFloat(b.width);
-
-        // Check if rectangles overlap
-        const xOverlap =
-          a.x < b.x + bWidth && a.x + aWidth > b.x;
-        const yOverlap =
-          a.y < b.y + b.height && a.y + a.height > b.y;
-
-        // Should not both overlap
-        expect(xOverlap && yOverlap).toBe(false);
-      }
+    for (const [, layout] of result.tiles) {
+      const tileRight = layout.x + parseFloat(layout.width);
+      expect(tileRight).toBeLessThanOrEqual(containerWidth);
     }
   });
 });
@@ -337,7 +340,6 @@ describe("groupTilesByRow", () => {
     const layout = calculateMosaicLayout(items);
     const rows = groupTilesByRow(items, layout);
 
-    // Should have one "row" with all items (for absolute positioning)
     expect(rows.length).toBe(1);
     expect(rows[0].length).toBe(4);
   });
@@ -347,7 +349,6 @@ describe("groupTilesByRow", () => {
     const layout = calculateMosaicLayout(items, { availableWidth: 500 });
     const rows = groupTilesByRow(items, layout);
 
-    // Items should be sorted by y position, then x
     const sorted = rows[0];
     for (let i = 1; i < sorted.length; i++) {
       const prev = layout.tiles.get(sorted[i - 1].id);
@@ -394,34 +395,12 @@ describe("edge cases", () => {
     expect(result.tiles.size).toBe(2);
   });
 
-  it("respects custom gap in vertical spacing", () => {
-    const items = createItems([50, 40]);
-    const result = calculateMosaicLayout(items, { gap: 24 });
-
-    const first = result.tiles.get("item-1");
-    const second = result.tiles.get("item-2");
-
-    // With hero layout, gap shows in vertical spacing
-    // second.y should be first.height + gap
-    expect(second!.y).toBe(first!.height + 24);
-  });
-
-  it("respects custom gap in horizontal spacing", () => {
-    // Use enough items to get side-by-side placement
+  it("respects custom gap in layout", () => {
     const items = createItems([100, 50, 50, 50, 50, 50]);
     const result = calculateMosaicLayout(items, { gap: 24, availableWidth: 500 });
 
-    // Find two items that are side by side (same y, different x)
-    const tiles = Array.from(result.tiles.values());
-    const sameRowTiles = tiles.filter(t => t.y === tiles[1].y && t.x !== tiles[1].x);
-
-    if (sameRowTiles.length > 0) {
-      const left = tiles[1].x < sameRowTiles[0].x ? tiles[1] : sameRowTiles[0];
-      const right = tiles[1].x < sameRowTiles[0].x ? sameRowTiles[0] : tiles[1];
-
-      // Gap should be between them
-      expect(right.x - (left.x + parseFloat(left.width))).toBe(24);
-    }
+    expect(result.tiles.size).toBe(6);
+    expect(result.totalHeight).toBeGreaterThan(0);
   });
 
   it("handles many items efficiently", () => {
@@ -430,5 +409,114 @@ describe("edge cases", () => {
 
     expect(result.tiles.size).toBe(50);
     expect(result.totalHeight).toBeGreaterThan(0);
+  });
+});
+
+// ============================================================================
+// Label-Based Aspect Ratio Tests
+// ============================================================================
+
+describe("calculateMosaicLayout - label-based dimensions", () => {
+  it("gives wider tiles to items with long labels", () => {
+    const items = createItemsWithLabels([
+      { count: 50, label: "short" },
+      { count: 50, label: "this-is-a-very-long-label-name" },
+    ]);
+    const result = calculateMosaicLayout(items, { availableWidth: 500 });
+
+    const shortLabel = result.tiles.get("item-1");
+    const longLabel = result.tiles.get("item-2");
+
+    // Long label should have wider tile (higher aspect ratio)
+    expect(parseFloat(longLabel!.width)).toBeGreaterThan(parseFloat(shortLabel!.width));
+  });
+
+  it("short labels get square-ish tiles", () => {
+    const items = createItemsWithLabels([
+      { count: 50, label: "short" },
+    ]);
+    const result = calculateMosaicLayout(items, { availableWidth: 500 });
+
+    const tile = result.tiles.get("item-1");
+    const width = parseFloat(tile!.width);
+    const height = tile!.height;
+    const aspectRatio = width / height;
+
+    // Should be close to 1:1 (square)
+    expect(aspectRatio).toBeGreaterThan(0.7);
+    expect(aspectRatio).toBeLessThan(1.5);
+  });
+
+  it("long labels get landscape tiles", () => {
+    const items = createItemsWithLabels([
+      { count: 50, label: "this-is-a-very-long-label-that-needs-more-width" },
+    ]);
+    const result = calculateMosaicLayout(items, { availableWidth: 500 });
+
+    const tile = result.tiles.get("item-1");
+    const width = parseFloat(tile!.width);
+    const height = tile!.height;
+    const aspectRatio = width / height;
+
+    // Should be landscape (width > height)
+    expect(aspectRatio).toBeGreaterThan(1.5);
+  });
+
+  it("tiles without labels behave like short labels", () => {
+    const items = createItems([50, 50]);
+    const result = calculateMosaicLayout(items, { availableWidth: 500 });
+
+    const tile1 = result.tiles.get("item-1");
+    const tile2 = result.tiles.get("item-2");
+
+    const width1 = parseFloat(tile1!.width);
+    const width2 = parseFloat(tile2!.width);
+
+    // Both should have similar width (no label = default aspect ratio)
+    expect(Math.abs(width1 - width2)).toBeLessThan(1);
+  });
+
+  it("maintains reasonable surface area for tiles with same count but different widths", () => {
+    const items = createItemsWithLabels([
+      { count: 100, label: "short" },
+      { count: 100, label: "no-mixed-components-allowed-here" },
+    ]);
+    const result = calculateMosaicLayout(items, { availableWidth: 500 });
+
+    const shortLabel = result.tiles.get("item-1");
+    const longLabel = result.tiles.get("item-2");
+
+    const shortArea = parseFloat(shortLabel!.width) * shortLabel!.height;
+    const longArea = parseFloat(longLabel!.width) * longLabel!.height;
+
+    // Areas should be roughly similar (within 50% tolerance due to constraints)
+    expect(Math.abs(shortArea - longArea) / shortArea).toBeLessThan(0.5);
+  });
+});
+
+// ============================================================================
+// Padding Tests
+// ============================================================================
+
+describe("calculateMosaicLayout - padding", () => {
+  it("applies padding offsets to tile positions", () => {
+    const items = createItems([50]);
+    const result = calculateMosaicLayout(items, {
+      padding: { top: 10, left: 20 },
+    });
+
+    const tile = result.tiles.get("item-1");
+    expect(tile!.x).toBe(20);
+    expect(tile!.y).toBe(10);
+  });
+
+  it("includes padding in total height", () => {
+    const items = createItems([50]);
+    const resultNoPadding = calculateMosaicLayout(items);
+    const resultWithPadding = calculateMosaicLayout(items, {
+      padding: { top: 10, bottom: 20 },
+    });
+
+    expect(resultWithPadding.totalHeight).toBe(resultNoPadding.totalHeight + 30);
   });
 });

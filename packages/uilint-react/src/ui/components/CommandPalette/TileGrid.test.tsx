@@ -79,7 +79,7 @@ describe("TileGrid - interactions", () => {
       createTestItem("2", 20, "Second Item"),
     ];
 
-    const { container } = render(
+    const { getByText } = render(
       <TileGrid
         items={items}
         onTileClick={onTileClick}
@@ -87,36 +87,24 @@ describe("TileGrid - interactions", () => {
       />
     );
 
-    // Find tile elements by their class
-    const allElements = container.querySelectorAll("*");
-    const tiles: HTMLElement[] = [];
+    // Find and click a specific tile by its label
+    const firstItemTile = getByText("First Item").closest("[class*='cursor-pointer']");
+    expect(firstItemTile).toBeTruthy();
 
-    allElements.forEach((el) => {
-      const classAttr = el.getAttribute("class") || "";
-      if (classAttr.includes("cursor-pointer") && classAttr.includes("rounded-2xl")) {
-        tiles.push(el as HTMLElement);
-      }
-    });
-
-    expect(tiles.length).toBe(2);
-
-    // Click the first tile - tiles are sorted by count (descending),
-    // so tiles[0] is "Second Item" (count: 20)
-    fireEvent.click(tiles[0]);
+    fireEvent.click(firstItemTile!);
     expect(onTileClick).toHaveBeenCalledTimes(1);
-    expect(onTileClick).toHaveBeenCalledWith(items[1]); // Second Item has highest count
+    expect(onTileClick).toHaveBeenCalledWith(items[0]); // First Item
   });
 
   it("calls onTileClick with correct item when different tiles are clicked", () => {
     const onTileClick = vi.fn();
-    // Items sorted by count descending: Third (30), Second (20), First (10)
     const items: TileItem[] = [
       createTestItem("1", 10, "First"),
       createTestItem("2", 20, "Second"),
       createTestItem("3", 30, "Third"),
     ];
 
-    const { container } = render(
+    const { getByText } = render(
       <TileGrid
         items={items}
         onTileClick={onTileClick}
@@ -124,25 +112,18 @@ describe("TileGrid - interactions", () => {
       />
     );
 
-    const allElements = container.querySelectorAll("*");
-    const tiles: HTMLElement[] = [];
+    // Click each tile by finding it via its label
+    const thirdTile = getByText("Third").closest("[class*='cursor-pointer']");
+    const secondTile = getByText("Second").closest("[class*='cursor-pointer']");
+    const firstTile = getByText("First").closest("[class*='cursor-pointer']");
 
-    allElements.forEach((el) => {
-      const classAttr = el.getAttribute("class") || "";
-      if (classAttr.includes("cursor-pointer") && classAttr.includes("rounded-2xl")) {
-        tiles.push(el as HTMLElement);
-      }
-    });
-
-    // Click each tile - tiles are sorted by count (descending)
-    // tiles[0] = Third (count 30), tiles[1] = Second (count 20), tiles[2] = First (count 10)
-    fireEvent.click(tiles[0]);
+    fireEvent.click(thirdTile!);
     expect(onTileClick).toHaveBeenLastCalledWith(items[2]); // Third
 
-    fireEvent.click(tiles[1]);
+    fireEvent.click(secondTile!);
     expect(onTileClick).toHaveBeenLastCalledWith(items[1]); // Second
 
-    fireEvent.click(tiles[2]);
+    fireEvent.click(firstTile!);
     expect(onTileClick).toHaveBeenLastCalledWith(items[0]); // First
 
     expect(onTileClick).toHaveBeenCalledTimes(3);

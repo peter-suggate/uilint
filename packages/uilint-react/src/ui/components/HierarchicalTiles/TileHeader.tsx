@@ -3,8 +3,7 @@
  *
  * Shows:
  * - Back button (arrow) to navigate up
- * - Label and optional subtitle
- * - Optional count display
+ * - Label and issue summary ("X issues in Y files")
  * - Optional icon
  *
  * Reusable across different tile-based UIs.
@@ -27,10 +26,10 @@ import {
 export interface TileHeaderProps {
   /** Main label text */
   label: string;
-  /** Optional subtitle text */
-  subtitle?: string;
-  /** Optional count to display */
+  /** Issue count */
   count?: number;
+  /** Number of files (for "X issues in Y files" display) */
+  fileCount?: number;
   /** Optional icon element */
   icon?: React.ReactNode;
   /** Callback when back button is clicked */
@@ -41,18 +40,32 @@ export interface TileHeaderProps {
   level?: number;
 }
 
+/**
+ * Format the issue summary line (e.g., "72 issues in 4 files" or "12 issues")
+ */
+function formatIssueSummary(count: number, fileCount?: number): string {
+  const issueWord = count === 1 ? "issue" : "issues";
+  if (fileCount !== undefined && fileCount > 0) {
+    const fileWord = fileCount === 1 ? "file" : "files";
+    return `${count} ${issueWord} in ${fileCount} ${fileWord}`;
+  }
+  return `${count} ${issueWord}`;
+}
+
 // ============================================================================
 // Component
 // ============================================================================
 
 export function TileHeader({
   label,
-  subtitle,
   count,
+  fileCount,
   icon,
   onBack,
   className,
 }: TileHeaderProps) {
+  const summary = count !== undefined ? formatIssueSummary(count, fileCount) : undefined;
+
   return (
     <motion.div
       variants={headerVariants}
@@ -101,7 +114,7 @@ export function TileHeader({
           </motion.div>
         )}
 
-        {/* Label and subtitle - inline */}
+        {/* Label and issue summary - inline */}
         <div className="min-w-0 flex-1 flex items-baseline gap-2">
           <motion.h3
             initial={{ opacity: 0 }}
@@ -111,32 +124,18 @@ export function TileHeader({
           >
             {label}
           </motion.h3>
-          {subtitle && (
+          {summary && (
             <motion.span
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.1, delay: 0.05 }}
               className="text-[11px] text-muted-foreground/50 truncate hidden sm:inline"
             >
-              {subtitle}
+              {summary}
             </motion.span>
           )}
         </div>
       </div>
-
-      {/* Right side: Count - smaller */}
-      {count !== undefined && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.1 }}
-          className="flex-shrink-0"
-        >
-          <span className="text-lg font-light text-foreground/50 tabular-nums">
-            {count}
-          </span>
-        </motion.div>
-      )}
     </motion.div>
   );
 }

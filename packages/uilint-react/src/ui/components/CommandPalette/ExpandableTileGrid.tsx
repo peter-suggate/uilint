@@ -20,9 +20,27 @@ import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
-import type { TileItem } from "../../../core/plugin-system/types";
-import { Tile } from "./Tile";
+import type { TileItem, TileBucket } from "../../../core/plugin-system/types";
+import { Tile } from "../HierarchicalTiles/Tile";
 import { TileGrid } from "./TileGrid";
+import { RuleScaleIcon, FileCodeIcon } from "../../icons";
+import type { TileType } from "../../../plugins/eslint/tile-provider";
+
+/**
+ * Get icon element for a tile based on its type metadata
+ */
+function getTileIcon(item: TileItem, bucket: TileBucket): React.ReactNode {
+  const tileType = item.metadata?.tileType as TileType | undefined;
+  const size = bucket === "xl" ? 24 : bucket === "lg" ? 22 : bucket === "md" ? 18 : bucket === "sm" ? 16 : 14;
+
+  if (tileType === "rule") {
+    return <RuleScaleIcon size={size} className="text-muted-foreground/50 shrink-0" />;
+  }
+  if (tileType === "file") {
+    return <FileCodeIcon size={size} className="text-muted-foreground/50 shrink-0" />;
+  }
+  return undefined;
+}
 import { ExpandedTileHeader } from "./ExpandedTileHeader";
 import { calculateMosaicLayout, calculateExpandedLayout } from "../HierarchicalTiles/layout";
 import type { LayoutItem } from "../HierarchicalTiles/layout";
@@ -453,7 +471,12 @@ export function ExpandableTileGrid({
               }}
             >
               <Tile
-                item={item}
+                id={item.id}
+                label={item.label}
+                subtitle={item.subtitle}
+                icon={getTileIcon(item, originalLayoutItem.bucket)}
+                count={item.count}
+                fileCount={item.fileCount}
                 bucket={originalLayoutItem.bucket}
                 isSelected={isSelected}
                 onClick={() => onTileClickInternal(item)}

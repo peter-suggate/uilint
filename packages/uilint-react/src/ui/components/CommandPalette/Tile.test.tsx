@@ -1,13 +1,15 @@
 /**
- * Tests for Tile component behavior
+ * Tests for CommandPalette Tile usage
+ *
+ * These tests verify the shared Tile component works correctly
+ * when used in the CommandPalette context.
  *
  * @vitest-environment jsdom
  */
 import React from "react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, cleanup, fireEvent } from "@testing-library/react";
-import { Tile } from "./Tile";
-import type { TileItem } from "../../../core/plugin-system/types";
+import { Tile } from "../HierarchicalTiles/Tile";
 
 // Mock motion/react to avoid animation issues in tests
 vi.mock("motion/react", () => {
@@ -35,14 +37,7 @@ vi.mock("motion/react", () => {
   };
 });
 
-const createTestItem = (overrides: Partial<TileItem> = {}): TileItem => ({
-  id: "test-tile-1",
-  label: "Test Rule",
-  count: 5,
-  ...overrides,
-});
-
-describe("Tile - rendering", () => {
+describe("Tile - CommandPalette usage", () => {
   afterEach(() => {
     cleanup();
   });
@@ -50,7 +45,9 @@ describe("Tile - rendering", () => {
   it("renders label and count correctly", () => {
     const { container } = render(
       <Tile
-        item={createTestItem({ label: "My Rule Name", count: 42 })}
+        id="test-tile-1"
+        label="My Rule Name"
+        count={42}
         bucket="md"
         isSelected={false}
         onClick={vi.fn()}
@@ -61,98 +58,102 @@ describe("Tile - rendering", () => {
     expect(container.textContent).toContain("42");
   });
 
-  it("renders correctly when severityCounts provided", () => {
+  it("renders subtitle (path) when provided", () => {
     const { container } = render(
       <Tile
-        item={createTestItem({
-          label: "Rule with counts",
-          count: 6,
-          severityCounts: { error: 3, warning: 2, info: 1 },
-        })}
+        id="test-tile-1"
+        label="page.tsx"
+        subtitle="src/app"
+        count={10}
         bucket="md"
         isSelected={false}
         onClick={vi.fn()}
       />
     );
 
-    // Tile should still render label and count properly with severityCounts
-    expect(container.textContent).toContain("Rule with counts");
-    expect(container.textContent).toContain("6");
+    expect(container.textContent).toContain("page.tsx");
+    expect(container.textContent).toContain("src/app");
   });
 
-  it("does not render severity indicators when severityCounts not provided", () => {
-    const { container } = render(
+  it("renders icon when provided", () => {
+    const TestIcon = () => <span data-testid="custom-icon">📁</span>;
+    const { getByTestId } = render(
       <Tile
-        item={createTestItem({ severityCounts: undefined })}
+        id="test-tile-1"
+        label="Rule Name"
+        icon={<TestIcon />}
+        count={5}
         bucket="md"
         isSelected={false}
         onClick={vi.fn()}
       />
     );
 
-    const allElements = container.querySelectorAll("*");
-    let severityDotsFound = false;
-
-    allElements.forEach((el) => {
-      const classAttr = el.getAttribute("class") || "";
-      if (classAttr.includes("bg-error") || classAttr.includes("bg-warning") || classAttr.includes("bg-info")) {
-        severityDotsFound = true;
-      }
-    });
-
-    expect(severityDotsFound).toBe(false);
+    expect(getByTestId("custom-icon")).toBeTruthy();
   });
 
-  it("renders subtitle when provided for non-compact bucket", () => {
+  it("renders issue summary with file count", () => {
     const { container } = render(
       <Tile
-        item={createTestItem({ subtitle: "Additional info here" })}
+        id="test-tile-1"
+        label="Test Rule"
+        count={72}
+        fileCount={4}
         bucket="md"
         isSelected={false}
         onClick={vi.fn()}
       />
     );
 
-    expect(container.textContent).toContain("Additional info here");
+    // Count is displayed prominently, suffix shows "issues in X files"
+    expect(container.textContent).toContain("72");
+    expect(container.textContent).toContain("issues in 4 files");
   });
 
-  it("does not render subtitle for xs bucket even when provided", () => {
+  it("renders issue summary without file count", () => {
     const { container } = render(
       <Tile
-        item={createTestItem({ subtitle: "Hidden subtitle" })}
-        bucket="xs"
+        id="test-tile-1"
+        label="Test Rule"
+        count={12}
+        bucket="md"
         isSelected={false}
         onClick={vi.fn()}
       />
     );
 
-    expect(container.textContent).not.toContain("Hidden subtitle");
+    // Count is displayed prominently, suffix shows "issues"
+    expect(container.textContent).toContain("12");
+    expect(container.textContent).toContain("issues");
   });
 
-  it("does not render subtitle for sm bucket even when provided", () => {
+  it("uses singular 'issue' for count of 1", () => {
     const { container } = render(
       <Tile
-        item={createTestItem({ subtitle: "Hidden subtitle" })}
-        bucket="sm"
+        id="test-tile-1"
+        label="Test Rule"
+        count={1}
+        fileCount={1}
+        bucket="md"
         isSelected={false}
         onClick={vi.fn()}
       />
     );
 
-    expect(container.textContent).not.toContain("Hidden subtitle");
-  });
-});
-
-describe("Tile - interactions", () => {
-  afterEach(() => {
-    cleanup();
+    // Count is displayed prominently, suffix uses singular forms
+    expect(container.textContent).toContain("1");
+    expect(container.textContent).toContain("issue in 1 file");
+    expect(container.textContent).not.toContain("issues");
+    expect(container.textContent).not.toContain("files");
   });
 
   it("calls onClick when clicked", () => {
     const onClick = vi.fn();
     const { container } = render(
       <Tile
-        item={createTestItem()}
+        id="test-tile-1"
+        label="Test Rule"
+        count={5}
         bucket="md"
         isSelected={false}
         onClick={onClick}

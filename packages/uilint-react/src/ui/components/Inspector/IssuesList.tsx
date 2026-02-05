@@ -47,9 +47,7 @@ function ruleNodeToTileItem(node: RuleNode): BaseTileItem & { data: RuleNode["da
   return {
     id: node.id,
     label: node.label,
-    subtitle: node.subtitle,
     count: node.count ?? 0,
-    previewMessages: node.previewMessages,
     fileCount: node.fileCount,
     data: node.data,
   };
@@ -62,7 +60,6 @@ function fileNodeToTileItem(node: FileForRuleNode): BaseTileItem & { data: FileF
   return {
     id: node.id,
     label: node.label,
-    subtitle: node.subtitle,
     count: node.count ?? 0,
     severityCounts: node.severityCounts,
     data: node.data,

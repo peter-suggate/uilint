@@ -11,9 +11,29 @@ import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles } from "lucide-react";
 import { cn } from "../../../lib/utils";
-import type { TileItem } from "../../../core/plugin-system/types";
-import { Tile } from "./Tile";
+import type { TileItem, TileBucket } from "../../../core/plugin-system/types";
+import { Tile } from "../HierarchicalTiles/Tile";
 import { calculateMosaicLayout } from "../HierarchicalTiles/layout";
+import { RuleScaleIcon, FileCodeIcon } from "../../icons";
+import type { TileType } from "../../../plugins/eslint/tile-provider";
+
+/**
+ * Get icon element for a tile based on its type metadata
+ */
+function getTileIcon(item: TileItem, bucket: TileBucket): React.ReactNode {
+  const tileType = item.metadata?.tileType as TileType | undefined;
+
+  // Icon size based on bucket
+  const size = bucket === "xl" ? 24 : bucket === "lg" ? 22 : bucket === "md" ? 18 : bucket === "sm" ? 16 : 14;
+
+  if (tileType === "rule") {
+    return <RuleScaleIcon size={size} className="text-muted-foreground/50 shrink-0" />;
+  }
+  if (tileType === "file") {
+    return <FileCodeIcon size={size} className="text-muted-foreground/50 shrink-0" />;
+  }
+  return undefined;
+}
 
 interface TileGridProps {
   items: TileItem[];
@@ -139,10 +159,15 @@ export function TileGrid({
                 height: tileLayout.height,
               }}
             >
+              {/* eslint-disable-next-line uilint/require-test-coverage -- Tile is tested in HierarchicalTiles/Tile.test.tsx */}
               <Tile
-                item={item}
+                id={item.id}
+                label={item.label}
+                subtitle={item.subtitle}
+                icon={getTileIcon(item, tileLayout.bucket)}
+                count={item.count}
+                fileCount={item.fileCount}
                 bucket={tileLayout.bucket}
-                tileWidth={tileLayout.height ? parseFloat(tileLayout.width) : 166}
                 isSelected={globalIndex === selectedIndex}
                 onClick={() => onTileClick(item)}
                 onOpenInInspector={onOpenInInspector ? () => onOpenInInspector(item) : undefined}

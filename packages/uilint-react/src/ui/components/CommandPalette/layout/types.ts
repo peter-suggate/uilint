@@ -74,4 +74,8 @@ export interface MosaicLayoutConfig {
 export interface LayoutItem {
   id: string;
   count: number;
+  /** Label text - used to determine if tile needs more width */
+  label?: string;
+  /** Subtitle text - also considered for width calculation */
+  subtitle?: string;
 }

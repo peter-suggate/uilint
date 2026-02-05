@@ -182,9 +182,9 @@ function ExpandedContent<T>({
       ) : (
         <TileHeader
           label={node.label}
-          subtitle={node.subtitle}
           icon={node.icon}
           count={node.count}
+          fileCount={node.fileCount}
           onBack={onCollapse}
         />
       )}
