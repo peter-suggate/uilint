@@ -9,7 +9,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { useComposedStore } from "../../core/store";
-import { UILintInspectorIcon } from "../icons";
+import { UILintInspectorIcon, SearchIcon } from "../icons";
 import { getGlassStyles } from "./primitives";
 
 /** Detect macOS for showing correct modifier key symbol */
@@ -22,6 +22,7 @@ export function InspectorToggle() {
   const isInspectorOpen = useComposedStore((s) => s.inspector.open);
   const isCommandPaletteOpen = useComposedStore((s) => s.commandPalette.open);
   const openInspectorPanel = useComposedStore((s) => s.openInspectorPanel);
+  const openCommandPalette = useComposedStore((s) => s.openCommandPalette);
   const isMobile = useComposedStore((s) => s.mobile.isMobile);
   const isTouchDevice = useComposedStore((s) => s.mobile.isTouchDevice);
   const wsConnected = useComposedStore((s) => s.wsConnected);
@@ -58,7 +59,7 @@ export function InspectorToggle() {
           pointerEvents: "auto",
         }}
       >
-        {/* Keyboard shortcut hint */}
+        {/* Keyboard shortcut hint - shown on non-touch devices */}
         {showShortcutHint && (
           <motion.div
             initial={{ opacity: 0, x: 10 }}
@@ -85,6 +86,38 @@ export function InspectorToggle() {
             <span style={{ opacity: 0.7 }}>{modKey}K</span>
             <span style={{ marginLeft: 6, opacity: 0.5 }}>to search</span>
           </motion.div>
+        )}
+
+        {/* Search button - shown on touch devices (mobile) */}
+        {isTouchDevice && (
+          <motion.button
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ duration: 0.15, ease: [0.32, 0.72, 0, 1] }}
+            onClick={openCommandPalette}
+            aria-label="Open search"
+            title="Search issues"
+            style={{
+              width: buttonSize,
+              height: buttonSize,
+              borderRadius: buttonSize / 2,
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--uilint-text-secondary)",
+              ...getGlassStyles("medium", "md", false),
+              borderTop: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
+              borderBottom: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
+              borderLeft: "1px solid var(--uilint-glass-border-light, rgba(255, 255, 255, 0.8))",
+              borderRight: "1px solid var(--uilint-glass-border, rgba(255, 255, 255, 0.5))",
+            }}
+          >
+            <SearchIcon size={isMobile ? 20 : 18} />
+          </motion.button>
         )}
 
         {/* Inspector toggle button */}
