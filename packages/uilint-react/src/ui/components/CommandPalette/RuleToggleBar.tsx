@@ -115,13 +115,8 @@ export function RuleToggleBar() {
     return counts;
   }, [issuesMap]);
 
-  // Filter to only rules that have issues
-  const rulesWithIssues = React.useMemo(() => {
-    return availableRules.filter(rule => (issueCountsByRule.get(rule.id) ?? 0) > 0);
-  }, [availableRules, issueCountsByRule]);
-
   // Don't render if no rules or toggle function
-  if (!toggleRule || rulesWithIssues.length === 0) {
+  if (!toggleRule || availableRules.length === 0) {
     return null;
   }
 
@@ -133,7 +128,7 @@ export function RuleToggleBar() {
     <div className="px-4 py-2 border-b border-foreground/[0.04]">
       <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
         <AnimatePresence mode="popLayout">
-          {rulesWithIssues.map((rule) => {
+          {availableRules.map((rule) => {
             const isEnabled = !disabledRules.has(rule.id);
             const issueCount = issueCountsByRule.get(rule.id) ?? 0;
 
