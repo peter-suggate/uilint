@@ -11,6 +11,7 @@ import {
   BackgroundTasks,
   ActivityLog,
   HelpBar,
+  OllamaStatus,
 } from "./components/index.js";
 import type { DashboardState } from "./types.js";
 import { getDashboardStore } from "./store.js";
@@ -37,6 +38,47 @@ export function ServeDashboard({
       setState(store.getState());
     });
     return unsubscribe;
+  }, [store]);
+
+  // Check Ollama status periodically
+  useEffect(() => {
+    const checkOllamaStatus = async () => {
+      try {
+        const response = await fetch("http://localhost:11434/api/tags", {
+          method: "GET",
+          signal: AbortSignal.timeout(5000),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const models = data.models || [];
+          // Get the first model name as the "active" model indicator
+          const modelName = models.length > 0 ? models[0].name : undefined;
+          store.setOllamaStatus({
+            status: "connected",
+            model: modelName,
+            lastChecked: new Date(),
+          });
+        } else {
+          store.setOllamaStatus({
+            status: "error",
+            lastChecked: new Date(),
+          });
+        }
+      } catch {
+        store.setOllamaStatus({
+          status: "offline",
+          lastChecked: new Date(),
+        });
+      }
+    };
+
+    // Initial check
+    checkOllamaStatus();
+
+    // Check every 30 seconds
+    const interval = setInterval(checkOllamaStatus, 30000);
+    return () => clearInterval(interval);
   }, [store]);
 
   // Handle keyboard input
@@ -72,6 +114,8 @@ export function ServeDashboard({
         subscriptions={state.stats.subscriptions}
         cacheEntries={state.stats.cacheEntries}
         startTime={state.stats.startTime}
+        ollamaStatus={state.ollamaStatus.status}
+        ollamaModel={state.ollamaStatus.model}
       />
 
       <BackgroundTasks tasks={state.backgroundTasks} />

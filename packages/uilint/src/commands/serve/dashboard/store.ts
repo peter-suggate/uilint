@@ -9,6 +9,7 @@ import type {
   BackgroundTask,
   WorkspaceInfo,
   ServerStats,
+  OllamaStatus,
 } from "./types.js";
 
 type Listener = () => void;
@@ -25,6 +26,9 @@ function createInitialState(): DashboardState {
       subscriptions: 0,
       cacheEntries: 0,
       startTime: new Date(),
+    },
+    ollamaStatus: {
+      status: "checking",
     },
     backgroundTasks: new Map(),
     activities: [],
@@ -77,6 +81,9 @@ export function createDashboardStore(): DashboardStore & {
     },
     get verbose() {
       return state.verbose;
+    },
+    get ollamaStatus() {
+      return state.ollamaStatus;
     },
 
     // Server lifecycle
@@ -227,6 +234,12 @@ export function createDashboardStore(): DashboardStore & {
     // Display options
     toggleVerbose() {
       state = { ...state, verbose: !state.verbose };
+      notify();
+    },
+
+    // Ollama status
+    setOllamaStatus(status: OllamaStatus) {
+      state = { ...state, ollamaStatus: status };
       notify();
     },
 

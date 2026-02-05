@@ -60,6 +60,14 @@ export interface WorkspaceInfo {
   serverCwd: string;
 }
 
+export type OllamaStatusState = "checking" | "connected" | "offline" | "error";
+
+export interface OllamaStatus {
+  status: OllamaStatusState;
+  model?: string;
+  lastChecked?: Date;
+}
+
 export interface DashboardState {
   // Server status
   isRunning: boolean;
@@ -68,6 +76,9 @@ export interface DashboardState {
 
   // Stats
   stats: ServerStats;
+
+  // Ollama status
+  ollamaStatus: OllamaStatus;
 
   // Background tasks
   backgroundTasks: Map<string, BackgroundTask>;
@@ -111,6 +122,9 @@ export interface DashboardActions {
 
   // Display options
   toggleVerbose: () => void;
+
+  // Ollama status
+  setOllamaStatus: (status: OllamaStatus) => void;
 }
 
 export type DashboardStore = DashboardState & DashboardActions;
