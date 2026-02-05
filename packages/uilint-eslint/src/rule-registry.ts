@@ -38,7 +38,6 @@ import { meta as noSecretsInCode } from "./rules/no-secrets-in-code.js";
 import { meta as requireInputValidation } from "./rules/require-input-validation.js";
 import { meta as noPropDrillingDepth } from "./rules/no-prop-drilling-depth.js";
 import { meta as noSemanticDuplicates } from "./rules/no-semantic-duplicates.js";
-import { meta as preferTailwind } from "./rules/prefer-tailwind.js";
 import { meta as noUnsafeTypeCasts } from "./rules/no-unsafe-type-casts.js";
 import { meta as preferStoreSelectors } from "./rules/prefer-store-selectors.js";
 
@@ -46,6 +45,7 @@ import { meta as preferStoreSelectors } from "./rules/prefer-store-selectors.js"
 import { meta as noMixedComponentLibraries } from "./rules/no-mixed-component-libraries/index.js";
 import { meta as semantic } from "./rules/semantic/index.js";
 import { meta as requireTestCoverage } from "./rules/require-test-coverage/index.js";
+import { meta as preferTailwind } from "./rules/prefer-tailwind/index.js";
 
 import type { RuleMeta } from "./utils/create-rule.js";
 

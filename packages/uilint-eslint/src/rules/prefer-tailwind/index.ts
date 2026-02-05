@@ -4,12 +4,23 @@
  * Encourages using Tailwind className over inline style attributes.
  * - Detects files with a high ratio of inline `style` vs `className` usage
  * - Warns at each element using style without className when ratio exceeds threshold
+ * - When preferSemanticColors is enabled, warns against hard-coded colors
+ * - When useLlmSuggestions is enabled, uses Ollama to suggest semantic replacements
  */
 
-import { createRule, defineRuleMeta } from "../utils/create-rule.js";
+import { readFileSync } from "fs";
+import { dirname } from "path";
+import { createRule, defineRuleMeta } from "../../utils/create-rule.js";
 import type { TSESTree } from "@typescript-eslint/utils";
+import {
+  getColorSuggestions,
+  formatSuggestionsForMessage,
+} from "./lib/color-suggester.js";
 
-type MessageIds = "preferTailwind" | "preferSemanticColors";
+type MessageIds =
+  | "preferTailwind"
+  | "preferSemanticColors"
+  | "preferSemanticColorsWithSuggestion";
 type Options = [
   {
     /** Minimum ratio of style-only elements before warnings trigger (0-1). Default: 0.3 */
@@ -20,10 +31,12 @@ type Options = [
     allowedStyleProperties?: string[];
     /** Component names to skip (e.g., ["motion.div", "animated.View"]). Default: [] */
     ignoreComponents?: string[];
-    /** Prefer semantic colors (bg-destructive) over hard-coded (bg-red-500). Default: false */
+    /** Prefer semantic colors (bg-destructive) over hard-coded (bg-red-500). Default: true */
     preferSemanticColors?: boolean;
     /** Hard-coded color names to allow when preferSemanticColors is enabled. Default: [] */
     allowedHardCodedColors?: string[];
+    /** Use LLM (Ollama) to suggest semantic color replacements. Default: false */
+    useLlmSuggestions?: boolean;
   }?
 ];
 
@@ -32,7 +45,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "prefer-tailwind",
-  version: "1.0.0",
+  version: "1.1.0",
   name: "Prefer Tailwind",
   description: "Encourage Tailwind className over inline style attributes",
   defaultSeverity: "warn",
@@ -40,6 +53,7 @@ export const meta = defineRuleMeta({
   icon: "🎨",
   hint: "Prefers className over inline styles",
   defaultEnabled: true,
+  isDirectoryBased: true,
   defaultOptions: [
     {
       styleRatioThreshold: 0.3,
@@ -48,6 +62,7 @@ export const meta = defineRuleMeta({
       ignoreComponents: [],
       preferSemanticColors: true,
       allowedHardCodedColors: [],
+      useLlmSuggestions: false,
     },
   ],
   optionSchema: {
@@ -98,6 +113,14 @@ export const meta = defineRuleMeta({
         defaultValue: "",
         description:
           "Comma-separated color names to allow when preferSemanticColors is enabled (e.g., gray,slate)",
+      },
+      {
+        key: "useLlmSuggestions",
+        label: "Use LLM suggestions",
+        type: "boolean",
+        defaultValue: false,
+        description:
+          "When enabled, uses Ollama to suggest semantic color replacements based on your project's theme",
       },
     ],
   },
@@ -175,6 +198,23 @@ Semantic colors like \`bg-background\`, \`text-foreground\`, \`bg-primary\`, \`b
 \`bg-muted\`, etc. work better with theming and dark mode.
 
 Colors that are always allowed: \`white\`, \`black\`, \`transparent\`, \`inherit\`, \`current\`.
+
+## LLM-Powered Suggestions
+
+When \`useLlmSuggestions\` is enabled and Ollama is running locally, the rule will:
+1. Auto-discover your project's semantic colors from \`globals.css\` and \`tailwind.config.*\`
+2. Use the LLM to suggest appropriate semantic replacements for hard-coded colors
+3. Include suggestions in the error message (e.g., "Hard-coded colors: bg-red-500. Try: bg-destructive")
+
+Suggestions are cached based on file content and config files, so subsequent runs are fast.
+
+\`\`\`js
+// eslint.config.js - Enable LLM suggestions
+"uilint/prefer-tailwind": ["warn", {
+  preferSemanticColors: true,
+  useLlmSuggestions: true  // Requires Ollama running locally
+}]
+\`\`\`
 
 ## Notes
 
@@ -391,7 +431,9 @@ export default createRule<Options, MessageIds>({
       preferTailwind:
         "Prefer Tailwind className over inline style. This element uses style attribute without className.",
       preferSemanticColors:
-        "Prefer semantic color classes (e.g., bg-destructive, text-primary) over hard-coded colors (e.g., bg-red-500).",
+        "Hard-coded colors: {{colors}}. Use semantic classes instead.",
+      preferSemanticColorsWithSuggestion:
+        "Hard-coded colors: {{colors}}. {{suggestion}}",
     },
     schema: [
       {
@@ -430,6 +472,11 @@ export default createRule<Options, MessageIds>({
             description:
               "Hard-coded color names to allow when preferSemanticColors is enabled",
           },
+          useLlmSuggestions: {
+            type: "boolean",
+            description:
+              "Use Ollama LLM to suggest semantic color replacements",
+          },
         },
         additionalProperties: false,
       },
@@ -441,8 +488,9 @@ export default createRule<Options, MessageIds>({
       minElementsForAnalysis: 3,
       allowedStyleProperties: [],
       ignoreComponents: [],
-      preferSemanticColors: false,
+      preferSemanticColors: true,
       allowedHardCodedColors: [],
+      useLlmSuggestions: false,
     },
   ],
   create(context) {
@@ -451,8 +499,25 @@ export default createRule<Options, MessageIds>({
     const minElementsForAnalysis = options.minElementsForAnalysis ?? 3;
     const allowedStyleProperties = options.allowedStyleProperties ?? [];
     const ignoreComponents = options.ignoreComponents ?? [];
-    const preferSemanticColors = options.preferSemanticColors ?? false;
+    const preferSemanticColors = options.preferSemanticColors ?? true;
     const allowedHardCodedColors = options.allowedHardCodedColors ?? [];
+    const useLlmSuggestions = options.useLlmSuggestions ?? false;
+
+    // Cache file content for LLM suggestions (read lazily)
+    let fileContent: string | null = null;
+    const filePath = context.filename;
+    const fileDir = dirname(filePath);
+
+    function getFileContent(): string {
+      if (fileContent === null) {
+        try {
+          fileContent = readFileSync(filePath, "utf-8");
+        } catch {
+          fileContent = "";
+        }
+      }
+      return fileContent;
+    }
 
     // Tracking state for file-level analysis
     const styledElements: ElementInfo[] = [];
@@ -510,10 +575,38 @@ export default createRule<Options, MessageIds>({
                     allowedHardCodedColors
                   );
                   if (hardCodedColors.length > 0) {
-                    context.report({
-                      node,
-                      messageId: "preferSemanticColors",
-                    });
+                    const colorsStr = hardCodedColors.join(", ");
+
+                    // Try to get LLM suggestions if enabled
+                    if (useLlmSuggestions) {
+                      const { suggestions } = getColorSuggestions(
+                        hardCodedColors,
+                        fileDir,
+                        getFileContent()
+                      );
+                      const suggestionStr =
+                        formatSuggestionsForMessage(suggestions);
+
+                      if (suggestionStr) {
+                        context.report({
+                          node,
+                          messageId: "preferSemanticColorsWithSuggestion",
+                          data: { colors: colorsStr, suggestion: suggestionStr },
+                        });
+                      } else {
+                        context.report({
+                          node,
+                          messageId: "preferSemanticColors",
+                          data: { colors: colorsStr },
+                        });
+                      }
+                    } else {
+                      context.report({
+                        node,
+                        messageId: "preferSemanticColors",
+                        data: { colors: colorsStr },
+                      });
+                    }
                   }
                 }
               }

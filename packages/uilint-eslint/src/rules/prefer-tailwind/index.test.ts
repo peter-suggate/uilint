@@ -6,7 +6,7 @@
 
 import { RuleTester } from "@typescript-eslint/rule-tester";
 import { describe, it, afterAll } from "vitest";
-import rule from "./prefer-tailwind.js";
+import rule from "./index.js";
 
 RuleTester.afterAll = afterAll;
 RuleTester.describe = describe;
@@ -34,7 +34,7 @@ ruleTester.run("prefer-tailwind", rule, {
           return (
             <>
               <div className="p-4" />
-              <span className="text-red-500" />
+              <span className="text-primary" />
               <p className="mt-2" />
             </>
           );
@@ -48,7 +48,7 @@ ruleTester.run("prefer-tailwind", rule, {
           return (
             <>
               <div class="p-4" />
-              <span class="text-red-500" />
+              <span class="text-primary" />
               <p class="mt-2" />
             </>
           );
@@ -120,7 +120,7 @@ ruleTester.run("prefer-tailwind", rule, {
           return (
             <>
               <div className="p-4" />
-              <span className="text-red-500" />
+              <span className="text-primary" />
               <p className="mt-2" />
               <section style={{ margin: '10px' }} />
             </>
@@ -135,7 +135,7 @@ ruleTester.run("prefer-tailwind", rule, {
           return (
             <>
               <div className="p-4" />
-              <span className="text-red-500" />
+              <span className="text-primary" />
               <p className="mt-2" />
               <section className="bg-white" />
               <article className="flex" />
@@ -300,7 +300,7 @@ ruleTester.run("prefer-tailwind", rule, {
           return (
             <>
               <div className={\`p-4 \${isActive ? 'active' : ''}\`} />
-              <span className={\`text-red-500\`} />
+              <span className={\`text-primary\`} />
               <p className={\`mt-2\`} />
             </>
           );
@@ -692,7 +692,7 @@ ruleTester.run("prefer-tailwind (semantic colors - valid)", rule, {
     },
 
     // ============================================
-    // OPTION DISABLED (default)
+    // OPTION DISABLED (explicitly)
     // ============================================
     {
       name: "hard-coded colors allowed when option disabled",
@@ -706,7 +706,7 @@ ruleTester.run("prefer-tailwind (semantic colors - valid)", rule, {
           );
         }
       `,
-      // preferSemanticColors defaults to false
+      options: [{ preferSemanticColors: false }],
     },
     {
       name: "explicitly disabled option allows hard-coded colors",
