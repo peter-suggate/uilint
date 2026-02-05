@@ -242,6 +242,7 @@ export function Popover({
                   top: position.top,
                   left: position.left,
                   width: actualWidth,
+                  pointerEvents: "auto",
                 }}
               >
                 {children}
