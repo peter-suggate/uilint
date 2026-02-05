@@ -110,8 +110,13 @@ export function useTileItems(query?: string): UseTileItemsResult {
   // Subscribe to issues changes to trigger re-computation when lint results arrive
   const issuesMap = useComposedStore(selectIssuesMap);
 
-  // Compute raw tile items when issues change
-  const rawItems = useMemo(() => computeTileItems(), [issuesMap]);
+  // Subscribe to disabled rules to re-compute when rules are toggled
+  const disabledRules = useComposedStore(
+    (s) => (s.plugins?.eslint as { disabledRules?: Set<string> } | undefined)?.disabledRules
+  );
+
+  // Compute raw tile items when issues or disabled rules change
+  const rawItems = useMemo(() => computeTileItems(), [issuesMap, disabledRules]);
 
   // Apply query filtering and deduplication
   const items = useMemo(() => {
