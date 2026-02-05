@@ -81,16 +81,16 @@ export function severityFromNumber(num: 1 | 2 | number): IssueSeverity {
 }
 
 /**
- * Get CSS color for severity
+ * Get CSS color for severity (uses CSS variables from globals.css)
  */
 export function severityToColor(severity: IssueSeverity): string {
   switch (severity) {
     case "error":
-      return "#f87171"; // red-400 (light red)
+      return "var(--uilint-error, oklch(0.72 0.17 25))";
     case "warning":
-      return "#fbbf24"; // amber-400 (golden amber)
+      return "var(--uilint-warning, oklch(0.82 0.165 80))";
     case "info":
-      return "#3b82f6"; // blue-500
+      return "var(--uilint-info, oklch(0.623 0.214 259))";
   }
 }
 

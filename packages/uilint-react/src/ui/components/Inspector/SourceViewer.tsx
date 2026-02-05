@@ -95,7 +95,7 @@ export function SourceViewer({
                     className={cn(
                       "flex border-l-[3px]",
                       isHighlighted
-                        ? "bg-[rgba(251,191,36,0.12)] border-l-[#fbbf24]"
+                        ? "bg-warning-bg border-l-warning"
                         : "bg-transparent border-l-transparent"
                     )}
                   >
