@@ -9,13 +9,26 @@
 import type { CoreSlice } from "./core-slice";
 import type { TileItem } from "../plugin-system/types";
 
+// Issue type for search filtering (matches the structure in tile metadata)
+interface IssueForSearch {
+  message?: string;
+  ruleId?: string;
+  filePath?: string;
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
 
 /**
  * Filter tile items by query text.
- * Matches against label and subtitle (case-insensitive).
+ * Enhanced to search within underlying issues, not just tile labels.
+ *
+ * Matches against (case-insensitive):
+ * - Tile label (rule name or filename)
+ * - Tile subtitle (rule description or file path)
+ * - Issue messages within the tile (if stored in metadata.issues)
+ * - Issue rule IDs (for file tiles)
  */
 export function filterByQuery(items: TileItem[], query: string): TileItem[] {
   if (!query.trim()) {
@@ -25,10 +38,42 @@ export function filterByQuery(items: TileItem[], query: string): TileItem[] {
   const normalizedQuery = query.toLowerCase().trim();
 
   return items.filter((item) => {
+    // Check tile label and subtitle
     const label = item.label?.toLowerCase() ?? "";
     const subtitle = item.subtitle?.toLowerCase() ?? "";
 
-    return label.includes(normalizedQuery) || subtitle.includes(normalizedQuery);
+    if (label.includes(normalizedQuery) || subtitle.includes(normalizedQuery)) {
+      return true;
+    }
+
+    // Check underlying issues (stored in metadata for search filtering)
+    const issues = item.metadata?.issues as IssueForSearch[] | undefined;
+    if (issues && Array.isArray(issues)) {
+      for (const issue of issues) {
+        // Check issue message
+        if (issue.message?.toLowerCase().includes(normalizedQuery)) {
+          return true;
+        }
+        // Check rule ID (useful for file tiles)
+        if (issue.ruleId?.toLowerCase().includes(normalizedQuery)) {
+          return true;
+        }
+      }
+    }
+
+    // Check ruleId directly (for rule tiles)
+    const ruleId = item.metadata?.ruleId as string | undefined;
+    if (ruleId?.toLowerCase().includes(normalizedQuery)) {
+      return true;
+    }
+
+    // Check filePath (for file tiles)
+    const filePath = item.metadata?.filePath as string | undefined;
+    if (filePath?.toLowerCase().includes(normalizedQuery)) {
+      return true;
+    }
+
+    return false;
   });
 }
 

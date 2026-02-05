@@ -43,7 +43,9 @@ export {
   Info as InfoIcon,
   // File and navigation
   File as FileIcon,
+  FileCode as FileCodeIcon,
   List as RuleIcon,
+  Scale as RuleScaleIcon,
   ChevronRight as ChevronRightIcon,
   ChevronRight as ChevronIcon,
   ChevronDown as ChevronDownIcon,

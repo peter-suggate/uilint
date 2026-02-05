@@ -1,11 +1,14 @@
 /**
  * CommandPalette - Elegant command interface inspired by Spotlight & Raycast
  *
+ * REDESIGNED: Flat tile interface showing all rules and files together.
+ * Single click on any tile opens the inspector with that context.
+ *
  * Features:
  * - Hero search input with glassmorphic styling
- * - Tile-based masonry grid for visual item display
- * - Expandable tiles with in-place expansion
- * - Keyboard navigation for tiles
+ * - Flat tile grid showing rules + files sorted by issue count
+ * - Search filters tiles by underlying issues
+ * - Single click opens inspector
  *
  * Visual design:
  * - Minimal colors, visual hierarchy through opacity/weight
@@ -22,7 +25,6 @@ import { useComposedStore, getPluginServices } from "../../../core/store";
 import { useTileItems, useTileNavigation } from "../../hooks";
 import { SearchInput } from "./SearchInput";
 import { TileGrid } from "./TileGrid";
-import { ExpandableTileGrid } from "./ExpandableTileGrid";
 import { OnboardingState } from "./OnboardingState";
 import { GlassPanel } from "../primitives";
 import type { TileItem } from "../../../core/plugin-system/types";
@@ -34,17 +36,14 @@ const panelTransition = {
   ease: [0.32, 0.72, 0, 1] as const,
 };
 
-// Feature flag for expandable tile UI (can be made configurable later)
-const USE_EXPANDABLE_TILES = true;
-
 export function CommandPalette() {
   const isOpen = useComposedStore((s) => s.commandPalette.open);
   const query = useComposedStore((s) => s.commandPalette.query);
-  const expansionPath = useComposedStore((s) => s.commandPalette.expansionPath);
   const closeCommandPalette = useComposedStore((s) => s.closeCommandPalette);
   const setQuery = useComposedStore((s) => s.setCommandPaletteQuery);
   const openInspectorPanel = useComposedStore((s) => s.openInspectorPanel);
-  const collapseTile = useComposedStore((s) => s.collapseTile);
+  const expandRule = useComposedStore((s) => s.expandRule);
+  const expandFileInRule = useComposedStore((s) => s.expandFileInRule);
 
   // Mobile detection from store
   const isMobile = useComposedStore((s) => s.mobile.isMobile);
@@ -77,21 +76,10 @@ export function CommandPalette() {
     return "disconnected" as const;
   }, [connectionStatus.mode, scanStatus]);
 
-  // Current expansion level
-  const expansionLevel = expansionPath.length;
+  // Get tile items using the hook (flat list of rules + files)
+  const { items: tileItems, isLoading } = useTileItems(query);
 
-  // Get tile items using the hook (no filters - show all tiles)
-  const { items: tileItems, isLoading, isTerminal } = useTileItems(query);
-
-  // Handle back navigation (backspace with empty query collapses expansion)
-  const handleBack = useCallback(() => {
-    if (expansionLevel > 0) {
-      collapseTile();
-    }
-  }, [expansionLevel, collapseTile]);
-
-  // Handle tile click - expansion is handled by ExpandableTileGrid internally
-  // This is only used for non-expandable mode or legacy behavior
+  // Handle tile click - opens inspector with appropriate context
   const handleTileClick = useCallback(
     async (item: TileItem) => {
       const services = getPluginServices();
@@ -112,20 +100,35 @@ export function CommandPalette() {
         return;
       }
 
-      // For non-expandable tiles, just open inspector
-      openInspectorPanel();
-      closeCommandPalette();
-    },
-    [closeCommandPalette, openInspectorPanel]
-  );
+      // Open inspector with context based on tile type
+      const tileType = item.metadata?.tileType as string | undefined;
 
-  // Handle "open in inspector" button click on tiles
-  const handleOpenInInspector = useCallback(
-    (_item: TileItem) => {
+      if (tileType === "rule") {
+        // Rule tile: expand the rule in inspector
+        const ruleId = item.metadata?.ruleId as string;
+        if (ruleId) {
+          expandRule(ruleId);
+        }
+      } else if (tileType === "file") {
+        // File tile: expand to show the file in inspector
+        // For global file tiles, we just open the inspector (file will be shown in the default view)
+        const filePath = item.metadata?.filePath as string;
+        if (filePath) {
+          // If there's a ruleId, expand that rule and then the file
+          const ruleId = item.metadata?.ruleId as string | undefined;
+          if (ruleId) {
+            expandRule(ruleId);
+            expandFileInRule(filePath);
+          }
+          // For global file tiles (no ruleId), just open inspector
+          // The IssuesList will show all issues for that file
+        }
+      }
+
       openInspectorPanel();
       closeCommandPalette();
     },
-    [openInspectorPanel, closeCommandPalette]
+    [closeCommandPalette, openInspectorPanel, expandRule, expandFileInRule]
   );
 
   // Use tile navigation for 2D keyboard navigation
@@ -133,27 +136,16 @@ export function CommandPalette() {
     tileItems,
     3, // columns
     handleTileClick,
-    handleBack
+    () => {} // No back navigation needed in flat mode
   );
 
-  // Keyboard handler for tile navigation and expansion
+  // Keyboard handler for tile navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // Escape key: collapse expanded tile or close palette
-      if (e.key === "Escape") {
-        if (USE_EXPANDABLE_TILES && expansionLevel > 0) {
-          // Collapse the current expansion
-          e.preventDefault();
-          collapseTile();
-          return;
-        }
-        // Default behavior: close the command palette (handled by parent)
-      }
-
       // Delegate to tile navigation for Up/Down/Left/Right/Enter/etc.
       tileHandleKeyDown(e);
     },
-    [tileHandleKeyDown, expansionLevel, collapseTile]
+    [tileHandleKeyDown]
   );
 
   const portalRoot = document.getElementById("uilint-portal") || document.body;
@@ -310,7 +302,7 @@ export function CommandPalette() {
                         </div>
                       </motion.div>
                     ) : (
-                      /* Tile Grid - Expandable or Traditional */
+                      /* Flat Tile Grid - rules + files together */
                       <motion.div
                         key="tiles"
                         initial={isMobile ? false : { opacity: 0 }}
@@ -318,22 +310,11 @@ export function CommandPalette() {
                         exit={isMobile ? undefined : { opacity: 0 }}
                         transition={{ duration: isMobile ? 0 : 0.1 }}
                       >
-                        {USE_EXPANDABLE_TILES ? (
-                          <ExpandableTileGrid
-                            items={tileItems}
-                            selectedIndex={selectedIndex}
-                            isTerminal={isTerminal}
-                            onOpenInInspector={handleOpenInInspector}
-                          />
-                        ) : (
-                          <TileGrid
-                            items={tileItems}
-                            onTileClick={handleTileClick}
-                            onOpenInInspector={handleOpenInInspector}
-                            selectedIndex={selectedIndex}
-                            isTerminal={isTerminal}
-                          />
-                        )}
+                        <TileGrid
+                          items={tileItems}
+                          onTileClick={handleTileClick}
+                          selectedIndex={selectedIndex}
+                        />
                       </motion.div>
                     )}
                   </AnimatePresence>
