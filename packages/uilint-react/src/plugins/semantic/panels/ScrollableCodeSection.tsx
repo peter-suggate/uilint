@@ -250,7 +250,7 @@ export function ScrollableCodeSection({
                       ? "rgba(251, 191, 36, 0.12)"
                       : "transparent",
                     borderLeft: isHighlighted
-                      ? "3px solid #f59e0b"
+                      ? "3px solid #fbbf24"
                       : "3px solid transparent",
                   }}
                 >

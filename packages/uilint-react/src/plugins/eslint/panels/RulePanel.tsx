@@ -26,7 +26,7 @@ function SeverityToggle({
 }) {
   const options: Array<{ value: "error" | "warning" | "off"; label: string; color: string }> = [
     { value: "error", label: "E", color: "#ef4444" },
-    { value: "warning", label: "W", color: "#f59e0b" },
+    { value: "warning", label: "W", color: "#fbbf24" },
     { value: "off", label: "Off", color: "#6b7280" },
   ];
 

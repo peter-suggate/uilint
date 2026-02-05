@@ -88,7 +88,7 @@ export function severityToColor(severity: IssueSeverity): string {
     case "error":
       return "#f87171"; // red-400 (light red)
     case "warning":
-      return "#f59e0b"; // amber-500
+      return "#fbbf24"; // amber-400 (golden amber)
     case "info":
       return "#3b82f6"; // blue-500
   }

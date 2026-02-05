@@ -106,7 +106,7 @@ describe("severityToColor", () => {
   it("returns amber color for warning severity", () => {
     const color = severityToColor("warning");
 
-    expect(color).toBe("#f59e0b");
+    expect(color).toBe("#fbbf24");
   });
 
   it("returns blue color for info severity", () => {

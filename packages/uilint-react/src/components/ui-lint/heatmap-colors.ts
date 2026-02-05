@@ -10,9 +10,9 @@ export type IssueSeverity = "error" | "warn";
 /** Base heatmap colors in OKLCH for consistency with theme */
 const HEATMAP_COLORS = {
   warn: {
-    l: 0.75, // Lightness
-    c: 0.183, // Chroma
-    h: 55.934, // Hue (amber/yellow)
+    l: 0.82, // Lightness (golden amber)
+    c: 0.165, // Chroma
+    h: 80, // Hue (golden amber)
   },
   error: {
     l: 0.72, // Light red

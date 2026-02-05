@@ -127,7 +127,7 @@ export function InspectorToggle() {
                 width: 10,
                 height: 10,
                 borderRadius: "50%",
-                background: "var(--uilint-warning, #f59e0b)",
+                background: "var(--uilint-warning, #fbbf24)",
                 border: "2px solid var(--uilint-surface, #fff)",
                 boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
               }}

@@ -88,7 +88,7 @@ function selectionReducer(
 // Design tokens
 const TOKENS = {
   overlayBg: "rgba(0, 0, 0, 0.5)",
-  selectionBorder: "var(--uilint-accent, #f59e0b)",
+  selectionBorder: "var(--uilint-accent, #fbbf24)",
   selectionBg: "transparent",
   textBg: "var(--uilint-backdrop, rgba(0, 0, 0, 0.8))",
   textColor: "var(--uilint-text-primary, #ffffff)",

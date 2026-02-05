@@ -153,8 +153,8 @@
   /* Status colors */
   --uilint-success: oklch(0.723 0.191 142.5);
   --uilint-success-bg: oklch(0.723 0.191 142.5 / 15%);
-  --uilint-warning: oklch(0.75 0.183 55.934);
-  --uilint-warning-bg: oklch(0.75 0.183 55.934 / 15%);
+  --uilint-warning: oklch(0.82 0.165 80);
+  --uilint-warning-bg: oklch(0.82 0.165 80 / 15%);
   --uilint-error: oklch(0.72 0.17 25);
   --uilint-error-bg: oklch(0.72 0.17 25 / 15%);
   --uilint-info: oklch(0.623 0.214 259);
@@ -312,8 +312,8 @@
   /* Status colors */
   --uilint-success: oklch(0.723 0.191 142.5);
   --uilint-success-bg: oklch(0.723 0.191 142.5 / 20%);
-  --uilint-warning: oklch(0.75 0.183 55.934);
-  --uilint-warning-bg: oklch(0.75 0.183 55.934 / 20%);
+  --uilint-warning: oklch(0.82 0.165 80);
+  --uilint-warning-bg: oklch(0.82 0.165 80 / 20%);
   --uilint-error: oklch(0.72 0.17 25);
   --uilint-error-bg: oklch(0.72 0.17 25 / 20%);
   --uilint-info: oklch(0.623 0.214 259);
@@ -428,8 +428,8 @@
 
     --uilint-success: oklch(0.723 0.191 142.5);
     --uilint-success-bg: oklch(0.723 0.191 142.5 / 20%);
-    --uilint-warning: oklch(0.75 0.183 55.934);
-    --uilint-warning-bg: oklch(0.75 0.183 55.934 / 20%);
+    --uilint-warning: oklch(0.82 0.165 80);
+    --uilint-warning-bg: oklch(0.82 0.165 80 / 20%);
     --uilint-error: oklch(0.72 0.17 25);
     --uilint-error-bg: oklch(0.72 0.17 25 / 20%);
 
@@ -476,8 +476,8 @@
 
   --uilint-success: oklch(0.723 0.191 142.5);
   --uilint-success-bg: oklch(0.723 0.191 142.5 / 15%);
-  --uilint-warning: oklch(0.75 0.183 55.934);
-  --uilint-warning-bg: oklch(0.75 0.183 55.934 / 15%);
+  --uilint-warning: oklch(0.82 0.165 80);
+  --uilint-warning-bg: oklch(0.82 0.165 80 / 15%);
   --uilint-error: oklch(0.72 0.17 25);
   --uilint-error-bg: oklch(0.72 0.17 25 / 15%);
 
