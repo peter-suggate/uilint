@@ -26,12 +26,14 @@ import {
 export interface TileHeaderProps {
   /** Main label text */
   label: string;
+  /** Optional subtitle (e.g., file path) */
+  subtitle?: string;
+  /** Tile type for visual differentiation */
+  tileType?: "rule" | "file";
   /** Issue count */
   count?: number;
   /** Number of files (for "X issues in Y files" display) */
   fileCount?: number;
-  /** Optional icon element */
-  icon?: React.ReactNode;
   /** Callback when back button is clicked */
   onBack: () => void;
   /** Optional additional class names */
@@ -58,9 +60,10 @@ function formatIssueSummary(count: number, fileCount?: number): string {
 
 export function TileHeader({
   label,
+  subtitle,
+  tileType,
   count,
   fileCount,
-  icon,
   onBack,
   className,
 }: TileHeaderProps) {
@@ -102,37 +105,40 @@ export function TileHeader({
           <ChevronLeft size={16} strokeWidth={2} />
         </motion.button>
 
-        {/* Optional icon */}
-        {icon && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.1 }}
-            className="flex-shrink-0 text-muted-foreground/70"
-          >
-            {icon}
-          </motion.div>
-        )}
-
-        {/* Label and issue summary - inline */}
-        <div className="min-w-0 flex-1 flex items-baseline gap-2">
-          <motion.h3
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.1 }}
-            className="text-sm font-medium text-foreground truncate"
-          >
-            {label}
-          </motion.h3>
-          {summary && (
-            <motion.span
+        {/* Label, subtitle, and issue summary - inline */}
+        <div className="min-w-0 flex-1 flex flex-col">
+          <div className="flex items-baseline gap-2">
+            <motion.h3
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.1, delay: 0.05 }}
-              className="text-[11px] text-muted-foreground/50 truncate hidden sm:inline"
+              transition={{ duration: 0.1 }}
+              className="text-sm font-medium text-foreground truncate"
             >
-              {summary}
-            </motion.span>
+              {label}
+            </motion.h3>
+            {summary && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.1, delay: 0.05 }}
+                className="text-[11px] text-muted-foreground/50 truncate hidden sm:inline"
+              >
+                {summary}
+              </motion.span>
+            )}
+          </div>
+          {subtitle && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.1 }}
+              className={cn(
+                "text-[10px] text-muted-foreground/50 truncate",
+                tileType === "file" && "font-mono"
+              )}
+            >
+              {subtitle}
+            </motion.p>
           )}
         </div>
       </div>

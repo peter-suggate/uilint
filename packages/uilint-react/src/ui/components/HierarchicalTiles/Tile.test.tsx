@@ -110,21 +110,38 @@ describe("Tile - rendering", () => {
     expect(container.textContent).not.toContain("issues");
   });
 
-  it("renders with icon when provided", () => {
-    const TestIcon = () => <span data-testid="test-icon">🔧</span>;
-    const { getByTestId } = render(
+  it("renders with tileType rule gradient", () => {
+    const { container } = render(
       <Tile
         id="test-1"
         label="Test Rule"
         count={5}
         bucket="md"
-        icon={<TestIcon />}
+        tileType="rule"
         isSelected={false}
         onClick={vi.fn()}
       />
     );
 
-    expect(getByTestId("test-icon")).toBeTruthy();
+    // Verify the component renders without error
+    expect(container.textContent).toContain("Test Rule");
+  });
+
+  it("renders with tileType file gradient", () => {
+    const { container } = render(
+      <Tile
+        id="test-1"
+        label="Test File"
+        count={5}
+        bucket="md"
+        tileType="file"
+        isSelected={false}
+        onClick={vi.fn()}
+      />
+    );
+
+    // Verify the component renders without error
+    expect(container.textContent).toContain("Test File");
   });
 
   it("uses singular 'file' for fileCount of 1", () => {

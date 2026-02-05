@@ -100,7 +100,8 @@ function SeverityDots({ severityCounts }: SeverityDotsProps) {
  * Maps FileGroup properties to HierarchyNode structure:
  * - id: fileGroup.filePath (unique identifier)
  * - label: fileGroup.fileName (displayed prominently)
- * - subtitle: fileGroup.directory (secondary info)
+ * - subtitle: fileGroup.filePath (full path in mono font)
+ * - tileType: "file" (for visual differentiation)
  * - count: fileGroup.totalCount (for badge/sizing)
  * - severityCounts: fileGroup.severityCounts (for severity indicators)
  * - data: { fileGroup } (full data payload)
@@ -114,7 +115,8 @@ export function fileGroupsToNodes(fileGroups: FileGroup[]): FileNode[] {
   return fileGroups.map((fileGroup) => ({
     id: fileGroup.filePath,
     label: fileGroup.fileName,
-    subtitle: fileGroup.directory,
+    subtitle: fileGroup.filePath,
+    tileType: "file" as const,
     count: fileGroup.totalCount,
     severityCounts: fileGroup.severityCounts,
     data: { fileGroup },

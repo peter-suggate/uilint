@@ -109,7 +109,8 @@ function DefaultExpandedContent<T extends BaseTileItem>({
     >
       <TileHeader
         label={item.label}
-        icon={item.icon}
+        subtitle={item.subtitle}
+        tileType={item.tileType}
         count={item.count}
         fileCount={item.fileCount}
         onBack={onBack}
@@ -277,7 +278,8 @@ export function ExpandableTileGrid<T extends BaseTileItem>({
               <Tile
                 id={item.id}
                 label={item.label}
-                icon={item.icon}
+                subtitle={item.subtitle}
+                tileType={item.tileType ?? (item.metadata?.tileType as "rule" | "file" | undefined)}
                 count={item.count}
                 fileCount={item.fileCount}
                 bucket={originalLayoutItem.bucket}

@@ -28,7 +28,8 @@ export interface TileProps extends VariantProps<typeof tileVariants> {
   label: string;
   /** Optional subtitle (e.g., file path) shown above label */
   subtitle?: string;
-  icon?: React.ReactNode;
+  /** Tile type for visual differentiation (gradient color) */
+  tileType?: "rule" | "file";
   count: number;
   /** Number of files (for "X issues in Y files" display) */
   fileCount?: number;
@@ -91,6 +92,26 @@ function HoverOverlay({ isHovered }: { isHovered: boolean }) {
       animate={{ opacity: isHovered ? 1 : 0 }}
       transition={{ duration: 0.15 }}
       className="absolute inset-0 rounded-2xl pointer-events-none bg-linear-to-br from-foreground/2 to-transparent"
+    />
+  );
+}
+
+/**
+ * Type gradient flourish - corner gradient to differentiate tile types
+ */
+function TypeGradient({ tileType }: { tileType?: "rule" | "file" }) {
+  if (!tileType) return null;
+
+  // Use CSS variable for the color based on tile type
+  const colorVar = tileType === "rule" ? "var(--color-tile-rule)" : "var(--color-tile-file)";
+
+  return (
+    <div
+      className="absolute top-0 right-0 w-20 h-20 pointer-events-none rounded-tr-2xl"
+      style={{
+        background: `radial-gradient(circle at top right, ${colorVar} 0%, transparent 70%)`,
+        opacity: 0.25,
+      }}
     />
   );
 }
@@ -159,7 +180,7 @@ export function Tile({
   id,
   label,
   subtitle,
-  icon,
+  tileType,
   count,
   fileCount,
   bucket,
@@ -174,7 +195,7 @@ export function Tile({
     onOpenInInspector?.();
   };
 
-  // Icon size based on bucket (scales with tile size)
+  // Icon size for external link button based on bucket
   const iconSize = useMemo(() => {
     if (bucket === "xl") return 16;
     if (bucket === "lg") return 14;
@@ -215,35 +236,29 @@ export function Tile({
         {/* Top section: path, icon + label, and inspector button */}
         <div className="flex items-start justify-between gap-1.5">
           <div className="flex-1 min-w-0 flex flex-col">
-            {/* Path (subtitle) - small subdued text above label */}
+            {/* Path (subtitle) - small subdued text above label, mono for files */}
             {subtitle && (
               <div
                 className={cn(
                   "text-muted-foreground/50 truncate mb-0.5",
-                  pathFontSize
+                  pathFontSize,
+                  tileType === "file" && "font-mono"
                 )}
               >
                 {subtitle}
               </div>
             )}
 
-            {/* Icon + label row */}
-            <div className="flex items-center gap-1.5">
-              {icon && (
-                <span className="shrink-0 text-muted-foreground/60">
-                  {icon}
-                </span>
+            {/* Label */}
+            <span
+              className={cn(
+                "font-light leading-tight tracking-tight text-foreground line-clamp-2",
+                labelFontSize
               )}
-              <span
-                className={cn(
-                  "font-light leading-tight tracking-tight text-foreground line-clamp-2",
-                  labelFontSize
-                )}
-                title={label}
-              >
-                {label}
-              </span>
-            </div>
+              title={label}
+            >
+              {label}
+            </span>
           </div>
 
           {/* Open in inspector button */}
@@ -280,6 +295,9 @@ export function Tile({
 
       {/* Hover highlight overlay */}
       <HoverOverlay isHovered={isHovered} />
+
+      {/* Type gradient flourish */}
+      <TypeGradient tileType={tileType} />
     </motion.div>
   );
 }

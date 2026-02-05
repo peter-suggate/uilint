@@ -24,7 +24,7 @@ const DEFAULT_CONFIG = {
   gap: 12,
   minTileWidth: 100,
   maxTileWidth: 320,
-  minTileHeight: 80,
+  minTileHeight: 110, // Increased to fit path + title + issue summary
   maxTileHeight: 280,
   minArea: 8_000,
   maxArea: 60_000,

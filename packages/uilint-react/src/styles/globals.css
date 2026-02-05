@@ -58,6 +58,10 @@
   --color-destructive: var(--uilint-error);
   --color-destructive-foreground: var(--uilint-accent-foreground);
 
+  /* Tile type colors */
+  --color-tile-rule: var(--uilint-tile-rule);
+  --color-tile-file: var(--uilint-tile-file);
+
   /* Effects */
   --color-backdrop: var(--uilint-backdrop);
 
@@ -123,6 +127,10 @@
 
 /* Light theme (default) - Define variables on :root for global availability */
 :root {
+  /* Tile type colors */
+  --uilint-tile-rule: oklch(0.65 0.15 259);
+  --uilint-tile-file: oklch(0.68 0.14 142);
+
   /* Core colors - amber tinted (hue ~75) */
   --uilint-background: oklch(0.985 0.015 75);
   --uilint-background-elevated: oklch(0.97 0.02 75);

@@ -138,15 +138,14 @@ export function aggregateByFile(issues: Issue[], ruleId: string): TileItem[] {
   for (const [filePath, fileIssues] of issuesByFile) {
     const severityCounts = countSeverities(fileIssues);
 
-    // Extract filename and directory for display
+    // Extract filename for display
     const parts = filePath.split("/");
     const fileName = parts.pop() || filePath;
-    const directory = parts.join("/") || "/";
 
     tiles.push({
       id: `file:${filePath}:${ruleId}`,
       label: fileName,
-      subtitle: directory,
+      subtitle: filePath,
       count: fileIssues.length,
       severityCounts,
       metadata: {
@@ -193,10 +192,9 @@ export function aggregateByFileGlobal(issues: Issue[]): TileItem[] {
   for (const [filePath, fileIssues] of issuesByFile) {
     const severityCounts = countSeverities(fileIssues);
 
-    // Extract filename and directory for display
+    // Extract filename for display
     const parts = filePath.split("/");
     const fileName = parts.pop() || filePath;
-    const directory = parts.join("/") || "/";
 
     // Get unique rule count for this file
     const uniqueRules = new Set(fileIssues.map((i) => i.ruleId));
@@ -204,7 +202,7 @@ export function aggregateByFileGlobal(issues: Issue[]): TileItem[] {
     tiles.push({
       id: `file:${filePath}`,
       label: fileName,
-      subtitle: directory,
+      subtitle: filePath,
       count: fileIssues.length,
       severityCounts,
       metadata: {

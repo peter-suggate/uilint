@@ -13,6 +13,7 @@ import { motion } from "motion/react";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import type { TileItem } from "../../../core/plugin-system/types";
+import type { TileType } from "../../../plugins/eslint/tile-provider";
 import {
   headerVariants,
   headerTransition,
@@ -96,7 +97,10 @@ export function ExpandedTileHeader({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.2, delay: 0.1 }}
-              className="text-xs text-muted-foreground/70 truncate mt-0.5"
+              className={cn(
+                "text-xs text-muted-foreground/70 truncate mt-0.5",
+                (item.metadata?.tileType as TileType) === "file" && "font-mono"
+              )}
             >
               {item.subtitle}
             </motion.p>

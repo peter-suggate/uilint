@@ -29,10 +29,15 @@ export interface BaseTileItem {
   id: string;
   label: string;
   count: number;
-  icon?: React.ReactNode;
+  /** Optional subtitle (e.g., file path) shown above label */
+  subtitle?: string;
+  /** Tile type for visual differentiation (gradient color) */
+  tileType?: "rule" | "file";
   severityCounts?: { error: number; warning: number; info: number };
   /** Number of files (for "X issues in Y files" display) */
   fileCount?: number;
+  /** Optional metadata for additional tile information */
+  metadata?: Record<string, unknown>;
 }
 
 export interface TileGridProps<T extends BaseTileItem> {
@@ -169,7 +174,8 @@ export function TileGrid<T extends BaseTileItem>({
               <Tile
                 id={item.id}
                 label={item.label}
-                icon={item.icon}
+                subtitle={item.subtitle}
+                tileType={item.tileType ?? (item.metadata?.tileType as "rule" | "file" | undefined)}
                 count={item.count}
                 fileCount={item.fileCount}
                 bucket={tileLayout.bucket}

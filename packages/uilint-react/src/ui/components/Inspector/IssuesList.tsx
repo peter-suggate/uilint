@@ -60,6 +60,8 @@ function fileNodeToTileItem(node: FileForRuleNode): BaseTileItem & { data: FileF
   return {
     id: node.id,
     label: node.label,
+    subtitle: node.subtitle,
+    tileType: node.tileType,
     count: node.count ?? 0,
     severityCounts: node.severityCounts,
     data: node.data,

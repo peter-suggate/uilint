@@ -75,13 +75,12 @@ describe("Tile - CommandPalette usage", () => {
     expect(container.textContent).toContain("src/app");
   });
 
-  it("renders icon when provided", () => {
-    const TestIcon = () => <span data-testid="custom-icon">📁</span>;
-    const { getByTestId } = render(
+  it("renders with tileType for visual differentiation", () => {
+    const { container } = render(
       <Tile
         id="test-tile-1"
         label="Rule Name"
-        icon={<TestIcon />}
+        tileType="rule"
         count={5}
         bucket="md"
         isSelected={false}
@@ -89,7 +88,8 @@ describe("Tile - CommandPalette usage", () => {
       />
     );
 
-    expect(getByTestId("custom-icon")).toBeTruthy();
+    // Verify the tile renders without error
+    expect(container.textContent).toContain("Rule Name");
   });
 
   it("renders issue summary with file count", () => {

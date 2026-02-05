@@ -25,7 +25,7 @@ import { cn } from "../../../lib/utils";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { useTileItems, useTileNavigation } from "../../hooks";
 import { SearchInput } from "./SearchInput";
-import { TileGrid } from "./TileGrid";
+import { TileGrid } from "../HierarchicalTiles/TileGrid";
 import { OnboardingState } from "./OnboardingState";
 import { RuleToggleBar } from "./RuleToggleBar";
 import { GlassPanel } from "../primitives";
