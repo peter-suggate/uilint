@@ -219,7 +219,7 @@ const GlassPanel = React.forwardRef<HTMLDivElement, GlassPanelProps>(
     },
     ref
   ) => {
-    const glassStyles = getGlassStyles(blur, shadow, bordered, style);
+    const glassStyles = getGlassStyles(blur, shadow, bordered, style as React.CSSProperties | undefined);
     const variantClasses = glassPanelVariants({ blur, shadow, bordered });
 
     // Render with AnimatePresence for controlled show/hide with exit animations

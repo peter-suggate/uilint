@@ -4,4 +4,7 @@ set -eo pipefail
 echo "Linting uilint-react..."
 pnpm --filter uilint-react lint:strict 2>&1 | tee /tmp/pre-commit-lint.log
 
-echo "Lint passed!"
+echo "Type checking uilint-react..."
+pnpm --filter uilint-react typecheck 2>&1 | tee /tmp/pre-commit-typecheck.log
+
+echo "All checks passed!"

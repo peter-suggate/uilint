@@ -11,7 +11,7 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import { motion, type HTMLMotionProps } from "motion/react";
+import { motion } from "motion/react";
 import { cn } from "../../lib/utils";
 
 const buttonVariants = cva(
@@ -141,19 +141,30 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       return <Slot ref={ref} className={classes} {...props} />;
     }
 
-    // Create motion-enhanced button props
-    const motionProps: HTMLMotionProps<"button"> = {
-      ref,
-      className: classes,
-      variants: motionVariants,
-      initial: "initial",
-      whileHover: props.disabled ? undefined : "hover",
-      whileTap: props.disabled ? undefined : "tap",
-      transition: motionTransition,
-      ...props,
-    };
-
-    return <motion.button {...motionProps} />;
+    return (
+      <motion.button
+        ref={ref}
+        className={classes}
+        variants={motionVariants}
+        initial="initial"
+        whileHover={props.disabled ? undefined : "hover"}
+        whileTap={props.disabled ? undefined : "tap"}
+        transition={motionTransition}
+        disabled={props.disabled}
+        type={props.type}
+        onClick={props.onClick}
+        aria-label={props["aria-label"]}
+        aria-disabled={props["aria-disabled"]}
+        title={props.title}
+        name={props.name}
+        value={props.value}
+        form={props.form}
+        tabIndex={props.tabIndex}
+        style={props.style as React.CSSProperties}
+      >
+        {props.children}
+      </motion.button>
+    );
   }
 );
 Button.displayName = "Button";

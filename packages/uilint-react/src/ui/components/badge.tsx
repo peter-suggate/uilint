@@ -105,7 +105,7 @@ function Badge({
     return (
       <span
         className={cn(badgeVariants({ variant, size }), className)}
-        style={badgeStyle}
+        style={badgeStyle as React.CSSProperties}
       >
         {children}
       </span>
