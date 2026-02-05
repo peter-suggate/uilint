@@ -1,3 +1,4 @@
+/* eslint-disable uilint/prefer-tailwind */
 /**
  * Badge component - Status badges for displaying issue severities, counts, categories, etc.
  *

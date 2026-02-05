@@ -25,7 +25,7 @@ import {
 function NestedItem({ index, label }: { index: number; label: string }) {
   const scrollRef = useScrollTarget(index);
   return (
-    <div ref={scrollRef} data-testid={`item-${index}`} style={{ height: 40 }}>
+    <div ref={scrollRef} data-testid={`item-${index}`} className="h-10">
       {label}
     </div>
   );
@@ -52,7 +52,7 @@ function NestedSection({
 function FlatItem({ index, label }: { index: number; label: string }) {
   const scrollRef = useScrollTarget(index);
   return (
-    <div ref={scrollRef} data-testid={`item-${index}`} style={{ height: 40 }}>
+    <div ref={scrollRef} data-testid={`item-${index}`} className="h-10">
       {label}
     </div>
   );
@@ -92,7 +92,7 @@ function TestList({
         data-testid="scroll-container"
         onKeyDown={handleKeyDown}
         tabIndex={0}
-        style={{ maxHeight: 100, overflowY: "auto" }}
+        className="max-h-[100px] overflow-y-auto"
       >
         {flatItems.map((item, index) => (
           <FlatItem key={item} index={index} label={item} />

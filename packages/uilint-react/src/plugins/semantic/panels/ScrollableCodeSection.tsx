@@ -1,3 +1,4 @@
+/* eslint-disable uilint/prefer-tailwind */
 /**
  * ScrollableCodeSection - Scroll-to-reveal code block with infinite scroll
  *

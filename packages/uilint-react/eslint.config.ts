@@ -97,22 +97,6 @@ export default defineConfig([
       ],
     },
   },
-  // Disable UI-specific rules for overlay/devtool components
-  // These components are devtool overlays that:
-  // - Use inline styles for dynamic positioning
-  // - Don't need dark mode (always rendered on top of user's page)
-  // - Use precise pixel sizing for devtool UI
-  {
-    files: [
-      "src/consistency/highlights.tsx",
-      "src/ui/components/**/*.tsx",
-      "src/plugins/**/panels/**/*.tsx",
-    ],
-    rules: {
-      "uilint/prefer-tailwind": "off",
-      "uilint/consistent-dark-mode": "off",
-    },
-  },
   // Test file specific rules
   {
     files: ["**/*.test.ts", "**/*.test.tsx"],

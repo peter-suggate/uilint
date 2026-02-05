@@ -26,10 +26,7 @@ function NoResultsIllustration() {
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.25, ease: crispEase }}
-      style={{
-        marginBottom: 24,
-        opacity: 0.3,
-      }}
+      className="mb-6 opacity-30"
     >
       <Search size={36} strokeWidth={1.5} />
     </motion.div>
@@ -45,11 +42,7 @@ function NoIssuesIllustration() {
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.25, ease: crispEase }}
-      style={{
-        marginBottom: 24,
-        color: "var(--uilint-success)",
-        opacity: 0.5,
-      }}
+      className="mb-6 text-success opacity-50"
     >
       <CheckCircle size={36} strokeWidth={1.5} />
     </motion.div>
@@ -65,25 +58,14 @@ function FilteredEmptyIllustration() {
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.25, ease: crispEase }}
-      style={{
-        position: "relative",
-        marginBottom: 24,
-        opacity: 0.3,
-      }}
+      className="relative mb-6 opacity-30"
     >
       <Filter size={36} strokeWidth={1.5} />
       <motion.div
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.15, duration: 0.2, ease: crispEase }}
-        style={{
-          position: "absolute",
-          bottom: -4,
-          right: -4,
-          background: "var(--uilint-surface, #fff)",
-          borderRadius: "50%",
-          padding: 2,
-        }}
+        className="absolute -bottom-1 -right-1 bg-surface rounded-full p-0.5"
       >
         <X size={14} strokeWidth={2} />
       </motion.div>
@@ -95,33 +77,15 @@ function FilteredEmptyIllustration() {
  * ClearFiltersButton - Minimal styled button for clearing filters
  */
 function ClearFiltersButton({ onClick }: { onClick: () => void }) {
-  const [isHovered, setIsHovered] = React.useState(false);
-
   return (
     <motion.button
       onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.99 }}
       transition={{ duration: 0.15, ease: crispEase }}
-      style={{
-        marginTop: 20,
-        padding: "10px 20px",
-        fontSize: 13,
-        fontWeight: 450,
-        color: "var(--uilint-text-secondary)",
-        background: isHovered
-          ? "rgba(128, 128, 128, 0.08)"
-          : "transparent",
-        border: "1px solid rgba(128, 128, 128, 0.15)",
-        borderRadius: 10,
-        cursor: "pointer",
-        transition: "background 0.15s ease, border-color 0.15s ease",
-        outline: "none",
-      }}
+      className="mt-5 py-2.5 px-5 text-[13px] font-medium text-text-secondary bg-transparent hover:bg-foreground/[0.08] border border-foreground/15 rounded-[10px] cursor-pointer transition-colors outline-none"
     >
       Clear filters
     </motion.button>
@@ -161,15 +125,7 @@ export function EmptyState({ variant, onClearFilters }: EmptyStateProps) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2, ease: crispEase }}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "56px 32px",
-        textAlign: "center",
-        minHeight: 220,
-      }}
+      className="flex flex-col items-center justify-center py-14 px-8 text-center min-h-[220px]"
     >
       {content.illustration}
 
@@ -177,13 +133,7 @@ export function EmptyState({ variant, onClearFilters }: EmptyStateProps) {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.2, ease: crispEase }}
-        style={{
-          margin: 0,
-          fontSize: 14,
-          fontWeight: 500,
-          color: "var(--uilint-text-secondary)",
-          letterSpacing: "-0.01em",
-        }}
+        className="m-0 text-sm font-medium text-text-secondary tracking-tight"
       >
         {content.title}
       </motion.h3>
@@ -193,13 +143,7 @@ export function EmptyState({ variant, onClearFilters }: EmptyStateProps) {
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.2, ease: crispEase }}
-          style={{
-            margin: "8px 0 0 0",
-            fontSize: 13,
-            color: "var(--uilint-text-muted)",
-            opacity: 0.7,
-            lineHeight: 1.5,
-          }}
+          className="mt-2 mb-0 text-[13px] text-text-muted opacity-70 leading-normal"
         >
           {content.subtitle}
         </motion.p>

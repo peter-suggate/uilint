@@ -2,8 +2,7 @@
  * Tests for EmptyState component
  *
  * EmptyState displays elegant illustrations and messaging when there are
- * no tiles to show. The devtools overlay doesn't have Tailwind loaded, so
- * all styling must use inline styles with CSS variables (var(--uilint-*)).
+ * no tiles to show. Uses Tailwind classes for styling.
  *
  * @vitest-environment jsdom
  */
@@ -96,74 +95,20 @@ describe("EmptyState - variants", () => {
   });
 });
 
-describe("EmptyState - styling", () => {
+describe("EmptyState - illustrations", () => {
   afterEach(() => {
     cleanup();
   });
 
-  it("uses inline styles instead of Tailwind classes", () => {
+  it("no-results variant renders search icon", () => {
     const { container } = render(<EmptyState variant="no-results" />);
 
-    // The root element should use style attribute, not className with Tailwind
-    const root = container.firstElementChild as HTMLElement;
-    expect(root).toBeTruthy();
-
-    // Should have inline styles for layout
-    expect(root.style.display).toBe("flex");
-    expect(root.style.flexDirection).toBe("column");
-    expect(root.style.alignItems).toBe("center");
-    expect(root.style.justifyContent).toBe("center");
-
-    // Should NOT have Tailwind utility classes
-    const classAttr = root.getAttribute("class") || "";
-    const hasTailwindClasses = /\b(px-|py-|gap-|flex|items-|justify-|text-center|min-h-)\b/.test(classAttr);
-    expect(hasTailwindClasses).toBe(false);
+    // Should have an SVG element for the search icon
+    const svg = container.querySelector("svg");
+    expect(svg).toBeTruthy();
   });
 
-  it("uses CSS variables for colors (var(--uilint-*))", () => {
-    const { container } = render(<EmptyState variant="no-issues" />);
-
-    // Collect all style attributes in the tree
-    const allElements = container.querySelectorAll("*");
-    const styleStrings: string[] = [];
-    allElements.forEach((el) => {
-      const style = el.getAttribute("style");
-      if (style) styleStrings.push(style);
-    });
-
-    // At least some elements should use CSS variables for theming
-    const usesCSSVars = styleStrings.some((s) => s.includes("var(--uilint-"));
-    expect(usesCSSVars).toBe(true);
-  });
-
-  it("Clear filters button uses inline styles, not Tailwind classes", () => {
-    const { container } = render(
-      <EmptyState variant="filtered-empty" onClearFilters={vi.fn()} />
-    );
-
-    const button = container.querySelector("button");
-    expect(button).toBeTruthy();
-
-    // Button should have inline styles
-    expect(button?.style.padding).toBeTruthy();
-    expect(button?.style.fontSize).toBeTruthy();
-    expect(button?.style.cursor).toBe("pointer");
-
-    // Should NOT have Tailwind utility classes
-    const classAttr = button?.getAttribute("class") || "";
-    const hasTailwindClasses = /\b(px-|py-|text-|font-|bg-|border-|rounded|cursor-)\b/.test(classAttr);
-    expect(hasTailwindClasses).toBe(false);
-  });
-
-  it("no-results variant renders magnifying glass illustration", () => {
-    const { container } = render(<EmptyState variant="no-results" />);
-
-    // The illustration should be present (contains decorative elements)
-    const divElements = container.querySelectorAll("div");
-    expect(divElements.length).toBeGreaterThan(1);
-  });
-
-  it("no-issues variant renders checkmark illustration with SVG", () => {
+  it("no-issues variant renders checkmark icon", () => {
     const { container } = render(<EmptyState variant="no-issues" />);
 
     // Should have an SVG element for the checkmark
@@ -171,13 +116,13 @@ describe("EmptyState - styling", () => {
     expect(svg).toBeTruthy();
   });
 
-  it("filtered-empty variant renders filter illustration", () => {
+  it("filtered-empty variant renders filter icon", () => {
     const { container } = render(
       <EmptyState variant="filtered-empty" onClearFilters={vi.fn()} />
     );
 
-    // The illustration should have multiple div elements for the filter shape
-    const divElements = container.querySelectorAll("div");
-    expect(divElements.length).toBeGreaterThan(1);
+    // Should have SVG elements for the filter icons
+    const svgs = container.querySelectorAll("svg");
+    expect(svgs.length).toBeGreaterThan(0);
   });
 });

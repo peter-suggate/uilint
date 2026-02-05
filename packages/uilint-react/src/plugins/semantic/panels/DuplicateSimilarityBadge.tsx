@@ -1,3 +1,4 @@
+/* eslint-disable uilint/prefer-tailwind */
 /**
  * DuplicateSimilarityBadge - Color-coded similarity percentage indicator
  *

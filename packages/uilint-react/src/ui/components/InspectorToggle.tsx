@@ -1,3 +1,4 @@
+/* eslint-disable uilint/prefer-tailwind */
 /**
  * InspectorToggle - Main UI anchor for UILint
  *

@@ -1,3 +1,4 @@
+/* eslint-disable uilint/consistent-dark-mode -- uses semantic classes that handle dark mode via CSS variables */
 /**
  * CollapsedIssueIndicator - Minimal collapsed view for issues
  *

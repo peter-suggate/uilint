@@ -21,6 +21,7 @@ import React, { useCallback } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { devError } from "uilint-core";
+import { cn } from "../../../lib/utils";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { useTileItems, useTileNavigation } from "../../hooks";
 import { SearchInput } from "./SearchInput";
@@ -52,7 +53,8 @@ export function CommandPalette() {
   const wsConnected = useComposedStore((s) => s.wsConnected);
   const connectionStatus = useComposedStore((s) => s.connectionStatus);
   const scanStatus = useComposedStore(
-    (s) => (s.plugins?.eslint as { scanStatus?: ScanStatus } | undefined)?.scanStatus
+    (s) =>
+      (s.plugins?.eslint as { scanStatus?: ScanStatus } | undefined)?.scanStatus
   );
 
   // Determine if we should show onboarding state
@@ -89,12 +91,17 @@ export function CommandPalette() {
       }
 
       // Check if item has an execute function in metadata (commands)
-      const execute = item.metadata?.execute as ((services: unknown) => Promise<void>) | undefined;
+      const execute = item.metadata?.execute as
+        | ((services: unknown) => Promise<void>)
+        | undefined;
       if (execute) {
         try {
           await execute(services);
         } catch (error) {
-          devError(`[CommandPalette] Error executing tile item "${item.id}":`, error);
+          devError(
+            `[CommandPalette] Error executing tile item "${item.id}":`,
+            error
+          );
         }
         closeCommandPalette();
         return;
@@ -158,76 +165,48 @@ export function CommandPalette() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.12 }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: isMobile ? "var(--uilint-surface)" : "transparent",
-            display: "flex",
-            alignItems: isMobile ? "stretch" : "flex-start",
-            justifyContent: "center",
-            paddingTop: isMobile ? 0 : 100,
-            zIndex: 99998,
-            pointerEvents: "auto",
-          }}
+          className={cn(
+            "fixed inset-0 flex justify-center z-[99998] pointer-events-auto",
+            isMobile
+              ? "items-stretch bg-surface pt-0"
+              : "items-start bg-transparent pt-[100px]"
+          )}
           onClick={(e) => {
             if (e.target === e.currentTarget) closeCommandPalette();
           }}
           onKeyDown={handleKeyDown}
         >
           <motion.div
-            initial={isMobile ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -20 }}
+            initial={
+              isMobile ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -20 }
+            }
             animate={isMobile ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-            exit={isMobile ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: -10 }}
+            exit={
+              isMobile ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: -10 }
+            }
             transition={isMobile ? { duration: 0.15 } : panelTransition}
-            style={isMobile ? { display: "flex", flexDirection: "column", width: "100%", height: "100%" } : undefined}
+            className={isMobile ? "flex flex-col w-full h-full" : undefined}
           >
             <GlassPanel
               blur={isMobile ? "light" : "heavy"}
               shadow={isMobile ? undefined : "lg"}
               animate={false}
-              style={{
-                width: isMobile ? "100%" : 580,
-                height: isMobile ? "100%" : "auto",
-                borderRadius: isMobile ? 0 : 20,
-                overflow: "hidden",
-                display: isMobile ? "flex" : "block",
-                flexDirection: isMobile ? "column" : undefined,
-                paddingTop: isMobile ? "env(safe-area-inset-top, 0px)" : undefined,
-                paddingBottom: isMobile ? "env(safe-area-inset-bottom, 0px)" : undefined,
-              }}
+              className={cn(
+                "overflow-hidden",
+                isMobile
+                  ? "w-full h-full flex flex-col rounded-none pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]"
+                  : "w-[580px] h-auto block rounded-[20px]"
+              )}
             >
               {/* Mobile Header with Close Button */}
               {isMobile && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "12px 16px 8px",
-                    borderBottom: "1px solid var(--uilint-border)",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 600,
-                      color: "var(--uilint-text-primary)",
-                    }}
-                  >
+                <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
+                  <span className="text-[15px] font-semibold text-text-primary">
                     Search
                   </span>
                   <button
                     onClick={closeCommandPalette}
-                    style={{
-                      padding: "8px 16px",
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: "var(--uilint-accent)",
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      borderRadius: 8,
-                    }}
+                    className="px-4 py-2 text-sm font-medium text-accent bg-transparent border-none cursor-pointer rounded-lg"
                   >
                     Done
                   </button>
@@ -243,81 +222,64 @@ export function CommandPalette() {
 
               {/* Content Area: Tile Grid or Onboarding */}
               <div
-                style={{
-                  maxHeight: isMobile ? "none" : 440,
-                  flex: isMobile ? 1 : undefined,
-                  minHeight: 0,
-                  overflowY: "auto",
-                  overflowX: "hidden",
-                  WebkitOverflowScrolling: "touch",
-                }}
+                className={cn(
+                  "min-h-0 overflow-y-auto overflow-x-hidden",
+                  "[-webkit-overflow-scrolling:touch]",
+                  isMobile ? "flex-1 max-h-none" : "max-h-[440px]"
+                )}
               >
-                  <AnimatePresence mode={isMobile ? "sync" : "wait"}>
-                    {/* Onboarding state - show when not connected */}
-                    {showOnboarding ? (
+                <AnimatePresence mode={isMobile ? "sync" : "wait"}>
+                  {/* Onboarding state - show when not connected */}
+                  {showOnboarding ? (
+                    <motion.div
+                      key="onboarding"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <OnboardingState variant={onboardingVariant} />
+                    </motion.div>
+                  ) : isLoading ? (
+                    /* Loading state */
+                    <motion.div
+                      key="loading"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="py-12 px-6 flex flex-col items-center justify-center"
+                    >
                       <motion.div
-                        key="onboarding"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.15 }}
-                      >
-                        <OnboardingState variant={onboardingVariant} />
-                      </motion.div>
-                    ) : isLoading ? (
-                      /* Loading state */
-                      <motion.div
-                        key="loading"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.15 }}
-                        style={{
-                          padding: "48px 24px",
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
+                        animate={{ rotate: 360 }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          ease: "linear",
                         }}
-                      >
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: "50%",
-                            border: "2px solid var(--uilint-border)",
-                            borderTopColor: "var(--uilint-accent)",
-                          }}
-                        />
-                        <div
-                          style={{
-                            marginTop: 12,
-                            fontSize: 13,
-                            color: "var(--uilint-text-muted)",
-                          }}
-                        >
-                          Loading...
-                        </div>
-                      </motion.div>
-                    ) : (
-                      /* Flat Tile Grid - rules + files together */
-                      <motion.div
-                        key="tiles"
-                        initial={isMobile ? false : { opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={isMobile ? undefined : { opacity: 0 }}
-                        transition={{ duration: isMobile ? 0 : 0.1 }}
-                      >
-                        <TileGrid
-                          items={tileItems}
-                          onTileClick={handleTileClick}
-                          selectedIndex={selectedIndex}
-                        />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                        className="w-6 h-6 rounded-full border-2 border-border border-t-accent"
+                      />
+                      <div className="mt-3 text-[13px] text-text-muted">
+                        Loading...
+                      </div>
+                    </motion.div>
+                  ) : (
+                    /* Flat Tile Grid - rules + files together */
+                    <motion.div
+                      key="tiles"
+                      initial={isMobile ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={isMobile ? undefined : { opacity: 0 }}
+                      transition={{ duration: isMobile ? 0 : 0.1 }}
+                    >
+                      <TileGrid
+                        items={tileItems}
+                        onTileClick={handleTileClick}
+                        selectedIndex={selectedIndex}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </GlassPanel>
           </motion.div>

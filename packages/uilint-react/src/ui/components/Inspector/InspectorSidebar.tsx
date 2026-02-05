@@ -25,6 +25,7 @@ import { ElementDetail } from "./ElementDetail";
 import { ResizeHandle } from "./ResizeHandle";
 import { CloseIcon, MaximizeIcon, DockIcon } from "../../icons";
 import { IconButton, getGlassStyles } from "../primitives";
+import { cn } from "../../../lib/utils";
 import type { Issue } from "../../types";
 
 const MIN_WIDTH = 320;
@@ -86,7 +87,7 @@ export function InspectorSidebar() {
       content = services ? (
         <PanelComponent data={data} services={services} />
       ) : (
-        <div style={{ padding: 16, color: "var(--uilint-text-muted)", textAlign: "center" }}>
+        <div className="p-4 text-text-muted text-center">
           Loading...
         </div>
       );
@@ -105,7 +106,7 @@ export function InspectorSidebar() {
         content = services ? (
           <CustomPanel data={panelData} services={services} />
         ) : (
-          <div style={{ padding: 16, color: "var(--uilint-text-muted)", textAlign: "center" }}>
+          <div className="p-4 text-text-muted text-center">
             Loading...
           </div>
         );
@@ -238,26 +239,23 @@ export function InspectorSidebar() {
   // Shared header component
   const Header = ({ isDraggable = false }: { isDraggable?: boolean }) => (
     <div
+      className={cn(
+        "flex items-center justify-between border-b border-border bg-surface-elevated select-none",
+        isMobile ? "px-4 py-4" : "px-4 py-3",
+        isDraggable && !isMobile ? "cursor-move" : "cursor-default"
+      )}
       style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: isMobile ? "16px 16px" : "12px 16px",
-        paddingTop: isMobile ? "calc(16px + env(safe-area-inset-top, 0px))" : "12px",
-        borderBottom: "1px solid var(--uilint-border)",
-        background: "var(--uilint-surface-elevated)",
-        cursor: isDraggable && !isMobile ? "move" : "default",
-        userSelect: "none",
+        paddingTop: isMobile ? "calc(16px + env(safe-area-inset-top, 0px))" : undefined,
       }}
       onMouseDown={isDraggable && !isMobile ? handleDragStart : undefined}
       onTouchStart={isDraggable && !isMobile ? handleTouchDragStart : undefined}
     >
-      <span style={{ fontWeight: 600, color: "var(--uilint-text-primary)" }}>
+      <span className="font-semibold text-text-primary">
         {title}
       </span>
       {/* Stop mousedown propagation so header drag doesn't capture button clicks */}
       <div
-        style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 4 }}
+        className={cn("flex items-center", isMobile ? "gap-2" : "gap-1")}
         onMouseDown={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
       >
@@ -277,7 +275,7 @@ export function InspectorSidebar() {
           size={isMobile ? "default" : "sm"}
           onClick={closeInspector}
           title="Close"
-          style={isMobile ? { minWidth: 44, minHeight: 44 } : undefined}
+          className={isMobile ? "min-w-[44px] min-h-[44px]" : undefined}
         >
           <CloseIcon size={isMobile ? 20 : 16} />
         </IconButton>
@@ -301,19 +299,10 @@ export function InspectorSidebar() {
             duration: 0.15,
             ease: [0.25, 0.1, 0.25, 1], // cubic-bezier for smooth deceleration
           }}
+          className="fixed inset-y-0 right-0 flex flex-col border-l border-glass-border shadow-default z-[99997] pointer-events-auto"
           style={{
-            position: "fixed",
-            top: 0,
-            right: 0,
-            bottom: 0,
             width: width,
             ...glassStyle,
-            borderLeft: "1px solid var(--uilint-glass-border)",
-            boxShadow: "var(--uilint-shadow)",
-            zIndex: 99997,
-            display: "flex",
-            flexDirection: "column",
-            pointerEvents: "auto",
           }}
         >
           <ResizeHandle
@@ -321,7 +310,7 @@ export function InspectorSidebar() {
             onResize={(deltaX) => handleDockedResize(deltaX)}
           />
           <Header />
-          <div style={{ flex: 1, overflowY: "auto" }}>
+          <div className="flex-1 overflow-y-auto">
             {content}
           </div>
         </motion.div>
@@ -369,12 +358,12 @@ export function InspectorSidebar() {
           }}
         >
           <Header isDraggable />
-          <div style={{
-            flex: 1,
-            overflowY: "auto",
-            minHeight: 0,
-            paddingBottom: isMobile ? "env(safe-area-inset-bottom, 0px)" : undefined,
-          }}>
+          <div
+            className="flex-1 overflow-y-auto min-h-0"
+            style={{
+              paddingBottom: isMobile ? "env(safe-area-inset-bottom, 0px)" : undefined,
+            }}
+          >
             {content}
           </div>
           {/* Hide resize handle on mobile - not needed in fullscreen mode */}

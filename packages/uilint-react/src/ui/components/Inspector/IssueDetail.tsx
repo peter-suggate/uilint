@@ -33,48 +33,31 @@ export function IssueDetail({ issue }: IssueDetailProps) {
         : InfoIcon;
 
   return (
-    <div
-      style={{
-        padding: 16,
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-      }}
-    >
+    <div className="p-4 flex flex-col gap-4">
       {/* Header: Severity Badge + Message + Rule */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+      <div className="flex items-start gap-2.5">
         <Badge
           variant={issue.severity === "error" ? "error" : issue.severity === "warning" ? "warning" : "info"}
           size="sm"
           disableAnimation
-          style={{ flexShrink: 0, marginTop: 2 }}
+          className="shrink-0 mt-0.5"
         >
           <SeverityIcon
             size={12}
             color="currentColor"
-            style={{ marginRight: 4 }}
+            className="mr-1"
           />
           {issue.severity}
         </Badge>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 14,
-              fontWeight: 500,
-              color: "var(--uilint-text-primary)",
-              lineHeight: 1.4,
-            }}
-          >
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-text-primary leading-snug">
             {issue.message}
           </div>
           <Badge
             variant="outline"
             size="sm"
             disableAnimation
-            style={{
-              marginTop: 6,
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
-            }}
+            className="mt-1.5 font-mono"
           >
             {issue.ruleId}
           </Badge>
@@ -90,21 +73,12 @@ export function IssueDetail({ issue }: IssueDetailProps) {
       />
 
       {/* Compact Metadata Footer */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "4px 12px",
-          fontSize: 11,
-          color: "var(--uilint-text-muted)",
-          fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
-        }}
-      >
+      <div className="flex flex-wrap gap-y-1 gap-x-3 text-[11px] text-text-muted font-mono">
         <span title={issue.filePath}>
           {getFileName(issue.filePath)}:{issue.line}
           {issue.column ? `:${issue.column}` : ""}
         </span>
-        <span style={{ opacity: 0.5 }}>|</span>
+        <span className="opacity-50">|</span>
         <span>{issue.pluginId}</span>
       </div>
     </div>

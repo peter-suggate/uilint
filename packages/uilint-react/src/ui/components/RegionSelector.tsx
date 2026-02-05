@@ -1,3 +1,4 @@
+/* eslint-disable uilint/prefer-tailwind */
 "use client";
 
 /**

@@ -1,3 +1,4 @@
+/* eslint-disable uilint/consistent-dark-mode */
 /**
  * Popover - Floating overlay anchored to a trigger element
  *

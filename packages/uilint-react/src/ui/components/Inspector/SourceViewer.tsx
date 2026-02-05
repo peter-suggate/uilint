@@ -12,6 +12,7 @@ import React, { useState } from "react";
 import { ChevronDownIcon, ChevronRightIcon } from "../../icons";
 import { useSourceCode } from "../../hooks/useSourceCode";
 import { dedentLines } from "../../../components/ui-lint/code-formatting";
+import { cn } from "../../../lib/utils";
 
 interface SourceViewerProps {
   filePath: string;
@@ -42,50 +43,28 @@ export function SourceViewer({
   const dedented = context ? dedentLines(context.lines) : null;
 
   // Calculate gutter width based on max line number
-  const maxLineNumber = context ? context.startLine + context.lines.length - 1 : 0;
+  const maxLineNumber = context
+    ? context.startLine + context.lines.length - 1
+    : 0;
   const gutterWidth = Math.max(3, String(maxLineNumber).length) * 8 + 16;
 
   return (
-    <div
-      style={{
-        background: "var(--uilint-background)",
-        borderRadius: 8,
-        overflow: "hidden",
-        border: "1px solid var(--uilint-border)",
-      }}
-    >
+    <div className="bg-background rounded-lg overflow-hidden border border-border">
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        style={{
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "8px 12px",
-          background: "var(--uilint-surface-elevated)",
-          border: "none",
-          borderBottom: expanded ? "1px solid var(--uilint-border)" : "none",
-          cursor: "pointer",
-          color: "var(--uilint-text-primary)",
-          fontSize: 12,
-          fontFamily: "inherit",
-        }}
+        className={cn(
+          "w-full flex items-center gap-2 py-2 px-3 bg-surface-elevated border-none cursor-pointer text-text-primary text-xs font-inherit",
+          expanded && "border-b border-border"
+        )}
       >
         {expanded ? (
           <ChevronDownIcon size={14} />
         ) : (
           <ChevronRightIcon size={14} />
         )}
-        <span style={{ fontWeight: 500 }}>Source</span>
-        <span
-          style={{
-            color: "var(--uilint-text-muted)",
-            marginLeft: "auto",
-            fontFamily:
-              "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
-          }}
-        >
+        <span className="font-medium">Source</span>
+        <span className="text-text-muted ml-auto font-mono">
           L{line}
           {column ? `:${column}` : ""}
         </span>
@@ -93,43 +72,19 @@ export function SourceViewer({
 
       {/* Content */}
       {expanded && (
-        <div style={{ padding: 0 }}>
+        <div className="p-0">
           {isLoading && (
-            <div
-              style={{
-                padding: 24,
-                color: "var(--uilint-text-muted)",
-                textAlign: "center",
-                fontSize: 12,
-              }}
-            >
+            <div className="p-6 text-text-muted text-center text-xs">
               Loading...
             </div>
           )}
 
           {error && (
-            <div
-              style={{
-                padding: 24,
-                color: "var(--uilint-error, #ef4444)",
-                textAlign: "center",
-                fontSize: 12,
-              }}
-            >
-              {error}
-            </div>
+            <div className="p-6 text-error text-center text-xs">{error}</div>
           )}
 
           {dedented && context && (
-            <div
-              style={{
-                overflowX: "auto",
-                fontSize: 12,
-                fontFamily:
-                  "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
-                lineHeight: 1.6,
-              }}
-            >
+            <div className="overflow-x-auto text-xs font-mono leading-relaxed">
               {dedented.lines.map((lineContent, index) => {
                 const lineNumber = context.startLine + index;
                 const isHighlighted = lineNumber === line;
@@ -137,42 +92,34 @@ export function SourceViewer({
                 return (
                   <div
                     key={lineNumber}
-                    style={{
-                      display: "flex",
-                      background: isHighlighted
-                        ? "rgba(251, 191, 36, 0.12)"
-                        : "transparent",
-                      borderLeft: isHighlighted
-                        ? "3px solid #f59e0b"
-                        : "3px solid transparent",
-                    }}
+                    className={cn(
+                      "flex border-l-[3px]",
+                      isHighlighted
+                        ? "bg-[rgba(251,191,36,0.12)] border-l-[#f59e0b]"
+                        : "bg-transparent border-l-transparent"
+                    )}
                   >
                     <span
+                      className={cn(
+                        "py-0 px-2 text-right bg-surface-elevated select-none shrink-0 border-r border-border",
+                        isHighlighted
+                          ? "text-text-primary"
+                          : "text-text-disabled"
+                      )}
                       style={{
                         width: gutterWidth,
                         minWidth: gutterWidth,
-                        padding: "0 8px",
-                        textAlign: "right",
-                        color: isHighlighted
-                          ? "var(--uilint-text-primary)"
-                          : "var(--uilint-text-disabled)",
-                        background: "var(--uilint-surface-elevated)",
-                        userSelect: "none",
-                        flexShrink: 0,
-                        borderRight: "1px solid var(--uilint-border)",
                       }}
                     >
                       {lineNumber}
                     </span>
                     <code
-                      style={{
-                        padding: "0 12px",
-                        color: isHighlighted
-                          ? "var(--uilint-text-primary)"
-                          : "var(--uilint-text-secondary)",
-                        whiteSpace: "pre",
-                        flex: 1,
-                      }}
+                      className={cn(
+                        "py-0 px-3 whitespace-pre flex-1",
+                        isHighlighted
+                          ? "text-text-primary"
+                          : "text-text-secondary"
+                      )}
                     >
                       {lineContent || " "}
                     </code>

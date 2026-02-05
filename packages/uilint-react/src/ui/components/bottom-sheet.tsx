@@ -1,3 +1,4 @@
+/* eslint-disable uilint/prefer-tailwind */
 /**
  * BottomSheet - Mobile-friendly modal that slides up from bottom
  */

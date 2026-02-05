@@ -8,6 +8,7 @@ import React, { useState, useCallback } from "react";
 import { motion } from "motion/react";
 import { Terminal, Copy, Check, RefreshCw } from "lucide-react";
 import { useComposedStore } from "../../../core/store";
+import { cn } from "../../../lib/utils";
 
 // Crisp easing curve matching the design system
 const crispEase = [0.32, 0.72, 0, 1] as const;
@@ -47,18 +48,10 @@ function CopyButton({ text }: { text: string }) {
       onClick={handleCopy}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
-      style={{
-        padding: "6px 8px",
-        background: copied ? "var(--uilint-success)" : "rgba(128, 128, 128, 0.15)",
-        border: "none",
-        borderRadius: 6,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: copied ? "#fff" : "var(--uilint-text-secondary)",
-        transition: "background 0.2s ease, color 0.2s ease",
-      }}
+      className={cn(
+        "px-2 py-1.5 border-none rounded-md cursor-pointer flex items-center justify-center transition-colors duration-200",
+        copied ? "bg-success text-white" : "bg-[rgba(128,128,128,0.15)] text-text-secondary"
+      )}
       title={copied ? "Copied!" : "Copy to clipboard"}
     >
       {copied ? <Check size={14} /> : <Copy size={14} />}
@@ -75,28 +68,10 @@ function CommandBox({ command }: { command: string }) {
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2, duration: 0.2, ease: crispEase }}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "12px 14px",
-        background: "var(--uilint-surface-elevated, rgba(0, 0, 0, 0.03))",
-        borderRadius: 10,
-        border: "1px solid var(--uilint-border)",
-        marginTop: 20,
-      }}
+      className="flex items-center gap-2 px-3.5 py-3 bg-surface-elevated rounded-[10px] border border-border mt-5"
     >
-      <Terminal size={15} style={{ color: "var(--uilint-text-muted)", flexShrink: 0 }} />
-      <code
-        style={{
-          flex: 1,
-          fontSize: 14,
-          fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-          color: "var(--uilint-text-primary)",
-          letterSpacing: "-0.01em",
-          fontWeight: 500,
-        }}
-      >
+      <Terminal size={15} className="text-text-muted shrink-0" />
+      <code className="flex-1 text-sm font-mono text-text-primary tracking-tight font-medium">
         {command}
       </code>
       <CopyButton text={command} />
@@ -116,20 +91,7 @@ function RetryButton({ onClick }: { onClick: () => void }) {
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3, duration: 0.2, ease: crispEase }}
-      style={{
-        marginTop: 16,
-        padding: "10px 20px",
-        fontSize: 13,
-        fontWeight: 500,
-        color: "var(--uilint-text-secondary)",
-        background: "transparent",
-        border: "1px solid var(--uilint-border)",
-        borderRadius: 10,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-      }}
+      className="mt-4 px-5 py-2.5 text-[13px] font-medium text-text-secondary bg-transparent border border-border rounded-[10px] cursor-pointer flex items-center gap-2"
     >
       <RefreshCw size={14} />
       Try again
@@ -171,27 +133,13 @@ export function OnboardingState({ variant }: OnboardingStateProps) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2, ease: crispEase }}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "48px 32px",
-        textAlign: "center",
-        minHeight: 260,
-      }}
+      className="flex flex-col items-center justify-center px-8 py-12 text-center min-h-[260px]"
     >
       <motion.h3
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05, duration: 0.2, ease: crispEase }}
-        style={{
-          margin: 0,
-          fontSize: 16,
-          fontWeight: 600,
-          color: "var(--uilint-text-primary)",
-          letterSpacing: "-0.02em",
-        }}
+        className="m-0 text-base font-semibold text-text-primary tracking-tight"
       >
         {content.title}
       </motion.h3>
@@ -200,13 +148,7 @@ export function OnboardingState({ variant }: OnboardingStateProps) {
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.2, ease: crispEase }}
-        style={{
-          margin: "10px 0 0 0",
-          fontSize: 14,
-          color: "var(--uilint-text-muted)",
-          lineHeight: 1.5,
-          maxWidth: 320,
-        }}
+        className="mt-2.5 mb-0 mx-0 text-sm text-text-muted leading-normal max-w-[320px]"
       >
         {content.subtitle}
       </motion.p>

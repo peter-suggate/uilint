@@ -1,3 +1,4 @@
+/* eslint-disable uilint/prefer-tailwind */
 /**
  * RulePanel - Inspector panel for viewing and configuring ESLint rules
  *

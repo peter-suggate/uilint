@@ -1,3 +1,4 @@
+/* eslint-disable uilint/prefer-tailwind */
 /**
  * HeatmapOverlay - Renders colored borders around elements with issues
  *
