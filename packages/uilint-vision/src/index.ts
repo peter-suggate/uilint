@@ -50,8 +50,14 @@ export {
 // Plugin definition
 export { visionPlugin } from "./plugin/index.js";
 
-// Browser utilities (when available)
-// export { collectElementManifest, captureScreenshot } from "./browser/index.js";
-
-// Utility functions
-// export { matchIssuesToManifest } from "./utils/issue-matcher.js";
+// Browser utilities
+export {
+  collectElementManifest,
+  captureScreenshot,
+  captureRegion,
+  captureScreenshotRegion,
+  getCurrentRoute,
+  generateTimestamp,
+  matchIssuesToManifest,
+  buildVisionAnalysisPayload,
+} from "./browser/index.js";

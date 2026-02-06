@@ -14,6 +14,16 @@ import type {
   VisionAutoScanSettings,
 } from "../types.js";
 
+// Helper type for cleaner action handler definitions
+type Handler<TPayload = void> = (
+  ctx: PluginContext<VisionState>,
+  payload: TPayload
+) => void | Promise<void>;
+
+// Cast helper for proper typing - wraps typed handlers to satisfy ActionHandlers
+const h = <TPayload = void>(fn: Handler<TPayload>): Handler<unknown> =>
+  fn as Handler<unknown>;
+
 /**
  * Action handlers for the vision plugin
  */
@@ -21,68 +31,62 @@ export const visionActionHandlers: ActionHandlers<VisionState> = {
   /**
    * Set vision availability status
    */
-  "set-vision-available": (
-    ctx: PluginContext<VisionState>,
-    payload: { available: boolean; model?: string }
-  ) => {
+  "set-vision-available": h<{ available: boolean; model?: string }>((ctx, payload) => {
     ctx.setState({
       visionAvailable: payload.available,
       visionModel: payload.model ?? null,
     });
-  },
+  }),
 
   /**
    * Trigger full page capture
    */
-  "capture-full-page": async (ctx: PluginContext<VisionState>) => {
+  "capture-full-page": h(async (ctx) => {
     ctx.setState({
       captureMode: "full",
       regionSelectionActive: false,
       selectedRegion: null,
     });
     await ctx.dispatch("trigger-vision-analysis");
-  },
+  }),
 
   /**
    * Enter region selection mode
    */
-  "enter-region-selection": (ctx: PluginContext<VisionState>) => {
+  "enter-region-selection": h((ctx) => {
     ctx.setState({
       captureMode: "region",
       regionSelectionActive: true,
       selectedRegion: null,
     });
-  },
+  }),
 
   /**
    * Exit region selection mode
    */
-  "exit-region-selection": (ctx: PluginContext<VisionState>) => {
+  "exit-region-selection": h((ctx) => {
     ctx.setState({
       regionSelectionActive: false,
       selectedRegion: null,
     });
-  },
+  }),
 
   /**
    * Set selected region and trigger capture
    */
-  "set-selected-region": async (
-    ctx: PluginContext<VisionState>,
-    payload: { region: CaptureRegion }
-  ) => {
+  "set-selected-region": h<{ region: CaptureRegion }>(async (ctx, payload) => {
     ctx.setState({
       selectedRegion: payload.region,
       regionSelectionActive: false,
     });
     await ctx.dispatch("trigger-vision-analysis");
-  },
+  }),
 
   /**
    * Trigger vision analysis
    * Requests browser actions for capture and manifest, then sends to server
    */
-  "trigger-vision-analysis": async (ctx: PluginContext<VisionState>) => {
+  "trigger-vision-analysis": h(async (ctx) => {
     const state = ctx.getState();
 
     if (!state.visionAvailable) {
@@ -164,15 +168,17 @@ export const visionActionHandlers: ActionHandlers<VisionState> = {
         },
       });
     }
-  },
+  }),
 
   /**
    * Handle vision analysis result from server
    */
-  "handle-vision-result": (
-    ctx: PluginContext<VisionState>,
-    payload: { route: string; issues: VisionIssue[]; analysisTime?: number; error?: string }
-  ) => {
+  "handle-vision-result": h<{
+    route: string;
+    issues: VisionIssue[];
+    analysisTime?: number;
+    error?: string;
+  }>((ctx, payload) => {
     const state = ctx.getState();
 
     if (payload.error) {
@@ -210,92 +216,74 @@ export const visionActionHandlers: ActionHandlers<VisionState> = {
       visionIssuesCache: newCache,
       lastError: null,
     });
-  },
+  }),
 
   /**
    * Handle vision progress update
    */
-  "handle-vision-progress": (
-    ctx: PluginContext<VisionState>,
-    payload: { phase: string }
-  ) => {
+  "handle-vision-progress": h<{ phase: string }>((ctx, payload) => {
     ctx.setState({ visionProgressPhase: payload.phase });
-  },
+  }),
 
   /**
    * Clear all screenshots and cached issues
    */
-  "clear-screenshots": (ctx: PluginContext<VisionState>) => {
+  "clear-screenshots": h((ctx) => {
     ctx.setState({
       screenshotHistory: new Map(),
       visionIssuesCache: new Map(),
     });
-  },
+  }),
 
   /**
    * Delete a specific screenshot
    */
-  "delete-screenshot": (
-    ctx: PluginContext<VisionState>,
-    payload: { id: string }
-  ) => {
+  "delete-screenshot": h<{ id: string }>((ctx, payload) => {
     const state = ctx.getState();
     const newHistory = new Map(state.screenshotHistory);
     newHistory.delete(payload.id);
     ctx.setState({ screenshotHistory: newHistory });
-  },
+  }),
 
   /**
    * Update auto-scan settings
    */
-  "update-auto-scan-settings": (
-    ctx: PluginContext<VisionState>,
-    payload: Partial<VisionAutoScanSettings>
-  ) => {
+  "update-auto-scan-settings": h<Partial<VisionAutoScanSettings>>((ctx, payload) => {
     const state = ctx.getState();
     ctx.setState({
       autoScanSettings: { ...state.autoScanSettings, ...payload },
     });
-  },
+  }),
 
   /**
    * Focus an issue in the heatmap
    */
-  "focus-heatmap": (
-    ctx: PluginContext<VisionState>,
-    payload: { dataLoc: string }
-  ) => {
+  "focus-heatmap": h<{ dataLoc: string }>((ctx, payload) => {
     ctx.setHeatmapFilter([payload.dataLoc], "Vision Issue");
-  },
+  }),
 
   /**
    * Clear heatmap filter
    */
-  "clear-heatmap-filter": (ctx: PluginContext<VisionState>) => {
+  "clear-heatmap-filter": h((ctx) => {
     ctx.clearHeatmapFilter();
-  },
+  }),
 
   /**
    * Open file in editor
    */
-  "open-editor": (
-    ctx: PluginContext<VisionState>,
-    payload: { dataLoc: string }
-  ) => {
+  "open-editor": h<{ dataLoc: string }>((ctx, payload) => {
     ctx.openInEditor(payload.dataLoc);
-  },
+  }),
 
   /**
    * Select a capture to view in inspector
    */
-  "select-capture": (
-    ctx: PluginContext<VisionState>,
-    payload: { captureId: string }
-  ) => {
+  "select-capture": h<{ captureId: string }>((ctx, payload) => {
     const state = ctx.getState();
     const capture = state.screenshotHistory.get(payload.captureId);
     if (capture) {
       ctx.openInspector("vision-gallery", { capture });
     }
-  },
+  }),
 };
