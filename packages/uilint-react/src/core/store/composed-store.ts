@@ -55,17 +55,19 @@ export interface ComposedStoreOptions {
 
 // Import plugin slice types for type composition
 import type { ESLintPluginSlice } from "../../plugins/eslint/slice";
-import type { VisionSlice } from "../../plugins/vision/slice";
-import type { SemanticPluginSlice } from "../../plugins/semantic/slice";
+// External plugin state types (setters are added dynamically by the adapter)
+import type { VisionState } from "uilint-vision/plugin";
+import type { SemanticState } from "uilint-semantic/plugin";
 
 /**
  * Map of plugin IDs to their slice types.
  * Extend this interface when adding new plugins.
+ * Note: Vision and semantic use external state types; setters are added at runtime by the adapter.
  */
 export interface PluginSliceMap {
   eslint: ESLintPluginSlice;
-  vision: VisionSlice;
-  semantic: SemanticPluginSlice;
+  vision: VisionState;
+  semantic: SemanticState;
 }
 
 /**
