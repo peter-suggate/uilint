@@ -175,6 +175,12 @@ importers:
       uilint-eslint:
         specifier: workspace:*
         version: link:../uilint-eslint
+      uilint-semantic:
+        specifier: workspace:*
+        version: link:../uilint-semantic
+      uilint-vision:
+        specifier: workspace:*
+        version: link:../uilint-vision
       ws:
         specifier: ^8.19.0
         version: 8.19.0
@@ -357,6 +363,12 @@ importers:
       uilint-eslint:
         specifier: workspace:*
         version: link:../uilint-eslint
+      uilint-semantic:
+        specifier: workspace:*
+        version: link:../uilint-semantic
+      uilint-vision:
+        specifier: workspace:*
+        version: link:../uilint-vision
       zustand:
         specifier: ^5.0.10
         version: 5.0.10(@types/react@19.2.8)(react@19.2.3)

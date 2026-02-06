@@ -5,13 +5,15 @@ import {
   findStyleGuidePath,
   findUILintStyleGuideUpwards,
   readStyleGuide,
+  type StreamProgressCallback,
+} from "uilint-core/node";
+import {
   VisionAnalyzer,
   UILINT_DEFAULT_VISION_MODEL,
   type ElementManifest,
   type VisionIssue,
-  type VisionAnalysisResult,
-  type StreamProgressCallback,
-} from "uilint-core/node";
+  type AnalyzerResult,
+} from "uilint-vision/node";
 import { resolvePathSpecifier } from "./path-specifiers.js";
 
 export type ResolveVisionStyleGuideArgs = {
@@ -241,7 +243,7 @@ export async function runVisionAnalysis(
     });
 
   args.onPhase?.(`Analyzing ${args.manifest.length} elements...`);
-  const result: VisionAnalysisResult = await analyzer.analyzeScreenshot(
+  const result: AnalyzerResult = await analyzer.analyzeScreenshot(
     args.imageBase64,
     args.manifest,
     {

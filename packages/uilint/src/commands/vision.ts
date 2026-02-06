@@ -13,13 +13,12 @@ import {
   statSync,
   writeFileSync,
 } from "fs";
+import { ensureOllamaReady, STYLEGUIDE_PATHS } from "uilint-core/node";
 import {
-  ensureOllamaReady,
-  STYLEGUIDE_PATHS,
   UILINT_DEFAULT_VISION_MODEL,
   type ElementManifest,
   type VisionIssue,
-} from "uilint-core/node";
+} from "uilint-vision/node";
 import { resolvePathSpecifier } from "../utils/path-specifiers.js";
 import { flushLangfuse } from "../utils/llm-client.js";
 import { nsNow, nsToMs, formatMs, maybeMs } from "../utils/timing.js";

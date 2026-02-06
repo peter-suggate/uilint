@@ -45,10 +45,8 @@ import { createRequire } from "module";
 import { dirname, resolve, relative, join, parse } from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { watch, type FSWatcher } from "chokidar";
-import {
-  findWorkspaceRoot,
-  getVisionAnalyzer as getCoreVisionAnalyzer,
-} from "uilint-core/node";
+import { findWorkspaceRoot } from "uilint-core/node";
+import { getVisionAnalyzer as getCoreVisionAnalyzer } from "uilint-vision/node";
 import {
   detectNextAppRouter,
   findNextAppRouterProjects,
