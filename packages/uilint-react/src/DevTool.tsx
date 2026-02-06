@@ -18,6 +18,7 @@ import { initializePlugins, getStoreApi } from "./core/store";
 import { pluginRegistry } from "./core/plugin-system/registry";
 import { eslintPlugin, configureStaticMode, clearStaticMode } from "./plugins/eslint";
 import { visionPlugin } from "./plugins/vision";
+import { semanticPlugin } from "./plugins/semantic";
 import { fixPromptPlugin } from "./plugins/fix-prompt";
 import { injectDevToolStyles } from "./styles/inject-styles";
 
@@ -147,6 +148,7 @@ export function DevTool({
       if (!pluginsInitialized) {
         pluginRegistry.register(eslintPlugin);
         pluginRegistry.register(visionPlugin);
+        pluginRegistry.register(semanticPlugin);
         pluginRegistry.register(fixPromptPlugin);
         await initializePlugins({ websocket, domObserver });
         pluginsInitialized = true;
