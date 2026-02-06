@@ -91,4 +91,7 @@ export const visionPlugin: PluginWithHandlers<VisionState> = {
 // Auto-register with plugin registry on import
 pluginRegistry.register(visionPlugin);
 
+// Export types for host apps
+export type { VisionState } from "./state.js";
+
 export default visionPlugin;

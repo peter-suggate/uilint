@@ -8,6 +8,21 @@ import {
 } from "./loader";
 import type { Plugin } from "./types";
 
+// Mock uilint-core's pluginRegistry to isolate tests from external plugins
+vi.mock("uilint-core", async (importOriginal) => {
+  const original = await importOriginal<typeof import("uilint-core")>();
+  return {
+    ...original,
+    pluginRegistry: {
+      getAll: () => [],
+    },
+  };
+});
+
+// Mock external plugin imports to prevent side effects
+vi.mock("uilint-vision/plugin", () => ({}));
+vi.mock("uilint-semantic/plugin", () => ({}));
+
 describe("loader", () => {
   describe("getPluginManifest", () => {
     it("returns manifest for known plugin id 'eslint'", () => {
@@ -18,20 +33,18 @@ describe("loader", () => {
       expect(manifest?.name).toBe("ESLint Analysis");
     });
 
-    it("returns manifest for known plugin id 'vision'", () => {
+    it("returns undefined for external plugin id 'vision' (loaded via adapter)", () => {
+      // Vision is now loaded from uilint-vision package via adapter
       const manifest = getPluginManifest("vision");
 
-      expect(manifest).toBeDefined();
-      expect(manifest?.id).toBe("vision");
-      expect(manifest?.name).toBe("Vision Analysis");
+      expect(manifest).toBeUndefined();
     });
 
-    it("returns manifest for known plugin id 'semantic'", () => {
+    it("returns undefined for external plugin id 'semantic' (loaded via adapter)", () => {
+      // Semantic is now loaded from uilint-semantic package via adapter
       const manifest = getPluginManifest("semantic");
 
-      expect(manifest).toBeDefined();
-      expect(manifest?.id).toBe("semantic");
-      expect(manifest?.name).toBe("Semantic Analysis");
+      expect(manifest).toBeUndefined();
     });
 
     it("returns undefined for unknown plugin id", () => {
@@ -48,16 +61,18 @@ describe("loader", () => {
   });
 
   describe("BUILT_IN_PLUGINS", () => {
-    it("contains exactly 3 built-in plugins", () => {
-      expect(BUILT_IN_PLUGINS).toHaveLength(3);
+    it("contains exactly 1 local plugin (eslint)", () => {
+      // Vision and semantic are now loaded from external packages
+      expect(BUILT_IN_PLUGINS).toHaveLength(1);
     });
 
-    it("contains eslint, vision, and semantic plugins", () => {
+    it("contains only eslint plugin (vision and semantic are external)", () => {
       const pluginIds = BUILT_IN_PLUGINS.map((p) => p.id);
 
       expect(pluginIds).toContain("eslint");
-      expect(pluginIds).toContain("vision");
-      expect(pluginIds).toContain("semantic");
+      // These are now external, loaded via adapter
+      expect(pluginIds).not.toContain("vision");
+      expect(pluginIds).not.toContain("semantic");
     });
 
     it("each manifest has required fields", () => {

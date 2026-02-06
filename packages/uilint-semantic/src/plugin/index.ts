@@ -62,4 +62,7 @@ export const semanticPlugin: PluginWithHandlers<SemanticState> = {
 // Auto-register with plugin registry on import
 pluginRegistry.register(semanticPlugin);
 
+// Export types for host apps
+export type { SemanticState } from "./state.js";
+
 export default semanticPlugin;
