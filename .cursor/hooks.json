@@ -1,8 +1,4 @@
 {
   "version": 1,
-  "hooks": {
-    "afterFileEdit": [
-      { "command": "bash .cursor/hooks/post-edit.sh" }
-    ]
-  }
+  "hooks": {}
 }
