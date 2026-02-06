@@ -9,7 +9,6 @@ import type { ActionsSection as ActionsSectionSchema, ActionButton } from "uilin
 import {
   resolveValue,
   resolveBinding,
-  evaluateCondition,
   createActionPayload,
   isConditionalValue,
   type BindingContext,

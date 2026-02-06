@@ -225,7 +225,7 @@ export function SchemaPanel({
 
       default:
         console.warn(
-          `[SchemaPanel] Unknown section type: ${(section as any).type}`
+          `[SchemaPanel] Unknown section type: ${(section as { type: string }).type}`
         );
         return null;
     }

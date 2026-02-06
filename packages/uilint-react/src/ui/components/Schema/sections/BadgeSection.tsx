@@ -7,7 +7,7 @@
 import React from "react";
 import type { BadgeSection as BadgeSectionSchema } from "uilint-core";
 import { resolveBinding, type BindingContext } from "../binding-utils";
-import { Badge, StatBadge, CategoryBadge, CountBadge } from "../../badge";
+import { Badge, CategoryBadge, CountBadge } from "../../badge";
 
 interface BadgeSectionProps {
   section: BadgeSectionSchema;

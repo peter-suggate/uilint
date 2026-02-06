@@ -12,7 +12,7 @@ import {
   createActionPayload,
   type BindingContext,
 } from "../binding-utils";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../../card";
+import { Card, CardHeader, CardTitle, CardDescription } from "../../card";
 import { Badge } from "../../badge";
 
 interface CardSectionProps {
