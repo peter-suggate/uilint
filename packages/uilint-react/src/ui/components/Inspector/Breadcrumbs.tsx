@@ -26,6 +26,8 @@ export interface BreadcrumbsProps {
   onCollapseToRoot: () => void;
   /** Called when rule name is clicked (collapses file only) */
   onCollapseFile: () => void;
+  /** Visual variant - 'standalone' has border/bg, 'embedded' is minimal */
+  variant?: "standalone" | "embedded";
   /** Additional class name */
   className?: string;
 }
@@ -93,6 +95,7 @@ export function Breadcrumbs({
   expandedFileName,
   onCollapseToRoot,
   onCollapseFile,
+  variant = "standalone",
   className,
 }: BreadcrumbsProps) {
   // Don't render if at root level (no rule expanded)
@@ -108,8 +111,7 @@ export function Breadcrumbs({
       transition={{ duration: 0.15 }}
       className={cn(
         "flex items-center px-4 py-2",
-        "border-b border-foreground/[0.04]",
-        "bg-foreground/[0.01]",
+        variant !== "embedded" && "border-b border-foreground/[0.04] bg-foreground/[0.01]",
         className
       )}
     >
