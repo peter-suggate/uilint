@@ -45,6 +45,30 @@ const CropIcon = React.createElement(
   React.createElement("path", { d: "M1 6.13L16 6a2 2 0 0 1 2 2v15" })
 );
 
+// Alert circle icon for setup required
+const AlertCircleIcon = React.createElement(
+  "svg",
+  {
+    width: "16",
+    height: "16",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2",
+  },
+  React.createElement("circle", { cx: "12", cy: "12", r: "10" }),
+  React.createElement("line", { x1: "12", y1: "8", x2: "12", y2: "12" }),
+  React.createElement("line", { x1: "12", y1: "16", x2: "12.01", y2: "16" })
+);
+
+/**
+ * Helper to check if vision is available from state
+ */
+function isVisionAvailable(state: unknown): boolean {
+  const s = state as { plugins?: { vision?: { visionAvailable?: boolean } } };
+  return s.plugins?.vision?.visionAvailable === true;
+}
+
 /**
  * Individual toolbar actions for the vision plugin (used inside the group dropdown)
  */
@@ -54,10 +78,7 @@ const visionCaptureFullAction: ToolbarAction = {
   tooltip: "Capture Full Page",
   shortcut: "\u2318\u21e7C",
   priority: 100,
-  isVisible: (state: unknown) => {
-    const s = state as { plugins?: { vision?: { visionAvailable?: boolean } } };
-    return s.plugins?.vision?.visionAvailable === true;
-  },
+  isVisible: isVisionAvailable,
   onClick: async (services: PluginServices) => {
     const fullState = services.getState<{
       plugins: {
@@ -85,10 +106,7 @@ const visionCaptureRegionAction: ToolbarAction = {
   tooltip: "Capture Region",
   shortcut: "\u2318\u21e7R",
   priority: 90,
-  isVisible: (state: unknown) => {
-    const s = state as { plugins?: { vision?: { visionAvailable?: boolean } } };
-    return s.plugins?.vision?.visionAvailable === true;
-  },
+  isVisible: isVisionAvailable,
   onClick: (services: PluginServices) => {
     const fullState = services.getState<{
       plugins: {
@@ -108,19 +126,45 @@ const visionCaptureRegionAction: ToolbarAction = {
 };
 
 /**
+ * Setup action shown when vision is unavailable
+ * Opens Ollama download page and shows setup instructions
+ */
+const visionSetupAction: ToolbarAction = {
+  id: "vision:setup",
+  icon: AlertCircleIcon,
+  tooltip: "Vision requires Ollama - Click to learn more",
+  priority: 100,
+  isVisible: (state: unknown) => !isVisionAvailable(state),
+  onClick: () => {
+    // Open Ollama download page in new tab
+    window.open("https://ollama.com/download", "_blank", "noopener,noreferrer");
+
+    // Also log instructions to console for developers
+    console.info(
+      "%c📷 UILint Vision Setup",
+      "font-weight: bold; font-size: 14px;",
+      "\n\nTo enable AI-powered vision analysis:\n" +
+      "1. Install Ollama from https://ollama.com/download\n" +
+      "2. Start Ollama: ollama serve\n" +
+      "3. Pull the vision model: ollama pull qwen3-vl:8b-instruct\n" +
+      "4. Refresh this page\n\n" +
+      "The camera button will appear once Ollama is running."
+    );
+  },
+};
+
+/**
  * Toolbar action group for the vision plugin
- * Renders as a single dropdown button with capture options
+ * Always visible - shows setup action when unavailable, capture actions when available
  */
 const visionToolbarActionGroup: ToolbarActionGroup = {
   id: "vision:capture-group",
   icon: CameraIcon,
   tooltip: "Vision Capture",
   priority: 100,
-  isVisible: (state: unknown) => {
-    const s = state as { plugins?: { vision?: { visionAvailable?: boolean } } };
-    return s.plugins?.vision?.visionAvailable === true;
-  },
-  actions: [visionCaptureFullAction, visionCaptureRegionAction],
+  // Always visible - child actions control their own visibility
+  isVisible: () => true,
+  actions: [visionSetupAction, visionCaptureFullAction, visionCaptureRegionAction],
 };
 
 /**

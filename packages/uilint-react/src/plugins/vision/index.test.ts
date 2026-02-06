@@ -120,8 +120,12 @@ describe("Vision Plugin - Toolbar Actions", () => {
       expect(actionIds).toContain("vision:capture-region");
     });
 
-    it("group has correct number of actions", () => {
-      expect(getVisionActions().length).toBe(2);
+    it("group has correct number of actions (setup + 2 capture actions)", () => {
+      expect(getVisionActions().length).toBe(3);
+      const actionIds = getVisionActions().map((a) => a.id);
+      expect(actionIds).toContain("vision:setup");
+      expect(actionIds).toContain("vision:capture-full-page");
+      expect(actionIds).toContain("vision:capture-region");
     });
 
     it("all actions have required fields", () => {
@@ -144,8 +148,13 @@ describe("Vision Plugin - Toolbar Actions", () => {
       }
     });
 
-    it("all actions have shortcut labels", () => {
-      for (const action of getVisionActions()) {
+    it("capture actions have shortcut labels", () => {
+      // Filter to capture actions only - setup action doesn't need a shortcut
+      const captureActions = getVisionActions().filter(
+        (a) => a.id.includes("capture")
+      );
+      expect(captureActions.length).toBeGreaterThan(0);
+      for (const action of captureActions) {
         expect(action.shortcut).toBeDefined();
         expect(typeof action.shortcut).toBe("string");
       }
@@ -157,15 +166,31 @@ describe("Vision Plugin - Toolbar Actions", () => {
       expect(uniqueIds.size).toBe(ids.length);
     });
 
-    it("group isVisible checks visionAvailable state", () => {
+    it("group isVisible always returns true (child actions control visibility)", () => {
       const group = getVisionGroup();
       expect(group.isVisible).toBeDefined();
 
+      // Group is always visible - shows setup action when unavailable, capture actions when available
       const availableState = createMockComposedState({ visionAvailable: true });
       expect(group.isVisible!(availableState)).toBe(true);
 
       const unavailableState = createMockComposedState({ visionAvailable: false });
-      expect(group.isVisible!(unavailableState)).toBe(false);
+      expect(group.isVisible!(unavailableState)).toBe(true);
+    });
+
+    it("includes setup action that shows when vision unavailable", () => {
+      const actions = getVisionActions();
+      const setupAction = actions.find((a) => a.id === "vision:setup");
+      expect(setupAction).toBeDefined();
+      expect(setupAction!.tooltip).toContain("Ollama");
+
+      // Setup action visible when vision unavailable
+      const unavailableState = createMockComposedState({ visionAvailable: false });
+      expect(setupAction!.isVisible!(unavailableState)).toBe(true);
+
+      // Setup action hidden when vision available
+      const availableState = createMockComposedState({ visionAvailable: true });
+      expect(setupAction!.isVisible!(availableState)).toBe(false);
     });
   });
 
