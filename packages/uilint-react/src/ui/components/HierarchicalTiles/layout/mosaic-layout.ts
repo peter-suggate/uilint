@@ -1,8 +1,10 @@
 /**
- * Mosaic Layout Calculator - True Bin-Packing Algorithm
+ * Mosaic Layout Calculator - Skyline Bin-Packing Algorithm
  *
- * Places tiles largest to smallest, filling vertical gaps efficiently.
- * Uses absolute positioning for true masonry effect.
+ * Uses Skyline bin-packing for variable-sized rectangles.
+ * Tiles have dimensions based on:
+ * - Surface area proportional to log(count)
+ * - Aspect ratio based on label length
  */
 
 import type { TileBucket } from "../../../../core/plugin-system/types";
@@ -17,25 +19,316 @@ import type {
 const DEFAULT_PADDING = { top: 0, right: 0, bottom: 0, left: 0 };
 
 // Default configuration
-// Available width matches command palette content area: 560 - 112 (sidebar) - 32 (padding) = 416
 const DEFAULT_CONFIG = {
   availableWidth: 416,
   gap: 12,
-  minTileWidth: 120,
+  minTileWidth: 100,
+  maxTileWidth: 320,
+  minTileHeight: 110, // Increased to fit path + title + issue summary
+  maxTileHeight: 280,
+  minArea: 8_000,
+  maxArea: 60_000,
   padding: DEFAULT_PADDING,
 };
 
-// Bucket heights in pixels
-const BUCKET_HEIGHTS: Record<TileBucket, number> = {
-  xs: 72,
-  sm: 96,
-  md: 128,
-  lg: 168,
-  xl: 220,
-};
+// ============================================================================
+// Skyline Types
+// ============================================================================
+
+/** A segment in the skyline contour */
+interface SkylineNode {
+  x: number;
+  y: number;
+  width: number;
+}
+
+/** A tile with calculated dimensions before packing */
+interface SizedTile {
+  id: string;
+  width: number;
+  height: number;
+  originalIndex: number;
+}
+
+/** A tile with its packed position */
+interface PackedTile {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+// ============================================================================
+// Dimension Calculation
+// ============================================================================
+
+/**
+ * Clamp a value between min and max
+ */
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+/**
+ * Calculate ideal tile dimensions based on issue count and label length.
+ *
+ * - Area is proportional to log(count) for better visual balance
+ * - Aspect ratio is based on label length (longer labels = wider tiles)
+ */
+function calculateIdealDimensions(
+  item: LayoutItem,
+  totalIssues: number,
+  config: typeof DEFAULT_CONFIG
+): { width: number; height: number } {
+  // Calculate area from count using log scaling
+  // This prevents extreme size differences between tiles
+  // Handle edge cases: negative counts, zero totalIssues
+  const safeCount = Math.max(0, item.count);
+  const safeTotalIssues = Math.max(1, totalIssues);
+  const fraction = safeTotalIssues > 1
+    ? Math.log1p(safeCount) / Math.log1p(safeTotalIssues)
+    : 1;
+  const area = config.minArea + fraction * (config.maxArea - config.minArea);
+
+  // Calculate aspect ratio from label length
+  // Short labels → square, long labels → landscape
+  const labelLen = item.label?.length ?? 0;
+  const subtitleLen = item.subtitle?.length ?? 0;
+  const maxLen = Math.max(labelLen, subtitleLen);
+
+  let aspectRatio: number;
+  if (maxLen <= 10) {
+    aspectRatio = 1.0; // Square
+  } else if (maxLen <= 20) {
+    aspectRatio = 1.5; // Slight landscape
+  } else {
+    // Gradually wider for longer labels (2.0 to 3.0)
+    aspectRatio = 2.0 + Math.min(1, (maxLen - 20) / 20);
+  }
+
+  // Derive dimensions from area and aspect ratio
+  // area = width * height
+  // aspectRatio = width / height
+  // Therefore: width = sqrt(area * aspectRatio), height = sqrt(area / aspectRatio)
+  let width = Math.sqrt(area * aspectRatio);
+  let height = Math.sqrt(area / aspectRatio);
+
+  // Clamp to min/max constraints
+  width = clamp(width, config.minTileWidth, config.maxTileWidth);
+  height = clamp(height, config.minTileHeight, config.maxTileHeight);
+
+  return { width: Math.round(width), height: Math.round(height) };
+}
+
+// ============================================================================
+// Skyline Bin-Packing
+// ============================================================================
+
+/**
+ * Find the best position for a tile in the skyline.
+ * Uses Bottom-Left strategy: find the position with lowest Y that fits.
+ */
+function findBestSkylinePosition(
+  skyline: SkylineNode[],
+  tileWidth: number,
+  tileHeight: number,
+  containerWidth: number,
+  gap: number
+): { x: number; y: number; skylineIndex: number } {
+  let bestX = 0;
+  let bestY = Infinity;
+  let bestIndex = 0;
+
+  // Try placing the tile starting at each skyline node
+  for (let i = 0; i < skyline.length; i++) {
+    const node = skyline[i];
+
+    // Check if tile fits horizontally from this position
+    const endX = node.x + tileWidth + gap;
+    if (endX > containerWidth + gap) continue; // Doesn't fit
+
+    // Find max Y across all skyline nodes this tile would span
+    let maxY = node.y;
+    let currentX = node.x;
+
+    for (let j = i; j < skyline.length && currentX < node.x + tileWidth; j++) {
+      maxY = Math.max(maxY, skyline[j].y);
+      currentX += skyline[j].width;
+    }
+
+    // Check if this is a better position (lower Y)
+    if (maxY < bestY) {
+      bestY = maxY;
+      bestX = node.x;
+      bestIndex = i;
+    }
+  }
+
+  // If nothing found, place at origin (shouldn't happen with proper initialization)
+  if (bestY === Infinity) {
+    return { x: 0, y: 0, skylineIndex: 0 };
+  }
+
+  return { x: bestX, y: bestY, skylineIndex: bestIndex };
+}
+
+/**
+ * Update the skyline after placing a tile.
+ * Merges the new rectangle into the skyline contour.
+ */
+function updateSkyline(
+  skyline: SkylineNode[],
+  tileX: number,
+  tileY: number,
+  tileWidth: number,
+  tileHeight: number,
+  gap: number
+): SkylineNode[] {
+  const newY = tileY + tileHeight + gap;
+  const tileEndX = tileX + tileWidth + gap;
+
+  const newSkyline: SkylineNode[] = [];
+
+  for (let i = 0; i < skyline.length; i++) {
+    const node = skyline[i];
+    const nodeEndX = node.x + node.width;
+
+    // Node is completely before the tile
+    if (nodeEndX <= tileX) {
+      newSkyline.push(node);
+      continue;
+    }
+
+    // Node is completely after the tile
+    if (node.x >= tileEndX) {
+      newSkyline.push(node);
+      continue;
+    }
+
+    // Node overlaps with tile - need to split
+
+    // Part before tile
+    if (node.x < tileX) {
+      newSkyline.push({
+        x: node.x,
+        y: node.y,
+        width: tileX - node.x,
+      });
+    }
+
+    // Part after tile
+    if (nodeEndX > tileEndX) {
+      newSkyline.push({
+        x: tileEndX,
+        y: node.y,
+        width: nodeEndX - tileEndX,
+      });
+    }
+  }
+
+  // Add the new skyline segment for the tile
+  newSkyline.push({
+    x: tileX,
+    y: newY,
+    width: tileWidth + gap,
+  });
+
+  // Sort by x position and merge adjacent segments with same Y
+  newSkyline.sort((a, b) => a.x - b.x);
+
+  const merged: SkylineNode[] = [];
+  for (const node of newSkyline) {
+    if (merged.length === 0) {
+      merged.push(node);
+      continue;
+    }
+
+    const last = merged[merged.length - 1];
+    const lastEndX = last.x + last.width;
+
+    // Merge if adjacent (or overlapping) and same height
+    if (Math.abs(lastEndX - node.x) < 1 && last.y === node.y) {
+      last.width = node.x + node.width - last.x;
+    } else if (lastEndX >= node.x && last.y === node.y) {
+      // Overlapping with same height
+      last.width = Math.max(lastEndX, node.x + node.width) - last.x;
+    } else {
+      merged.push(node);
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * Pack tiles using Skyline Bottom-Left algorithm.
+ * Sort by height (descending) to place tallest first for better packing.
+ */
+function packTiles(
+  tiles: SizedTile[],
+  containerWidth: number,
+  gap: number
+): PackedTile[] {
+  if (tiles.length === 0) return [];
+
+  // Sort by height descending (place tallest first)
+  const sorted = [...tiles].sort((a, b) => b.height - a.height);
+
+  // Initialize skyline as a single segment spanning the container
+  let skyline: SkylineNode[] = [{ x: 0, y: 0, width: containerWidth }];
+
+  const packed: PackedTile[] = [];
+
+  for (const tile of sorted) {
+    const pos = findBestSkylinePosition(
+      skyline,
+      tile.width,
+      tile.height,
+      containerWidth,
+      gap
+    );
+
+    packed.push({
+      id: tile.id,
+      x: pos.x,
+      y: pos.y,
+      width: tile.width,
+      height: tile.height,
+    });
+
+    skyline = updateSkyline(
+      skyline,
+      pos.x,
+      pos.y,
+      tile.width,
+      tile.height,
+      gap
+    );
+  }
+
+  return packed;
+}
+
+// ============================================================================
+// Bucket Calculation
+// ============================================================================
+
+/**
+ * Assign bucket based on surface area for styling purposes.
+ */
+function getBucketFromArea(height: number, width: number): TileBucket {
+  const area = height * width;
+  if (area <= 12000) return "xs";
+  if (area <= 18000) return "sm";
+  if (area <= 28000) return "md";
+  if (area <= 42000) return "lg";
+  return "xl";
+}
 
 /**
  * Calculate bucket size based on normalized percentiles.
+ * Kept for backwards compatibility.
  */
 export function calculateBucket(count: number, sortedCounts: number[]): TileBucket {
   if (sortedCounts.length === 0) return "md";
@@ -52,7 +345,8 @@ export function calculateBucket(count: number, sortedCounts: number[]): TileBuck
 }
 
 /**
- * Calculate buckets for all items based on their counts
+ * Calculate buckets for all items based on their counts.
+ * Kept for backwards compatibility.
  */
 export function calculateBuckets(items: LayoutItem[]): Map<string, TileBucket> {
   const sortedCounts = items.map((item) => item.count).sort((a, b) => b - a);
@@ -65,100 +359,17 @@ export function calculateBuckets(items: LayoutItem[]): Map<string, TileBucket> {
   return buckets;
 }
 
-// FreeSpace interface removed - not currently used but kept for future bin-packing algorithm
+// ============================================================================
+// Main Layout Function
+// ============================================================================
 
 /**
- * Calculate optimal column count
- */
-function calculateColumnCount(
-  availableWidth: number,
-  gap: number,
-  minTileWidth: number
-): number {
-  // Calculate max columns that fit with minimum width
-  for (let cols = 3; cols >= 1; cols--) {
-    const tileWidth = (availableWidth - gap * (cols - 1)) / cols;
-    if (tileWidth >= minTileWidth) {
-      return cols;
-    }
-  }
-  return 1;
-}
-
-/**
- * Calculate tile width for a given column span
- */
-function calculateTileWidth(
-  columnSpan: number,
-  totalColumns: number,
-  availableWidth: number,
-  gap: number
-): number {
-  const singleColumnWidth = (availableWidth - gap * (totalColumns - 1)) / totalColumns;
-  return singleColumnWidth * columnSpan + gap * (columnSpan - 1);
-}
-
-/**
- * Determine column span based on bucket size and column count.
- * Uses purely bucket-based spanning - no special first-item treatment.
- */
-function getColumnSpan(bucket: TileBucket, totalColumns: number): number {
-  if (totalColumns === 1) return 1;
-
-  // For 2 columns: xl spans 2, others span 1
-  if (totalColumns === 2) {
-    if (bucket === "xl") return 2;
-    return 1;
-  }
-
-  // For 3 columns: xl spans 3, lg spans 2, others span 1
-  if (bucket === "xl") return 3;
-  if (bucket === "lg") return 2;
-  return 1;
-}
-
-/**
- * Find the best position for a tile using bin-packing strategy
- */
-function findBestPosition(
-  width: number,
-  height: number,
-  columnHeights: number[],
-  columnCount: number,
-  columnSpan: number,
-  gap: number,
-  availableWidth: number
-): { x: number; y: number; columns: number[] } {
-  const singleColumnWidth = (availableWidth - gap * (columnCount - 1)) / columnCount;
-
-  // Find the column range with the lowest maximum height
-  let bestStartCol = 0;
-  let bestY = Infinity;
-
-  for (let startCol = 0; startCol <= columnCount - columnSpan; startCol++) {
-    // Get the max height across the columns this tile would span
-    let maxHeight = 0;
-    for (let c = startCol; c < startCol + columnSpan; c++) {
-      maxHeight = Math.max(maxHeight, columnHeights[c]);
-    }
-
-    if (maxHeight < bestY) {
-      bestY = maxHeight;
-      bestStartCol = startCol;
-    }
-  }
-
-  const x = bestStartCol * (singleColumnWidth + gap);
-  const affectedColumns = [];
-  for (let c = bestStartCol; c < bestStartCol + columnSpan; c++) {
-    affectedColumns.push(c);
-  }
-
-  return { x, y: bestY, columns: affectedColumns };
-}
-
-/**
- * Main bin-packing mosaic layout algorithm
+ * Main Skyline bin-packing mosaic layout algorithm.
+ *
+ * Tiles have:
+ * - Surface area proportional to log(count)
+ * - Aspect ratio based on label length
+ * - Variable widths and heights (no column snapping)
  */
 export function calculateMosaicLayout(
   items: LayoutItem[],
@@ -186,61 +397,50 @@ export function calculateMosaicLayout(
     padding,
   };
 
-  const { availableWidth, gap, minTileWidth } = mergedConfig;
+  const { availableWidth, gap } = mergedConfig;
   const { top: paddingTop, left: paddingLeft, bottom: paddingBottom } = padding;
-  const columnCount = calculateColumnCount(availableWidth, gap, minTileWidth);
 
-  // Calculate buckets for all items
-  const buckets = calculateBuckets(items);
+  // Calculate total issues for proportional area
+  const totalIssues = items.reduce((sum, item) => sum + item.count, 0);
 
-  // Sort items by count (descending) - place largest first
-  const sortedItems = [...items].sort((a, b) => b.count - a.count);
-
-  // Track height of each column
-  const columnHeights = new Array(columnCount).fill(0);
-
-  const tiles = new Map<string, TileLayout>();
-
-  sortedItems.forEach((item) => {
-    const bucket = buckets.get(item.id) || "md";
-    const height = BUCKET_HEIGHTS[bucket];
-
-    // Determine column span based purely on bucket size
-    const columnSpan = getColumnSpan(bucket, columnCount);
-    const width = calculateTileWidth(columnSpan, columnCount, availableWidth, gap);
-
-    // Find best position using bin-packing
-    const { x, y, columns } = findBestPosition(
-      width,
-      height,
-      columnHeights,
-      columnCount,
-      columnSpan,
-      gap,
-      availableWidth
-    );
-
-    // Update column heights
-    for (const col of columns) {
-      columnHeights[col] = y + height + gap;
-    }
-
-    tiles.set(item.id, {
+  // Step 1: Calculate ideal dimensions for each tile
+  const sizedTiles: SizedTile[] = items.map((item, index) => {
+    const dims = calculateIdealDimensions(item, totalIssues, mergedConfig);
+    return {
       id: item.id,
-      row: 0, // Not used for absolute positioning
-      column: columns[0],
-      width: `${width}px`,
-      widthFraction: columnSpan / columnCount,
-      bucket,
-      isRowStart: columns[0] === 0,
-      // Absolute positioning values (with padding offset)
-      x: x + paddingLeft,
-      y: y + paddingTop,
-      height,
-    });
+      width: dims.width,
+      height: dims.height,
+      originalIndex: index,
+    };
   });
 
-  const totalHeight = Math.max(...columnHeights) - gap + paddingTop + paddingBottom; // Remove trailing gap, add padding
+  // Step 2: Pack tiles using Skyline algorithm
+  const packed = packTiles(sizedTiles, availableWidth, gap);
+
+  // Step 3: Convert to TileLayout
+  const tiles = new Map<string, TileLayout>();
+
+  let maxY = 0;
+  for (const p of packed) {
+    const bucket = getBucketFromArea(p.height, p.width);
+
+    tiles.set(p.id, {
+      id: p.id,
+      row: 0, // Legacy field
+      column: 0, // Legacy field
+      width: `${p.width}px`,
+      widthFraction: p.width / availableWidth,
+      bucket,
+      isRowStart: p.x === 0,
+      x: p.x + paddingLeft,
+      y: p.y + paddingTop,
+      height: p.height,
+    });
+
+    maxY = Math.max(maxY, p.y + p.height);
+  }
+
+  const totalHeight = maxY + paddingTop + paddingBottom;
 
   // Determine pattern based on item count
   let pattern: MosaicLayoutResult["pattern"] = "grid";
@@ -249,10 +449,14 @@ export function calculateMosaicLayout(
   else if (items.length === 3) pattern = "trio";
   else if (items.length === 4) pattern = "quad";
 
+  // Estimate column count based on average tile width
+  const avgWidth = sizedTiles.reduce((sum, t) => sum + t.width, 0) / sizedTiles.length;
+  const estimatedColumns = Math.round(availableWidth / (avgWidth + gap));
+
   return {
     tiles,
-    rowCount: Math.ceil(items.length / columnCount),
-    columnCount,
+    rowCount: Math.ceil(items.length / Math.max(1, estimatedColumns)),
+    columnCount: Math.max(1, estimatedColumns),
     pattern,
     totalHeight,
   };
@@ -265,8 +469,6 @@ export function groupTilesByRow<T extends { id: string }>(
   items: T[],
   layout: MosaicLayoutResult
 ): T[][] {
-  // For absolute positioning, we return all items in a single "row"
-  // since they're positioned absolutely
   if (items.length === 0) return [];
 
   // Sort by y position, then x position
@@ -274,12 +476,21 @@ export function groupTilesByRow<T extends { id: string }>(
     const layoutA = layout.tiles.get(a.id);
     const layoutB = layout.tiles.get(b.id);
     const yDiff = (layoutA?.y ?? 0) - (layoutB?.y ?? 0);
-    if (Math.abs(yDiff) > 10) return yDiff; // Different rows
+    if (Math.abs(yDiff) > 10) return yDiff;
     return (layoutA?.x ?? 0) - (layoutB?.x ?? 0);
   });
 
   return [sorted];
 }
+
+// Bucket heights mapping (for getBucketHeight compatibility)
+const BUCKET_HEIGHTS: Record<TileBucket, number> = {
+  xs: 115,
+  sm: 140,
+  md: 185,
+  lg: 240,
+  xl: 280,
+};
 
 /**
  * Get bucket height in pixels
@@ -356,7 +567,6 @@ export function calculateCollapsedStripLayout(
 
 /**
  * Calculate layout for children within an expanded tile
- * Uses a simpler grid layout (not masonry) for consistency
  */
 export interface ChildGridConfig {
   /** Available width for the grid */

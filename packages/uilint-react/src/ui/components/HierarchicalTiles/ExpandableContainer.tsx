@@ -107,10 +107,6 @@ function DefaultChildTile<T>({
       )}
     >
       <div className="flex flex-col gap-1">
-        {/* Icon if present */}
-        {node.icon && (
-          <div className="text-muted-foreground mb-1">{node.icon}</div>
-        )}
         {/* Label */}
         <span className="text-sm font-normal text-foreground truncate">
           {node.label}
@@ -183,8 +179,9 @@ function ExpandedContent<T>({
         <TileHeader
           label={node.label}
           subtitle={node.subtitle}
-          icon={node.icon}
+          tileType={node.tileType}
           count={node.count}
+          fileCount={node.fileCount}
           onBack={onCollapse}
         />
       )}
@@ -316,9 +313,6 @@ export function ExpandableContainer<T>({
           )}
         >
           <div className="flex flex-col gap-1">
-            {node.icon && (
-              <div className="text-muted-foreground mb-1">{node.icon}</div>
-            )}
             <span className="text-base font-medium text-foreground truncate">
               {node.label}
             </span>

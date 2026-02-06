@@ -13,8 +13,9 @@ import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../../../lib/utils";
 import type { TileItem, TileBucket, TileVisualState } from "../../../core/plugin-system/types";
-import { Tile } from "./Tile";
+import { Tile } from "../HierarchicalTiles/Tile";
 import { ExpandedTileHeader } from "./ExpandedTileHeader";
+import type { TileType } from "../../../plugins/eslint/tile-provider";
 import { CollapsedTileStrip } from "./CollapsedTileStrip";
 import {
   tileContainerVariants,
@@ -281,7 +282,12 @@ export function ExpandableTile({
       transition={tileContainerTransition}
     >
       <Tile
-        item={item}
+        id={item.id}
+        label={item.label}
+        subtitle={item.subtitle}
+        tileType={item.metadata?.tileType as TileType | undefined}
+        count={item.count}
+        fileCount={item.fileCount}
         bucket={bucket}
         isSelected={isSelected}
         onClick={onClick}

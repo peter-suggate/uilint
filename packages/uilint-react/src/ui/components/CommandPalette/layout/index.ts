@@ -1,40 +1,33 @@
 /**
  * Tile Mosaic Layout Module
  *
- * Pure functions for calculating tile positions in a flexbox-based mosaic grid.
+ * Re-exports layout utilities from HierarchicalTiles/layout for backwards compatibility.
+ * The canonical implementation lives in HierarchicalTiles/layout.
  */
 
+// Re-export everything from the canonical location
 export {
   calculateMosaicLayout,
   calculateBucket,
   calculateBuckets,
   groupTilesByRow,
   getBucketHeight,
-  // Expanded tile layout helpers
   calculateCollapsedStripLayout,
   calculateChildGridLayout,
-} from "./mosaic-layout";
+  calculateExpandedLayout,
+} from "../../HierarchicalTiles/layout";
 
 export type {
   TileLayout,
   MosaicLayoutResult,
   MosaicLayoutConfig,
   LayoutItem,
-} from "./types";
-
-// Re-export expanded layout types
-export type {
   CollapsedStripConfig,
   CollapsedTileLayout,
   ChildGridConfig,
   ChildTileLayout,
-} from "./mosaic-layout";
-
-// Expanded layout algorithm (for expandable tile UI)
-export { calculateExpandedLayout } from "./expanded-layout";
-export type {
   ExpandedLayoutConfig,
   ExpandedLayoutInput,
   ExpandedLayoutResult,
   TilePosition,
-} from "./expanded-layout";
+} from "../../HierarchicalTiles/layout";

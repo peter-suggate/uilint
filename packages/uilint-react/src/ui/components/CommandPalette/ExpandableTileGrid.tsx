@@ -21,8 +21,9 @@ import { cn } from "../../../lib/utils";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
 import type { TileItem } from "../../../core/plugin-system/types";
-import { Tile } from "./Tile";
-import { TileGrid } from "./TileGrid";
+import { Tile } from "../HierarchicalTiles/Tile";
+import { TileGrid } from "../HierarchicalTiles/TileGrid";
+import type { TileType } from "../../../plugins/eslint/tile-provider";
 import { ExpandedTileHeader } from "./ExpandedTileHeader";
 import { calculateMosaicLayout, calculateExpandedLayout } from "../HierarchicalTiles/layout";
 import type { LayoutItem } from "../HierarchicalTiles/layout";
@@ -453,7 +454,12 @@ export function ExpandableTileGrid({
               }}
             >
               <Tile
-                item={item}
+                id={item.id}
+                label={item.label}
+                subtitle={item.subtitle}
+                tileType={item.metadata?.tileType as TileType | undefined}
+                count={item.count}
+                fileCount={item.fileCount}
                 bucket={originalLayoutItem.bucket}
                 isSelected={isSelected}
                 onClick={() => onTileClickInternal(item)}

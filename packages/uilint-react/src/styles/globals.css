@@ -58,6 +58,10 @@
   --color-destructive: var(--uilint-error);
   --color-destructive-foreground: var(--uilint-accent-foreground);
 
+  /* Tile type colors */
+  --color-tile-rule: var(--uilint-tile-rule);
+  --color-tile-file: var(--uilint-tile-file);
+
   /* Effects */
   --color-backdrop: var(--uilint-backdrop);
 
@@ -123,6 +127,10 @@
 
 /* Light theme (default) - Define variables on :root for global availability */
 :root {
+  /* Tile type colors */
+  --uilint-tile-rule: oklch(0.65 0.15 259);
+  --uilint-tile-file: oklch(0.68 0.14 142);
+
   /* Core colors - amber tinted (hue ~75) */
   --uilint-background: oklch(0.985 0.015 75);
   --uilint-background-elevated: oklch(0.97 0.02 75);
@@ -153,10 +161,10 @@
   /* Status colors */
   --uilint-success: oklch(0.723 0.191 142.5);
   --uilint-success-bg: oklch(0.723 0.191 142.5 / 15%);
-  --uilint-warning: oklch(0.75 0.183 55.934);
-  --uilint-warning-bg: oklch(0.75 0.183 55.934 / 15%);
-  --uilint-error: oklch(0.637 0.237 25.331);
-  --uilint-error-bg: oklch(0.637 0.237 25.331 / 15%);
+  --uilint-warning: oklch(0.82 0.165 80);
+  --uilint-warning-bg: oklch(0.82 0.165 80 / 15%);
+  --uilint-error: oklch(0.72 0.17 25);
+  --uilint-error-bg: oklch(0.72 0.17 25 / 15%);
   --uilint-info: oklch(0.623 0.214 259);
   --uilint-info-bg: oklch(0.623 0.214 259 / 15%);
 
@@ -312,10 +320,10 @@
   /* Status colors */
   --uilint-success: oklch(0.723 0.191 142.5);
   --uilint-success-bg: oklch(0.723 0.191 142.5 / 20%);
-  --uilint-warning: oklch(0.75 0.183 55.934);
-  --uilint-warning-bg: oklch(0.75 0.183 55.934 / 20%);
-  --uilint-error: oklch(0.637 0.237 25.331);
-  --uilint-error-bg: oklch(0.637 0.237 25.331 / 20%);
+  --uilint-warning: oklch(0.82 0.165 80);
+  --uilint-warning-bg: oklch(0.82 0.165 80 / 20%);
+  --uilint-error: oklch(0.72 0.17 25);
+  --uilint-error-bg: oklch(0.72 0.17 25 / 20%);
   --uilint-info: oklch(0.623 0.214 259);
   --uilint-info-bg: oklch(0.623 0.214 259 / 20%);
 
@@ -428,10 +436,10 @@
 
     --uilint-success: oklch(0.723 0.191 142.5);
     --uilint-success-bg: oklch(0.723 0.191 142.5 / 20%);
-    --uilint-warning: oklch(0.75 0.183 55.934);
-    --uilint-warning-bg: oklch(0.75 0.183 55.934 / 20%);
-    --uilint-error: oklch(0.637 0.237 25.331);
-    --uilint-error-bg: oklch(0.637 0.237 25.331 / 20%);
+    --uilint-warning: oklch(0.82 0.165 80);
+    --uilint-warning-bg: oklch(0.82 0.165 80 / 20%);
+    --uilint-error: oklch(0.72 0.17 25);
+    --uilint-error-bg: oklch(0.72 0.17 25 / 20%);
 
     --uilint-shadow: 0 4px 20px oklch(0.1 0.03 75 / 40%);
     --uilint-backdrop: oklch(0.12 0.02 75 / 92%);
@@ -476,10 +484,10 @@
 
   --uilint-success: oklch(0.723 0.191 142.5);
   --uilint-success-bg: oklch(0.723 0.191 142.5 / 15%);
-  --uilint-warning: oklch(0.75 0.183 55.934);
-  --uilint-warning-bg: oklch(0.75 0.183 55.934 / 15%);
-  --uilint-error: oklch(0.637 0.237 25.331);
-  --uilint-error-bg: oklch(0.637 0.237 25.331 / 15%);
+  --uilint-warning: oklch(0.82 0.165 80);
+  --uilint-warning-bg: oklch(0.82 0.165 80 / 15%);
+  --uilint-error: oklch(0.72 0.17 25);
+  --uilint-error-bg: oklch(0.72 0.17 25 / 15%);
 
   --uilint-shadow: 0 4px 20px oklch(0.3 0.05 75 / 15%);
   --uilint-backdrop: oklch(0.985 0.015 75 / 92%);

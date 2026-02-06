@@ -110,8 +110,9 @@ function DefaultExpandedContent<T extends BaseTileItem>({
       <TileHeader
         label={item.label}
         subtitle={item.subtitle}
-        icon={item.icon}
+        tileType={item.tileType}
         count={item.count}
+        fileCount={item.fileCount}
         onBack={onBack}
       />
       <motion.div
@@ -278,12 +279,12 @@ export function ExpandableTileGrid<T extends BaseTileItem>({
                 id={item.id}
                 label={item.label}
                 subtitle={item.subtitle}
-                icon={item.icon}
+                tileType={item.tileType ?? (item.metadata?.tileType as "rule" | "file" | undefined)}
                 count={item.count}
+                fileCount={item.fileCount}
                 bucket={originalLayoutItem.bucket}
                 isSelected={isSelected}
                 onClick={() => onTileClick(item)}
-                previewMessages={item.previewMessages}
               />
             </motion.div>
           );

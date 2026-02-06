@@ -47,9 +47,7 @@ function ruleNodeToTileItem(node: RuleNode): BaseTileItem & { data: RuleNode["da
   return {
     id: node.id,
     label: node.label,
-    subtitle: node.subtitle,
     count: node.count ?? 0,
-    previewMessages: node.previewMessages,
     fileCount: node.fileCount,
     data: node.data,
   };
@@ -63,6 +61,7 @@ function fileNodeToTileItem(node: FileForRuleNode): BaseTileItem & { data: FileF
     id: node.id,
     label: node.label,
     subtitle: node.subtitle,
+    tileType: node.tileType,
     count: node.count ?? 0,
     severityCounts: node.severityCounts,
     data: node.data,
@@ -99,6 +98,9 @@ function EmptyState() {
 // ============================================================================
 // Constants for height calculation
 // ============================================================================
+
+/** Approximate height of the breadcrumb bar */
+const BREADCRUMB_HEIGHT = 34;
 
 /** Approximate height of compact RuleHeader component */
 const RULE_HEADER_HEIGHT = 40;
@@ -302,8 +304,8 @@ export function IssuesList({ className }: IssuesListProps) {
   // Extra height for expanded tile
   // When showing file content inline, we need more height
   const extraExpandedHeight = expandedFilePath
-    ? RULE_HEADER_HEIGHT + FILE_CONTENT_MIN_HEIGHT
-    : RULE_HEADER_HEIGHT;
+    ? BREADCRUMB_HEIGHT + RULE_HEADER_HEIGHT + FILE_CONTENT_MIN_HEIGHT
+    : BREADCRUMB_HEIGHT + RULE_HEADER_HEIGHT;
 
   // Custom render function for expanded rule tile content
   // Renders RuleHeader (with config popover) and either file tiles or file content INSIDE the expanded tile
@@ -334,6 +336,15 @@ export function IssuesList({ className }: IssuesListProps) {
             "h-full flex flex-col"
           )}
         >
+          {/* Breadcrumb navigation - inside the expanded tile for locality */}
+          <Breadcrumbs
+            variant="embedded"
+            expandedRuleName={expandedRule?.label ?? null}
+            expandedFileName={expandedFile?.label ?? null}
+            onCollapseToRoot={collapseRule}
+            onCollapseFile={collapseFileInRule}
+          />
+
           {/* Content area */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Rule description & config popover */}
@@ -430,14 +441,6 @@ export function IssuesList({ className }: IssuesListProps) {
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
-      {/* Breadcrumb navigation - shows when rule or file is expanded */}
-      <Breadcrumbs
-        expandedRuleName={expandedRule?.label ?? null}
-        expandedFileName={expandedFile?.label ?? null}
-        onCollapseToRoot={collapseRule}
-        onCollapseFile={collapseFileInRule}
-      />
-
       {/* Main content - mosaic tile grid with in-place expansion */}
       {/* File views are now rendered INSIDE the expanded rule tile via renderExpandedContent */}
       <div ref={scrollContainerRef} className="flex-1 p-4 overflow-auto">

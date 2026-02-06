@@ -77,9 +77,9 @@ describe("getSeverityColor", () => {
     const color = getSeverityColor(0.3, "warn");
 
     expect(color).toMatch(/^oklch\(/);
-    expect(color).toContain("0.75"); // Lightness
-    expect(color).toContain("0.183"); // Chroma
-    expect(color).toContain("55.934"); // Hue (amber)
+    expect(color).toContain("0.82"); // Lightness (golden amber)
+    expect(color).toContain("0.165"); // Chroma
+    expect(color).toContain("80"); // Hue (golden amber)
     expect(color).toContain("0.300"); // Opacity
   });
 
@@ -87,8 +87,8 @@ describe("getSeverityColor", () => {
     const color = getSeverityColor(0.4, "error");
 
     expect(color).toMatch(/^oklch\(/);
-    expect(color).toContain("0.65"); // Lightness (darker)
-    expect(color).toContain("0.22"); // Chroma (more saturated)
+    expect(color).toContain("0.72"); // Lightness (light red)
+    expect(color).toContain("0.17"); // Chroma
     expect(color).toContain("25"); // Hue (red)
     expect(color).toContain("0.400"); // Opacity
   });
@@ -125,16 +125,15 @@ describe("getSeverityBorderColor", () => {
     const borderColor = getSeverityBorderColor(0.3, "warn");
 
     // Border should have higher chroma (more saturated)
-    // warn base chroma is 0.183, border should be 0.183 + 0.05 = 0.233
-    // Note: Due to floating point, it may be 0.23299999999999998
-    expect(borderColor).toMatch(/0\.232?9{0,15}/);
+    // warn base chroma is 0.165, border should be 0.165 + 0.05 = 0.215
+    expect(borderColor).toContain("0.215");
   });
 
   it("decreases lightness for darker border", () => {
     const borderColor = getSeverityBorderColor(0.3, "warn");
 
-    // warn base lightness is 0.75, border should be 0.75 - 0.1 = 0.65
-    expect(borderColor).toContain("0.65");
+    // warn base lightness is 0.82, border should be 0.82 - 0.1 = 0.72
+    expect(borderColor).toContain("0.72");
   });
 
   it("caps opacity at 0.8", () => {
@@ -156,7 +155,7 @@ describe("getSeverityBorderColor", () => {
     const errorColor = getSeverityBorderColor(0.3, "error");
 
     expect(warnColor).not.toBe(errorColor);
-    expect(warnColor).toContain("55.934"); // Amber hue
+    expect(warnColor).toContain("80"); // Golden amber hue
     expect(errorColor).toContain("25"); // Red hue
   });
 });

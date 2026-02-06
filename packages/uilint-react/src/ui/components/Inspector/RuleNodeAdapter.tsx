@@ -220,7 +220,8 @@ export function getFileNodesForRule(ruleNode: RuleNode): FileForRuleNode[] {
     .map((file) => ({
       id: `${ruleNode.id}:${file.filePath}`,
       label: file.fileName,
-      subtitle: file.directory,
+      subtitle: file.filePath,
+      tileType: "file" as const,
       count: file.issueCount,
       severityCounts: file.severityCounts,
       data: file,

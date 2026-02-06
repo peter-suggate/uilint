@@ -7,16 +7,15 @@
  * - Large, light-weight fonts
  * - Clean, modern aesthetic using shadcn conventions
  *
- * Responsive features:
- * - Dynamic font scaling for small tiles to ensure readability
- * - Preview messages for large tiles
+ * Display format:
+ * - Line 1: Rule/file name (label)
+ * - Line 2: "X issues in Y files" or "X issues"
  */
 import React, { useMemo } from "react";
 import { motion } from "motion/react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../../lib/utils";
 import { ExternalLinkIcon } from "../../icons";
-import { useTileAdaptiveText } from "../../hooks/useAdaptiveText";
 
 // ============================================================================
 // Types
@@ -27,17 +26,17 @@ export type TileBucket = "xs" | "sm" | "md" | "lg" | "xl";
 export interface TileProps extends VariantProps<typeof tileVariants> {
   id: string;
   label: string;
+  /** Optional subtitle (e.g., file path) shown above label */
   subtitle?: string;
-  icon?: React.ReactNode;
+  /** Tile type for visual differentiation (gradient color) */
+  tileType?: "rule" | "file";
   count: number;
+  /** Number of files (for "X issues in Y files" display) */
+  fileCount?: number;
   bucket: TileBucket;
-  /** Width of the tile in pixels (for adaptive text calculation) */
-  tileWidth?: number;
   isSelected: boolean;
   onClick: () => void;
   onOpenInInspector?: () => void;
-  /** Optional preview messages for large tiles */
-  previewMessages?: string[];
 }
 
 // ============================================================================
@@ -55,39 +54,19 @@ const tileVariants = cva(
     variants: {
       selected: {
         true: "bg-foreground/[0.04] border border-foreground/12",
-        false: "border border-foreground/[0.04] hover:bg-foreground/[0.03] hover:border-foreground/[0.08]",
+        false:
+          "border border-foreground/[0.04] hover:bg-foreground/[0.03] hover:border-foreground/[0.08]",
       },
       size: {
         xs: "p-3",
-        sm: "p-3.5",
+        sm: "p-4",
         md: "p-5",
         lg: "p-6",
-        xl: "p-6",
+        xl: "p-7",
       },
     },
     defaultVariants: {
       selected: false,
-      size: "md",
-    },
-  }
-);
-
-const countVariants = cva(
-  [
-    "font-extralight leading-none tracking-tighter",
-    "text-foreground/70",
-  ],
-  {
-    variants: {
-      size: {
-        xs: "text-lg",
-        sm: "text-xl",
-        md: "text-[32px]",
-        lg: "text-[40px]",
-        xl: "text-[52px]",
-      },
-    },
-    defaultVariants: {
       size: "md",
     },
   }
@@ -103,7 +82,6 @@ const crispEase = [0.32, 0.72, 0, 1] as const;
 // Sub-components
 // ============================================================================
 
-
 /**
  * Hover highlight overlay - subtle top-left shine
  */
@@ -113,96 +91,85 @@ function HoverOverlay({ isHovered }: { isHovered: boolean }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: isHovered ? 1 : 0 }}
       transition={{ duration: 0.15 }}
-      className="absolute inset-0 rounded-2xl pointer-events-none bg-gradient-to-br from-foreground/[0.02] to-transparent"
+      className="absolute inset-0 rounded-2xl pointer-events-none bg-linear-to-br from-foreground/2 to-transparent"
     />
   );
 }
 
 /**
- * Preview content for large tiles - shows issue preview messages
+ * Type gradient flourish - corner gradient to differentiate tile types
  */
-function LargeTilePreview({
-  previewMessages,
-  bucket,
-}: {
-  previewMessages?: string[];
-  bucket: TileBucket;
-}) {
-  const showPreview = bucket === "xl" || bucket === "lg";
-  if (!showPreview) return null;
+function TypeGradient({ tileType }: { tileType?: "rule" | "file" }) {
+  if (!tileType) return null;
 
-  const maxMessages = bucket === "xl" ? 2 : 1;
-  const messagesToShow = previewMessages?.slice(0, maxMessages) || [];
-
-  if (messagesToShow.length === 0) return null;
+  // Use CSS variable for the color based on tile type
+  const colorVar = tileType === "rule" ? "var(--color-tile-rule)" : "var(--color-tile-file)";
 
   return (
-    <div className="mt-2 space-y-1">
-      {/* Preview messages */}
-      {messagesToShow.map((msg, i) => (
-        <div
-          key={i}
-          className="text-[11px] text-muted-foreground/50 truncate leading-tight"
-        >
-          {msg}
-        </div>
-      ))}
-    </div>
+    <div
+      className="absolute top-0 right-0 w-20 h-20 pointer-events-none rounded-tr-2xl"
+      style={{
+        background: `radial-gradient(circle at top right, ${colorVar} 0%, transparent 70%)`,
+        opacity: 0.25,
+      }}
+    />
   );
 }
 
 /**
- * Adaptive title component with dynamic font scaling
+ * Format the issue summary parts (e.g., "72" and "issues in 4 files")
+ * Returns count separately for prominent styling
  */
-function AdaptiveTitle({
-  label,
-  bucket,
-  tileWidth,
-  icon,
-}: {
-  label: string;
-  bucket: TileBucket;
-  tileWidth: number;
-  icon?: React.ReactNode;
-}) {
-  const { fontSize, isScaled, needsTruncation } = useTileAdaptiveText(
-    label,
-    bucket,
-    tileWidth
-  );
+function formatIssueSummaryParts(
+  count: number,
+  fileCount?: number
+): { count: number; suffix: string } {
+  const issueWord = count === 1 ? "issue" : "issues";
+  if (fileCount !== undefined && fileCount > 0) {
+    const fileWord = fileCount === 1 ? "file" : "files";
+    return { count, suffix: `${issueWord} in ${fileCount} ${fileWord}` };
+  }
+  return { count, suffix: issueWord };
+}
 
-  // Base styles for title
-  const baseStyles = cn(
-    "font-light leading-tight tracking-tight",
-    "text-foreground",
-    "overflow-hidden text-ellipsis",
-    // Line clamp based on size
-    bucket === "xs" || bucket === "sm"
-      ? "[-webkit-line-clamp:1]"
-      : "[-webkit-line-clamp:2]",
-    "[-webkit-box-orient:vertical] [display:-webkit-box]"
-  );
+/**
+ * Get font size for label based on bucket (larger tiles = larger fonts)
+ */
+function getLabelFontSize(bucket: TileBucket): string {
+  switch (bucket) {
+    case "xl":
+      return "text-2xl";
+    case "lg":
+      return "text-xl";
+    case "md":
+      return "text-lg";
+    case "sm":
+      return "text-base";
+    case "xs":
+      return "text-sm";
+    default:
+      return "text-lg";
+  }
+}
 
-  return (
-    <div className="flex items-center gap-2">
-      {icon && (
-        <span className="flex-shrink-0 text-muted-foreground/60">
-          {icon}
-        </span>
-      )}
-      <span
-        className={baseStyles}
-        style={{
-          fontSize: `${fontSize}px`,
-          // Slightly tighter tracking when scaled down
-          letterSpacing: isScaled ? "-0.03em" : "-0.025em",
-        }}
-        title={needsTruncation ? label : undefined}
-      >
-        {label}
-      </span>
-    </div>
-  );
+/**
+ * Get font size for summary based on bucket
+ */
+function getSummaryFontSize(bucket: TileBucket): string {
+  switch (bucket) {
+    case "xl":
+      return "text-base";
+    case "lg":
+      return "text-sm";
+    case "md":
+      return "text-sm";
+    case "sm":
+      return "text-xs";
+    case "xs":
+      return "text-[11px]";
+    default:
+      return "text-sm";
+  }
 }
 
 // ============================================================================
@@ -213,33 +180,42 @@ export function Tile({
   id,
   label,
   subtitle,
-  icon,
+  tileType,
   count,
+  fileCount,
   bucket,
-  tileWidth = 166, // Default tile width
   isSelected,
   onClick,
   onOpenInInspector,
-  previewMessages,
 }: TileProps) {
   const [isHovered, setIsHovered] = React.useState(false);
-
-  // Determine tile characteristics
-  const isCompact = bucket === "xs" || bucket === "sm";
-  const isXs = bucket === "xs";
-  const isLarge = bucket === "lg" || bucket === "xl";
 
   const handleOpenInInspector = (e: React.MouseEvent) => {
     e.stopPropagation();
     onOpenInInspector?.();
   };
 
-  // Icon size based on bucket
+  // Icon size for external link button based on bucket
   const iconSize = useMemo(() => {
-    if (isXs) return 10;
+    if (bucket === "xl") return 16;
+    if (bucket === "lg") return 14;
+    if (bucket === "md") return 14;
     if (bucket === "sm") return 12;
-    return 14;
-  }, [bucket, isXs]);
+    return 10;
+  }, [bucket]);
+
+  // Format the issue summary parts (count separate for prominent styling)
+  const { count: issueCount, suffix } = formatIssueSummaryParts(
+    count,
+    fileCount
+  );
+
+  // Get font sizes based on bucket
+  const labelFontSize = getLabelFontSize(bucket);
+  const summaryFontSize = getSummaryFontSize(bucket);
+
+  // Get path font size (smaller than summary)
+  const pathFontSize = bucket === "xs" ? "text-[10px]" : "text-xs";
 
   return (
     <motion.div
@@ -255,60 +231,73 @@ export function Tile({
       }}
       className={cn(tileVariants({ selected: isSelected, size: bucket }))}
     >
-      {/* Top section: Label and open in inspector button */}
-      <div className="flex items-start justify-between gap-1.5">
-        <div className="flex-1 min-w-0">
-          <AdaptiveTitle
-            label={label}
-            bucket={bucket}
-            tileWidth={tileWidth}
-            icon={icon}
-          />
+      {/* Content: path + label at top, issue summary at bottom */}
+      <div className="flex flex-col justify-between h-full">
+        {/* Top section: path, icon + label, and inspector button */}
+        <div className="flex items-start justify-between gap-1.5">
+          <div className="flex-1 min-w-0 flex flex-col">
+            {/* Path (subtitle) - small subdued text above label, mono for files */}
+            {subtitle && (
+              <div
+                className={cn(
+                  "text-muted-foreground/50 truncate mb-0.5",
+                  pathFontSize,
+                  tileType === "file" && "font-mono"
+                )}
+              >
+                {subtitle}
+              </div>
+            )}
 
-          {/* Subtitle - path or description (hidden for compact tiles) */}
-          {subtitle && !isCompact && (
-            <div className="mt-2 text-xs font-normal text-muted-foreground/60 truncate tracking-wide">
-              {subtitle}
-            </div>
-          )}
+            {/* Label */}
+            <span
+              className={cn(
+                "font-light leading-tight tracking-tight text-foreground line-clamp-2",
+                labelFontSize
+              )}
+              title={label}
+            >
+              {label}
+            </span>
+          </div>
 
-          {/* Large tile preview content */}
-          {isLarge && (
-            <LargeTilePreview
-              previewMessages={previewMessages}
-              bucket={bucket}
-            />
+          {/* Open in inspector button */}
+          {onOpenInInspector && (
+            <motion.button
+              onClick={handleOpenInInspector}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: isHovered ? 1 : 0 }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ duration: 0.1 }}
+              className="shrink-0 p-1 -mt-0.5 -mr-0.5 rounded-lg text-muted-foreground/50 hover:text-foreground/70 hover:bg-foreground/6 transition-colors"
+              title="Open in inspector"
+              aria-label="Open in inspector"
+            >
+              <ExternalLinkIcon size={iconSize} />
+            </motion.button>
           )}
         </div>
 
-        {/* Open in inspector button */}
-        {onOpenInInspector && (
-          <motion.button
-            onClick={handleOpenInInspector}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: isHovered ? 1 : 0 }}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ duration: 0.1 }}
-            className="flex-shrink-0 p-1 -mt-0.5 -mr-0.5 rounded-lg text-muted-foreground/50 hover:text-foreground/70 hover:bg-foreground/[0.06] transition-colors"
-            title="Open in inspector"
-            aria-label="Open in inspector"
-          >
-            <ExternalLinkIcon size={iconSize} />
-          </motion.button>
-        )}
-      </div>
-
-      {/* Bottom section: Count */}
-      <div className="flex items-end justify-between gap-2">
-        {/* Large count number */}
-        <span className={cn(countVariants({ size: bucket }))}>
-          {count}
-        </span>
+        {/* Bottom section: Issue summary */}
+        <div
+          className={cn(
+            "flex items-baseline gap-1 mt-auto pt-2",
+            summaryFontSize
+          )}
+        >
+          <span className={cn("font-light text-foreground", labelFontSize)}>
+            {issueCount}
+          </span>
+          <span className="font-normal text-muted-foreground/60">{suffix}</span>
+        </div>
       </div>
 
       {/* Hover highlight overlay */}
       <HoverOverlay isHovered={isHovered} />
+
+      {/* Type gradient flourish */}
+      <TypeGradient tileType={tileType} />
     </motion.div>
   );
 }

@@ -241,7 +241,7 @@ describe("aggregateByFile", () => {
     expect(file2Tile?.count).toBe(1);
   });
 
-  it("returns filename as label, directory as subtitle", () => {
+  it("returns filename as label, full path as subtitle", () => {
     const issues: Issue[] = [
       createMockIssue({ ruleId: "rule-a", filePath: "src/components/Button.tsx" }),
     ];
@@ -249,7 +249,7 @@ describe("aggregateByFile", () => {
     const result = aggregateByFile(issues, "rule-a");
 
     expect(result[0].label).toBe("Button.tsx");
-    expect(result[0].subtitle).toBe("src/components");
+    expect(result[0].subtitle).toBe("src/components/Button.tsx");
   });
 
   it("sets metadata.isFile = true and metadata.ruleId", () => {
@@ -288,7 +288,7 @@ describe("aggregateByFile", () => {
     const result = aggregateByFile(issues, "rule-a");
 
     expect(result[0].label).toBe("file.tsx");
-    expect(result[0].subtitle).toBe("/");
+    expect(result[0].subtitle).toBe("file.tsx");
   });
 
   it("includes severity breakdown per file", () => {

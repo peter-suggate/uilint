@@ -94,9 +94,9 @@ describe("TileGrid - rendering", () => {
     expect(container.textContent).toContain("25");
   });
 
-  it("renders items with subtitles", () => {
+  it("renders items with issue summary", () => {
     const items: BaseTileItem[] = [
-      { id: "1", label: "Rule A", count: 10, subtitle: "path/to/file.ts" },
+      { id: "1", label: "Rule A", count: 10, fileCount: 3 },
     ];
 
     const { container } = render(
@@ -107,7 +107,9 @@ describe("TileGrid - rendering", () => {
       />
     );
 
-    expect(container.textContent).toContain("path/to/file.ts");
+    // Count is displayed prominently, suffix shows "issues in X files"
+    expect(container.textContent).toContain("10");
+    expect(container.textContent).toContain("issues in 3 files");
   });
 
   it("renders with custom available width", () => {

@@ -88,10 +88,9 @@ export interface HierarchyNode<T> {
   subtitle?: string;
 
   /**
-   * Optional icon to display in the tile.
-   * Can be a React component, emoji, or any renderable element.
+   * Tile type for visual differentiation (gradient color).
    */
-  icon?: ReactNode;
+  tileType?: "rule" | "file";
 
   /**
    * Optional count for badge display and bucket sizing.

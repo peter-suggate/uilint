@@ -35,15 +35,6 @@ vi.mock("motion/react", () => {
   };
 });
 
-// Mock the useAdaptiveText hook
-vi.mock("../../hooks/useAdaptiveText", () => ({
-  useTileAdaptiveText: () => ({
-    fontSize: 15,
-    scale: 1,
-    isScaled: false,
-    needsTruncation: false,
-  }),
-}));
 
 describe("Tile - rendering", () => {
   afterEach(() => {
@@ -66,118 +57,110 @@ describe("Tile - rendering", () => {
     expect(container.textContent).toContain("42");
   });
 
-  it("renders subtitle when provided for non-compact bucket", () => {
+  it("renders issue summary with file count", () => {
     const { container } = render(
       <Tile
         id="test-1"
         label="Test Rule"
-        subtitle="Additional info here"
-        count={5}
+        count={72}
+        fileCount={4}
         bucket="md"
         isSelected={false}
         onClick={vi.fn()}
       />
     );
 
-    expect(container.textContent).toContain("Additional info here");
+    // Count is displayed prominently, suffix shows "issues in X files"
+    expect(container.textContent).toContain("72");
+    expect(container.textContent).toContain("issues in 4 files");
   });
 
-  it("does not render subtitle for xs bucket", () => {
+  it("renders issue summary without file count", () => {
     const { container } = render(
       <Tile
         id="test-1"
         label="Test Rule"
-        subtitle="Hidden subtitle"
-        count={5}
-        bucket="xs"
+        count={12}
+        bucket="md"
         isSelected={false}
         onClick={vi.fn()}
       />
     );
 
-    expect(container.textContent).not.toContain("Hidden subtitle");
+    // Count is displayed prominently, suffix shows "issues"
+    expect(container.textContent).toContain("12");
+    expect(container.textContent).toContain("issues");
   });
 
-  it("does not render subtitle for sm bucket", () => {
+  it("uses singular 'issue' for count of 1", () => {
     const { container } = render(
       <Tile
         id="test-1"
         label="Test Rule"
-        subtitle="Hidden subtitle"
-        count={5}
-        bucket="sm"
+        count={1}
+        bucket="md"
         isSelected={false}
         onClick={vi.fn()}
       />
     );
 
-    expect(container.textContent).not.toContain("Hidden subtitle");
+    // Count is displayed prominently, suffix shows "issue" (singular)
+    expect(container.textContent).toContain("1");
+    expect(container.textContent).toContain("issue");
+    expect(container.textContent).not.toContain("issues");
   });
 
-  it("renders with icon when provided", () => {
-    const TestIcon = () => <span data-testid="test-icon">🔧</span>;
-    const { getByTestId } = render(
+  it("renders with tileType rule gradient", () => {
+    const { container } = render(
       <Tile
         id="test-1"
         label="Test Rule"
         count={5}
         bucket="md"
-        icon={<TestIcon />}
+        tileType="rule"
         isSelected={false}
         onClick={vi.fn()}
       />
     );
 
-    expect(getByTestId("test-icon")).toBeTruthy();
+    // Verify the component renders without error
+    expect(container.textContent).toContain("Test Rule");
   });
 
-  it("renders preview messages for large bucket tiles", () => {
+  it("renders with tileType file gradient", () => {
+    const { container } = render(
+      <Tile
+        id="test-1"
+        label="Test File"
+        count={5}
+        bucket="md"
+        tileType="file"
+        isSelected={false}
+        onClick={vi.fn()}
+      />
+    );
+
+    // Verify the component renders without error
+    expect(container.textContent).toContain("Test File");
+  });
+
+  it("uses singular 'file' for fileCount of 1", () => {
     const { container } = render(
       <Tile
         id="test-1"
         label="Test Rule"
         count={5}
-        bucket="lg"
+        fileCount={1}
+        bucket="md"
         isSelected={false}
         onClick={vi.fn()}
-        previewMessages={["First preview message", "Second preview message"]}
       />
     );
 
-    expect(container.textContent).toContain("First preview message");
-  });
-
-  it("renders preview messages for xl bucket tiles", () => {
-    const { container } = render(
-      <Tile
-        id="test-1"
-        label="Test Rule"
-        count={5}
-        bucket="xl"
-        isSelected={false}
-        onClick={vi.fn()}
-        previewMessages={["First preview message", "Second preview message"]}
-      />
-    );
-
-    expect(container.textContent).toContain("First preview message");
-    expect(container.textContent).toContain("Second preview message");
-  });
-
-  it("does not render preview messages for small bucket tiles", () => {
-    const { container } = render(
-      <Tile
-        id="test-1"
-        label="Test Rule"
-        count={5}
-        bucket="sm"
-        isSelected={false}
-        onClick={vi.fn()}
-        previewMessages={["First preview message"]}
-      />
-    );
-
-    expect(container.textContent).not.toContain("First preview message");
+    // Count is displayed prominently, suffix shows "issues in 1 file" (singular)
+    expect(container.textContent).toContain("5");
+    expect(container.textContent).toContain("issues in 1 file");
+    expect(container.textContent).not.toContain("1 files");
   });
 
   it("renders data-tile-id attribute", () => {

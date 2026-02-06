@@ -138,15 +138,14 @@ export function aggregateByFile(issues: Issue[], ruleId: string): TileItem[] {
   for (const [filePath, fileIssues] of issuesByFile) {
     const severityCounts = countSeverities(fileIssues);
 
-    // Extract filename and directory for display
+    // Extract filename for display
     const parts = filePath.split("/");
     const fileName = parts.pop() || filePath;
-    const directory = parts.join("/") || "/";
 
     tiles.push({
       id: `file:${filePath}:${ruleId}`,
       label: fileName,
-      subtitle: directory,
+      subtitle: filePath,
       count: fileIssues.length,
       severityCounts,
       metadata: {
@@ -193,10 +192,9 @@ export function aggregateByFileGlobal(issues: Issue[]): TileItem[] {
   for (const [filePath, fileIssues] of issuesByFile) {
     const severityCounts = countSeverities(fileIssues);
 
-    // Extract filename and directory for display
+    // Extract filename for display
     const parts = filePath.split("/");
     const fileName = parts.pop() || filePath;
-    const directory = parts.join("/") || "/";
 
     // Get unique rule count for this file
     const uniqueRules = new Set(fileIssues.map((i) => i.ruleId));
@@ -204,7 +202,7 @@ export function aggregateByFileGlobal(issues: Issue[]): TileItem[] {
     tiles.push({
       id: `file:${filePath}`,
       label: fileName,
-      subtitle: directory,
+      subtitle: filePath,
       count: fileIssues.length,
       severityCounts,
       metadata: {
@@ -329,9 +327,10 @@ function aggregateByRuleWithIssues(
 
 /**
  * Get all issues from the ESLint plugin state as a flat array.
+ * Filters out issues from disabled rules.
  *
  * @param services - Plugin services for state access
- * @returns Flat array of all issues
+ * @returns Flat array of all issues (excluding disabled rules)
  */
 export function getAllIssues(services: PluginServices): Issue[] {
   const fullState = services.getState<{ plugins?: { eslint?: ESLintPluginSlice } }>();
@@ -341,10 +340,18 @@ export function getAllIssues(services: PluginServices): Issue[] {
     return [];
   }
 
+  // Get disabled rules set
+  const disabledRules = state.disabledRules ?? new Set<string>();
+
   // Flatten the Map<dataLoc, Issue[]> to Issue[]
   const allIssues: Issue[] = [];
   for (const issues of state.issues.values()) {
-    allIssues.push(...issues);
+    // Filter out issues from disabled rules
+    for (const issue of issues) {
+      if (!disabledRules.has(issue.ruleId)) {
+        allIssues.push(issue);
+      }
+    }
   }
 
   return allIssues;

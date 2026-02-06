@@ -29,13 +29,15 @@ export interface BaseTileItem {
   id: string;
   label: string;
   count: number;
+  /** Optional subtitle (e.g., file path) shown above label */
   subtitle?: string;
-  icon?: React.ReactNode;
+  /** Tile type for visual differentiation (gradient color) */
+  tileType?: "rule" | "file";
   severityCounts?: { error: number; warning: number; info: number };
-  /** Optional preview messages for large tiles */
-  previewMessages?: string[];
-  /** Optional file count for large tiles */
+  /** Number of files (for "X issues in Y files" display) */
   fileCount?: number;
+  /** Optional metadata for additional tile information */
+  metadata?: Record<string, unknown>;
 }
 
 export interface TileGridProps<T extends BaseTileItem> {
@@ -173,14 +175,13 @@ export function TileGrid<T extends BaseTileItem>({
                 id={item.id}
                 label={item.label}
                 subtitle={item.subtitle}
-                icon={item.icon}
+                tileType={item.tileType ?? (item.metadata?.tileType as "rule" | "file" | undefined)}
                 count={item.count}
+                fileCount={item.fileCount}
                 bucket={tileLayout.bucket}
-                tileWidth={tileLayout.height ? parseFloat(tileLayout.width) : 166}
                 isSelected={globalIndex === selectedIndex}
                 onClick={() => onTileClick(item)}
                 onOpenInInspector={onOpenInInspector ? () => onOpenInInspector(item) : undefined}
-                previewMessages={item.previewMessages}
               />
             </motion.div>
           );

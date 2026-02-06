@@ -1,7 +1,7 @@
 export { CommandPalette } from "./CommandPalette";
 export { EmptyState } from "./EmptyState";
-export { Tile } from "./Tile";
-export { TileGrid } from "./TileGrid";
+export { Tile } from "../HierarchicalTiles/Tile";
+export { TileGrid } from "../HierarchicalTiles/TileGrid";
 
 // Expandable tile components
 export { ExpandableTile } from "./ExpandableTile";
