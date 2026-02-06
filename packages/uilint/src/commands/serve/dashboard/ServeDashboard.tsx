@@ -32,6 +32,7 @@ export function ServeDashboard({
 
   // Subscribe to store updates
   const [state, setState] = useState<DashboardState>(store.getState());
+  const [scrollOffset, setScrollOffset] = useState(0);
 
   useEffect(() => {
     const unsubscribe = store.subscribe(() => {
@@ -39,6 +40,14 @@ export function ServeDashboard({
     });
     return unsubscribe;
   }, [store]);
+
+  // Clamp scrollOffset when activities change
+  useEffect(() => {
+    setScrollOffset((prev) => {
+      const maxOffset = Math.max(0, state.activities.length - 15);
+      return Math.min(prev, maxOffset);
+    });
+  }, [state.activities.length]);
 
   // Check Ollama status periodically
   useEffect(() => {
@@ -50,7 +59,7 @@ export function ServeDashboard({
         });
 
         if (response.ok) {
-          const data = await response.json();
+          const data = (await response.json()) as { models?: Array<{ name?: string }> };
           const models = data.models || [];
           // Get the first model name as the "active" model indicator
           const modelName = models.length > 0 ? models[0].name : undefined;
@@ -90,13 +99,24 @@ export function ServeDashboard({
           exit();
         } else if (input === "c") {
           store.clearActivities();
+          setScrollOffset(0);
         } else if (input === "v") {
           store.toggleVerbose();
+        } else if (input === "f") {
+          store.cycleFilter();
+          setScrollOffset(0);
         } else if (input === "r") {
           onRebuildIndex?.();
+        } else if (key.downArrow || input === "j") {
+          setScrollOffset((prev) => {
+            const maxOffset = Math.max(0, state.activities.length - 15);
+            return Math.min(maxOffset, prev + 1);
+          });
+        } else if (key.upArrow || input === "k") {
+          setScrollOffset((prev) => Math.max(0, prev - 1));
         }
       },
-      [exit, onQuit, onRebuildIndex, store]
+      [exit, onQuit, onRebuildIndex, store, state.activities.length]
     )
   );
 
@@ -124,9 +144,11 @@ export function ServeDashboard({
         activities={state.activities}
         maxVisible={15}
         verbose={state.verbose}
+        scrollOffset={scrollOffset}
+        activeFilter={state.activeFilter}
       />
 
-      <HelpBar verbose={state.verbose} />
+      <HelpBar verbose={state.verbose} activeFilter={state.activeFilter} />
     </Box>
   );
 }

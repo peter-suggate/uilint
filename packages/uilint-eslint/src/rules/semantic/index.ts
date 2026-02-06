@@ -47,7 +47,7 @@ export const meta = defineRuleMeta({
     {
       type: "ollama",
       description: "Requires Ollama running locally",
-      setupHint: "Run: ollama serve && ollama pull qwen3-coder:30b",
+      setupHint: "Run: ollama serve && ollama pull qwen3-vl:8b-instruct",
     },
     {
       type: "styleguide",
@@ -56,15 +56,17 @@ export const meta = defineRuleMeta({
     },
   ],
   npmDependencies: ["xxhash-wasm"],
-  defaultOptions: [{ model: "qwen3-coder:30b", styleguidePath: ".uilint/styleguide.md" }],
+  defaultOptions: [
+    { model: "qwen3-vl:8b-instruct", styleguidePath: ".uilint/styleguide.md" },
+  ],
   optionSchema: {
     fields: [
       {
         key: "model",
         label: "Ollama model to use",
         type: "text",
-        defaultValue: "qwen3-coder:30b",
-        placeholder: "qwen3-coder:30b",
+        defaultValue: "qwen3-vl:8b-instruct",
+        placeholder: "qwen3-vl:8b-instruct",
         description: "The Ollama model name for semantic analysis",
       },
       {
@@ -96,7 +98,7 @@ styleguide. It catches semantic issues that pattern-based rules can't detect, li
 ## Prerequisites
 
 1. **Ollama installed**: \`brew install ollama\` or from ollama.ai
-2. **Model pulled**: \`ollama pull qwen3-coder:30b\` (or your preferred model)
+2. **Model pulled**: \`ollama pull qwen3-vl:8b-instruct\` (or your preferred model)
 3. **Styleguide created**: Create \`.uilint/styleguide.md\` describing your conventions
 
 ## Example Styleguide
@@ -122,7 +124,7 @@ styleguide. It catches semantic issues that pattern-based rules can't detect, li
 \`\`\`js
 // eslint.config.js
 "uilint/semantic": ["warn", {
-  model: "qwen3-coder:30b",           // Ollama model name
+  model: "qwen3-vl:8b-instruct",           // Ollama model name
   styleguidePath: ".uilint/styleguide.md"  // Path to styleguide
 }]
 \`\`\`
@@ -135,6 +137,7 @@ styleguide. It catches semantic issues that pattern-based rules can't detect, li
 - Set to "off" in CI to avoid slow builds (use pre-commit hooks locally)
 `,
   isDirectoryBased: true,
+  sentinelMessageIds: ["analysisError"],
 });
 
 export default createRule<Options, MessageIds>({
@@ -181,12 +184,6 @@ export default createRule<Options, MessageIds>({
 
     // Skip if no styleguide
     if (!styleguide) {
-      console.error(
-        `[uilint] Styleguide not found (styleguidePath=${String(
-          options.styleguidePath ?? ""
-        )}, startDir=${fileDir})`
-      );
-
       return {
         Program(node) {
           context.report({
@@ -202,7 +199,6 @@ export default createRule<Options, MessageIds>({
     try {
       fileContent = readFileSync(filePath, "utf-8");
     } catch {
-      console.error(`[uilint] Failed to read file ${filePath}`);
       return {
         Program(node) {
           context.report({
@@ -269,12 +265,20 @@ export default createRule<Options, MessageIds>({
         });
 
         for (const issue of issues) {
-          context.report({
-            node,
-            loc: { line: issue.line, column: issue.column || 0 },
-            messageId: "semanticIssue",
-            data: { message: issue.message },
-          });
+          if (issue.message.startsWith("[SEMANTIC_ERROR] ")) {
+            context.report({
+              node,
+              messageId: "analysisError",
+              data: { error: issue.message.slice("[SEMANTIC_ERROR] ".length) },
+            });
+          } else {
+            context.report({
+              node,
+              loc: { line: issue.line, column: issue.column || 0 },
+              messageId: "semanticIssue",
+              data: { message: issue.message },
+            });
+          }
         }
       },
     };
@@ -316,24 +320,30 @@ function runSemanticAnalysisSync(
   const startTime = Date.now();
   const fileDisplay = filePath ? ` ${filePath}` : "";
 
-  console.error(`[uilint] Starting semantic analysis (sync)${fileDisplay}`);
-  console.error(`[uilint] Model: ${model}`);
+  // Debug logging suppressed — errors flow through sentinel issues to the dashboard.
 
   // Build prompt in-process (pure string building).
   const prompt = buildSourceScanPrompt(sourceCode, styleguide, {});
 
-  // Avoid `uilint-core/node` exports *and* CJS resolution:
-  // resolve the installed dependency by file URL relative to this plugin bundle.
-  // When built, `import.meta.url` points at `.../uilint-eslint/dist/index.js`,
-  // and the dependency lives at `.../uilint-eslint/node_modules/uilint-core/dist/node.js`.
-  const coreNodeUrl = new URL(
-    "../node_modules/uilint-core/dist/node.js",
-    import.meta.url
-  ).href;
+  // Resolve uilint-core/node for the child process.
+  // We use import.meta.resolve (Node 20+) to find the actual module through
+  // Node's resolution system, which works regardless of where this rule file
+  // is loaded from (e.g., .uilint/rules/ copies vs uilint-eslint/dist/).
+  // Fallback to relative path from import.meta.url for older Node versions.
+  let coreNodeUrl: string;
+  try {
+    coreNodeUrl = import.meta.resolve("uilint-core/node");
+  } catch {
+    // Fallback: relative resolution from this file's location
+    coreNodeUrl = new URL(
+      "../node_modules/uilint-core/dist/node.js",
+      import.meta.url
+    ).href;
+  }
 
   const childScript = `
     import * as coreNode from ${JSON.stringify(coreNodeUrl)};
-    const { OllamaClient, logInfo, logWarning, createProgress, pc } = coreNode;
+    const { OllamaClient, logInfo, logWarning } = coreNode;
     const chunks = [];
     for await (const c of process.stdin) chunks.push(c);
     const input = JSON.parse(Buffer.concat(chunks).toString("utf8"));
@@ -348,25 +358,14 @@ function runSemanticAnalysisSync(
       process.exit(0);
     }
 
-    logInfo(\`Ollama connected \${pc.dim(\`(model: \${model})\`)}\`);
-    const progress = createProgress("Analyzing with LLM...");
+    logInfo(\`Ollama connected (model: \${model})\`);
+    logInfo("Analyzing with LLM...");
     try {
-      const response = await client.complete(prompt, {
-        json: true,
-        stream: true,
-        onProgress: (latestLine) => {
-          const maxLen = 60;
-          const display =
-            latestLine.length > maxLen
-              ? latestLine.slice(0, maxLen) + "…"
-              : latestLine;
-          progress.update(\`LLM: \${pc.dim(display || "...")}\`);
-        },
-      });
-      progress.succeed("LLM complete");
+      const response = await client.complete(prompt, { json: true });
+      logInfo("LLM complete");
       process.stdout.write(response);
     } catch (e) {
-      progress.fail(\`LLM failed: \${e instanceof Error ? e.message : String(e)}\`);
+      logWarning(\`LLM failed: \${e instanceof Error ? e.message : String(e)}\`);
       process.exit(1);
     }
   `;
@@ -377,33 +376,77 @@ function runSemanticAnalysisSync(
     {
       input: JSON.stringify({ model, prompt }),
       encoding: "utf8",
-      stdio: ["pipe", "pipe", "inherit"],
+      stdio: ["pipe", "pipe", "pipe"],
       maxBuffer: 20 * 1024 * 1024,
     }
   );
 
   const elapsed = Date.now() - startTime;
 
+  const childStderr = (child.stderr || "").trim();
+
   if (child.error) {
-    console.error(
-      `[uilint] Semantic analysis failed after ${elapsed}ms: ${child.error.message}`
-    );
-    return [];
+    const detail = [
+      child.error.message,
+      childStderr ? `stderr: ${childStderr}` : null,
+      `model: ${model}`,
+      `elapsed: ${elapsed}ms`,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+    // Error detail flows through the sentinel issue to the dashboard.
+    return [
+      {
+        line: 1,
+        column: 0,
+        message: `[SEMANTIC_ERROR] ${detail}`,
+        ruleId: "uilint/semantic",
+        severity: 1 as const,
+      },
+    ];
   }
 
   if (typeof child.status === "number" && child.status !== 0) {
-    console.error(
-      `[uilint] Semantic analysis failed after ${elapsed}ms: child exited ${child.status}`
-    );
-    return [];
+    const detail = [
+      `child exited ${child.status}`,
+      childStderr ? `stderr: ${childStderr}` : null,
+      `model: ${model}`,
+      `elapsed: ${elapsed}ms`,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+    // Error detail flows through the sentinel issue to the dashboard.
+    return [
+      {
+        line: 1,
+        column: 0,
+        message: `[SEMANTIC_ERROR] ${detail}`,
+        ruleId: "uilint/semantic",
+        severity: 1 as const,
+      },
+    ];
   }
 
   const responseText = (child.stdout || "").trim();
   if (!responseText) {
-    console.error(
-      `[uilint] Semantic analysis returned empty response (${elapsed}ms)`
-    );
-    return [];
+    const detail = [
+      "empty response",
+      childStderr ? `stderr: ${childStderr}` : null,
+      `model: ${model}`,
+      `elapsed: ${elapsed}ms`,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+    // Error detail flows through the sentinel issue to the dashboard.
+    return [
+      {
+        line: 1,
+        column: 0,
+        message: `[SEMANTIC_ERROR] ${detail}`,
+        ruleId: "uilint/semantic",
+        severity: 1 as const,
+      },
+    ];
   }
 
   try {
@@ -419,19 +462,28 @@ function runSemanticAnalysisSync(
       severity: 1 as const,
     }));
 
-    if (issues.length > 0) {
-      console.error(`[uilint] Found ${issues.length} issue(s) (${elapsed}ms)`);
-    } else {
-      console.error(`[uilint] No issues found (${elapsed}ms)`);
-    }
+    // Success info suppressed — results flow through ESLint to the dashboard.
 
     return issues;
   } catch (e) {
-    console.error(
-      `[uilint] Semantic analysis failed to parse response after ${elapsed}ms: ${
-        e instanceof Error ? e.message : String(e)
-      }`
-    );
-    return [];
+    const parseError = e instanceof Error ? e.message : String(e);
+    const detail = [
+      `parse error: ${parseError}`,
+      childStderr ? `stderr: ${childStderr}` : null,
+      `model: ${model}`,
+      `elapsed: ${elapsed}ms`,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+    // Error detail flows through the sentinel issue to the dashboard.
+    return [
+      {
+        line: 1,
+        column: 0,
+        message: `[SEMANTIC_ERROR] ${detail}`,
+        ruleId: "uilint/semantic",
+        severity: 1 as const,
+      },
+    ];
   }
 }

@@ -40,7 +40,14 @@
  * - Server -> Client: { type: 'screenshot:error', error: string, requestId?: string }
  */
 
-import { existsSync, statSync, readdirSync, readFileSync, mkdirSync, writeFileSync } from "fs";
+import {
+  existsSync,
+  statSync,
+  readdirSync,
+  readFileSync,
+  mkdirSync,
+  writeFileSync,
+} from "fs";
 import { createRequire } from "module";
 import { dirname, resolve, relative, join, parse } from "path";
 import { WebSocketServer, WebSocket } from "ws";
@@ -85,6 +92,7 @@ import {
   logServerError,
   logServerWarning,
   logServerInfo,
+  logRuleInternalError,
   setWorkspaceInfo,
   setServerRunning,
   updateSubscriptionCount,
@@ -108,6 +116,34 @@ import {
 } from "../utils/coverage-prepare.js";
 import { enrichIssuesWithScopeInfo } from "../utils/eslint-utils.js";
 
+// ---------------------------------------------------------------------------
+// Sentinel issue detection (generic, driven by rule metadata)
+// ---------------------------------------------------------------------------
+// Rules with fallible backends (LLM, external services) can declare
+// `sentinelMessageIds` in their metadata. Issues reported with those
+// messageIds are internal error signals, not user-facing lint issues.
+// The serve command logs them to the dashboard and filters them out.
+// ---------------------------------------------------------------------------
+
+/** Set of "ruleId:messageId" keys for fast sentinel lookup */
+const sentinelKeys = new Set<string>();
+for (const rule of ruleRegistry) {
+  if (rule.sentinelMessageIds) {
+    for (const mid of rule.sentinelMessageIds) {
+      sentinelKeys.add(`uilint/${rule.id}:${mid}`);
+    }
+  }
+}
+
+/**
+ * Check if a lint issue is a sentinel (internal error) that should be
+ * filtered from client results and logged to the dashboard instead.
+ */
+function isSentinelIssue(issue: LintIssue): boolean {
+  if (!issue.ruleId || !issue.messageId) return false;
+  return sentinelKeys.has(`${issue.ruleId}:${issue.messageId}`);
+}
+
 export interface ServeOptions {
   port?: number;
   /** Disable dashboard UI (use simple logging) */
@@ -119,10 +155,19 @@ export interface LintIssue {
   column?: number;
   message: string;
   ruleId?: string;
+  /** ESLint messageId (e.g. "semanticIssue", "analysisError") — used for sentinel detection */
+  messageId?: string;
   dataLoc?: string;
   scopeInfo?: {
     enclosingScope: string | null;
-    scopeType: "function" | "arrow-function" | "component" | "hook" | "method" | "class" | "module";
+    scopeType:
+      | "function"
+      | "arrow-function"
+      | "component"
+      | "hook"
+      | "method"
+      | "class"
+      | "module";
     parentScope?: string;
     jsxElementType?: string;
   };
@@ -477,8 +522,9 @@ function detectPostToolUseHook(projectRoot: string): {
       const hooks = settings.hooks?.PostToolUse;
       if (Array.isArray(hooks)) {
         // Check if any hook matches Edit or Write tools
-        const hasEditHook = hooks.some((h: { matcher?: string }) =>
-          h.matcher?.includes("Edit") || h.matcher?.includes("Write")
+        const hasEditHook = hooks.some(
+          (h: { matcher?: string }) =>
+            h.matcher?.includes("Edit") || h.matcher?.includes("Write")
         );
         if (hasEditHook) {
           return { enabled: true, provider: "claude" };
@@ -515,8 +561,15 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 
+// Separate caches for two-pass lint
+const fastCache = new Map<string, CacheEntry>();
+const semanticCache = new Map<string, CacheEntry>();
+
 // ESLint instances cached per detected project root
 const eslintInstances = new Map<string, unknown>();
+
+// ESLint instances with semantic rule disabled (for fast pass)
+const eslintFastInstances = new Map<string, unknown>();
 
 // Vision analyzer instance (lazy loaded)
 type VisionIssue = {
@@ -545,6 +598,30 @@ function getVisionAnalyzerInstance(): ReturnType<typeof getCoreVisionAnalyzer> {
     visionAnalyzer = getCoreVisionAnalyzer();
   }
   return visionAnalyzer;
+}
+
+// =============================================================================
+// Ollama Mutex
+// =============================================================================
+// Prevents concurrent Ollama model usage between vision (qwen3-vl) and
+// duplicates indexing (nomic-embed-text). Ollama needs to swap models in/out
+// of VRAM, and concurrent requests cause contention and slowdowns.
+
+let ollamaMutexPromise: Promise<void> = Promise.resolve();
+
+/**
+ * Acquire exclusive access to Ollama. Returns a release function.
+ * Usage:
+ *   const release = await acquireOllamaMutex();
+ *   try { ... } finally { release(); }
+ */
+function acquireOllamaMutex(): Promise<() => void> {
+  let release: () => void;
+  const prev = ollamaMutexPromise;
+  ollamaMutexPromise = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return prev.then(() => release!);
 }
 
 // Default styleguide search root for vision analysis (set when `serve()` starts)
@@ -805,7 +882,243 @@ async function getESLintForProject(projectCwd: string): Promise<any | null> {
 }
 
 /**
- * Lint a file and return issues
+ * Create an ESLint instance with rule overrides (for two-pass lint).
+ * Uses ESLint 9 flat config's overrideConfig option.
+ */
+async function getESLintWithOverrides(
+  projectCwd: string,
+  overrideRules: Record<string, string>,
+  instanceCache: Map<string, unknown>
+): Promise<any | null> {
+  const cacheKey = `${projectCwd}::${JSON.stringify(overrideRules)}`;
+  const cached = instanceCache.get(cacheKey);
+  if (cached) return cached as any;
+
+  try {
+    const req = createRequire(join(projectCwd, "package.json"));
+    const mod = req("eslint");
+    const ESLintCtor =
+      mod?.ESLint ?? mod?.default?.ESLint ?? mod?.default ?? mod;
+    if (!ESLintCtor) return null;
+
+    const eslint = new ESLintCtor({
+      cwd: projectCwd,
+      overrideConfig: { rules: overrideRules },
+    });
+    instanceCache.set(cacheKey, eslint);
+    return eslint;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if the semantic rule is enabled in the ESLint config.
+ */
+function isSemanticRuleEnabled(): boolean {
+  const eslintConfigPath = findEslintConfigFile(serverAppRootForVision);
+  if (!eslintConfigPath) return false;
+
+  const ruleConfigs = readRuleConfigsFromConfig(eslintConfigPath);
+  const semanticConfig = ruleConfigs.get("semantic");
+  if (!semanticConfig) return false;
+
+  return semanticConfig.severity !== "off";
+}
+
+/**
+ * Process raw ESLint messages into LintIssue[] with JSX mapping and scope info.
+ * Shared between fast and semantic passes.
+ */
+function processLintResults(
+  absolutePath: string,
+  projectCwd: string,
+  messages: any[],
+  onProgress: (phase: string) => void
+): LintIssue[] {
+  const dataLocFile = normalizeDataLocFilePath(absolutePath, projectCwd);
+  let spans: JsxElementSpan[] = [];
+  let lineStarts: number[] = [];
+  let codeLength = 0;
+  let fileCode: string | null = null;
+
+  try {
+    onProgress("Building JSX map...");
+    fileCode = readFileSync(absolutePath, "utf-8");
+    codeLength = fileCode.length;
+    lineStarts = buildLineStarts(fileCode);
+    spans = buildJsxElementSpans(fileCode, dataLocFile);
+    onProgress(`JSX map: ${spans.length} element(s)`);
+  } catch (e) {
+    onProgress("JSX map failed (falling back to unmapped issues)");
+    logServerError("JSX map failed", e instanceof Error ? e.message : String(e));
+    spans = [];
+    lineStarts = [];
+    codeLength = 0;
+    fileCode = null;
+  }
+
+  let issues: LintIssue[] = messages
+    .filter((m: any) => typeof m?.message === "string")
+    .map((m: any) => {
+      const line = typeof m.line === "number" ? m.line : 1;
+      const column = typeof m.column === "number" ? m.column : undefined;
+      const mappedDataLoc =
+        spans.length > 0 && lineStarts.length > 0 && codeLength > 0
+          ? mapMessageToDataLoc({
+              spans,
+              lineStarts,
+              codeLength,
+              messageLine1: line,
+              messageCol1: column,
+            })
+          : undefined;
+      return {
+        line,
+        column,
+        message: m.message,
+        ruleId: typeof m.ruleId === "string" ? m.ruleId : undefined,
+        messageId: typeof m.messageId === "string" ? m.messageId : undefined,
+        dataLoc: mappedDataLoc,
+      } satisfies LintIssue;
+    });
+
+  const mappedCount = issues.filter((i) => Boolean(i.dataLoc)).length;
+  if (issues.length > 0) {
+    onProgress(`Mapped ${mappedCount}/${issues.length} issue(s) to JSX elements`);
+  }
+
+  // Enrich issues with scope information
+  if (fileCode && issues.length > 0) {
+    onProgress("Extracting scope info...");
+    issues = enrichIssuesWithScopeInfo(issues, fileCode);
+    const scopeCount = issues.filter((i) => Boolean(i.scopeInfo)).length;
+    onProgress(`Enriched ${scopeCount}/${issues.length} issue(s) with scope info`);
+  }
+
+  return issues;
+}
+
+/**
+ * Fast lint pass: runs all rules EXCEPT semantic.
+ * Non-blocking (no spawnSync calls).
+ */
+async function lintFileFast(
+  filePath: string,
+  onProgress: (phase: string) => void
+): Promise<LintIssue[]> {
+  const absolutePath = resolveRequestedFilePath(filePath);
+
+  if (!existsSync(absolutePath)) {
+    onProgress(`File not found: ${pc.dim(absolutePath)}`);
+    return [];
+  }
+
+  const mtimeMs = (() => {
+    try { return statSync(absolutePath).mtimeMs; } catch { return 0; }
+  })();
+
+  // Check fast-pass cache
+  const cached = fastCache.get(absolutePath);
+  if (cached && cached.mtimeMs === mtimeMs) {
+    onProgress("Cache hit (unchanged)");
+    return cached.issues;
+  }
+
+  const fileDir = dirname(absolutePath);
+  const projectCwd = findESLintCwd(fileDir);
+
+  onProgress(`Resolving ESLint project... ${pc.dim(projectCwd)}`);
+
+  const eslint = await getESLintWithOverrides(
+    projectCwd,
+    { "uilint/semantic": "off" },
+    eslintFastInstances
+  );
+  if (!eslint) {
+    logWarning(
+      `ESLint not found in project. Install it in ${pc.dim(projectCwd)} to enable server-side linting.`
+    );
+    onProgress("ESLint not available (install eslint in this project)");
+    return [];
+  }
+
+  try {
+    onProgress("Running ESLint...");
+    const results = await eslint.lintFiles([absolutePath]);
+    const messages =
+      Array.isArray(results) && results.length > 0
+        ? results[0].messages || []
+        : [];
+
+    const issues = processLintResults(absolutePath, projectCwd, messages, onProgress);
+
+    fastCache.set(absolutePath, { issues, mtimeMs, timestamp: Date.now() });
+    return issues;
+  } catch (error) {
+    logServerError("ESLint fast pass failed", error instanceof Error ? error.message : String(error));
+    return [];
+  }
+}
+
+/**
+ * Semantic lint pass: runs ALL ESLint rules then filters to only semantic results.
+ * This blocks the event loop via spawnSync in the semantic rule, so it should
+ * be called from a deferred context (setImmediate).
+ */
+async function lintFileSemantic(
+  filePath: string,
+  onProgress: (phase: string) => void
+): Promise<LintIssue[]> {
+  const absolutePath = resolveRequestedFilePath(filePath);
+
+  if (!existsSync(absolutePath)) return [];
+
+  const mtimeMs = (() => {
+    try { return statSync(absolutePath).mtimeMs; } catch { return 0; }
+  })();
+
+  // Check semantic-pass cache
+  const cached = semanticCache.get(absolutePath);
+  if (cached && cached.mtimeMs === mtimeMs) {
+    onProgress("Semantic cache hit (unchanged)");
+    return cached.issues;
+  }
+
+  const fileDir = dirname(absolutePath);
+  const projectCwd = findESLintCwd(fileDir);
+
+  // Use the default ESLint instance (all rules enabled including semantic)
+  const eslint = await getESLintForProject(projectCwd);
+  if (!eslint) return [];
+
+  try {
+    onProgress("Running semantic analysis...");
+    const results = await eslint.lintFiles([absolutePath]);
+    const messages =
+      Array.isArray(results) && results.length > 0
+        ? results[0].messages || []
+        : [];
+
+    // Filter to only semantic rule results
+    const semanticMessages = messages.filter(
+      (m: any) => m.ruleId === "uilint/semantic"
+    );
+
+    if (semanticMessages.length === 0) return [];
+
+    const issues = processLintResults(absolutePath, projectCwd, semanticMessages, onProgress);
+
+    semanticCache.set(absolutePath, { issues, mtimeMs, timestamp: Date.now() });
+    return issues;
+  } catch (error) {
+    logServerError("Semantic pass failed", error instanceof Error ? error.message : String(error));
+    return [];
+  }
+}
+
+/**
+ * Lint a file and return issues (legacy single-pass, used for backwards compat)
  */
 async function lintFile(
   filePath: string,
@@ -874,7 +1187,10 @@ async function lintFile(
     } catch (e) {
       // If parsing fails, we still return ESLint messages (unmapped).
       onProgress("JSX map failed (falling back to unmapped issues)");
-      console.error("[uilint-serve] JSX map failed:", e);
+      logServerError(
+        "JSX map failed",
+        e instanceof Error ? e.message : String(e)
+      );
       spans = [];
       lineStarts = [];
       codeLength = 0;
@@ -901,6 +1217,7 @@ async function lintFile(
           column,
           message: m.message,
           ruleId: typeof m.ruleId === "string" ? m.ruleId : undefined,
+          messageId: typeof m.messageId === "string" ? m.messageId : undefined,
           dataLoc: mappedDataLoc,
         } satisfies LintIssue;
       });
@@ -917,13 +1234,18 @@ async function lintFile(
       onProgress("Extracting scope info...");
       issues = enrichIssuesWithScopeInfo(issues, fileCode);
       const scopeCount = issues.filter((i) => Boolean(i.scopeInfo)).length;
-      onProgress(`Enriched ${scopeCount}/${issues.length} issue(s) with scope info`);
+      onProgress(
+        `Enriched ${scopeCount}/${issues.length} issue(s) with scope info`
+      );
     }
 
     cache.set(absolutePath, { issues, mtimeMs, timestamp: Date.now() });
     return issues;
   } catch (error) {
-    console.error("[uilint-serve] ESLint failed:", error);
+    logServerError(
+      "ESLint failed",
+      error instanceof Error ? error.message : String(error)
+    );
     return [];
   }
 }
@@ -989,23 +1311,82 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         );
       }
 
-      const issues = await lintFile(filePath, (phase) => {
+      // === PASS 1: Fast rules (non-blocking, no spawnSync) ===
+      const fastIssues = await lintFileFast(filePath, (phase) => {
         sendMessage(ws, { type: "lint:progress", filePath, requestId, phase });
       });
 
-      const elapsed = Date.now() - startedAt;
-      logLintDone(filePath, issues.length, elapsed);
+      const fastElapsed = Date.now() - startedAt;
 
-      // Update cache count in dashboard
-      updateCacheCount(cache.size);
+      // Filter sentinel issues from fast results
+      const fastSentinels = fastIssues.filter(isSentinelIssue);
+      for (const se of fastSentinels) {
+        logRuleInternalError(se.ruleId ?? "unknown", filePath, se.message);
+      }
+      const fastClientIssues = fastIssues.filter((i) => !isSentinelIssue(i));
 
-      sendMessage(ws, {
-        type: "lint:progress",
-        filePath,
-        requestId,
-        phase: `Done (${issues.length} issues, ${elapsed}ms)`,
-      });
-      sendMessage(ws, { type: "lint:result", filePath, requestId, issues });
+      logLintDone(filePath, fastClientIssues.length, fastElapsed);
+      updateCacheCount(fastCache.size + semanticCache.size);
+
+      // Send fast results immediately
+      sendMessage(ws, { type: "lint:result", filePath, requestId, issues: fastClientIssues });
+
+      // === PASS 2: Semantic analysis (deferred to unblock event loop) ===
+      if (isSemanticRuleEnabled()) {
+        sendMessage(ws, {
+          type: "lint:progress",
+          filePath,
+          requestId,
+          phase: `Fast lint done (${fastClientIssues.length} issues, ${fastElapsed}ms). Running semantic...`,
+        });
+
+        // Defer so the event loop can process WebSocket pings/messages
+        setImmediate(async () => {
+          try {
+            const semanticStart = Date.now();
+            const semanticIssues = await lintFileSemantic(filePath, (phase) => {
+              sendMessage(ws, { type: "lint:progress", filePath, requestId, phase });
+            });
+
+            // Filter sentinel issues from semantic results
+            const semanticSentinels = semanticIssues.filter(isSentinelIssue);
+            for (const se of semanticSentinels) {
+              logRuleInternalError(se.ruleId ?? "unknown", filePath, se.message);
+            }
+            const semanticClientIssues = semanticIssues.filter((i) => !isSentinelIssue(i));
+
+            const totalElapsed = Date.now() - startedAt;
+            const totalIssues = fastClientIssues.length + semanticClientIssues.length;
+
+            if (semanticClientIssues.length > 0) {
+              sendMessage(ws, { type: "lint:result", filePath, requestId, issues: semanticClientIssues });
+            }
+
+            sendMessage(ws, {
+              type: "lint:progress",
+              filePath,
+              requestId,
+              phase: `Done (${totalIssues} issues, ${totalElapsed}ms)`,
+            });
+          } catch (error) {
+            logServerError("Semantic pass failed", error instanceof Error ? error.message : String(error));
+            sendMessage(ws, {
+              type: "lint:progress",
+              filePath,
+              requestId,
+              phase: `Done (${fastClientIssues.length} issues, ${Date.now() - startedAt}ms)`,
+            });
+          }
+        });
+      } else {
+        // No semantic rule — send Done immediately
+        sendMessage(ws, {
+          type: "lint:progress",
+          filePath,
+          requestId,
+          phase: `Done (${fastClientIssues.length} issues, ${fastElapsed}ms)`,
+        });
+      }
       break;
     }
 
@@ -1019,28 +1400,73 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       });
 
       const startedAt = Date.now();
-      const issues = await lintFile(filePath, (phase) => {
+
+      // === PASS 1: Fast rules ===
+      const fastIssues = await lintFileFast(filePath, (phase) => {
         sendMessage(ws, { type: "lint:progress", filePath, requestId, phase });
       });
 
-      // Filter to only issues matching the dataLoc
-      const filteredIssues = issues.filter(
-        (issue) => issue.dataLoc === dataLoc
-      );
+      const fastSentinels = fastIssues.filter(isSentinelIssue);
+      for (const se of fastSentinels) {
+        logRuleInternalError(se.ruleId ?? "unknown", filePath, se.message);
+      }
 
-      const elapsed = Date.now() - startedAt;
-      sendMessage(ws, {
-        type: "lint:progress",
-        filePath,
-        requestId,
-        phase: `Done (${filteredIssues.length} issues, ${elapsed}ms)`,
-      });
-      sendMessage(ws, {
-        type: "lint:result",
-        filePath,
-        requestId,
-        issues: filteredIssues,
-      });
+      const fastFiltered = fastIssues
+        .filter((i) => !isSentinelIssue(i))
+        .filter((issue) => issue.dataLoc === dataLoc);
+
+      // Send fast results immediately
+      sendMessage(ws, { type: "lint:result", filePath, requestId, issues: fastFiltered });
+
+      // === PASS 2: Semantic (deferred) ===
+      if (isSemanticRuleEnabled()) {
+        setImmediate(async () => {
+          try {
+            const semanticIssues = await lintFileSemantic(filePath, (phase) => {
+              sendMessage(ws, { type: "lint:progress", filePath, requestId, phase });
+            });
+
+            const semanticSentinels = semanticIssues.filter(isSentinelIssue);
+            for (const se of semanticSentinels) {
+              logRuleInternalError(se.ruleId ?? "unknown", filePath, se.message);
+            }
+
+            const semanticFiltered = semanticIssues
+              .filter((i) => !isSentinelIssue(i))
+              .filter((issue) => issue.dataLoc === dataLoc);
+
+            const totalFiltered = fastFiltered.length + semanticFiltered.length;
+            const elapsed = Date.now() - startedAt;
+
+            if (semanticFiltered.length > 0) {
+              sendMessage(ws, { type: "lint:result", filePath, requestId, issues: semanticFiltered });
+            }
+
+            sendMessage(ws, {
+              type: "lint:progress",
+              filePath,
+              requestId,
+              phase: `Done (${totalFiltered} issues, ${elapsed}ms)`,
+            });
+          } catch (error) {
+            logServerError("Semantic pass failed", error instanceof Error ? error.message : String(error));
+            sendMessage(ws, {
+              type: "lint:progress",
+              filePath,
+              requestId,
+              phase: `Done (${fastFiltered.length} issues, ${Date.now() - startedAt}ms)`,
+            });
+          }
+        });
+      } else {
+        const elapsed = Date.now() - startedAt;
+        sendMessage(ws, {
+          type: "lint:progress",
+          filePath,
+          requestId,
+          phase: `Done (${fastFiltered.length} issues, ${elapsed}ms)`,
+        });
+      }
       break;
     }
 
@@ -1071,11 +1497,15 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       if (filePath) {
         const absolutePath = resolveRequestedFilePath(filePath);
         cache.delete(absolutePath);
+        fastCache.delete(absolutePath);
+        semanticCache.delete(absolutePath);
       } else {
         cache.clear();
+        fastCache.clear();
+        semanticCache.clear();
       }
       // Update cache count in dashboard
-      updateCacheCount(cache.size);
+      updateCacheCount(cache.size + fastCache.size + semanticCache.size);
       break;
     }
 
@@ -1099,6 +1529,10 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
 
       const startedAt = Date.now();
       const analyzer = getVisionAnalyzerInstance();
+
+      // Acquire exclusive access to Ollama to avoid model contention
+      // with duplicates indexing (nomic-embed-text vs qwen3-vl)
+      const releaseOllama = await acquireOllamaMutex();
 
       try {
         const screenshotBytes =
@@ -1222,19 +1656,42 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        logServerError(
-          `Vision analysis failed for ${route}`,
-          errorMessage
-        );
+        const elapsed = Date.now() - startedAt;
+
+        // Build rich diagnostic detail for the dashboard
+        const catchModel =
+          typeof (analyzer as any).getModel === "function"
+            ? ((analyzer as any).getModel() as string)
+            : "unknown";
+        const catchBaseUrl =
+          typeof (analyzer as any).getBaseUrl === "function"
+            ? ((analyzer as any).getBaseUrl() as string)
+            : "unknown";
+        const detail = [
+          errorMessage,
+          `model: ${catchModel}`,
+          `url: ${catchBaseUrl}`,
+          `manifest: ${manifest.length} elements`,
+          `elapsed: ${elapsed}ms`,
+          screenshot
+            ? `screenshot: ${Math.round(
+                Buffer.byteLength(screenshot) / 1024
+              )}kb`
+            : `screenshot: none`,
+        ].join(" | ");
+
+        logServerError(`Vision analysis failed for ${route}`, detail);
 
         sendMessage(ws, {
           type: "vision:result",
           route,
           issues: [],
-          analysisTime: Date.now() - startedAt,
+          analysisTime: elapsed,
           error: errorMessage,
           requestId,
         });
+      } finally {
+        releaseOllama();
       }
       break;
     }
@@ -1295,7 +1752,10 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       try {
         const content = readFileSync(absolutePath, "utf-8");
         const totalLines = content.split("\n").length;
-        const relativePath = normalizeDataLocFilePath(absolutePath, serverAppRootForVision);
+        const relativePath = normalizeDataLocFilePath(
+          absolutePath,
+          serverAppRootForVision
+        );
 
         sendMessage(ws, {
           type: "source:result",
@@ -1319,12 +1779,17 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
     case "coverage:request": {
       const { requestId } = message;
       try {
-        const coveragePath = join(serverAppRootForVision, "coverage", "coverage-final.json");
+        const coveragePath = join(
+          serverAppRootForVision,
+          "coverage",
+          "coverage-final.json"
+        );
 
         if (!existsSync(coveragePath)) {
           sendMessage(ws, {
             type: "coverage:error",
-            error: "Coverage data not found. Run tests with coverage first (e.g., `vitest run --coverage`)",
+            error:
+              "Coverage data not found. Run tests with coverage first (e.g., `vitest run --coverage`)",
             requestId,
           });
           break;
@@ -1340,7 +1805,8 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
           requestId,
         });
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         logServerError(`coverage:error`, errorMessage);
         sendMessage(ws, {
           type: "coverage:error",
@@ -1369,7 +1835,8 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         if (!dataUrlPattern.test(dataUrl)) {
           sendMessage(ws, {
             type: "screenshot:error",
-            error: "Invalid dataUrl: must be a base64 PNG data URL (data:image/png;base64,...)",
+            error:
+              "Invalid dataUrl: must be a base64 PNG data URL (data:image/png;base64,...)",
             requestId,
           });
           break;
@@ -1379,11 +1846,12 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         const base64Data = dataUrl.replace(dataUrlPattern, "");
 
         // Sanitize route for filename (replace / with -, remove special chars)
-        const sanitizedRoute = route
-          .replace(/^\//, "") // Remove leading slash
-          .replace(/\//g, "-") // Replace slashes with dashes
-          .replace(/[^a-zA-Z0-9_-]/g, "_") // Replace special chars with underscore
-          || "root"; // Default to "root" for empty route
+        const sanitizedRoute =
+          route
+            .replace(/^\//, "") // Remove leading slash
+            .replace(/\//g, "-") // Replace slashes with dashes
+            .replace(/[^a-zA-Z0-9_-]/g, "_") || // Replace special chars with underscore
+          "root"; // Default to "root" for empty route
 
         // Generate filename
         const filename = `uilint-${timestamp}-${sanitizedRoute}.png`;
@@ -1399,7 +1867,11 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         }
 
         // Create screenshots directory if needed
-        const screenshotsDir = join(serverAppRootForVision, ".uilint", "screenshots");
+        const screenshotsDir = join(
+          serverAppRootForVision,
+          ".uilint",
+          "screenshots"
+        );
         if (!existsSync(screenshotsDir)) {
           mkdirSync(screenshotsDir, { recursive: true });
         }
@@ -1430,7 +1902,8 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
           requestId,
         });
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         logServerError(`screenshot:error`, errorMessage);
         sendMessage(ws, {
           type: "screenshot:error",
@@ -1475,6 +1948,8 @@ function handleFileChange(filePath: string): void {
 
   // Invalidate cache
   cache.delete(filePath);
+  fastCache.delete(filePath);
+  semanticCache.delete(filePath);
 
   // Notify subscribers
   for (const { ws, clientFilePath } of subscribers) {
@@ -1574,7 +2049,15 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
   }
 
   isIndexing = true;
-  startBackgroundTask("duplicates-index", "Duplicates Index", "Starting...");
+  startBackgroundTask(
+    "duplicates-index",
+    "Duplicates Index",
+    "Waiting for Ollama..."
+  );
+
+  // Acquire exclusive access to Ollama to avoid model contention
+  const release = await acquireOllamaMutex();
+
   broadcast({ type: "duplicates:indexing:start" });
 
   try {
@@ -1582,8 +2065,15 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
     const result = await indexDirectory(appRoot, {
       onProgress: (message, current, total) => {
         // Update dashboard progress
-        const progress = total && total > 0 ? Math.round((current || 0) / total * 100) : 0;
-        updateBackgroundTaskProgress("duplicates-index", progress, current, total, message);
+        const progress =
+          total && total > 0 ? Math.round(((current || 0) / total) * 100) : 0;
+        updateBackgroundTaskProgress(
+          "duplicates-index",
+          progress,
+          current,
+          total,
+          message
+        );
         // Broadcast to connected clients
         broadcast({
           type: "duplicates:indexing:progress",
@@ -1594,7 +2084,11 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
       },
     });
 
-    const successMsg = `${result.totalChunks} chunks (${result.added} added, ${result.modified} modified, ${result.deleted} deleted) in ${(result.duration / 1000).toFixed(1)}s`;
+    const successMsg = `${result.totalChunks} chunks (${result.added} added, ${
+      result.modified
+    } modified, ${result.deleted} deleted) in ${(
+      result.duration / 1000
+    ).toFixed(1)}s`;
     completeBackgroundTask("duplicates-index", `Index complete: ${successMsg}`);
     broadcast({
       type: "duplicates:indexing:complete",
@@ -1609,6 +2103,7 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
     completeBackgroundTask("duplicates-index", undefined, msg);
     broadcast({ type: "duplicates:indexing:error", error: msg });
   } finally {
+    release();
     isIndexing = false;
   }
 }
@@ -1689,8 +2184,15 @@ async function buildCoverageData(appRoot: string): Promise<void> {
       appRoot,
       skipPackageInstall,
       skipTests,
+      silent: isDashboardEnabled(),
       onProgress: (message, phase) => {
-        updateBackgroundTaskProgress("coverage-prep", 50, undefined, undefined, message);
+        updateBackgroundTaskProgress(
+          "coverage-prep",
+          50,
+          undefined,
+          undefined,
+          message
+        );
         broadcast({ type: "coverage:setup:progress", message, phase });
       },
     });
@@ -1707,7 +2209,9 @@ async function buildCoverageData(appRoot: string): Promise<void> {
 
       completeBackgroundTask(
         "coverage-prep",
-        `Coverage prepared: ${parts.join(", ")} in ${(result.duration / 1000).toFixed(1)}s`
+        `Coverage prepared: ${parts.join(", ")} in ${(
+          result.duration / 1000
+        ).toFixed(1)}s`
       );
     }
 
@@ -1764,7 +2268,12 @@ function handleRuleConfigSet(
   let result;
   if (options && Object.keys(options).length > 0) {
     // Update severity AND options
-    result = updateRuleConfigInConfig(configPath, normalizedRuleId, severity, options);
+    result = updateRuleConfigInConfig(
+      configPath,
+      normalizedRuleId,
+      severity,
+      options
+    );
   } else {
     // Update severity only
     result = updateRuleSeverityInConfig(configPath, normalizedRuleId, severity);
@@ -1775,7 +2284,10 @@ function handleRuleConfigSet(
 
     // Clear ESLint instance cache to pick up the new config
     eslintInstances.clear();
+    eslintFastInstances.clear();
     cache.clear();
+    fastCache.clear();
+    semanticCache.clear();
     updateCacheCount(0);
 
     // Send success response to requesting client
@@ -1858,6 +2370,22 @@ export async function serve(options: ServeOptions): Promise<void> {
   // Create WebSocket server
   const wss = new WebSocketServer({ port });
 
+  // WebSocket keepalive: ping all clients every 30 seconds to detect stale connections
+  const PING_INTERVAL = 30_000;
+  const aliveClients = new WeakSet<WebSocket>();
+  const pingInterval = setInterval(() => {
+    for (const ws of connectedClientsSet) {
+      if (!aliveClients.has(ws)) {
+        ws.terminate();
+        continue;
+      }
+      aliveClients.delete(ws);
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.ping();
+      }
+    }
+  }, PING_INTERVAL);
+
   // Start building the duplicates index in the background
   // This runs incrementally - very fast if nothing changed
   buildDuplicatesIndex(appRoot).catch((err) => {
@@ -1874,7 +2402,13 @@ export async function serve(options: ServeOptions): Promise<void> {
   wss.on("connection", (ws) => {
     connectedClients += 1;
     connectedClientsSet.add(ws);
+    aliveClients.add(ws);
     logClientConnect(connectedClients);
+
+    // Track keepalive
+    ws.on("pong", () => {
+      aliveClients.add(ws);
+    });
 
     // Send workspace info to client on connect
     sendMessage(ws, {
@@ -1898,7 +2432,13 @@ export async function serve(options: ServeOptions): Promise<void> {
     const eslintConfigPath = findEslintConfigFile(appRoot);
     const currentRuleConfigs = eslintConfigPath
       ? readRuleConfigsFromConfig(eslintConfigPath)
-      : new Map<string, { severity: "error" | "warn" | "off"; options?: Record<string, unknown> }>();
+      : new Map<
+          string,
+          {
+            severity: "error" | "warn" | "off";
+            options?: Record<string, unknown>;
+          }
+        >();
 
     // Send installed rules metadata (only rules that exist in the ESLint config)
     // Include current severities from the ESLint config so UI reflects saved state
@@ -1958,6 +2498,7 @@ export async function serve(options: ServeOptions): Promise<void> {
     const { renderDashboard } = await import("./serve/dashboard/render.js");
     const { waitUntilExit } = renderDashboard({
       onQuit: () => {
+        clearInterval(pingInterval);
         wss.close();
         fileWatcher?.close();
       },
@@ -1973,6 +2514,7 @@ export async function serve(options: ServeOptions): Promise<void> {
     await new Promise<void>((resolve) => {
       process.on("SIGINT", () => {
         logServerInfo("Shutting down...");
+        clearInterval(pingInterval);
         wss.close();
         fileWatcher?.close();
         resolve();

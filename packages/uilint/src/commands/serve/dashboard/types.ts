@@ -11,6 +11,9 @@ export type ActivityType =
   | "vision:analyze"
   | "vision:done"
   | "vision:check"
+  | "semantic:analyze"
+  | "semantic:done"
+  | "semantic:error"
   | "config:set"
   | "rule:config:set"
   | "screenshot:save"
@@ -24,6 +27,9 @@ export type ActivityType =
   | "warning"
   | "info";
 
+/** Coarse category for activity log filtering */
+export type ActivityCategory = "all" | "errors" | "vision" | "semantic" | "lint" | "system";
+
 export interface ActivityEntry {
   id: string;
   timestamp: Date;
@@ -32,6 +38,7 @@ export interface ActivityEntry {
   detail?: string;
   isError?: boolean;
   isWarning?: boolean;
+  category?: ActivityCategory;
 }
 
 export type BackgroundTaskStatus = "idle" | "running" | "complete" | "error";
@@ -89,6 +96,9 @@ export interface DashboardState {
 
   // Display options
   verbose: boolean;
+
+  // Activity filter
+  activeFilter: ActivityCategory;
 }
 
 export interface DashboardActions {
@@ -122,6 +132,9 @@ export interface DashboardActions {
 
   // Display options
   toggleVerbose: () => void;
+
+  // Activity filter
+  cycleFilter: () => void;
 
   // Ollama status
   setOllamaStatus: (status: OllamaStatus) => void;

@@ -13,6 +13,7 @@ import {
   detectPackageManager,
   installDependencies,
   runTestsWithCoverage,
+  type SpawnOutputOptions,
 } from "./package-manager.js";
 import { detectCoverageSetup, type CoverageSetupInfo } from "./coverage-detect.js";
 
@@ -31,7 +32,7 @@ export interface CoveragePreparationResult {
   error?: string;
 }
 
-export interface PrepareCoverageOptions {
+export interface PrepareCoverageOptions extends SpawnOutputOptions {
   /** Root directory of the app to prepare */
   appRoot: string;
   /** Progress callback for streaming updates */
@@ -100,7 +101,7 @@ export function injectCoverageConfig(vitestConfigPath: string): boolean {
 export async function prepareCoverage(
   options: PrepareCoverageOptions
 ): Promise<CoveragePreparationResult> {
-  const { appRoot, onProgress, skipPackageInstall, skipTests } = options;
+  const { appRoot, onProgress, skipPackageInstall, skipTests, silent, onOutput } = options;
   const start = Date.now();
 
   const result: CoveragePreparationResult = {
@@ -128,7 +129,7 @@ export async function prepareCoverage(
       onProgress?.("Installing @vitest/coverage-v8...", "install");
       const pm = detectPackageManager(appRoot);
       try {
-        await installDependencies(pm, appRoot, ["@vitest/coverage-v8"]);
+        await installDependencies(pm, appRoot, ["@vitest/coverage-v8"], { silent, onOutput });
         result.packageAdded = true;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -156,7 +157,7 @@ export async function prepareCoverage(
         onProgress?.("Running tests with coverage...", "test");
         const pm = detectPackageManager(appRoot);
         try {
-          await runTestsWithCoverage(pm, appRoot);
+          await runTestsWithCoverage(pm, appRoot, { silent, onOutput });
           result.testsRan = true;
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

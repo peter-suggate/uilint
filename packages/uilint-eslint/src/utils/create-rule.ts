@@ -191,6 +191,22 @@ export interface RuleMeta {
    * If not specified, uses severity-based coloring.
    */
   heatmapColor?: string;
+
+  /**
+   * ESLint messageIds that represent internal/sentinel errors.
+   *
+   * Issues reported with these messageIds are not user-facing lint issues
+   * but internal error signals (e.g., "analysis backend failed" or
+   * "styleguide not found"). The serve command will log these to the
+   * dashboard and filter them from client results automatically.
+   *
+   * This allows rules with fallible backends (LLM calls, external services)
+   * to signal errors through ESLint's reporting mechanism without those
+   * errors being shown to end users as lint issues.
+   *
+   * Example: `["analysisError", "styleguideNotFound"]`
+   */
+  sentinelMessageIds?: string[];
 }
 
 /**

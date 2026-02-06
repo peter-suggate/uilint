@@ -6,6 +6,7 @@ import type {
   DashboardState,
   DashboardStore,
   ActivityEntry,
+  ActivityCategory,
   BackgroundTask,
   WorkspaceInfo,
   ServerStats,
@@ -34,6 +35,7 @@ function createInitialState(): DashboardState {
     activities: [],
     maxActivities: 50,
     verbose: false,
+    activeFilter: "all",
   };
 }
 
@@ -84,6 +86,9 @@ export function createDashboardStore(): DashboardStore & {
     },
     get ollamaStatus() {
       return state.ollamaStatus;
+    },
+    get activeFilter() {
+      return state.activeFilter;
     },
 
     // Server lifecycle
@@ -234,6 +239,15 @@ export function createDashboardStore(): DashboardStore & {
     // Display options
     toggleVerbose() {
       state = { ...state, verbose: !state.verbose };
+      notify();
+    },
+
+    // Activity filter
+    cycleFilter() {
+      const order: ActivityCategory[] = ["all", "errors", "vision", "semantic", "lint"];
+      const currentIndex = order.indexOf(state.activeFilter);
+      const nextIndex = (currentIndex + 1) % order.length;
+      state = { ...state, activeFilter: order[nextIndex]! };
       notify();
     },
 

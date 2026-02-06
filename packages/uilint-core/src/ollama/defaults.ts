@@ -7,4 +7,4 @@
  *
  * Note: This should match the model we recommend users `ollama pull`.
  */
-export const UILINT_DEFAULT_OLLAMA_MODEL = "qwen3-coder:30b";
+export const UILINT_DEFAULT_OLLAMA_MODEL = "qwen3-vl:8b-instruct";

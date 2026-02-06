@@ -9,8 +9,9 @@ import { devLog, devWarn, devError } from "uilint-core";
 
 // Constants
 export const DEFAULT_WS_URL = "ws://localhost:9234";
-export const MAX_RECONNECT_ATTEMPTS = 5;
+export const MAX_RECONNECT_ATTEMPTS = 10;
 export const RECONNECT_BASE_DELAY = 1000;
+export const MAX_RECONNECT_DELAY = 10_000;
 
 // Type definitions
 export type MessageHandler<T = unknown> = (data: T) => void;
@@ -343,8 +344,11 @@ export class WebSocketServiceImpl implements WebSocketService {
       this._clearTimeout(this.reconnectTimeout);
     }
 
-    // Calculate delay with exponential backoff
-    const delay = RECONNECT_BASE_DELAY * Math.pow(2, this._reconnectAttempts);
+    // Calculate delay with exponential backoff, capped at MAX_RECONNECT_DELAY
+    const delay = Math.min(
+      RECONNECT_BASE_DELAY * Math.pow(2, this._reconnectAttempts),
+      MAX_RECONNECT_DELAY
+    );
     this._reconnectAttempts++;
 
     // Notify handlers of the new attempt count
