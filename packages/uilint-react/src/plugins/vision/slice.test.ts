@@ -1783,7 +1783,7 @@ describe("Vision Plugin - triggerVisionAnalysis", () => {
       const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
       await triggerVisionAnalysis();
 
-      expect(collectElementManifest).toHaveBeenCalledWith(document.body, region);
+      expect(collectElementManifest).toHaveBeenCalledWith(region);
     });
 
     it("does not pass region to collectElementManifest for full page capture", async () => {
@@ -1798,7 +1798,7 @@ describe("Vision Plugin - triggerVisionAnalysis", () => {
       const triggerVisionAnalysis = createTriggerVisionAnalysis(services);
       await triggerVisionAnalysis();
 
-      expect(collectElementManifest).toHaveBeenCalledWith(document.body, undefined);
+      expect(collectElementManifest).toHaveBeenCalledWith(undefined);
     });
   });
 });
