@@ -103,3 +103,6 @@ export {
 
 // Logger (test-aware logging utilities)
 export { devLog, devWarn, devError } from "./logger.js";
+
+// Plugin system
+export * from "./plugin/index.js";
