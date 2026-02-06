@@ -18,15 +18,13 @@ import {
   UILINT_DEFAULT_VISION_MODEL,
   type ElementManifest,
   type VisionIssue,
+  resolveVisionStyleGuide,
+  runVisionAnalysis,
+  writeVisionMarkdownReport,
 } from "uilint-vision/node";
 import { resolvePathSpecifier } from "../utils/path-specifiers.js";
 import { flushLangfuse } from "../utils/llm-client.js";
 import { nsNow, nsToMs, formatMs, maybeMs } from "../utils/timing.js";
-import {
-  resolveVisionStyleGuide,
-  runVisionAnalysis,
-  writeVisionMarkdownReport,
-} from "../utils/vision-run.js";
 import {
   intro,
   withSpinner,
@@ -343,6 +341,7 @@ export async function vision(options: VisionOptions): Promise<void> {
         projectPath,
         styleguide: options.styleguide,
         startDir: startPath ? dirname(startPath) : projectPath,
+        pathResolver: resolvePathSpecifier,
       });
       styleGuide = resolved.styleGuide;
       styleguideLocation = resolved.styleguideLocation;
@@ -465,6 +464,7 @@ export async function vision(options: VisionOptions): Promise<void> {
           imageSizeBytes: sizeBytes,
           imageBase64Length: base64.length,
         },
+        pathResolver: resolvePathSpecifier,
       });
     } else {
       if (options.stream) {
@@ -540,6 +540,7 @@ export async function vision(options: VisionOptions): Promise<void> {
             lastStatus = line;
             console.error(pc.dim("[vision]"), line);
           },
+          pathResolver: resolvePathSpecifier,
         });
       } else {
         result = await withSpinner(
@@ -587,6 +588,7 @@ export async function vision(options: VisionOptions): Promise<void> {
                     : latestLine;
                 s.message(`Analyzing: ${pc.dim(displayLine || "...")}`);
               },
+              pathResolver: resolvePathSpecifier,
             });
           }
         );

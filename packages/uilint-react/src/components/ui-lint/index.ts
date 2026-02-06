@@ -45,10 +45,10 @@ export type {
 // Constants
 export { FILE_COLORS, DEFAULT_SETTINGS, DATA_UILINT_ID } from "./types";
 
-// Vision capture utilities
+// Vision capture utilities (from uilint-vision package)
 export {
   collectElementManifest,
   captureScreenshot,
   getCurrentRoute,
   matchIssuesToManifest,
-} from "../../scanner/vision-capture";
+} from "uilint-vision";

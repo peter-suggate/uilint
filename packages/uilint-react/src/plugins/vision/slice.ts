@@ -23,7 +23,7 @@ import {
   captureScreenshotRegion,
   collectElementManifest,
   getCurrentRoute,
-} from "../../scanner/vision-capture";
+} from "uilint-vision";
 
 /**
  * Vision plugin state
@@ -422,7 +422,6 @@ export function createTriggerVisionAnalysis(
 
       // Build element manifest (pass region for filtering if region capture)
       const manifest = collectElementManifest(
-        document.body,
         isRegionCapture && selectedRegion ? selectedRegion : undefined
       );
 

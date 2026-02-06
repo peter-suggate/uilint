@@ -17,3 +17,16 @@ export {
   type VisionAnalysisOptions,
   type AnalyzerResult,
 } from "./analyzer/vision-analyzer.js";
+
+// Vision analysis utilities
+export {
+  resolveVisionStyleGuide,
+  runVisionAnalysis,
+  writeVisionMarkdownReport,
+  type PathResolver,
+  type ResolveVisionStyleGuideArgs,
+  type ResolveVisionStyleGuideResult,
+  type RunVisionAnalysisArgs,
+  type RunVisionAnalysisResult,
+  type WriteVisionMarkdownReportArgs,
+} from "./vision-run.js";

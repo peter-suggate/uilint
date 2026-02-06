@@ -3,8 +3,18 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
+// Mock uilint-core/node for ensureOllamaReady and style guide functions
 vi.mock("uilint-core/node", async (importOriginal) => {
   const actual = await importOriginal<typeof import("uilint-core/node")>();
+  return {
+    ...actual,
+    ensureOllamaReady: vi.fn(async () => {}),
+  };
+});
+
+// Mock the VisionAnalyzer from the local analyzer module
+vi.mock("../src/analyzer/vision-analyzer.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/analyzer/vision-analyzer.js")>();
 
   class MockVisionAnalyzer {
     analyzeScreenshot = vi.fn(async () => {
@@ -28,13 +38,7 @@ vi.mock("uilint-core/node", async (importOriginal) => {
 
   return {
     ...actual,
-    ensureOllamaReady: vi.fn(async () => {}),
     VisionAnalyzer: MockVisionAnalyzer,
-    // Explicitly include functions that vision-run.ts imports
-    findUILintStyleGuideUpwards: actual.findUILintStyleGuideUpwards,
-    findStyleGuidePath: actual.findStyleGuidePath,
-    readStyleGuide: actual.readStyleGuide,
-    UILINT_DEFAULT_VISION_MODEL: actual.UILINT_DEFAULT_VISION_MODEL,
   };
 });
 
@@ -67,7 +71,7 @@ describe("vision-run", () => {
     const stylePath = join(dir, ".uilint", "styleguide.md");
     writeFileSync(stylePath, "# Styleguide\n", "utf-8");
 
-    const mod = await import("../../src/utils/vision-run.js");
+    const mod = await import("../src/vision-run.js");
     const resolved = await mod.resolveVisionStyleGuide({
       projectPath: dir,
     });
@@ -78,7 +82,7 @@ describe("vision-run", () => {
 
   it("runVisionAnalysis calls ensureOllamaReady only once per (baseUrl, model) within the process", async () => {
     vi.resetModules();
-    const mod = await import("../../src/utils/vision-run.js");
+    const mod = await import("../src/vision-run.js");
     const core = await import("uilint-core/node");
 
     const manifest = createMinimalManifest();
@@ -103,7 +107,7 @@ describe("vision-run", () => {
 
   it("runVisionAnalysis writes debug dumps and omits base64 by default", async () => {
     vi.resetModules();
-    const mod = await import("../../src/utils/vision-run.js");
+    const mod = await import("../src/vision-run.js");
 
     const outDir = tmpDir();
     const res = await mod.runVisionAnalysis({
@@ -133,7 +137,7 @@ describe("vision-run", () => {
     const imagePath = join(dir, "uilint-123.png");
     writeFileSync(imagePath, "not-a-real-png", "utf-8");
 
-    const mod = await import("../../src/utils/vision-run.js");
+    const mod = await import("../src/vision-run.js");
     const report = mod.writeVisionMarkdownReport({
       imagePath,
       route: "/todos",

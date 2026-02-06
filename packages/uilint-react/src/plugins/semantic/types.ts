@@ -3,41 +3,54 @@
  *
  * Type definitions for the semantic analysis plugin, including
  * duplicates indexing status and semantic issue types.
+ *
+ * Re-exports common types from uilint-semantic package for consistency.
  */
+
+// =============================================================================
+// Re-exports from uilint-semantic
+// =============================================================================
+
+// WebSocket message types - re-export directly
+export type {
+  DuplicatesIndexingStartMessage,
+  DuplicatesIndexingProgressMessage,
+  DuplicatesIndexingCompleteMessage,
+  DuplicatesIndexingErrorMessage,
+  DuplicatesMessage,
+} from "uilint-semantic";
+
+// Index types - re-export with aliases for backward compatibility
+import type {
+  IndexStatus,
+  IndexProgress,
+  IndexStats,
+} from "uilint-semantic";
 
 /**
  * Status of the duplicates index
+ * @alias IndexStatus from uilint-semantic
  */
-export type DuplicatesIndexStatus = "idle" | "indexing" | "ready" | "error";
+export type DuplicatesIndexStatus = IndexStatus;
 
 /**
  * Progress information for duplicates indexing
+ * @alias IndexProgress from uilint-semantic
  */
-export interface DuplicatesIndexProgress {
-  /** Current item being processed */
-  current: number;
-  /** Total items to process */
-  total: number;
-}
+export type DuplicatesIndexProgress = IndexProgress;
 
 /**
  * Statistics from a completed indexing operation
+ * @alias IndexStats from uilint-semantic
  */
-export interface DuplicatesIndexStats {
-  /** Total number of chunks in the index */
-  totalChunks: number;
-  /** Number of chunks added */
-  added: number;
-  /** Number of chunks modified */
-  modified: number;
-  /** Number of chunks deleted */
-  deleted: number;
-  /** Duration of the indexing operation in milliseconds */
-  duration: number;
-}
+export type DuplicatesIndexStats = IndexStats;
+
+// =============================================================================
+// React-specific Types (not in uilint-semantic)
+// =============================================================================
 
 /**
- * State slice for the semantic plugin
+ * State slice for the semantic plugin (React-specific)
  */
 export interface SemanticPluginState {
   /** Current status of the duplicates index */
@@ -53,7 +66,7 @@ export interface SemanticPluginState {
 }
 
 /**
- * A semantic issue detected by LLM analysis
+ * A semantic issue detected by LLM analysis (React-specific)
  */
 export interface SemanticIssue {
   /** Line number in the source file (1-indexed) */
@@ -69,7 +82,12 @@ export interface SemanticIssue {
 }
 
 /**
- * A duplicate detection result
+ * A duplicate detection result for display in React components
+ *
+ * Note: This is a simplified version of DuplicateMatch from uilint-semantic,
+ * tailored for React UI display purposes. The full DuplicateMatch type from
+ * uilint-semantic includes additional fields like `confidence`, `combinedScore`,
+ * and `sourceCode`.
  */
 export interface DuplicateMatch {
   /** Chunk ID of the similar code */
@@ -87,53 +105,3 @@ export interface DuplicateMatch {
   /** Kind of code chunk (e.g., "function", "component") */
   kind: string;
 }
-
-// ============================================================================
-// WebSocket Message Types
-// ============================================================================
-
-/**
- * Message sent when duplicates indexing starts
- */
-export interface DuplicatesIndexingStartMessage {
-  type: "duplicates:indexing:start";
-}
-
-/**
- * Message sent during duplicates indexing progress
- */
-export interface DuplicatesIndexingProgressMessage {
-  type: "duplicates:indexing:progress";
-  message: string;
-  current?: number;
-  total?: number;
-}
-
-/**
- * Message sent when duplicates indexing completes
- */
-export interface DuplicatesIndexingCompleteMessage {
-  type: "duplicates:indexing:complete";
-  added: number;
-  modified: number;
-  deleted: number;
-  totalChunks: number;
-  duration: number;
-}
-
-/**
- * Message sent when duplicates indexing fails
- */
-export interface DuplicatesIndexingErrorMessage {
-  type: "duplicates:indexing:error";
-  error: string;
-}
-
-/**
- * Union of all duplicates-related WebSocket messages
- */
-export type DuplicatesMessage =
-  | DuplicatesIndexingStartMessage
-  | DuplicatesIndexingProgressMessage
-  | DuplicatesIndexingCompleteMessage
-  | DuplicatesIndexingErrorMessage;

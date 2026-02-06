@@ -46,15 +46,16 @@ import { dirname, resolve, relative, join, parse } from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { watch, type FSWatcher } from "chokidar";
 import { findWorkspaceRoot } from "uilint-core/node";
-import { getVisionAnalyzer as getCoreVisionAnalyzer } from "uilint-vision/node";
+import {
+  getVisionAnalyzer as getCoreVisionAnalyzer,
+  runVisionAnalysis,
+  writeVisionMarkdownReport,
+} from "uilint-vision/node";
 import {
   detectNextAppRouter,
   findNextAppRouterProjects,
 } from "../utils/next-detect.js";
-import {
-  runVisionAnalysis,
-  writeVisionMarkdownReport,
-} from "../utils/vision-run.js";
+import { resolvePathSpecifier } from "../utils/path-specifiers.js";
 import {
   logInfo,
   logSuccess,
@@ -1157,6 +1158,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
               phase,
             });
           },
+          pathResolver: resolvePathSpecifier,
         });
 
         // Write a markdown report alongside the saved screenshot (best-effort).

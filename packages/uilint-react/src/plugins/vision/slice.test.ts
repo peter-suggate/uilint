@@ -1406,12 +1406,13 @@ describe("Vision Plugin - fetchPersistedScreenshots", () => {
 // triggerVisionAnalysis Tests
 // ============================================================================
 
-// Mock the vision-capture module
-vi.mock("../../scanner/vision-capture", () => ({
+// Mock the uilint-vision module
+vi.mock("uilint-vision", () => ({
   captureScreenshot: vi.fn(),
   captureScreenshotRegion: vi.fn(),
   collectElementManifest: vi.fn(),
   getCurrentRoute: vi.fn(),
+  DEFAULT_VISION_AUTO_SCAN_SETTINGS: { onRouteChange: false, onInitialLoad: false },
 }));
 
 import {
@@ -1419,7 +1420,7 @@ import {
   captureScreenshotRegion,
   collectElementManifest,
   getCurrentRoute,
-} from "../../scanner/vision-capture";
+} from "uilint-vision";
 import { createTriggerVisionAnalysis } from "./slice";
 
 /**

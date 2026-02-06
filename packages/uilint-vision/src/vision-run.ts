@@ -1,4 +1,11 @@
-import { dirname, join, parse } from "path";
+/**
+ * Vision analysis utilities for running vision analysis with Ollama.
+ *
+ * These utilities provide high-level orchestration for vision analysis,
+ * including style guide resolution, Ollama readiness checks, and debug dump generation.
+ */
+
+import { dirname, join, parse, resolve } from "path";
 import { existsSync, statSync, mkdirSync, writeFileSync } from "fs";
 import {
   ensureOllamaReady,
@@ -10,11 +17,26 @@ import {
 import {
   VisionAnalyzer,
   UILINT_DEFAULT_VISION_MODEL,
-  type ElementManifest,
-  type VisionIssue,
   type AnalyzerResult,
-} from "uilint-vision/node";
-import { resolvePathSpecifier } from "./path-specifiers.js";
+} from "./analyzer/vision-analyzer.js";
+import type { ElementManifest, VisionIssue } from "./types.js";
+
+/**
+ * Path resolver function type.
+ * Resolves a path specifier (which may include workspace-relative "@" prefixes or other formats)
+ * into an absolute filesystem path.
+ */
+export type PathResolver = (spec: string, cwd: string) => string;
+
+/**
+ * Default path resolver that just uses path.resolve.
+ * CLI callers can provide a custom resolver that handles workspace-relative paths.
+ */
+const defaultPathResolver: PathResolver = (spec: string, cwd: string) => {
+  const raw = (spec ?? "").trim();
+  if (!raw) return resolve(cwd, spec);
+  return resolve(cwd, raw);
+};
 
 export type ResolveVisionStyleGuideArgs = {
   /** Project root / cwd used to resolve relative path specifiers */
@@ -23,6 +45,8 @@ export type ResolveVisionStyleGuideArgs = {
   styleguide?: string;
   /** A starting point for upward search (directory). Defaults to projectPath. */
   startDir?: string;
+  /** Optional custom path resolver (for handling workspace-relative paths like "@apps/...") */
+  pathResolver?: PathResolver;
 };
 
 export type ResolveVisionStyleGuideResult = {
@@ -35,9 +59,10 @@ export async function resolveVisionStyleGuide(
 ): Promise<ResolveVisionStyleGuideResult> {
   const projectPath = args.projectPath;
   const startDir = args.startDir ?? projectPath;
+  const resolvePath = args.pathResolver ?? defaultPathResolver;
 
   if (args.styleguide) {
-    const styleguideArg = resolvePathSpecifier(args.styleguide, projectPath);
+    const styleguideArg = resolvePath(args.styleguide, projectPath);
     if (existsSync(styleguideArg)) {
       const stat = statSync(styleguideArg);
       if (stat.isFile()) {
@@ -106,6 +131,8 @@ export type RunVisionAnalysisArgs = {
   debugDumpIncludeSensitive?: boolean;
   /** Optional extra metadata to include in debug dumps */
   debugDumpMetadata?: Record<string, unknown>;
+  /** Optional custom path resolver (for handling workspace-relative paths like "@apps/...") */
+  pathResolver?: PathResolver;
 };
 
 export type RunVisionAnalysisResult = {
@@ -151,11 +178,10 @@ function writeVisionDebugDump(params: {
   runtime: { visionModel: string; baseUrl: string };
   includeSensitive: boolean;
   metadata?: Record<string, unknown>;
+  pathResolver?: PathResolver;
 }): string {
-  const resolvedDirOrFile = resolvePathSpecifier(
-    params.dumpPath,
-    process.cwd()
-  );
+  const resolvePath = params.pathResolver ?? defaultPathResolver;
+  const resolvedDirOrFile = resolvePath(params.dumpPath, process.cwd());
   const safeStamp = params.now.toISOString().replace(/[:.]/g, "-");
   const dumpFile =
     resolvedDirOrFile.endsWith(".json") || resolvedDirOrFile.endsWith(".jsonl")
@@ -209,6 +235,7 @@ export async function runVisionAnalysis(
       projectPath: args.projectPath,
       styleguide: args.styleguide,
       startDir: args.styleguideStartDir,
+      pathResolver: args.pathResolver,
     });
     styleGuide = resolved.styleGuide;
     styleguideLocation = resolved.styleguideLocation;
@@ -232,6 +259,7 @@ export async function runVisionAnalysis(
       },
       includeSensitive: Boolean(args.debugDumpIncludeSensitive),
       metadata: args.debugDumpMetadata,
+      pathResolver: args.pathResolver,
     });
   }
 
