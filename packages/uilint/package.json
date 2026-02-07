@@ -1,6 +1,6 @@
 {
   "name": "uilint",
-  "version": "0.2.137",
+  "version": "0.2.138",
   "description": "CLI for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -69,8 +69,12 @@
     "uilint-semantic": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "uilint-vision": { "optional": true },
-    "uilint-semantic": { "optional": true }
+    "uilint-vision": {
+      "optional": true
+    },
+    "uilint-semantic": {
+      "optional": true
+    }
   },
   "optionalDependencies": {
     "@langfuse/client": "^4.5.1",

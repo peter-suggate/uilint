@@ -1,6 +1,6 @@
 {
   "name": "uilint-semantic",
-  "version": "0.2.137",
+  "version": "0.2.138",
   "description": "Semantic code analysis and duplicate detection for UILint",
   "author": "Peter Suggate",
   "repository": {
