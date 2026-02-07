@@ -35,37 +35,23 @@ export function ImageSection({ section, ctx }: ImageSectionProps) {
 
   return (
     <div
-      style={{
-        position: "relative",
-        marginBottom: "0.75rem",
-        maxHeight: section.maxHeight,
-        overflow: "hidden",
-      }}
+      className="relative mb-3 overflow-hidden"
+      style={{ maxHeight: section.maxHeight }}
     >
       <img
         src={src}
         alt={section.alt || "Image"}
-        style={{
-          width: "100%",
-          height: "auto",
-          maxHeight: section.maxHeight,
-          objectFit: "contain",
-          borderRadius: "4px",
-          border: "1px solid var(--uilint-border)",
-        }}
+        className="w-full h-auto object-contain rounded border border-border"
+        style={{ maxHeight: section.maxHeight }}
       />
       {highlightRegion && (
         <div
+          className="absolute border-2 border-accent rounded bg-accent/10 pointer-events-none"
           style={{
-            position: "absolute",
             left: `${highlightRegion.x}px`,
             top: `${highlightRegion.y}px`,
             width: `${highlightRegion.width}px`,
             height: `${highlightRegion.height}px`,
-            border: "2px solid var(--uilint-accent)",
-            borderRadius: "4px",
-            backgroundColor: "rgba(var(--uilint-accent-rgb), 0.1)",
-            pointerEvents: "none",
           }}
         />
       )}

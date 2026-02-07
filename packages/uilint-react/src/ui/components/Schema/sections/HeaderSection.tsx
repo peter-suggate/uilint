@@ -8,6 +8,7 @@ import React from "react";
 import type { HeaderSection as HeaderSectionSchema } from "uilint-core";
 import { resolveDynamicValue, type BindingContext } from "../binding-utils";
 import { getIcon } from "../icon-map";
+import { cn } from "../../../../lib/utils";
 
 interface HeaderSectionProps {
   section: HeaderSectionSchema;
@@ -22,46 +23,24 @@ export function HeaderSection({ section, ctx }: HeaderSectionProps) {
   const subtitle = resolveDynamicValue(section.subtitle, ctx);
   const IconComponent = section.icon ? getIcon(section.icon) : null;
 
-  const containerStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "0.5rem",
-    marginBottom: "0.75rem",
-    ...(section.sticky && {
-      position: "sticky",
-      top: 0,
-      backgroundColor: "var(--uilint-surface)",
-      padding: "0.5rem 0",
-      zIndex: 10,
-    }),
-  };
-
   return (
-    <div style={containerStyle}>
+    <div
+      className={cn(
+        "flex items-start gap-2 mb-3",
+        section.sticky && "sticky top-0 bg-surface py-2 z-10"
+      )}
+    >
       {IconComponent && (
-        <span style={{ color: "var(--uilint-text-muted)", flexShrink: 0, marginTop: "0.125rem" }}>
+        <span className="text-muted-foreground shrink-0 mt-0.5">
           <IconComponent size={16} />
         </span>
       )}
       <div>
-        <h3
-          style={{
-            margin: 0,
-            fontSize: "0.875rem",
-            fontWeight: 600,
-            color: "var(--uilint-text-primary)",
-          }}
-        >
+        <h3 className="m-0 text-sm font-semibold text-text-primary">
           {String(text ?? "")}
         </h3>
         {subtitle && (
-          <p
-            style={{
-              margin: "0.25rem 0 0 0",
-              fontSize: "0.75rem",
-              color: "var(--uilint-text-muted)",
-            }}
-          >
+          <p className="mt-1 mb-0 text-xs text-muted-foreground">
             {String(subtitle)}
           </p>
         )}

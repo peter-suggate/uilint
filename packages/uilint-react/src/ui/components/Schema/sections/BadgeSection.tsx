@@ -8,6 +8,7 @@ import React from "react";
 import type { BadgeSection as BadgeSectionSchema } from "uilint-core";
 import { resolveBinding, type BindingContext } from "../binding-utils";
 import { Badge, CategoryBadge, CountBadge } from "../../badge";
+import { cn } from "../../../../lib/utils";
 
 interface BadgeSectionProps {
   section: BadgeSectionSchema;
@@ -39,9 +40,10 @@ function getSimilarityLabel(similarity: number): string {
 export function BadgeSection({ section, ctx }: BadgeSectionProps) {
   const value = resolveBinding(section.value, ctx);
 
-  const containerStyle: React.CSSProperties = section.centered
-    ? { display: "flex", justifyContent: "center", marginBottom: "0.75rem" }
-    : { marginBottom: "0.75rem" };
+  const containerClassName = cn(
+    "mb-3",
+    section.centered && "flex justify-center"
+  );
 
   switch (section.variant) {
     case "similarity": {
@@ -51,7 +53,7 @@ export function BadgeSection({ section, ctx }: BadgeSectionProps) {
       const label = getSimilarityLabel(percent);
 
       return (
-        <div style={containerStyle}>
+        <div className={containerClassName}>
           <Badge variant={color as "error" | "warning" | "info"}>
             {percent}% Match - {label}
           </Badge>
@@ -70,7 +72,7 @@ export function BadgeSection({ section, ctx }: BadgeSectionProps) {
       const variant = variantMap[severity] || "info";
 
       return (
-        <div style={containerStyle}>
+        <div className={containerClassName}>
           <Badge variant={variant}>
             {section.label ? `${section.label}: ` : ""}{severity}
           </Badge>
@@ -90,7 +92,7 @@ export function BadgeSection({ section, ctx }: BadgeSectionProps) {
       const variant = statusColors[status] || "info";
 
       return (
-        <div style={containerStyle}>
+        <div className={containerClassName}>
           <Badge variant={variant}>
             {section.label ? `${section.label}: ` : ""}{status}
           </Badge>
@@ -101,7 +103,7 @@ export function BadgeSection({ section, ctx }: BadgeSectionProps) {
     case "category": {
       const category = String(value || "");
       return (
-        <div style={containerStyle}>
+        <div className={containerClassName}>
           <CategoryBadge>{category}</CategoryBadge>
         </div>
       );
@@ -110,9 +112,9 @@ export function BadgeSection({ section, ctx }: BadgeSectionProps) {
     case "count": {
       const count = typeof value === "number" ? value : 0;
       return (
-        <div style={containerStyle}>
+        <div className={containerClassName}>
           {section.label && (
-            <span style={{ marginRight: "0.5rem", fontSize: "0.75rem", color: "var(--uilint-text-muted)" }}>
+            <span className="mr-2 text-xs text-muted-foreground">
               {section.label}:
             </span>
           )}

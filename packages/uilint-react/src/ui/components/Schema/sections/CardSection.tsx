@@ -14,6 +14,7 @@ import {
 } from "../binding-utils";
 import { Card, CardHeader, CardTitle, CardDescription } from "../../card";
 import { Badge } from "../../badge";
+import { cn } from "../../../../lib/utils";
 
 interface CardSectionProps {
   section: CardSectionSchema;
@@ -43,36 +44,25 @@ export function CardSection({ section, ctx, onAction }: CardSectionProps) {
       }
     : undefined;
 
-  const cardStyle: React.CSSProperties = {
-    marginBottom: "0.5rem",
-    ...(handleClick && { cursor: "pointer" }),
-  };
-
   return (
     <Card
-      style={cardStyle}
+      className={cn("mb-2", handleClick && "cursor-pointer")}
       onClick={handleClick}
       role={handleClick ? "button" : undefined}
       tabIndex={handleClick ? 0 : undefined}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
+      <div className="flex items-start gap-3">
         {typeof thumbnail === "string" && thumbnail && (
           <img
             src={thumbnail}
             alt=""
-            style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: "4px",
-              objectFit: "cover",
-              flexShrink: 0,
-            }}
+            className="w-12 h-12 rounded object-cover shrink-0"
           />
         )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <CardHeader style={{ padding: "0.75rem 0.75rem 0" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <CardTitle style={{ fontSize: "0.875rem", marginBottom: 0 }}>
+        <div className="flex-1 min-w-0">
+          <CardHeader className="px-3 pt-3 pb-0">
+            <div className="flex justify-between items-start">
+              <CardTitle className="text-sm mb-0">
                 {String(title ?? "")}
               </CardTitle>
               {section.badge && badgeValue !== undefined && (
@@ -82,7 +72,7 @@ export function CardSection({ section, ctx, onAction }: CardSectionProps) {
               )}
             </div>
             {subtitle && (
-              <CardDescription style={{ fontSize: "0.75rem", marginTop: "0.25rem" }}>
+              <CardDescription className="text-xs mt-1">
                 {String(subtitle)}
               </CardDescription>
             )}

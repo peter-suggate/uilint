@@ -22,57 +22,27 @@ export function ProgressSection({ section, ctx }: ProgressSectionProps) {
   const percent = typeof value === "number" ? Math.min(100, Math.max(0, value)) : 0;
 
   return (
-    <div style={{ marginBottom: "0.75rem" }}>
+    <div className="mb-3">
       {label && (
-        <div
-          style={{
-            fontSize: "0.75rem",
-            color: "var(--uilint-text-muted)",
-            marginBottom: "0.25rem",
-          }}
-        >
+        <div className="text-xs text-muted-foreground mb-1">
           {String(label)}
         </div>
       )}
-      <div
-        style={{
-          height: "6px",
-          backgroundColor: "var(--uilint-surface)",
-          borderRadius: "3px",
-          overflow: "hidden",
-        }}
-      >
+      <div className="h-1.5 bg-surface rounded-sm overflow-hidden">
         {section.indeterminate ? (
           <div
-            style={{
-              height: "100%",
-              width: "30%",
-              backgroundColor: "var(--uilint-accent)",
-              borderRadius: "3px",
-              animation: "progress-indeterminate 1.5s infinite linear",
-            }}
+            className="h-full w-[30%] bg-accent rounded-sm"
+            style={{ animation: "progress-indeterminate 1.5s infinite linear" }}
           />
         ) : (
           <div
-            style={{
-              height: "100%",
-              width: `${percent}%`,
-              backgroundColor: "var(--uilint-accent)",
-              borderRadius: "3px",
-              transition: "width 0.3s ease",
-            }}
+            className="h-full bg-accent rounded-sm transition-[width] duration-300 ease-in-out"
+            style={{ width: `${percent}%` }}
           />
         )}
       </div>
       {!section.indeterminate && typeof value === "number" && (
-        <div
-          style={{
-            fontSize: "0.75rem",
-            color: "var(--uilint-text-muted)",
-            marginTop: "0.25rem",
-            textAlign: "right",
-          }}
-        >
+        <div className="text-xs text-muted-foreground mt-1 text-right">
           {percent}%
         </div>
       )}

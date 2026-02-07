@@ -1,5 +1,6 @@
 #!/bin/sh
 set -e
+set -o pipefail
 
 echo "Linting uilint-react..."
 pnpm --filter uilint-react lint:strict 2>&1 | tee /tmp/pre-commit-lint.log

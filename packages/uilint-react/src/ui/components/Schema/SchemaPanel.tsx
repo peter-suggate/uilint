@@ -66,19 +66,8 @@ export function SchemaPanel({
     const isLoading = evaluateCondition(panel.loading.when, ctx);
     if (isLoading) {
       return (
-        <div
-          style={{
-            padding: "2rem",
-            textAlign: "center",
-            color: "var(--uilint-text-muted)",
-          }}
-        >
-          <div
-            style={{
-              marginBottom: "0.5rem",
-              animation: "spin 1s linear infinite",
-            }}
-          >
+        <div className="p-8 text-center text-muted-foreground">
+          <div className="mb-2 animate-spin">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <circle
                 cx="12"
@@ -91,11 +80,11 @@ export function SchemaPanel({
               />
             </svg>
           </div>
-          <div style={{ fontSize: "0.875rem" }}>
+          <div className="text-sm">
             {panel.loading.message || "Loading..."}
           </div>
           {panel.loading.submessage && (
-            <div style={{ fontSize: "0.75rem", marginTop: "0.25rem" }}>
+            <div className="text-xs mt-1">
               {panel.loading.submessage}
             </div>
           )}
@@ -110,21 +99,15 @@ export function SchemaPanel({
     if (isEmpty) {
       const IconComponent = panel.empty.icon ? getIcon(panel.empty.icon) : null;
       return (
-        <div
-          style={{
-            padding: "2rem",
-            textAlign: "center",
-            color: "var(--uilint-text-muted)",
-          }}
-        >
+        <div className="p-8 text-center text-muted-foreground">
           {IconComponent && (
-            <div style={{ marginBottom: "0.5rem" }}>
+            <div className="mb-2">
               <IconComponent size={32} strokeWidth={1.5} />
             </div>
           )}
-          <div style={{ fontSize: "0.875rem" }}>{panel.empty.message}</div>
+          <div className="text-sm">{panel.empty.message}</div>
           {panel.empty.submessage && (
-            <div style={{ fontSize: "0.75rem", marginTop: "0.25rem" }}>
+            <div className="text-xs mt-1">
               {panel.empty.submessage}
             </div>
           )}
@@ -235,16 +218,9 @@ export function SchemaPanel({
   const title = resolveDynamicValue(panel.title, ctx);
 
   return (
-    <div style={{ padding: "1rem" }}>
+    <div className="p-4">
       {title && (
-        <h2
-          style={{
-            margin: "0 0 1rem 0",
-            fontSize: "1rem",
-            fontWeight: 600,
-            color: "var(--uilint-text-primary)",
-          }}
-        >
+        <h2 className="m-0 mb-4 text-base font-semibold text-text-primary">
           {String(title)}
         </h2>
       )}

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { adaptPlugin } from "./adapter";
+import {
+  adaptPlugin,
+  adaptPlugins,
+  registerBrowserAction,
+  clearBrowserActionRegistry,
+} from "./adapter";
 import type { PluginWithHandlers } from "uilint-core";
 import type { PluginServices } from "./types";
 
@@ -291,6 +296,103 @@ describe("adapter", () => {
 
       // Should return false when enabled is false
       expect(isVisible!({ plugins: { "test-plugin": { enabled: false } } })).toBe(false);
+    });
+  });
+
+  describe("browserActionRegistry", () => {
+    it("registers and executes browser actions", async () => {
+      clearBrowserActionRegistry();
+
+      const handler = vi.fn().mockResolvedValue({ success: true, data: "test" });
+      registerBrowserAction("test:action", handler);
+
+      // Verify via plugin context's requestBrowserAction
+      const source: PluginWithHandlers<Record<string, never>> = {
+        id: "test-plugin",
+        name: "Test Plugin",
+        version: "1.0.0",
+        state: { initialState: {} },
+        onLoad: async (ctx) => {
+          const result = await ctx.requestBrowserAction("test:action", { key: "value" });
+          expect(result.success).toBe(true);
+        },
+      };
+
+      const adapted = adaptPlugin(source);
+      const mockServices = {
+        getState: vi.fn().mockReturnValue({ plugins: {} }),
+        setState: vi.fn(),
+        websocket: { on: vi.fn().mockReturnValue(() => {}), send: vi.fn(), isConnected: true, onConnectionChange: vi.fn().mockReturnValue(() => {}) },
+        domObserver: { onElementsAdded: vi.fn() },
+        openInspector: vi.fn(),
+        closeInspector: vi.fn(),
+        closeCommandPalette: vi.fn(),
+      };
+
+      adapted.initialize!(mockServices as unknown as PluginServices);
+
+      expect(handler).toHaveBeenCalledWith({ key: "value" });
+    });
+
+    it("clears all registered actions", () => {
+      registerBrowserAction("action1", vi.fn());
+      registerBrowserAction("action2", vi.fn());
+      clearBrowserActionRegistry();
+
+      // After clearing, actions should not be found (verified via plugin context)
+      const source: PluginWithHandlers<Record<string, never>> = {
+        id: "test-plugin",
+        name: "Test Plugin",
+        version: "1.0.0",
+        state: { initialState: {} },
+        onLoad: async (ctx) => {
+          const result = await ctx.requestBrowserAction("action1");
+          expect(result.success).toBe(false);
+        },
+      };
+
+      const adapted = adaptPlugin(source);
+      const mockServices = {
+        getState: vi.fn().mockReturnValue({ plugins: {} }),
+        setState: vi.fn(),
+        websocket: { on: vi.fn().mockReturnValue(() => {}), send: vi.fn(), isConnected: true, onConnectionChange: vi.fn().mockReturnValue(() => {}) },
+        domObserver: { onElementsAdded: vi.fn() },
+        openInspector: vi.fn(),
+        closeInspector: vi.fn(),
+        closeCommandPalette: vi.fn(),
+      };
+
+      adapted.initialize!(mockServices as unknown as PluginServices);
+    });
+  });
+
+  describe("adaptPlugins", () => {
+    it("adapts multiple plugins at once", () => {
+      const sources: PluginWithHandlers[] = [
+        {
+          id: "plugin-a",
+          name: "Plugin A",
+          version: "1.0.0",
+          state: { initialState: {} },
+        },
+        {
+          id: "plugin-b",
+          name: "Plugin B",
+          version: "2.0.0",
+          state: { initialState: {} },
+        },
+      ];
+
+      const adapted = adaptPlugins(sources);
+
+      expect(adapted).toHaveLength(2);
+      expect(adapted[0].id).toBe("plugin-a");
+      expect(adapted[1].id).toBe("plugin-b");
+    });
+
+    it("returns empty array for empty input", () => {
+      const adapted = adaptPlugins([]);
+      expect(adapted).toHaveLength(0);
     });
   });
 });

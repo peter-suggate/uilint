@@ -23,14 +23,7 @@ export function ListSection({ section, ctx, renderSection }: ListSectionProps) {
   if (!Array.isArray(items) || items.length === 0) {
     if (section.emptyMessage) {
       return (
-        <div
-          style={{
-            padding: "1rem",
-            textAlign: "center",
-            color: "var(--uilint-text-muted)",
-            fontSize: "0.875rem",
-          }}
-        >
+        <div className="p-4 text-center text-muted-foreground text-sm">
           {section.emptyMessage}
         </div>
       );
@@ -39,7 +32,7 @@ export function ListSection({ section, ctx, renderSection }: ListSectionProps) {
   }
 
   return (
-    <div style={{ marginBottom: "0.75rem" }}>
+    <div className="mb-3">
       {items.map((item, itemIndex) => {
         // Create an item context with "item" prefix
         const itemCtx: BindingContext = {
@@ -52,7 +45,7 @@ export function ListSection({ section, ctx, renderSection }: ListSectionProps) {
         };
 
         return (
-          <div key={itemIndex} style={{ marginBottom: "0.5rem" }}>
+          <div key={itemIndex} className="mb-2">
             {section.itemLayout.map((childSection, layoutIndex) =>
               renderSection(childSection, layoutIndex, itemCtx)
             )}

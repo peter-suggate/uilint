@@ -272,8 +272,8 @@ export function PluginToolbar() {
   // Get all toolbar action groups from the registry
   const allGroups = pluginRegistry.getAllToolbarActionGroups();
 
-  // Filter by visibility
-  const storeState = useComposedStore();
+  // Filter by visibility — use identity selector (we already subscribe to plugin state above for reactivity)
+  const storeState = useComposedStore((s) => s);
   const visibleGroups = allGroups.filter((group) => {
     if (!group.isVisible) return true;
     return group.isVisible(storeState);

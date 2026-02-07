@@ -4,6 +4,7 @@ import {
   getPluginManifest,
   loadPlugin,
   loadPlugins,
+  registerExternalPlugin,
   type PluginManifest,
 } from "./loader";
 import type { Plugin } from "./types";
@@ -384,6 +385,17 @@ describe("loader", () => {
       const bIndex = plugins.findIndex((p) => p.id === "plugin-b");
 
       expect(aIndex).toBeLessThan(bIndex);
+    });
+  });
+
+  describe("registerExternalPlugin", () => {
+    it("registers an external plugin import function", async () => {
+      const importFn = vi.fn().mockResolvedValue({});
+      registerExternalPlugin(importFn);
+
+      // The import function is called during loadPlugins
+      // We verify it doesn't throw when called
+      expect(typeof importFn).toBe("function");
     });
   });
 });

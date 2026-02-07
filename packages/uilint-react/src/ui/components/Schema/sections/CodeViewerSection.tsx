@@ -42,15 +42,8 @@ function SimpleCodeViewer({
 
   return (
     <div
-      style={{
-        fontFamily: "monospace",
-        fontSize: "0.75rem",
-        backgroundColor: "var(--uilint-surface)",
-        borderRadius: "4px",
-        border: "1px solid var(--uilint-border)",
-        overflow: "auto",
-        maxHeight: maxHeight || 200,
-      }}
+      className="font-mono text-xs bg-surface rounded border border-border overflow-auto"
+      style={{ maxHeight: maxHeight || 200 }}
     >
       {lines.map((line, index) => {
         const lineNum = startLine + index;
@@ -59,35 +52,12 @@ function SimpleCodeViewer({
         return (
           <div
             key={index}
-            style={{
-              display: "flex",
-              backgroundColor: isHighlighted
-                ? "rgba(var(--uilint-accent-rgb), 0.15)"
-                : "transparent",
-            }}
+            className={`flex ${isHighlighted ? "bg-accent/15" : "bg-transparent"}`}
           >
-            <span
-              style={{
-                width: "3rem",
-                paddingRight: "0.5rem",
-                textAlign: "right",
-                color: "var(--uilint-text-muted)",
-                userSelect: "none",
-                flexShrink: 0,
-                borderRight: "1px solid var(--uilint-border)",
-              }}
-            >
+            <span className="w-12 pr-2 text-right text-muted-foreground select-none shrink-0 border-r border-border">
               {lineNum}
             </span>
-            <pre
-              style={{
-                margin: 0,
-                padding: "0 0.5rem",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-all",
-                flex: 1,
-              }}
-            >
+            <pre className="m-0 px-2 whitespace-pre-wrap break-all flex-1">
               {line || " "}
             </pre>
           </div>
@@ -170,43 +140,23 @@ export function CodeViewerSection({
     : undefined;
 
   return (
-    <div style={{ marginBottom: "0.75rem" }}>
+    <div className="mb-3">
       {section.label && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "0.5rem",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
             {IconComponent && (
-              <span style={{ color: "var(--uilint-text-muted)" }}>
+              <span className="text-muted-foreground">
                 <IconComponent size={14} />
               </span>
             )}
-            <span
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 500,
-                color: "var(--uilint-text-secondary)",
-              }}
-            >
+            <span className="text-xs font-medium text-text-secondary">
               {section.label}
             </span>
           </div>
           {handleNavigate && (
             <button
               onClick={handleNavigate}
-              style={{
-                background: "none",
-                border: "none",
-                padding: "0.25rem",
-                cursor: "pointer",
-                color: "var(--uilint-accent)",
-                fontSize: "0.75rem",
-              }}
+              className="bg-transparent border-none p-1 cursor-pointer text-accent text-xs"
             >
               Open in editor
             </button>
@@ -214,17 +164,7 @@ export function CodeViewerSection({
         </div>
       )}
       {isLoading ? (
-        <div
-          style={{
-            padding: "1rem",
-            textAlign: "center",
-            color: "var(--uilint-text-muted)",
-            fontSize: "0.75rem",
-            backgroundColor: "var(--uilint-surface)",
-            borderRadius: "4px",
-            border: "1px solid var(--uilint-border)",
-          }}
-        >
+        <div className="p-4 text-center text-muted-foreground text-xs bg-surface rounded border border-border">
           Loading code...
         </div>
       ) : code ? (
@@ -235,17 +175,7 @@ export function CodeViewerSection({
           maxHeight={section.maxHeight}
         />
       ) : (
-        <div
-          style={{
-            padding: "1rem",
-            textAlign: "center",
-            color: "var(--uilint-text-muted)",
-            fontSize: "0.75rem",
-            backgroundColor: "var(--uilint-surface)",
-            borderRadius: "4px",
-            border: "1px solid var(--uilint-border)",
-          }}
-        >
+        <div className="p-4 text-center text-muted-foreground text-xs bg-surface rounded border border-border">
           No code available
         </div>
       )}
