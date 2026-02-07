@@ -466,6 +466,9 @@ importers:
       uilint-core:
         specifier: workspace:*
         version: link:../uilint-core
+      uilint-eslint:
+        specifier: workspace:*
+        version: link:../uilint-eslint
       xxhash-wasm:
         specifier: ^1.1.0
         version: 1.1.0
@@ -492,6 +495,9 @@ importers:
       uilint-core:
         specifier: workspace:*
         version: link:../uilint-core
+      uilint-eslint:
+        specifier: workspace:*
+        version: link:../uilint-eslint
     optionalDependencies:
       ollama:
         specifier: ^0.6.3
