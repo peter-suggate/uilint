@@ -240,15 +240,12 @@ export function getAllTilesFlat(
   issues: Issue[],
   availableRules: AvailableRule[] = []
 ): TileItem[] {
-  if (issues.length === 0) {
-    return [];
-  }
-
   // Get rule tiles (with issues stored for search filtering)
+  // This includes rules with zero issues
   const ruleTiles = aggregateByRuleWithIssues(issues, availableRules);
 
   // Get global file tiles
-  const fileTiles = aggregateByFileGlobal(issues);
+  const fileTiles = issues.length > 0 ? aggregateByFileGlobal(issues) : [];
 
   // Combine all tiles
   const allTiles = [...ruleTiles, ...fileTiles];
@@ -292,10 +289,17 @@ function aggregateByRuleWithIssues(
     ruleMetadata.set(rule.id, rule);
   }
 
+  // Collect all rule IDs: from issues + from available rules
+  const allRuleIds = new Set<string>([
+    ...issuesByRule.keys(),
+    ...availableRules.map((r) => r.id),
+  ]);
+
   // Convert to tiles
   const tiles: TileItem[] = [];
 
-  for (const [ruleId, ruleIssues] of issuesByRule) {
+  for (const ruleId of allRuleIds) {
+    const ruleIssues = issuesByRule.get(ruleId) || [];
     const meta = ruleMetadata.get(ruleId);
     const severityCounts = countSeverities(ruleIssues);
 
@@ -386,13 +390,13 @@ export function getTileItems(
   _filters: TileFilter[]
 ): TileItem[] {
   const allIssues = getAllIssues(services);
+  const availableRules = getAvailableRules(services);
 
-  if (allIssues.length === 0) {
+  if (allIssues.length === 0 && availableRules.length === 0) {
     return [];
   }
 
-  // Use the new flat tile generation
-  const availableRules = getAvailableRules(services);
+  // Use the new flat tile generation (includes rules with zero issues)
   return getAllTilesFlat(allIssues, availableRules);
 }
 

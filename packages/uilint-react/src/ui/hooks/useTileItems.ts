@@ -115,8 +115,13 @@ export function useTileItems(query?: string): UseTileItemsResult {
     (s) => (s.plugins?.eslint as { disabledRules?: Set<string> } | undefined)?.disabledRules
   );
 
-  // Compute raw tile items when issues or disabled rules change
-  const rawItems = useMemo(() => computeTileItems(), [issuesMap, disabledRules]);
+  // Subscribe to available rules to re-compute when rules are loaded
+  const availableRules = useComposedStore(
+    (s) => (s.plugins?.eslint as { availableRules?: unknown[] } | undefined)?.availableRules
+  );
+
+  // Compute raw tile items when issues, disabled rules, or available rules change
+  const rawItems = useMemo(() => computeTileItems(), [issuesMap, disabledRules, availableRules]);
 
   // Apply query filtering and deduplication
   const items = useMemo(() => {
