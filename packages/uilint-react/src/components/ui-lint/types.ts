@@ -2,8 +2,6 @@
  * Types for UILint Source Visualization
  */
 
-import type { VisionIssue } from "uilint-vision";
-
 /**
  * Source location from data-loc attribute
  */
@@ -50,8 +48,9 @@ export interface UILintSettings {
 }
 
 /**
- * Auto-scan settings for ESLint and Vision analysis
- * Persisted to localStorage
+ * Auto-scan settings for ESLint analysis.
+ * Plugin-specific auto-scan settings are managed by the plugins themselves.
+ * Persisted to localStorage.
  */
 export interface AutoScanSettings {
   eslint: {
@@ -59,12 +58,6 @@ export interface AutoScanSettings {
     onPageLoad: boolean;
     /** Re-scan when files change (existing behavior) */
     onFileChange: boolean;
-  };
-  vision: {
-    /** Auto-capture and analyze on route change */
-    onRouteChange: boolean;
-    /** Auto-capture and analyze on initial page load */
-    onInitialLoad: boolean;
   };
 }
 
@@ -76,14 +69,11 @@ export const DEFAULT_AUTO_SCAN_SETTINGS: AutoScanSettings = {
     onPageLoad: false,
     onFileChange: true,
   },
-  vision: {
-    onRouteChange: false,
-    onInitialLoad: false,
-  },
 };
 
 /**
- * Screenshot capture entry for the gallery
+ * Screenshot capture entry for the gallery.
+ * Plugin-specific issue data is stored in the plugin's own state.
  */
 export interface ScreenshotCapture {
   /** Unique ID for this capture */
@@ -102,39 +92,8 @@ export interface ScreenshotCapture {
   region?: { x: number; y: number; width: number; height: number };
   /** Whether this is a persisted screenshot loaded from disk */
   persisted?: boolean;
-  /** Vision issues specific to this capture */
-  issues?: VisionIssue[];
-}
-
-/**
- * Persisted screenshot metadata from the API
- */
-export interface PersistedScreenshotMetadata {
-  filename: string;
-  timestamp: number;
-  screenshotFile: string;
-  route: string | null;
-  issues: VisionIssue[] | null;
-  manifest: unknown | null;
-  analysisResult: {
-    route: string;
-    timestamp: number;
-    issues: VisionIssue[];
-    analysisTime: number;
-    error?: string;
-  } | null;
-}
-
-/**
- * API response for listing screenshots
- */
-export interface ScreenshotListResponse {
-  screenshots: Array<{
-    filename: string;
-    metadata: PersistedScreenshotMetadata | null;
-  }>;
-  projectRoot: string;
-  screenshotsDir: string;
+  /** Plugin-specific issues for this capture (opaque to the core) */
+  issues?: unknown[];
 }
 
 /**
@@ -270,11 +229,3 @@ export const DEFAULT_AUTO_SCAN_STATE: AutoScanState = {
  */
 export const DATA_UILINT_ID = "data-loc";
 
-/**
- * Re-export vision types for convenience
- */
-export type {
-  VisionIssue,
-  VisionAnalysisResult,
-  ElementManifest,
-} from "uilint-vision";

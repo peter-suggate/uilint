@@ -31,8 +31,6 @@
 import { SocketClient, createSocketClient, type SocketClientOptions } from "./client.js";
 import type {
   LintResultMessage,
-  VisionResultMessage,
-  VisionStatusMessage,
   SourceResultMessage,
   SourceErrorMessage,
   CoverageResultMessage,
@@ -42,7 +40,6 @@ import type {
   RulesMetadataMessage,
   ElementManifest,
   LintIssue,
-  VisionIssue,
   ServerMessage,
 } from "./types.js";
 
@@ -187,22 +184,25 @@ export class SocketTestHarness {
 
   /**
    * Get vision status with model info
+   * Note: Vision types live in the plugin package; messages still flow through the WebSocket.
    */
-  async getVisionStatus(timeout?: number): Promise<VisionStatusMessage> {
+  async getVisionStatus(timeout?: number): Promise<any> {
     return this.client.visionCheck(timeout);
   }
 
   /**
    * Run vision analysis on a screenshot
+   * Note: Vision types live in the plugin package; messages still flow through the WebSocket.
    */
-  async analyzeVision(params: VisionAnalyzeParams, timeout?: number): Promise<VisionResultMessage> {
+  async analyzeVision(params: VisionAnalyzeParams, timeout?: number): Promise<any> {
     return this.client.visionAnalyze(params, timeout);
   }
 
   /**
    * Run vision analysis and return just the issues
+   * Note: Vision types live in the plugin package; messages still flow through the WebSocket.
    */
-  async getVisionIssues(params: VisionAnalyzeParams, timeout?: number): Promise<VisionIssue[]> {
+  async getVisionIssues(params: VisionAnalyzeParams, timeout?: number): Promise<any[]> {
     const result = await this.analyzeVision(params, timeout);
     if (result.error) {
       throw new Error(result.error);
@@ -388,13 +388,11 @@ export async function createTestHarness(
 }
 
 // Re-export types for convenience
+// Note: Vision types (VisionIssue, VisionResultMessage, VisionStatusMessage) now live in the plugin package
 export type {
   ElementManifest,
   LintIssue,
-  VisionIssue,
   LintResultMessage,
-  VisionResultMessage,
-  VisionStatusMessage,
   SourceResultMessage,
   SourceErrorMessage,
   CoverageResultMessage,

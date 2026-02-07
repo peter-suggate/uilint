@@ -35,21 +35,6 @@ export interface LintElementMessage {
   requestId?: string;
 }
 
-export interface VisionCheckMessage {
-  type: "vision:check";
-  requestId?: string;
-}
-
-export interface VisionAnalyzeMessage {
-  type: "vision:analyze";
-  route: string;
-  timestamp: number;
-  screenshot?: string;
-  screenshotFile?: string;
-  manifest: ElementManifest[];
-  requestId?: string;
-}
-
 export interface ConfigSetMessage {
   type: "config:set";
   key: string;
@@ -96,8 +81,6 @@ export interface ScreenshotSaveMessage {
 export type ClientMessage =
   | LintFileMessage
   | LintElementMessage
-  | VisionCheckMessage
-  | VisionAnalyzeMessage
   | ConfigSetMessage
   | RuleConfigSetMessage
   | SourceFetchMessage
@@ -164,44 +147,12 @@ export interface RulesMetadataMessage {
     id: string;
     name: string;
     description: string;
-    category: "static" | "semantic";
+    category: string;
     defaultSeverity: "error" | "warn" | "off";
     currentSeverity?: "error" | "warn" | "off";
     currentOptions?: Record<string, unknown>;
     docs?: string;
   }>;
-}
-
-export interface VisionIssue {
-  elementText: string;
-  dataLoc?: string;
-  message: string;
-  category: string;
-  severity: "error" | "warning" | "info";
-  suggestion?: string;
-}
-
-export interface VisionResultMessage {
-  type: "vision:result";
-  route: string;
-  issues: VisionIssue[];
-  analysisTime: number;
-  error?: string;
-  requestId?: string;
-}
-
-export interface VisionProgressMessage {
-  type: "vision:progress";
-  route: string;
-  phase: string;
-  requestId?: string;
-}
-
-export interface VisionStatusMessage {
-  type: "vision:status";
-  available: boolean;
-  model?: string;
-  requestId?: string;
 }
 
 export interface ConfigUpdateMessage {
@@ -301,9 +252,6 @@ export type ServerMessage =
   | WorkspaceInfoMessage
   | WorkspaceCapabilitiesMessage
   | RulesMetadataMessage
-  | VisionResultMessage
-  | VisionProgressMessage
-  | VisionStatusMessage
   | ConfigUpdateMessage
   | RuleConfigResultMessage
   | RuleConfigChangedMessage

@@ -8,16 +8,11 @@
  * - Client -> Server: { type: 'lint:element', filePath: string, dataLoc: string, requestId?: string }
  * - Client -> Server: { type: 'subscribe:file', filePath: string }
  * - Client -> Server: { type: 'cache:invalidate', filePath?: string }
- * - Client -> Server: { type: 'vision:analyze', route: string, timestamp: number, screenshot?: string, screenshotFile?: string, manifest: ElementManifest[], requestId?: string }
- * - Client -> Server: { type: 'vision:check', requestId?: string }
  * - Client -> Server: { type: 'config:set', key: string, value: any }
  * - Client -> Server: { type: 'rule:config:set', ruleId: string, severity: 'error'|'warn'|'off', options?: object, requestId?: string }
  * - Server -> Client: { type: 'lint:result', filePath: string, issues: Issue[], requestId?: string }
  * - Server -> Client: { type: 'lint:progress', filePath: string, phase: string, requestId?: string }
  * - Server -> Client: { type: 'file:changed', filePath: string }
- * - Server -> Client: { type: 'vision:result', route: string, issues: VisionIssue[], analysisTime: number, error?: string, requestId?: string }
- * - Server -> Client: { type: 'vision:progress', route: string, phase: string, requestId?: string }
- * - Server -> Client: { type: 'vision:status', available: boolean, model?: string, requestId?: string }
  * - Server -> Client: { type: 'config:update', key: string, value: any }
  * - Server -> Client: { type: 'rule:config:result', ruleId: string, severity: string, options?: object, success: boolean, error?: string, requestId?: string }
  * - Server -> Client: { type: 'rule:config:changed', ruleId: string, severity: string, options?: object }
@@ -53,11 +48,9 @@ import { dirname, resolve, relative, join, parse } from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { watch, type FSWatcher } from "chokidar";
 import { findWorkspaceRoot } from "uilint-core/node";
-import {
-  getVisionAnalyzer as getCoreVisionAnalyzer,
-  runVisionAnalysis,
-  writeVisionMarkdownReport,
-} from "uilint-vision/node";
+
+// Vision analysis is dynamically imported from uilint-vision/node when needed.
+// This removes the hard dependency on the vision plugin package.
 import {
   detectNextAppRouter,
   findNextAppRouterProjects,
@@ -204,7 +197,8 @@ interface VisionAnalyzeMessage {
   screenshot?: string;
   /** Screenshot filename persisted under `.uilint/screenshots/` (e.g. uilint-...png) */
   screenshotFile?: string;
-  manifest: ElementManifest[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  manifest: any[];
   requestId?: string;
 }
 
@@ -295,7 +289,8 @@ interface WorkspaceCapabilitiesMessage {
 interface VisionResultMessage {
   type: "vision:result";
   route: string;
-  issues: VisionIssue[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  issues: any[];
   analysisTime: number;
   error?: string;
   requestId?: string;
@@ -321,7 +316,7 @@ interface RulesMetadataMessage {
     id: string;
     name: string;
     description: string;
-    category: "static" | "semantic";
+    category: string;
     defaultSeverity: "error" | "warn" | "off";
     /** Current severity from ESLint config (may differ from default) */
     currentSeverity?: "error" | "warn" | "off";
@@ -571,32 +566,29 @@ const eslintInstances = new Map<string, unknown>();
 // ESLint instances with semantic rule disabled (for fast pass)
 const eslintFastInstances = new Map<string, unknown>();
 
-// Vision analyzer instance (lazy loaded)
-type VisionIssue = {
-  elementText: string;
-  dataLoc?: string;
-  message: string;
-  category: string;
-  severity: string;
-  suggestion?: string;
-};
+// Vision module is dynamically imported to avoid hard dependency on uilint-vision.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let visionModule: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let visionAnalyzer: any = null;
 
-type ElementManifest = {
-  id: string;
-  text: string;
-  dataLoc: string;
-  rect: { x: number; y: number; width: number; height: number };
-  tagName: string;
-  role?: string;
-  instanceCount?: number;
-};
-
-let visionAnalyzer: ReturnType<typeof getCoreVisionAnalyzer> | null = null;
-
-function getVisionAnalyzerInstance(): ReturnType<typeof getCoreVisionAnalyzer> {
-  if (!visionAnalyzer) {
-    visionAnalyzer = getCoreVisionAnalyzer();
+async function getVisionModule(): Promise<any> {
+  if (visionModule) return visionModule;
+  try {
+    // @ts-expect-error -- uilint-vision is an optional dependency
+    visionModule = await import("uilint-vision/node");
+    return visionModule;
+  } catch {
+    return null;
   }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getVisionAnalyzerInstance(): Promise<any> {
+  if (visionAnalyzer) return visionAnalyzer;
+  const mod = await getVisionModule();
+  if (!mod) return null;
+  visionAnalyzer = mod.getVisionAnalyzer();
   return visionAnalyzer;
 }
 
@@ -1510,6 +1502,8 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
     }
 
     case "vision:analyze": {
+      // Vision analysis is handled by the uilint-vision plugin.
+      // The server dynamically imports the module if available.
       const {
         route,
         timestamp,
@@ -1517,52 +1511,40 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         screenshotFile,
         manifest,
         requestId,
-      } = message;
+      } = message as any;
       logVisionAnalyze(route, requestId);
+
+      const visionMod = await getVisionModule();
+      if (!visionMod) {
+        sendMessage(ws, {
+          type: "vision:result",
+          route,
+          issues: [],
+          analysisTime: 0,
+          error: "uilint-vision is not installed",
+          requestId,
+        } as any);
+        break;
+      }
 
       sendMessage(ws, {
         type: "vision:progress",
         route,
         requestId,
         phase: "Starting vision analysis...",
-      });
+      } as any);
 
       const startedAt = Date.now();
-      const analyzer = getVisionAnalyzerInstance();
+      const analyzer = await getVisionAnalyzerInstance();
 
       // Acquire exclusive access to Ollama to avoid model contention
-      // with duplicates indexing (nomic-embed-text vs qwen3-vl)
       const releaseOllama = await acquireOllamaMutex();
 
       try {
-        const screenshotBytes =
-          typeof screenshot === "string" ? Buffer.byteLength(screenshot) : 0;
         const analyzerModel =
-          typeof (analyzer as any).getModel === "function"
-            ? ((analyzer as any).getModel() as string)
-            : undefined;
+          typeof analyzer?.getModel === "function" ? analyzer.getModel() : undefined;
         const analyzerBaseUrl =
-          typeof (analyzer as any).getBaseUrl === "function"
-            ? ((analyzer as any).getBaseUrl() as string)
-            : undefined;
-
-        // Only log detailed vision info in verbose/non-dashboard mode
-        if (!isDashboardEnabled()) {
-          logInfo(
-            [
-              `${pc.dim("[ws]")} ${pc.dim("vision")} details`,
-              `  route:        ${pc.dim(route)}`,
-              `  requestId:    ${pc.dim(requestId ?? "(none)")}`,
-              `  manifest:     ${pc.dim(String(manifest.length))} element(s)`,
-              `  screenshot:   ${pc.dim(
-                screenshot ? `${Math.round(screenshotBytes / 1024)}kb` : "none"
-              )}`,
-              `  screenshotFile: ${pc.dim(screenshotFile ?? "(none)")}`,
-              `  ollamaUrl:    ${pc.dim(analyzerBaseUrl ?? "(default)")}`,
-              `  visionModel:  ${pc.dim(analyzerModel ?? "(default)")}`,
-            ].join("\n")
-          );
-        }
+          typeof analyzer?.getBaseUrl === "function" ? analyzer.getBaseUrl() : undefined;
 
         if (!screenshot) {
           sendMessage(ws, {
@@ -1572,51 +1554,36 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
             analysisTime: Date.now() - startedAt,
             error: "No screenshot provided for vision analysis",
             requestId,
-          });
+          } as any);
           break;
         }
 
-        const result = await runVisionAnalysis({
+        const result = await visionMod.runVisionAnalysis({
           imageBase64: screenshot,
           manifest,
           projectPath: serverAppRootForVision,
-          // In the overlay/server context, default to upward search from app root.
           baseUrl: analyzerBaseUrl,
           model: analyzerModel,
-          analyzer: analyzer as any,
-          onPhase: (phase) => {
+          analyzer,
+          onPhase: (phase: string) => {
             sendMessage(ws, {
               type: "vision:progress",
               route,
               requestId,
               phase,
-            });
+            } as any);
           },
           pathResolver: resolvePathSpecifier,
         });
 
-        // Write a markdown report alongside the saved screenshot (best-effort).
+        // Write markdown report (best-effort)
         if (typeof screenshotFile === "string" && screenshotFile.length > 0) {
-          if (!isValidScreenshotFilename(screenshotFile)) {
-            logServerWarning(
-              `Skipping vision report write: invalid screenshotFile`,
-              screenshotFile
-            );
-          } else {
-            const screenshotsDir = join(
-              serverAppRootForVision,
-              ".uilint",
-              "screenshots"
-            );
+          if (isValidScreenshotFilename(screenshotFile)) {
+            const screenshotsDir = join(serverAppRootForVision, ".uilint", "screenshots");
             const imagePath = join(screenshotsDir, screenshotFile);
             try {
-              if (!existsSync(imagePath)) {
-                logServerWarning(
-                  `Skipping vision report write: screenshot file not found`,
-                  imagePath
-                );
-              } else {
-                const report = writeVisionMarkdownReport({
+              if (existsSync(imagePath)) {
+                const report = visionMod.writeVisionMarkdownReport({
                   imagePath,
                   route,
                   timestamp,
@@ -1652,35 +1619,11 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
           issues: result.issues,
           analysisTime: result.analysisTime,
           requestId,
-        });
+        } as any);
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
         const elapsed = Date.now() - startedAt;
-
-        // Build rich diagnostic detail for the dashboard
-        const catchModel =
-          typeof (analyzer as any).getModel === "function"
-            ? ((analyzer as any).getModel() as string)
-            : "unknown";
-        const catchBaseUrl =
-          typeof (analyzer as any).getBaseUrl === "function"
-            ? ((analyzer as any).getBaseUrl() as string)
-            : "unknown";
-        const detail = [
-          errorMessage,
-          `model: ${catchModel}`,
-          `url: ${catchBaseUrl}`,
-          `manifest: ${manifest.length} elements`,
-          `elapsed: ${elapsed}ms`,
-          screenshot
-            ? `screenshot: ${Math.round(
-                Buffer.byteLength(screenshot) / 1024
-              )}kb`
-            : `screenshot: none`,
-        ].join(" | ");
-
-        logServerError(`Vision analysis failed for ${route}`, detail);
+        logServerError(`Vision analysis failed for ${route}`, errorMessage);
 
         sendMessage(ws, {
           type: "vision:result",
@@ -1689,7 +1632,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
           analysisTime: elapsed,
           error: errorMessage,
           requestId,
-        });
+        } as any);
       } finally {
         releaseOllama();
       }
@@ -1697,28 +1640,19 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
     }
 
     case "vision:check": {
-      const { requestId } = message;
+      const { requestId } = message as any;
       logVisionCheck(requestId);
 
       try {
-        const analyzer = getVisionAnalyzerInstance();
-        const model =
-          typeof (analyzer as any).getModel === "function"
-            ? (analyzer as any).getModel()
-            : undefined;
-
-        sendMessage(ws, {
-          type: "vision:status",
-          available: true,
-          model,
-          requestId,
-        });
-      } catch (error) {
-        sendMessage(ws, {
-          type: "vision:status",
-          available: false,
-          requestId,
-        });
+        const analyzer = await getVisionAnalyzerInstance();
+        if (!analyzer) {
+          sendMessage(ws, { type: "vision:status", available: false, requestId } as any);
+          break;
+        }
+        const model = typeof analyzer.getModel === "function" ? analyzer.getModel() : undefined;
+        sendMessage(ws, { type: "vision:status", available: true, model, requestId } as any);
+      } catch {
+        sendMessage(ws, { type: "vision:status", available: false, requestId } as any);
       }
       break;
     }
@@ -2063,7 +1997,7 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
   try {
     const { indexDirectory } = await import("uilint-duplicates");
     const result = await indexDirectory(appRoot, {
-      onProgress: (message, current, total) => {
+      onProgress: (message: string, current: number, total: number) => {
         // Update dashboard progress
         const progress =
           total && total > 0 ? Math.round(((current || 0) / total) * 100) : 0;

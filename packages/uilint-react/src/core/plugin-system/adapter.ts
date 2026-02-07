@@ -4,6 +4,9 @@
  * Adapts declarative PluginWithHandlers (from uilint-core) to imperative
  * Plugin (for uilint-react). This allows plugin packages to export pure
  * TypeScript definitions while the React host renders the appropriate UI.
+ *
+ * Browser actions are registered by plugins during onLoad — no hardcoded
+ * plugin-specific imports.
  */
 
 import React from "react";
@@ -16,6 +19,7 @@ import type {
   ToolbarActionDefinition,
   DataBinding,
   ExpressionBinding,
+  BrowserActionResult,
 } from "uilint-core";
 import {
   isDataBinding,
@@ -30,6 +34,43 @@ import type {
   IssueContribution,
 } from "./types";
 import { getIcon } from "../../ui/components/Schema/icon-map";
+
+// =============================================================================
+// BROWSER ACTION REGISTRY
+// =============================================================================
+
+type BrowserActionHandler = (payload?: unknown) => Promise<BrowserActionResult>;
+
+/**
+ * Global registry of browser action handlers.
+ * Plugins register their handlers during onLoad via ctx.registerBrowserAction().
+ */
+const browserActionRegistry = new Map<string, BrowserActionHandler>();
+
+/**
+ * Register a browser action handler.
+ */
+export function registerBrowserAction(type: string, handler: BrowserActionHandler): void {
+  browserActionRegistry.set(type, handler);
+}
+
+/**
+ * Execute a registered browser action.
+ */
+async function executeBrowserAction(type: string, payload?: unknown): Promise<BrowserActionResult> {
+  const handler = browserActionRegistry.get(type);
+  if (!handler) {
+    return { success: false, error: `Unknown browser action: ${type}` };
+  }
+  return handler(payload);
+}
+
+/**
+ * Clear all registered browser actions (for testing).
+ */
+export function clearBrowserActionRegistry(): void {
+  browserActionRegistry.clear();
+}
 
 // =============================================================================
 // PLUGIN CONTEXT FACTORY
@@ -64,19 +105,10 @@ function createPluginContext<TState>(
       return window.location.pathname;
     },
     requestBrowserAction: async (type: string, payload?: unknown) => {
-      // Browser actions are implemented by the host
-      // For now, we'll implement the common ones inline
-      if (type === "capture-screenshot") {
-        const { captureScreenshot } = await import("uilint-vision");
-        const dataUrl = await captureScreenshot();
-        return { success: true, dataUrl };
-      }
-      if (type === "collect-manifest") {
-        const { collectElementManifest } = await import("uilint-vision");
-        const manifest = collectElementManifest(payload as { x: number; y: number; width: number; height: number } | undefined);
-        return { success: true, manifest };
-      }
-      return { success: false, error: `Unknown browser action: ${type}` };
+      return executeBrowserAction(type, payload);
+    },
+    registerBrowserAction: (type: string, handler: (payload?: unknown) => Promise<BrowserActionResult>) => {
+      registerBrowserAction(type, handler);
     },
     openInEditor: (dataLoc: string) => {
       // Parse dataLoc and open in editor
@@ -97,17 +129,35 @@ function createPluginContext<TState>(
       state.clearHeatmapFilter?.();
     },
     openInspector: (panelId: string, data?: Record<string, unknown>) => {
-      // Map panel IDs to inspector modes
-      const modeMap: Record<string, "rule" | "issue" | "element" | "fixes" | "capture"> = {
-        "vision-capture": "capture",
-        "vision-issue": "issue",
-        "semantic-issue": "issue",
-      };
-      const mode = modeMap[panelId] || "issue";
-      services.openInspector(mode, { ...data });
+      // Open inspector using the panel ID directly.
+      // The inspector system routes to the correct panel by ID.
+      services.openInspector(panelId, { ...data });
     },
     closeInspector: () => {
       services.closeInspector();
+    },
+    requestOverlayInteraction: (type, _options) => {
+      return new Promise((resolve, reject) => {
+        // Delegate to the store's overlay interaction system
+        const fullState = services.getState<{
+          startOverlayInteraction?: (interaction: {
+            type: string;
+            pluginId: string;
+            onComplete: (result: unknown) => void;
+            onCancel: () => void;
+          }) => void;
+        }>();
+        if (!fullState.startOverlayInteraction) {
+          reject(new Error("Overlay interactions not supported by host"));
+          return;
+        }
+        fullState.startOverlayInteraction({
+          type,
+          pluginId,
+          onComplete: resolve,
+          onCancel: () => reject(new Error("Overlay interaction cancelled")),
+        });
+      });
     },
   };
 }
@@ -450,7 +500,7 @@ export function adaptPlugin<TState>(
           unsubscribes.push(unsub);
         }
 
-        // Handle connection changes for vision:check
+        // Handle connection changes — re-trigger onLoad on reconnect
         const unsubConnection = services.websocket.onConnectionChange((connected) => {
           if (connected && source.onLoad) {
             source.onLoad(ctx);

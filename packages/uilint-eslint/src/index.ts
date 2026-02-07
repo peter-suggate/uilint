@@ -10,19 +10,16 @@ import consistentDarkMode from "./rules/consistent-dark-mode.js";
 import noDirectStoreImport from "./rules/no-direct-store-import.js";
 import preferZustandStateManagement from "./rules/prefer-zustand-state-management.js";
 import noMixedComponentLibraries from "./rules/no-mixed-component-libraries/index.js";
-import semantic from "./rules/semantic/index.js";
-import semanticVision from "./rules/semantic-vision.js";
 import enforceAbsoluteImports from "./rules/enforce-absolute-imports.js";
 import noAnyInProps from "./rules/no-any-in-props.js";
+import noUnsafeTypeCasts from "./rules/no-unsafe-type-casts.js";
 import zustandUseSelectors from "./rules/zustand-use-selectors.js";
+import preferStoreSelectors from "./rules/prefer-store-selectors.js";
 import noPropDrillingDepth from "./rules/no-prop-drilling-depth.js";
 import noSecretsInCode from "./rules/no-secrets-in-code.js";
 import requireInputValidation from "./rules/require-input-validation.js";
-import noSemanticDuplicates from "./rules/no-semantic-duplicates.js";
 import requireTestCoverage from "./rules/require-test-coverage/index.js";
 import preferTailwind from "./rules/prefer-tailwind/index.js";
-import noUnsafeTypeCasts from "./rules/no-unsafe-type-casts.js";
-import preferStoreSelectors from "./rules/prefer-store-selectors.js";
 
 /**
  * All available rules
@@ -32,19 +29,16 @@ const rules = {
   "no-direct-store-import": noDirectStoreImport,
   "prefer-zustand-state-management": preferZustandStateManagement,
   "no-mixed-component-libraries": noMixedComponentLibraries,
-  "semantic": semantic,
-  "semantic-vision": semanticVision,
   "enforce-absolute-imports": enforceAbsoluteImports,
   "no-any-in-props": noAnyInProps,
+  "no-unsafe-type-casts": noUnsafeTypeCasts,
   "zustand-use-selectors": zustandUseSelectors,
+  "prefer-store-selectors": preferStoreSelectors,
   "no-prop-drilling-depth": noPropDrillingDepth,
   "no-secrets-in-code": noSecretsInCode,
   "require-input-validation": requireInputValidation,
-  "no-semantic-duplicates": noSemanticDuplicates,
   "require-test-coverage": requireTestCoverage,
   "prefer-tailwind": preferTailwind,
-  "no-unsafe-type-casts": noUnsafeTypeCasts,
-  "prefer-store-selectors": preferStoreSelectors,
 };
 
 // Package version (injected at build time or fallback)
@@ -133,11 +127,26 @@ const recommendedConfig: Linter.Config = {
           "allowInGenericDefaults": false
         }
       ]],
+    "uilint/no-unsafe-type-casts": ["error", ...[
+        {
+          "reportAsAny": true,
+          "reportAsUnknown": false,
+          "reportDoubleCast": true,
+          "allowInTestFiles": true,
+          "allowInCatchBlocks": true,
+          "allowedTypes": []
+        }
+      ]],
     "uilint/zustand-use-selectors": ["warn", ...[
         {
           "storePattern": "^use\\w*Store$",
           "allowShallow": true,
           "requireNamedSelectors": false
+        }
+      ]],
+    "uilint/prefer-store-selectors": ["warn", ...[
+        {
+          "storeHookPattern": "^use.*Store$"
         }
       ]],
     "uilint/no-prop-drilling-depth": ["warn", ...[
@@ -211,21 +220,6 @@ const recommendedConfig: Linter.Config = {
           "preferSemanticColors": true,
           "allowedHardCodedColors": [],
           "useLlmSuggestions": false
-        }
-      ]],
-    "uilint/no-unsafe-type-casts": ["error", ...[
-        {
-          "reportAsAny": true,
-          "reportAsUnknown": false,
-          "reportDoubleCast": true,
-          "allowInTestFiles": true,
-          "allowInCatchBlocks": true,
-          "allowedTypes": []
-        }
-      ]],
-    "uilint/prefer-store-selectors": ["warn", ...[
-        {
-          "storeHookPattern": "^use.*Store$"
         }
       ]],
   },
@@ -275,18 +269,6 @@ const strictConfig: Linter.Config = {
           ]
         }
       ]],
-    "uilint/semantic": ["warn", ...[
-        {
-          "model": "qwen3-vl:8b-instruct",
-          "styleguidePath": ".uilint/styleguide.md"
-        }
-      ]],
-    "uilint/semantic-vision": ["warn", ...[
-        {
-          "maxAgeMs": 3600000,
-          "screenshotsPath": ".uilint/screenshots"
-        }
-      ]],
     "uilint/enforce-absolute-imports": ["warn", ...[
         {
           "maxRelativeDepth": 1,
@@ -299,11 +281,26 @@ const strictConfig: Linter.Config = {
           "allowInGenericDefaults": false
         }
       ]],
+    "uilint/no-unsafe-type-casts": ["error", ...[
+        {
+          "reportAsAny": true,
+          "reportAsUnknown": false,
+          "reportDoubleCast": true,
+          "allowInTestFiles": true,
+          "allowInCatchBlocks": true,
+          "allowedTypes": []
+        }
+      ]],
     "uilint/zustand-use-selectors": ["warn", ...[
         {
           "storePattern": "^use\\w*Store$",
           "allowShallow": true,
           "requireNamedSelectors": false
+        }
+      ]],
+    "uilint/prefer-store-selectors": ["warn", ...[
+        {
+          "storeHookPattern": "^use.*Store$"
         }
       ]],
     "uilint/no-prop-drilling-depth": ["warn", ...[
@@ -344,17 +341,6 @@ const strictConfig: Linter.Config = {
           "allowManualValidation": false
         }
       ]],
-    "uilint/no-semantic-duplicates": ["warn", ...[
-        {
-          "threshold": 0.75,
-          "indexPath": ".uilint/.duplicates-index",
-          "minLines": 3,
-          "confidenceLevel": "low",
-          "useStructuralBoost": true,
-          "includeSameFile": false,
-          "kind": "all"
-        }
-      ]],
     "uilint/require-test-coverage": ["warn", ...[
         {
           "coveragePath": "coverage/coverage-final.json",
@@ -388,21 +374,6 @@ const strictConfig: Linter.Config = {
           "preferSemanticColors": true,
           "allowedHardCodedColors": [],
           "useLlmSuggestions": false
-        }
-      ]],
-    "uilint/no-unsafe-type-casts": ["error", ...[
-        {
-          "reportAsAny": true,
-          "reportAsUnknown": false,
-          "reportDoubleCast": true,
-          "allowInTestFiles": true,
-          "allowInCatchBlocks": true,
-          "allowedTypes": []
-        }
-      ]],
-    "uilint/prefer-store-selectors": ["warn", ...[
-        {
-          "storeHookPattern": "^use.*Store$"
         }
       ]],
   },

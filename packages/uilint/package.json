@@ -62,9 +62,15 @@
     "uilint-core": "workspace:*",
     "uilint-duplicates": "workspace:*",
     "uilint-eslint": "workspace:*",
-    "uilint-semantic": "workspace:*",
-    "uilint-vision": "workspace:*",
     "ws": "^8.19.0"
+  },
+  "peerDependencies": {
+    "uilint-vision": "workspace:*",
+    "uilint-semantic": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "uilint-vision": { "optional": true },
+    "uilint-semantic": { "optional": true }
   },
   "optionalDependencies": {
     "@langfuse/client": "^4.5.1",

@@ -144,6 +144,26 @@ export interface HeatmapFilterState {
 }
 
 // ============================================================================
+// Overlay Interaction
+// ============================================================================
+
+/**
+ * Generic overlay interaction requested by a plugin.
+ * Plugins request interactions (e.g., region selection) and the host
+ * renders the appropriate UI, then dispatches results back to the plugin.
+ */
+export interface OverlayInteraction {
+  /** Interaction type — determines which UI the host renders */
+  type: "region-select";
+  /** Plugin ID that requested the interaction */
+  pluginId: string;
+  /** Callback when interaction completes successfully */
+  onComplete: (result: unknown) => void;
+  /** Callback when interaction is cancelled */
+  onCancel: () => void;
+}
+
+// ============================================================================
 // Slice Interface
 // ============================================================================
 
@@ -286,6 +306,29 @@ export interface CoreSlice {
   mobile: MobileState;
   /** Update mobile state (called by subscriptions) */
   setMobileState: (state: MobileState) => void;
+
+  // ============ Overlay Interactions ============
+  /**
+   * Active overlay interaction requested by a plugin.
+   * The host renders the appropriate UI (e.g., RegionSelector)
+   * and dispatches the result back to the plugin.
+   */
+  overlayInteraction: OverlayInteraction | null;
+  /**
+   * Start an overlay interaction (called by plugins).
+   * @param interaction The interaction configuration
+   */
+  startOverlayInteraction: (interaction: OverlayInteraction) => void;
+  /**
+   * Complete the active overlay interaction with a result.
+   * Clears the interaction and dispatches the result callback.
+   */
+  completeOverlayInteraction: (result: unknown) => void;
+  /**
+   * Cancel the active overlay interaction.
+   * Clears the interaction and dispatches the cancel callback.
+   */
+  cancelOverlayInteraction: () => void;
 }
 
 // ============================================================================
@@ -857,5 +900,28 @@ export const createCoreSlice = (
 
   setMobileState: (mobileState) => {
     set({ mobile: mobileState });
+  },
+
+  // ============ Overlay Interactions ============
+  overlayInteraction: null,
+
+  startOverlayInteraction: (interaction) => {
+    set({ overlayInteraction: interaction });
+  },
+
+  completeOverlayInteraction: (result) => {
+    const interaction = get().overlayInteraction;
+    if (interaction) {
+      set({ overlayInteraction: null });
+      interaction.onComplete(result);
+    }
+  },
+
+  cancelOverlayInteraction: () => {
+    const interaction = get().overlayInteraction;
+    if (interaction) {
+      set({ overlayInteraction: null });
+      interaction.onCancel();
+    }
   },
 });

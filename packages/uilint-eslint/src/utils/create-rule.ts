@@ -41,8 +41,8 @@ export interface RuleOptionSchema {
  * External requirement that a rule needs to function
  */
 export interface RuleRequirement {
-  /** Requirement type for programmatic checks */
-  type: "ollama" | "git" | "coverage" | "semantic-index" | "styleguide";
+  /** Requirement type for programmatic checks. Plugins define their own types. */
+  type: string;
   /** Human-readable description */
   description: string;
   /** Optional: how to satisfy the requirement */
@@ -88,7 +88,7 @@ export interface RuleMeta {
   defaultSeverity: "error" | "warn" | "off";
 
   /** Category for grouping in CLI */
-  category: "static" | "semantic";
+  category: string;
 
   /** Icon for display in CLI/UI (emoji or icon name) */
   icon?: string;
@@ -165,23 +165,14 @@ export interface RuleMeta {
 
   /**
    * Which UI plugin should handle this rule.
-   * Defaults based on category:
-   * - "static" category → "eslint" plugin
-   * - "semantic" category → "semantic" plugin
-   *
-   * Special cases:
-   * - "vision" for semantic-vision rule
+   * Plugins define their own identifiers.
    */
-  plugin?: "eslint" | "vision" | "semantic";
+  plugin?: string;
 
   /**
    * Custom inspector panel ID to use for this rule's issues.
    * If not specified, uses the plugin's default issue inspector.
-   *
-   * Examples:
-   * - "vision-issue" for VisionIssueInspector
-   * - "duplicates" for DuplicatesInspector
-   * - "semantic-issue" for SemanticIssueInspector
+   * Plugins define their own panel IDs.
    */
   customInspector?: string;
 

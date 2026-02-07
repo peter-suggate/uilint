@@ -47,14 +47,8 @@ export interface PluginServices {
   setState: <T = unknown>(partial: Partial<T>) => void;
   /** Open the inspector sidebar with specific content */
   openInspector: (
-    mode: "rule" | "issue" | "element" | "fixes" | "capture",
-    data: {
-      ruleId?: string;
-      issue?: unknown;
-      elementId?: string;
-      filePath?: string;
-      capture?: unknown;
-    }
+    mode: string,
+    data: Record<string, unknown>
   ) => void;
   /** Close the inspector sidebar */
   closeInspector: () => void;

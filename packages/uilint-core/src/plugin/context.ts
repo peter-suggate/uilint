@@ -63,13 +63,23 @@ export interface PluginContext<TState = unknown> {
 
   /**
    * Request a browser-side action.
-   * These are registered by the host and executed in the browser context.
-   * Examples: "capture-screenshot", "collect-manifest"
+   * Plugins register handlers for their browser actions during onLoad.
+   * The host dispatches to the registered handler.
    */
   requestBrowserAction(
     type: string,
     payload?: unknown
   ): Promise<BrowserActionResult>;
+
+  /**
+   * Register a browser action handler.
+   * Called by plugins during onLoad to provide implementations
+   * for the browser actions they declared in their definition.
+   */
+  registerBrowserAction(
+    type: string,
+    handler: (payload?: unknown) => Promise<BrowserActionResult>
+  ): void;
 
   // === Editor Integration ===
 
@@ -91,6 +101,18 @@ export interface PluginContext<TState = unknown> {
 
   /** Close inspector */
   closeInspector(): void;
+
+  // === Overlay Interactions ===
+
+  /**
+   * Request an overlay interaction from the host.
+   * The host renders the appropriate UI (e.g., region selector)
+   * and resolves/rejects based on user action.
+   */
+  requestOverlayInteraction(
+    type: "region-select",
+    options?: Record<string, unknown>
+  ): Promise<unknown>;
 }
 
 /**

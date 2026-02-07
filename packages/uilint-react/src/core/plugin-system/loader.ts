@@ -33,13 +33,31 @@ export const LOCAL_PLUGINS: PluginManifest[] = [
 ];
 
 /**
- * External plugin imports (side-effect imports that register with pluginRegistry)
- * These are dynamically imported to trigger auto-registration with uilint-core's registry.
+ * External plugin imports (side-effect imports that register with pluginRegistry).
+ *
+ * Populated by consumers via `registerExternalPlugin()`. This allows the
+ * host's entry point to control which plugins are loaded, rather than
+ * hardcoding plugin imports here.
  */
-const EXTERNAL_PLUGIN_IMPORTS = [
-  () => import("uilint-vision/plugin"),
-  () => import("uilint-semantic/plugin"),
-];
+const externalPluginImports: Array<() => Promise<unknown>> = [];
+
+/**
+ * Register an external plugin import function.
+ *
+ * External plugins auto-register with uilint-core's pluginRegistry when
+ * imported. Call this from your app's entry point to make plugins available.
+ *
+ * @example
+ * ```typescript
+ * // In your app's entry point:
+ * import { registerExternalPlugin } from "uilint-react";
+ * registerExternalPlugin(() => import("uilint-vision/plugin"));
+ * registerExternalPlugin(() => import("uilint-semantic/plugin"));
+ * ```
+ */
+export function registerExternalPlugin(importFn: () => Promise<unknown>): void {
+  externalPluginImports.push(importFn);
+}
 
 /**
  * @deprecated Use LOCAL_PLUGINS instead. This is kept for backward compatibility.
@@ -68,8 +86,8 @@ export async function loadPlugin(
  * These are imported via side-effect imports which auto-register with the registry.
  */
 async function loadExternalPlugins(): Promise<Plugin[]> {
-  // Import all external plugins (this triggers their auto-registration)
-  const importPromises = EXTERNAL_PLUGIN_IMPORTS.map(async (importFn) => {
+  // Import all registered external plugins (triggers their auto-registration)
+  const importPromises = externalPluginImports.map(async (importFn) => {
     try {
       await importFn();
     } catch (error) {
