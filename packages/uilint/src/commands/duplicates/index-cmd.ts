@@ -3,7 +3,7 @@
  */
 
 import { Command } from "commander";
-import { resolve } from "path";
+
 import chalk from "chalk";
 import ora from "ora";
 

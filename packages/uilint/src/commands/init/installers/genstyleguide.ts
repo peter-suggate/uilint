@@ -13,7 +13,7 @@ export const genstyleguideInstaller: Installer = {
   description: "Cursor command to generate UI style guides",
   icon: "📝",
 
-  isApplicable(project: ProjectState): boolean {
+  isApplicable(_project: ProjectState): boolean {
     // Always applicable - works in any project
     return true;
   },
@@ -71,9 +71,9 @@ export const genstyleguideInstaller: Installer = {
   },
 
   async *execute(
-    targets: InstallTarget[],
-    config: InstallerConfig,
-    project: ProjectState
+    _targets: InstallTarget[],
+    _config: InstallerConfig,
+    _project: ProjectState
   ): AsyncGenerator<ProgressEvent> {
     yield {
       type: "start",

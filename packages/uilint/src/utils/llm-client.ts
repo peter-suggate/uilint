@@ -119,7 +119,7 @@ export async function initializeLangfuseIfEnabled(): Promise<void> {
         // synchronous start / async end pattern. Use a promise to control when the trace ends.
         let resolveTrace: () => void;
         let generationRef: LangfuseGeneration | undefined;
-        let traceRef: LangfuseObservation | undefined;
+        let _traceRef: LangfuseObservation | undefined;
         let endData:
           | {
               output: string;
@@ -137,7 +137,7 @@ export async function initializeLangfuseIfEnabled(): Promise<void> {
         const tracePromise = startActiveObservation(
           `uilint-${name}`,
           async (span) => {
-            traceRef = span;
+            _traceRef = span;
             span.update({
               input: { operation: name },
               metadata: {

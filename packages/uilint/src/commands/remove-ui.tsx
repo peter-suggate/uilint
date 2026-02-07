@@ -13,7 +13,7 @@ import { render } from "ink";
 import { RemoveApp } from "./remove/components/RemoveApp.js";
 import { analyze } from "./init/analyze.js";
 import { execute } from "./init/execute.js";
-import type { ExecuteOptions, InstallAction } from "./init/types.js";
+import type { InstallAction } from "./init/types.js";
 import type { InstallerSelection } from "./init/installers/types.js";
 import { pc } from "../utils/prompts.js";
 

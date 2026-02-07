@@ -382,7 +382,7 @@ ${elements.join("\n")}
         }
 
         // Thinking-capable models stream `message.thinking` separately from `message.content`.
-        const thinking = (chunk as any)?.message?.thinking || "";
+        const thinking = chunk.message?.thinking || "";
         if (thinking) {
           onProgress(lastLatestLine, fullResponse, undefined, thinking);
           lastProgressAt = Date.now();

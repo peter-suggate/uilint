@@ -70,26 +70,26 @@ export function shouldProcessFile(filePath: string): boolean {
  * Extract element name from JSXOpeningElement node
  * Handles Identifier, MemberExpression, and JSXNamespacedName
  */
-export function getElementName(node: any): string | null {
+export function getElementName(node: Record<string, unknown>): string | null {
   if (!node || !node.name) return null;
 
-  const name = node.name;
+  const name = node.name as Record<string, unknown>;
 
   // Simple identifier: <div>, <MyComponent>
   if (name.type === "JSXIdentifier") {
-    return name.name;
+    return name.name as string;
   }
 
   // Member expression: <Foo.Bar>, <React.Fragment>
   if (name.type === "JSXMemberExpression") {
     const parts: string[] = [];
-    let current = name;
+    let current = name as Record<string, unknown> | null;
     while (current) {
       if (current.type === "JSXMemberExpression") {
-        parts.unshift(current.property.name);
-        current = current.object;
+        parts.unshift((current.property as Record<string, unknown>).name as string);
+        current = current.object as Record<string, unknown>;
       } else if (current.type === "JSXIdentifier") {
-        parts.unshift(current.name);
+        parts.unshift(current.name as string);
         break;
       } else {
         break;
@@ -100,7 +100,7 @@ export function getElementName(node: any): string | null {
 
   // Namespaced name: <xml:tag>
   if (name.type === "JSXNamespacedName") {
-    return `${name.namespace.name}:${name.name.name}`;
+    return `${(name.namespace as Record<string, unknown>).name}:${(name.name as Record<string, unknown>).name}`;
   }
 
   return null;
@@ -122,13 +122,13 @@ const DATA_ATTR = "data-loc";
 /**
  * Check if an element already has a data-loc attribute
  */
-function hasDataAttribute(node: any): boolean {
+function hasDataAttribute(node: Record<string, unknown>): boolean {
   if (!node.attributes) return false;
-  return node.attributes.some(
-    (attr: any) =>
+  return (node.attributes as Record<string, unknown>[]).some(
+    (attr: Record<string, unknown>) =>
       attr.type === "JSXAttribute" &&
-      attr.name?.type === "JSXIdentifier" &&
-      attr.name.name === DATA_ATTR
+      (attr.name as Record<string, unknown>)?.type === "JSXIdentifier" &&
+      (attr.name as Record<string, unknown>).name === DATA_ATTR
   );
 }
 
@@ -136,28 +136,29 @@ function hasDataAttribute(node: any): boolean {
  * Find the correct insertion point for the data-loc attribute
  * This handles TypeScript generics: <Component<T> ... />
  */
-export function findInsertionPoint(node: any, source: string): number {
+export function findInsertionPoint(node: Record<string, unknown>, source: string): number {
   // Start after the element name
-  let insertPos = node.name.end;
+  let insertPos = (node.name as Record<string, unknown>).end as number;
 
   // Check for TypeScript type parameters
   if (node.typeParameters) {
-    insertPos = node.typeParameters.end;
+    insertPos = (node.typeParameters as Record<string, unknown>).end as number;
   }
 
   // Handle any edge cases where we need to skip whitespace
   // to insert before existing attributes
-  if (node.attributes && node.attributes.length > 0) {
+  const attributes = node.attributes as Record<string, unknown>[] | undefined;
+  if (attributes && attributes.length > 0) {
     // Insert before the first attribute
-    const firstAttr = node.attributes[0];
+    const firstAttr = attributes[0];
     // Find a good position - after name/generics but before first attr
     const nameEnd = node.typeParameters
-      ? node.typeParameters.end
-      : node.name.end;
+      ? (node.typeParameters as Record<string, unknown>).end as number
+      : (node.name as Record<string, unknown>).end as number;
 
     // Make sure we insert after any whitespace following the name
     let pos = nameEnd;
-    while (pos < firstAttr.start && /\s/.test(source[pos])) {
+    while (pos < (firstAttr.start as number) && /\s/.test(source[pos])) {
       pos++;
     }
     insertPos = pos;
@@ -213,7 +214,7 @@ export function transformJsxCode(
     ...options.parserOptions,
   };
 
-  let ast: any;
+  let ast: ReturnType<typeof parse>;
   try {
     ast = parse(source, parserOptions);
   } catch (error) {
@@ -228,7 +229,7 @@ export function transformJsxCode(
   /**
    * Recursively walk the AST and process JSX elements
    */
-  function walk(node: any): void {
+  function walk(node: Record<string, unknown>): void {
     if (!node || typeof node !== "object") return;
 
     // Process JSXOpeningElement nodes
@@ -237,7 +238,7 @@ export function transformJsxCode(
 
       // Skip fragments, providers, and elements that already have data-loc
       if (!shouldSkipElement(elementName) && !hasDataAttribute(node)) {
-        const loc = node.loc;
+        const loc = node.loc as { start: { line: number; column: number } } | undefined;
         if (loc && loc.start) {
           const line = loc.start.line;
           const column = loc.start.column;
@@ -258,10 +259,10 @@ export function transformJsxCode(
       const child = node[key];
       if (Array.isArray(child)) {
         for (const item of child) {
-          walk(item);
+          walk(item as Record<string, unknown>);
         }
-      } else if (child && typeof child === "object" && child.type) {
-        walk(child);
+      } else if (child && typeof child === "object" && (child as Record<string, unknown>).type) {
+        walk(child as Record<string, unknown>);
       }
     }
   }
@@ -269,7 +270,7 @@ export function transformJsxCode(
   // Start walking from program body
   if (ast.program && ast.program.body) {
     for (const node of ast.program.body) {
-      walk(node);
+      walk(node as unknown as Record<string, unknown>);
     }
   }
 

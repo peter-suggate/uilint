@@ -19,7 +19,6 @@ import {
   calculateCoverageFromStatements,
   type IstanbulFileCoverage,
   type SourceLocation,
-  type CoverageStats,
 } from "./jsx-coverage-analyzer.js";
 
 export type ChunkCategory =
@@ -153,34 +152,6 @@ export function categorizeChunk(
 
   // Default: utility
   return { category: "utility", isReactRelated: false };
-}
-
-/**
- * Extract function name from various AST patterns
- */
-function getFunctionName(
-  node:
-    | TSESTree.FunctionDeclaration
-    | TSESTree.ArrowFunctionExpression
-    | TSESTree.FunctionExpression,
-  parent: TSESTree.Node | undefined
-): string | null {
-  // Named function declaration
-  if (node.type === "FunctionDeclaration" && node.id) {
-    return node.id.name;
-  }
-
-  // Variable declarator: const foo = () => {}
-  if (parent?.type === "VariableDeclarator" && parent.id.type === "Identifier") {
-    return parent.id.name;
-  }
-
-  // Property: { foo: () => {} }
-  if (parent?.type === "Property" && parent.key.type === "Identifier") {
-    return parent.key.name;
-  }
-
-  return null;
 }
 
 /**

@@ -8,7 +8,6 @@
 import type { MessageHandlers, PluginContext } from "uilint-core";
 import type { SemanticState } from "./state.js";
 import type {
-  DuplicatesIndexingStartMessage,
   DuplicatesIndexingProgressMessage,
   DuplicatesIndexingCompleteMessage,
   DuplicatesIndexingErrorMessage,

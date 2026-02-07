@@ -151,8 +151,6 @@ export class FileTracker {
       try {
         const content = readFileSync(filePath, "utf-8");
         const newHash = await hashContent(content);
-        const stat = statSync(filePath);
-
         const entry = this.store.files[filePath];
 
         if (!entry) {
@@ -172,7 +170,7 @@ export class FileTracker {
           });
         }
         // If hash matches and mtime is similar, no change
-      } catch (error) {
+      } catch {
         // File might be deleted or unreadable
         if (this.store.files[filePath]) {
           changes.push({

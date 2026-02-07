@@ -8,6 +8,10 @@ import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { parseModule, generateCode } from "magicast";
 
+/** Generic AST node type. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AstNode = Record<string, any>;
+
 export interface InstallViteJsxLocPluginOptions {
   projectPath: string;
   force?: boolean;
@@ -28,7 +32,7 @@ export function getViteConfigFilename(configPath: string): string {
   return parts[parts.length - 1] || "vite.config.ts";
 }
 
-function isIdentifier(node: any, name?: string): boolean {
+function isIdentifier(node: AstNode, name?: string): boolean {
   return (
     !!node &&
     node.type === "Identifier" &&
@@ -36,7 +40,7 @@ function isIdentifier(node: any, name?: string): boolean {
   );
 }
 
-function isStringLiteral(node: any): node is { type: string; value: string } {
+function isStringLiteral(node: AstNode): node is { type: string; value: string } {
   return (
     !!node &&
     (node.type === "StringLiteral" || node.type === "Literal") &&
@@ -44,7 +48,7 @@ function isStringLiteral(node: any): node is { type: string; value: string } {
   );
 }
 
-function unwrapExpression(expr: any): any {
+function unwrapExpression(expr: AstNode): AstNode {
   let e = expr;
   while (e) {
     if (e.type === "TSAsExpression" || e.type === "TSNonNullExpression") {
@@ -64,10 +68,10 @@ function unwrapExpression(expr: any): any {
   return e;
 }
 
-function findExportedConfigObjectExpression(mod: any): {
+function findExportedConfigObjectExpression(mod: AstNode): {
   kind: "esm" | "cjs";
-  objExpr: any;
-  program: any;
+  objExpr: AstNode;
+  program: AstNode;
 } | null {
   const program = mod?.$ast;
   if (!program || program.type !== "Program") return null;
@@ -127,7 +131,7 @@ function findExportedConfigObjectExpression(mod: any): {
   return null;
 }
 
-function getObjectProperty(obj: any, keyName: string): any | null {
+function getObjectProperty(obj: AstNode, keyName: string): AstNode | null {
   if (!obj || obj.type !== "ObjectExpression") return null;
   for (const prop of obj.properties ?? []) {
     if (!prop) continue;
@@ -141,23 +145,23 @@ function getObjectProperty(obj: any, keyName: string): any | null {
   return null;
 }
 
-function ensureEsmJsxLocImport(program: any): { changed: boolean } {
+function ensureEsmJsxLocImport(program: AstNode): { changed: boolean } {
   if (!program || program.type !== "Program") return { changed: false };
 
   // Find existing import from jsx-loc-plugin/vite
   const existing = (program.body ?? []).find(
-    (s: any) =>
+    (s: AstNode) =>
       s?.type === "ImportDeclaration" && s.source?.value === "jsx-loc-plugin/vite"
   );
   if (existing) {
     const has = (existing.specifiers ?? []).some(
-      (sp: any) =>
+      (sp: AstNode) =>
         sp?.type === "ImportSpecifier" &&
         (sp.imported?.name === "jsxLoc" || sp.imported?.value === "jsxLoc")
     );
     if (has) return { changed: false };
     const spec = (
-      parseModule('import { jsxLoc } from "jsx-loc-plugin/vite";').$ast as any
+      parseModule('import { jsxLoc } from "jsx-loc-plugin/vite";').$ast as unknown as AstNode
     ).body?.[0]?.specifiers?.[0];
     if (!spec) return { changed: false };
     existing.specifiers = [...(existing.specifiers ?? []), spec];
@@ -165,7 +169,7 @@ function ensureEsmJsxLocImport(program: any): { changed: boolean } {
   }
 
   const importDecl = (
-    parseModule('import { jsxLoc } from "jsx-loc-plugin/vite";').$ast as any
+    parseModule('import { jsxLoc } from "jsx-loc-plugin/vite";').$ast as unknown as AstNode
   ).body?.[0];
   if (!importDecl) return { changed: false };
 
@@ -179,7 +183,7 @@ function ensureEsmJsxLocImport(program: any): { changed: boolean } {
   return { changed: true };
 }
 
-function ensureCjsJsxLocRequire(program: any): { changed: boolean } {
+function ensureCjsJsxLocRequire(program: AstNode): { changed: boolean } {
   if (!program || program.type !== "Program") return { changed: false };
 
   // Detect an existing require("jsx-loc-plugin/vite") that binds jsxLoc
@@ -195,14 +199,14 @@ function ensureCjsJsxLocRequire(program: any): { changed: boolean } {
       ) {
         // If destructuring, ensure property exists
         if (decl.id?.type === "ObjectPattern") {
-          const has = (decl.id.properties ?? []).some((p: any) => {
+          const has = (decl.id.properties ?? []).some((p: AstNode) => {
             if (p?.type !== "ObjectProperty" && p?.type !== "Property") return false;
             return isIdentifier(p.key, "jsxLoc");
           });
           if (has) return { changed: false };
           const prop = (
             parseModule('const { jsxLoc } = require("jsx-loc-plugin/vite");')
-              .$ast as any
+              .$ast as unknown as AstNode
           ).body?.[0]?.declarations?.[0]?.id?.properties?.[0];
           if (!prop) return { changed: false };
           decl.id.properties = [...(decl.id.properties ?? []), prop];
@@ -215,14 +219,14 @@ function ensureCjsJsxLocRequire(program: any): { changed: boolean } {
 
   // Insert: const { jsxLoc } = require("jsx-loc-plugin/vite");
   const reqDecl = (
-    parseModule('const { jsxLoc } = require("jsx-loc-plugin/vite");').$ast as any
+    parseModule('const { jsxLoc } = require("jsx-loc-plugin/vite");').$ast as unknown as AstNode
   ).body?.[0];
   if (!reqDecl) return { changed: false };
   program.body.unshift(reqDecl);
   return { changed: true };
 }
 
-function pluginsHasJsxLoc(arr: any): boolean {
+function pluginsHasJsxLoc(arr: AstNode): boolean {
   if (!arr || arr.type !== "ArrayExpression") return false;
   for (const el of arr.elements ?? []) {
     const e = unwrapExpression(el);
@@ -232,14 +236,14 @@ function pluginsHasJsxLoc(arr: any): boolean {
   return false;
 }
 
-function ensurePluginsContainsJsxLoc(configObj: any): { changed: boolean } {
+function ensurePluginsContainsJsxLoc(configObj: AstNode): { changed: boolean } {
   const pluginsProp = getObjectProperty(configObj, "plugins");
 
   // No plugins: create plugins: [jsxLoc()]
   if (!pluginsProp) {
-    const prop = (parseModule("export default { plugins: [jsxLoc()] };").$ast as any)
-      .body?.find((s: any) => s.type === "ExportDefaultDeclaration")
-      ?.declaration?.properties?.find((p: any) => {
+    const prop = (parseModule("export default { plugins: [jsxLoc()] };").$ast as unknown as AstNode)
+      .body?.find((s: AstNode) => s.type === "ExportDefaultDeclaration")
+      ?.declaration?.properties?.find((p: AstNode) => {
         const k = p?.key;
         return (k?.type === "Identifier" && k.name === "plugins") ||
           (isStringLiteral(k) && k.value === "plugins");
@@ -255,7 +259,7 @@ function ensurePluginsContainsJsxLoc(configObj: any): { changed: boolean } {
   // plugins: [ ... ]
   if (value.type === "ArrayExpression") {
     if (pluginsHasJsxLoc(value)) return { changed: false };
-    const jsxLocCall = (parseModule("const __x = jsxLoc();").$ast as any).body?.[0]
+    const jsxLocCall = (parseModule("const __x = jsxLoc();").$ast as unknown as AstNode).body?.[0]
       ?.declarations?.[0]?.init;
     if (!jsxLocCall) return { changed: false };
     value.elements.push(jsxLocCall);
@@ -264,7 +268,7 @@ function ensurePluginsContainsJsxLoc(configObj: any): { changed: boolean } {
 
   // Non-array plugins: best-effort wrap into array with spread.
   // plugins: something  -> plugins: [...something, jsxLoc()]
-  const jsxLocCall = (parseModule("const __x = jsxLoc();").$ast as any).body?.[0]
+  const jsxLocCall = (parseModule("const __x = jsxLoc();").$ast as unknown as AstNode).body?.[0]
     ?.declarations?.[0]?.init;
   if (!jsxLocCall) return { changed: false };
   const spread = { type: "SpreadElement", argument: value };
@@ -287,7 +291,7 @@ export async function installViteJsxLocPlugin(
   const original = readFileSync(configPath, "utf-8");
   const isCjs = configPath.endsWith(".cjs");
 
-  let mod: any;
+  let mod: ReturnType<typeof parseModule>;
   try {
     mod = parseModule(original);
   } catch {

@@ -4,9 +4,8 @@
  * High-level API for indexing, finding duplicates, and semantic search.
  */
 
-import { dirname, resolve } from "path";
-import type { CodeChunk, ChunkKind } from "../embeddings/types.js";
-import type { StoredChunkMetadata } from "../index/types.js";
+import { resolve } from "path";
+import type { ChunkKind } from "../embeddings/types.js";
 import {
   IncrementalIndexer,
   createIndexer,
@@ -17,8 +16,6 @@ import {
   findDuplicateGroups,
   findSimilarToLocation,
   findSimilarToQuery,
-  type DuplicateGroup as InternalDuplicateGroup,
-  type DuplicateMember,
 } from "../detection/duplicate-finder.js";
 import { OllamaEmbeddingClient } from "../embeddings/ollama-embeddings.js";
 

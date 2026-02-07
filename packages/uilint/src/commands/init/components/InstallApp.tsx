@@ -258,7 +258,7 @@ export function InstallApp({
 }: InstallAppProps): React.ReactElement {
   const { exit } = useApp();
   const [phase, setPhase] = useState<AppPhase>("checking-requirements");
-  const [nodeVersionCheck, setNodeVersionCheck] = useState<{
+  const [_nodeVersionCheck, setNodeVersionCheck] = useState<{
     ok: boolean;
     current: string;
     required: string;
@@ -277,10 +277,10 @@ export function InstallApp({
   const [selectedInjectionPoint, setSelectedInjectionPoint] = useState<InjectionPointConfig | undefined>(undefined);
 
   // Check if ESLint is selected
-  const isEslintSelected = selectedFeatureIds.some((id) => id.startsWith("eslint:"));
+  const _isEslintSelected = selectedFeatureIds.some((id) => id.startsWith("eslint:"));
 
   // Check if Next.js overlay is selected
-  const isNextSelected = selectedFeatureIds.some((id) => id.startsWith("next:"));
+  const _isNextSelected = selectedFeatureIds.some((id) => id.startsWith("next:"));
 
   // Phase 0: Check requirements (Node version)
   useEffect(() => {

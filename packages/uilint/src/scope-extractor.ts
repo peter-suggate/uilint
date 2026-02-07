@@ -8,6 +8,10 @@
 
 import { createRequire } from "module";
 
+/** Generic AST node type used throughout scope extraction. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AstNode = Record<string, any>;
+
 /**
  * Scope information extracted from AST
  */
@@ -69,7 +73,7 @@ function isHookName(name: string | null): boolean {
 /**
  * Check if a function body contains JSX return
  */
-function containsJsxReturn(node: any): boolean {
+function containsJsxReturn(node: AstNode): boolean {
   if (!node) return false;
 
   // Direct JSX return
@@ -127,7 +131,7 @@ function determineScopeType(
 /**
  * Get the name from various identifier patterns
  */
-function getIdentifierName(node: any): string | null {
+function getIdentifierName(node: AstNode): string | null {
   if (!node) return null;
   if (node.type === "Identifier") return node.name;
   if (node.type === "PrivateIdentifier") return `#${node.name}`;
@@ -137,7 +141,7 @@ function getIdentifierName(node: any): string | null {
 /**
  * Extract the JSX element type from a JSXElement node
  */
-function getJsxElementType(node: any): string | null {
+function getJsxElementType(node: AstNode): string | null {
   if (!node || node.type !== "JSXElement") return null;
   const opening = node.openingElement;
   if (!opening || !opening.name) return null;
@@ -179,10 +183,10 @@ function lineColToOffset(code: string, line: number, column: number): number {
 /**
  * Walk AST and collect all scope boundaries
  */
-function collectScopeBoundaries(ast: any): ScopeBoundary[] {
+function collectScopeBoundaries(ast: AstNode): ScopeBoundary[] {
   const boundaries: ScopeBoundary[] = [];
 
-  function walk(node: any, parentName: string | null = null): void {
+  function walk(node: AstNode, parentName: string | null = null): void {
     if (!node || typeof node !== "object") return;
 
     const range = node.range as [number, number] | undefined;
@@ -213,7 +217,7 @@ function collectScopeBoundaries(ast: any): ScopeBoundary[] {
     // Arrow Function Expression: const foo = () => {}
     if (node.type === "ArrowFunctionExpression") {
       // Try to get name from parent VariableDeclarator
-      let name: string | null = null;
+      const name: string | null = null;
       const returnsJsx = containsJsxReturn(node.body);
 
       if (range && loc) {
@@ -435,13 +439,13 @@ function collectScopeBoundaries(ast: any): ScopeBoundary[] {
 /**
  * Find the innermost JSX element containing a position
  */
-function findContainingJsxElement(ast: any, offset: number): string | null {
+function findContainingJsxElement(ast: AstNode, offset: number): string | null {
   // Use object wrapper to help TypeScript understand closure mutation
   const result: { innermost: { type: string; size: number } | null } = {
     innermost: null,
   };
 
-  function walk(node: any): void {
+  function walk(node: AstNode): void {
     if (!node || typeof node !== "object") return;
 
     if (node.type === "JSXElement") {
@@ -485,15 +489,15 @@ export function findEnclosingScope(
   source: string,
   line: number,
   column: number,
-  options?: ScopeExtractorOptions
+  _options?: ScopeExtractorOptions
 ): ScopeInfo | null {
   // Use typescript-estree parser (handles both TS and JS/JSX)
   const localRequire = createRequire(import.meta.url);
   const { parse } = localRequire("@typescript-eslint/typescript-estree") as {
-    parse: (src: string, options: Record<string, unknown>) => any;
+    parse: (src: string, options: Record<string, unknown>) => AstNode;
   };
 
-  let ast: any;
+  let ast: AstNode;
   try {
     ast = parse(source, {
       loc: true,
@@ -552,15 +556,15 @@ export function findEnclosingScope(
 export function findEnclosingScopeBatch(
   source: string,
   positions: Array<{ line: number; column: number }>,
-  options?: ScopeExtractorOptions
+  _options?: ScopeExtractorOptions
 ): Array<ScopeInfo | null> {
   // Use typescript-estree parser
   const localRequire = createRequire(import.meta.url);
   const { parse } = localRequire("@typescript-eslint/typescript-estree") as {
-    parse: (src: string, options: Record<string, unknown>) => any;
+    parse: (src: string, options: Record<string, unknown>) => AstNode;
   };
 
-  let ast: any;
+  let ast: AstNode;
   try {
     ast = parse(source, {
       loc: true,

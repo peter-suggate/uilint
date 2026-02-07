@@ -214,7 +214,6 @@ function analyzeJSXPropPassing(
       if (elementName && isComponentName(elementName)) {
         for (const attr of node.attributes) {
           if (attr.type === "JSXAttribute" && attr.name.type === "JSXIdentifier") {
-            const attrName = attr.name.name;
             const propValue = attr.value;
 
             // Check if the attribute value is a received prop
@@ -326,16 +325,6 @@ function getJSXElementName(node: TSESTree.JSXTagNameExpression): string | null {
     return current.type === "JSXIdentifier" ? current.name : null;
   }
   return null;
-}
-
-/**
- * Track prop drilling within a single file
- */
-interface PropDrillingInfo {
-  propName: string;
-  component: string;
-  passedTo: string[];
-  usedDirectly: boolean;
 }
 
 export default createRule<Options, MessageIds>({

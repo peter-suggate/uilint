@@ -264,13 +264,6 @@ function isPlaceholder(value: string): boolean {
 }
 
 /**
- * Check if a value is likely an environment variable reference
- */
-function isEnvReference(value: string): boolean {
-  return value.includes("process.env") || value.includes("import.meta.env");
-}
-
-/**
  * Get a preview of the secret (first and last few chars)
  */
 function getPreview(value: string, maxLength: number = 20): string {

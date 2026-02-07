@@ -112,8 +112,10 @@ export function withJsxLoc(
   };
 
   // Get existing turbopack config if any
-  const existingTurbopack = (nextConfig as any).turbopack || {};
-  const existingRules = existingTurbopack.rules || {};
+  const existingTurbopack =
+    (nextConfig as NextConfig & Record<string, unknown>).turbopack || {};
+  const existingRules =
+    (existingTurbopack as Record<string, unknown>).rules || {};
 
   const enhancedConfig: NextConfig = {
     ...nextConfig,

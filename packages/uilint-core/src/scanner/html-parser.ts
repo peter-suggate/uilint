@@ -4,7 +4,7 @@
  */
 
 import { JSDOM } from "jsdom";
-import type { ExtractedStyles, DOMSnapshot, SerializedStyles } from "../types.js";
+import type { DOMSnapshot, SerializedStyles } from "../types.js";
 import { extractStyles, deserializeStyles, truncateHTML } from "./style-extractor.js";
 
 export interface ParseOptions {

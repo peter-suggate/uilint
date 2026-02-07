@@ -8,6 +8,10 @@ import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join, relative, dirname } from "path";
 import type { RuleMetadata } from "uilint-eslint";
 import { parseExpression, parseModule, generateCode } from "magicast";
+
+/** Generic AST node type used throughout config manipulation. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AstNode = Record<string, any>;
 import { findWorkspaceRoot } from "uilint-core/node";
 
 export interface InstallEslintPluginOptions {
@@ -69,21 +73,21 @@ type UilintEslintConfigInfo = {
   configured: boolean;
 };
 
-function walkAst(node: any, visit: (n: any) => void): void {
+function _walkAst(node: AstNode, visit: (n: AstNode) => void): void {
   if (!node || typeof node !== "object") return;
   visit(node);
   for (const key of Object.keys(node)) {
-    const v = (node as any)[key];
+    const v = node[key];
     if (!v) continue;
     if (Array.isArray(v)) {
-      for (const item of v) walkAst(item, visit);
+      for (const item of v) _walkAst(item, visit);
     } else if (typeof v === "object" && v.type) {
-      walkAst(v, visit);
+      _walkAst(v, visit);
     }
   }
 }
 
-function isIdentifier(node: any, name?: string): boolean {
+function isIdentifier(node: AstNode, name?: string): boolean {
   return (
     !!node &&
     node.type === "Identifier" &&
@@ -91,7 +95,7 @@ function isIdentifier(node: any, name?: string): boolean {
   );
 }
 
-function isStringLiteral(node: any): node is { type: string; value: string } {
+function isStringLiteral(node: AstNode): node is { type: string; value: string } {
   return (
     !!node &&
     (node.type === "StringLiteral" || node.type === "Literal") &&
@@ -99,7 +103,7 @@ function isStringLiteral(node: any): node is { type: string; value: string } {
   );
 }
 
-function getObjectPropertyValue(obj: any, keyName: string): any | null {
+function getObjectPropertyValue(obj: AstNode, keyName: string): AstNode | null {
   if (!obj || obj.type !== "ObjectExpression") return null;
   for (const prop of obj.properties ?? []) {
     if (!prop) continue;
@@ -114,10 +118,10 @@ function getObjectPropertyValue(obj: any, keyName: string): any | null {
   return null;
 }
 
-function hasSpreadProperties(obj: any): boolean {
+function hasSpreadProperties(obj: AstNode): boolean {
   if (!obj || obj.type !== "ObjectExpression") return false;
-  return (obj.properties ?? []).some(
-    (p: any) => p && (p.type === "SpreadElement" || p.type === "SpreadProperty")
+  return ((obj.properties as AstNode[] | undefined) ?? []).some(
+    (p: AstNode) => p && (p.type === "SpreadElement" || p.type === "SpreadProperty")
   );
 }
 
@@ -131,25 +135,26 @@ const IGNORED_AST_KEYS = new Set([
   "innerComments",
 ]);
 
-function normalizeAstForCompare(node: any): any {
+function normalizeAstForCompare(node: unknown): unknown {
   if (node === null) return null;
   if (node === undefined) return undefined;
   if (typeof node !== "object") return node;
   if (Array.isArray(node)) return node.map(normalizeAstForCompare);
 
-  const out: Record<string, any> = {};
-  const keys = Object.keys(node)
+  const obj = node as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  const keys = Object.keys(obj)
     .filter((k) => !IGNORED_AST_KEYS.has(k))
     .sort();
   for (const k of keys) {
     // Avoid proxy-ish or non-serializable fields if present.
     if (k.startsWith("$")) continue;
-    out[k] = normalizeAstForCompare(node[k]);
+    out[k] = normalizeAstForCompare(obj[k]);
   }
   return out;
 }
 
-function astEquivalent(a: any, b: any): boolean {
+function astEquivalent(a: unknown, b: unknown): boolean {
   try {
     return (
       JSON.stringify(normalizeAstForCompare(a)) ===
@@ -160,7 +165,7 @@ function astEquivalent(a: any, b: any): boolean {
   }
 }
 
-function collectUilintRuleIdsFromRulesObject(rulesObj: any): Set<string> {
+function collectUilintRuleIdsFromRulesObject(rulesObj: AstNode): Set<string> {
   const ids = new Set<string>();
   if (!rulesObj || rulesObj.type !== "ObjectExpression") return ids;
   for (const prop of rulesObj.properties ?? []) {
@@ -177,12 +182,12 @@ function collectUilintRuleIdsFromRulesObject(rulesObj: any): Set<string> {
   return ids;
 }
 
-function findExportedConfigArrayExpression(mod: any): {
+function findExportedConfigArrayExpression(mod: AstNode): {
   kind: "esm" | "cjs";
-  arrayExpr: any;
-  program: any;
+  arrayExpr: AstNode;
+  program: AstNode;
 } | null {
-  function unwrapExpression(expr: any): any {
+  function unwrapExpression(expr: AstNode): AstNode {
     let e = expr;
     // Best-effort unwrap for TS/parenthesized wrappers. (These can appear if the
     // config is authored in TS/JS with type assertions or parentheses.)
@@ -205,9 +210,9 @@ function findExportedConfigArrayExpression(mod: any): {
   }
 
   function resolveTopLevelIdentifierToArrayExpr(
-    program: any,
+    program: AstNode,
     name: string
-  ): any | null {
+  ): AstNode | null {
     if (!program || program.type !== "Program") return null;
     for (const stmt of program.body ?? []) {
       if (stmt?.type !== "VariableDeclaration") continue;
@@ -304,21 +309,23 @@ function findExportedConfigArrayExpression(mod: any): {
 }
 
 function collectConfiguredUilintRuleIdsFromConfigArray(
-  arrayExpr: any
+  arrayExpr: AstNode
 ): Set<string> {
   const ids = new Set<string>();
   if (!arrayExpr || arrayExpr.type !== "ArrayExpression") return ids;
   for (const el of arrayExpr.elements ?? []) {
     if (!el || el.type !== "ObjectExpression") continue;
     const rules = getObjectPropertyValue(el, "rules");
-    for (const id of collectUilintRuleIdsFromRulesObject(rules)) ids.add(id);
+    if (rules) {
+      for (const id of collectUilintRuleIdsFromRulesObject(rules)) ids.add(id);
+    }
   }
   return ids;
 }
 
-function findExistingUilintRulesObject(arrayExpr: any): {
-  configObj: any | null;
-  rulesObj: any | null;
+function findExistingUilintRulesObject(arrayExpr: AstNode): {
+  configObj: AstNode | null;
+  rulesObj: AstNode | null;
   safeToMutate: boolean;
 } {
   if (!arrayExpr || arrayExpr.type !== "ArrayExpression") {
@@ -335,7 +342,7 @@ function findExistingUilintRulesObject(arrayExpr: any): {
       plugins?.type === "ObjectExpression" &&
       getObjectPropertyValue(plugins, "uilint") !== null;
 
-    const uilintIds = collectUilintRuleIdsFromRulesObject(rules);
+    const uilintIds = rules ? collectUilintRuleIdsFromRulesObject(rules) : new Set<string>();
     const hasUilintRules = uilintIds.size > 0;
 
     if (!hasUilintPlugin && !hasUilintRules) continue;
@@ -348,7 +355,7 @@ function findExistingUilintRulesObject(arrayExpr: any): {
   return { configObj: null, rulesObj: null, safeToMutate: false };
 }
 
-function collectTopLevelBindings(program: any): Set<string> {
+function collectTopLevelBindings(program: AstNode): Set<string> {
   const names = new Set<string>();
   if (!program || program.type !== "Program") return names;
 
@@ -386,7 +393,7 @@ function chooseUniqueIdentifier(base: string, used: Set<string>): string {
 }
 
 function findExistingDefaultImportLocalName(
-  program: any,
+  program: AstNode,
   from: string
 ): string | null {
   if (!program || program.type !== "Program") return null;
@@ -410,7 +417,7 @@ function findExistingDefaultImportLocalName(
  * Add imports for local rules from .uilint/rules/
  */
 function addLocalRuleImportsAst(
-  mod: any,
+  mod: AstNode,
   selectedRules: RuleMetadata[],
   configPath: string,
   rulesRoot: string,
@@ -475,7 +482,7 @@ function addLocalRuleImportsAst(
  * Add require statements for local rules (CommonJS)
  */
 function addLocalRuleRequiresAst(
-  program: any,
+  program: AstNode,
   selectedRules: RuleMetadata[],
   configPath: string,
   rulesRoot: string,
@@ -522,7 +529,7 @@ function addLocalRuleRequiresAst(
     const stmtMod = parseModule(
       `const ${importName} = require("${rulePath}");`
     );
-    const stmt = (stmtMod.$ast as any).body?.[0];
+    const stmt = ((stmtMod.$ast as unknown as AstNode).body as AstNode[])?.[0];
     if (stmt) {
       // Place after a leading "use strict" if present.
       let insertAt = 0;
@@ -543,7 +550,7 @@ function addLocalRuleRequiresAst(
 }
 
 function appendUilintConfigBlockToArray(
-  arrayExpr: any,
+  arrayExpr: AstNode,
   selectedRules: RuleMetadata[],
   ruleImportNames: Map<string, string>
 ): void {
@@ -585,7 +592,7 @@ ${rulesPropsCode}
     },
   }`;
 
-  const objExpr = (parseExpression(blockCode) as any).$ast;
+  const objExpr = (parseExpression(blockCode) as unknown as AstNode).$ast;
   arrayExpr.elements.push(objExpr);
 }
 
@@ -598,7 +605,7 @@ ${rulesPropsCode}
  * - `plugins: { uilint: { rules: {...} } }` (new format with rules object)
  */
 function updateExistingUilintConfigBlock(
-  configObj: any,
+  configObj: AstNode,
   selectedRules: RuleMetadata[],
   ruleImportNames: Map<string, string>
 ): void {
@@ -608,7 +615,7 @@ function updateExistingUilintConfigBlock(
   // Update the plugins.uilint object to include the new rule imports
   if (pluginsObj?.type === "ObjectExpression") {
     const uilintPluginProp = pluginsObj.properties?.find(
-      (p: any) =>
+      (p: AstNode) =>
         (p.type === "ObjectProperty" || p.type === "Property") &&
         ((p.key?.type === "Identifier" && p.key.name === "uilint") ||
           (isStringLiteral(p.key) && p.key.value === "uilint"))
@@ -626,7 +633,7 @@ function updateExistingUilintConfigBlock(
           .join(", ");
 
         const newPluginObjCode = `{ rules: { ${pluginRulesCode} } }`;
-        const newPluginObj = (parseExpression(newPluginObjCode) as any).$ast;
+        const newPluginObj = (parseExpression(newPluginObjCode) as unknown as AstNode).$ast;
         uilintPluginProp.value = newPluginObj;
       } else if (uilintValue?.type === "ObjectExpression") {
         // New format: `plugins: { uilint: { rules: {...} } }`
@@ -636,7 +643,7 @@ function updateExistingUilintConfigBlock(
         if (!pluginRulesObj || pluginRulesObj.type !== "ObjectExpression") {
           // Create the rules property
           const rulesCode = `{ rules: {} }`;
-          const tempObj = (parseExpression(rulesCode) as any).$ast;
+          const tempObj = (parseExpression(rulesCode) as unknown as AstNode).$ast;
           pluginRulesObj = tempObj.properties[0].value;
           uilintValue.properties.push(tempObj.properties[0]);
         }
@@ -644,8 +651,8 @@ function updateExistingUilintConfigBlock(
         // Add each rule import to the plugins.uilint.rules object
         for (const [ruleId, importName] of ruleImportNames.entries()) {
           // Check if already exists
-          const exists = pluginRulesObj.properties?.some(
-            (p: any) =>
+          const exists = pluginRulesObj!.properties?.some(
+            (p: AstNode) =>
               (p.type === "ObjectProperty" || p.type === "Property") &&
               isStringLiteral(p.key) &&
               p.key.value === ruleId
@@ -653,8 +660,8 @@ function updateExistingUilintConfigBlock(
 
           if (!exists) {
             const propCode = `{ "${ruleId}": ${importName} }`;
-            const tempObj = (parseExpression(propCode) as any).$ast;
-            pluginRulesObj.properties.push(tempObj.properties[0]);
+            const tempObj = (parseExpression(propCode) as unknown as AstNode).$ast;
+            pluginRulesObj!.properties.push(tempObj.properties[0]);
           }
         }
       }
@@ -678,14 +685,14 @@ function updateExistingUilintConfigBlock(
 
       // Find existing rule property
       const existingPropIndex = rulesObj.properties?.findIndex(
-        (p: any) =>
+        (p: AstNode) =>
           (p.type === "ObjectProperty" || p.type === "Property") &&
           isStringLiteral(p.key) &&
           p.key.value === ruleKey
       );
 
       const propCode = `{ "${ruleKey}": ${valueCode} }`;
-      const tempObj = (parseExpression(propCode) as any).$ast;
+      const tempObj = (parseExpression(propCode) as unknown as AstNode).$ast;
       const newProp = tempObj.properties[0];
 
       if (existingPropIndex !== undefined && existingPropIndex >= 0) {
@@ -702,12 +709,12 @@ function updateExistingUilintConfigBlock(
 function getUilintEslintConfigInfoFromSourceAst(source: string):
   | {
       info: UilintEslintConfigInfo;
-      mod: any;
-      arrayExpr: any;
+      mod: ReturnType<typeof parseModule>;
+      arrayExpr: AstNode;
       kind: "esm" | "cjs";
       existingConfig: {
-        configObj: any | null;
-        rulesObj: any | null;
+        configObj: AstNode | null;
+        rulesObj: AstNode | null;
         safeToMutate: boolean;
       };
     }
@@ -833,9 +840,9 @@ function buildDesiredRuleValueExpression(rule: RuleMetadata): string {
 }
 
 function collectUilintRuleValueNodesFromConfigArray(
-  arrayExpr: any
-): Map<string, any> {
-  const out = new Map<string, any>();
+  arrayExpr: AstNode
+): Map<string, AstNode> {
+  const out = new Map<string, AstNode>();
   if (!arrayExpr || arrayExpr.type !== "ArrayExpression") return out;
 
   for (const el of arrayExpr.elements ?? []) {
@@ -862,7 +869,7 @@ function collectUilintRuleValueNodesFromConfigArray(
 function getRulesNeedingUpdate(
   selectedRules: RuleMetadata[],
   configuredIds: Set<string>,
-  arrayExpr: any
+  arrayExpr: AstNode
 ): RuleMetadata[] {
   // Only consider rules that are already configured, and only update if the
   // existing severity/options differ from what we would generate.
@@ -874,7 +881,7 @@ function getRulesNeedingUpdate(
     if (!existing) return true;
 
     const desiredExpr = buildDesiredRuleValueExpression(r);
-    const desiredAst = (parseExpression(desiredExpr) as any).$ast;
+    const desiredAst = (parseExpression(desiredExpr) as unknown as AstNode).$ast;
     return !astEquivalent(existing, desiredAst);
   });
 }
@@ -900,7 +907,7 @@ function generateSingleRuleConfig(rule: RuleMetadata): string {
 /**
  * Add the uilint import to the source if not present
  */
-function ensureUilintImport(source: string, isCommonJS: boolean): string {
+function _ensureUilintImport(source: string, isCommonJS: boolean): string {
   if (hasUilintImport(source)) {
     return source;
   }
@@ -973,7 +980,7 @@ function detectIndent(source: string, index: number): string {
  *
  * This is intentionally a best-effort string transform (no JS AST dependency).
  */
-function insertMissingRulesIntoExistingRulesObject(
+function _insertMissingRulesIntoExistingRulesObject(
   source: string,
   missingRules: RuleMetadata[]
 ): string {
@@ -1095,7 +1102,7 @@ function findRuleValueEnd(source: string, startIndex: number): number {
  * This finds existing rule entries and replaces them with updated configurations.
  * Uses a more robust approach to handle multi-line rules with spread syntax.
  */
-function updateExistingRulesWithNewOptions(
+function _updateExistingRulesWithNewOptions(
   source: string,
   rulesToUpdate: RuleMetadata[]
 ): string {
@@ -1155,7 +1162,7 @@ function updateExistingRulesWithNewOptions(
 /**
  * Inject uilint rules into the export default array
  */
-function injectUilintRules(
+function _injectUilintRules(
   source: string,
   selectedRules: RuleMetadata[]
 ): { source: string; injected: boolean } {
@@ -1201,7 +1208,7 @@ ${rulesConfig}
 /**
  * Inject uilint rules into the CommonJS export
  */
-function injectUilintRulesCommonJS(
+function _injectUilintRulesCommonJS(
   source: string,
   selectedRules: RuleMetadata[]
 ): { source: string; injected: boolean } {
@@ -1265,7 +1272,7 @@ export async function installEslintPlugin(
 
   const configFilename = getEslintConfigFilename(configPath);
   const original = readFileSync(configPath, "utf-8");
-  const isCommonJS = configPath.endsWith(".cjs");
+  const _isCommonJS = configPath.endsWith(".cjs");
 
   const ast = getUilintEslintConfigInfoFromSourceAst(original);
   if ("error" in ast) {
@@ -1329,7 +1336,7 @@ export async function installEslintPlugin(
   // (Also allow a fallback to workspace root for backwards compatibility.)
   const localRulesDir = join(opts.projectPath, ".uilint", "rules");
   const workspaceRoot = findWorkspaceRoot(opts.projectPath);
-  const workspaceRulesDir = join(workspaceRoot, ".uilint", "rules");
+  const _workspaceRulesDir = join(workspaceRoot, ".uilint", "rules");
 
   const rulesRoot = existsSync(localRulesDir)
     ? opts.projectPath
@@ -1340,7 +1347,7 @@ export async function installEslintPlugin(
   // For JavaScript configs, use .js extension
   // Note: We don't use .ts extension directly because it requires allowImportingTsExtensions
   const isTypeScriptConfig = configPath.endsWith(".ts");
-  let fileExtension = isTypeScriptConfig ? "" : ".js";
+  const fileExtension = isTypeScriptConfig ? "" : ".js";
 
   let ruleImportNames: Map<string, string> | undefined;
 
@@ -1412,9 +1419,9 @@ export async function installEslintPlugin(
         const requireStmt = parseModule(
           `const ${importName} = require("${importSpecifier}");`
         );
-        const stmt = (requireStmt.$ast as any).body?.[0];
+        const stmt = ((requireStmt.$ast as unknown as AstNode).body as AstNode[])?.[0];
         if (stmt) {
-          mod.$ast.body.splice(0, 0, stmt);
+          (mod.$ast as unknown as AstNode).body.splice(0, 0, stmt);
         }
       }
       modifiedAst = true;
@@ -1452,10 +1459,11 @@ export async function installEslintPlugin(
       const stmtMod = parseModule(
         `const { createRule } = require("uilint-eslint");`
       );
-      const stmt = (stmtMod.$ast as any).body?.[0];
+      const stmt = ((stmtMod.$ast as unknown as AstNode).body as AstNode[])?.[0];
       if (stmt) {
         let insertAt = 0;
-        const first = mod.$ast.body?.[0];
+        const programBody = (mod.$ast as unknown as AstNode).body;
+        const first = programBody?.[0];
         if (
           first?.type === "ExpressionStatement" &&
           first.expression?.type === "StringLiteral" &&
@@ -1463,7 +1471,7 @@ export async function installEslintPlugin(
         ) {
           insertAt = 1;
         }
-        mod.$ast.body.splice(insertAt, 0, stmt);
+        programBody.splice(insertAt, 0, stmt);
         modifiedAst = true;
       }
     }
@@ -1607,7 +1615,7 @@ export interface RuleConfigFromFile {
  * - Array: ["error", { ...options }]
  */
 function extractSeverityFromValueNode(
-  valueNode: any
+  valueNode: AstNode
 ): "error" | "warn" | "off" | null {
   if (!valueNode) return null;
 
@@ -1639,7 +1647,7 @@ function extractSeverityFromValueNode(
  * Returns undefined if not in array format or no options present.
  */
 function extractOptionsFromValueNode(
-  valueNode: any
+  valueNode: AstNode
 ): Record<string, unknown> | undefined {
   if (!valueNode || valueNode.type !== "ArrayExpression") return undefined;
 
@@ -1746,9 +1754,9 @@ export function readRuleConfigsFromConfig(
  * Returns the property node and its parent rules object.
  */
 function findRulePropertyInConfigArray(
-  arrayExpr: any,
+  arrayExpr: AstNode,
   ruleId: string
-): { prop: any; rulesObj: any } | null {
+): { prop: AstNode; rulesObj: AstNode } | null {
   const fullRuleKey = `uilint/${ruleId}`;
 
   if (!arrayExpr || arrayExpr.type !== "ArrayExpression") return null;
@@ -1823,7 +1831,7 @@ export function updateRuleSeverityInConfig(
         firstEl.value = severity;
       } else {
         // Create a new string literal for severity
-        const severityNode = (parseExpression(`"${severity}"`) as any).$ast;
+        const severityNode = (parseExpression(`"${severity}"`) as unknown as AstNode).$ast;
         if (valueNode.elements && valueNode.elements.length > 0) {
           valueNode.elements[0] = severityNode;
         } else {
@@ -1889,7 +1897,7 @@ export function updateRuleConfigInConfig(
     // Build the new value as array format: ["severity", { ...options }]
     const optionsJson = JSON.stringify(options);
     const newValueExpr = `["${severity}", ${optionsJson}]`;
-    const newValueNode = (parseExpression(newValueExpr) as any).$ast;
+    const newValueNode = (parseExpression(newValueExpr) as unknown as AstNode).$ast;
 
     // Replace the value
     prop.value = newValueNode;

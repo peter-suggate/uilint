@@ -53,7 +53,7 @@ export function jsxLoc(options: JsxLocPluginOptions = {}): Plugin {
 
       return {
         code: result.code,
-        map: result.map as any,
+        map: result.map as unknown as string,
       };
     },
   };

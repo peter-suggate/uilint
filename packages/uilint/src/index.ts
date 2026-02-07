@@ -28,7 +28,7 @@ function assertNodeVersion(minMajor: number, minMinor: number): void {
 
   if (!meetsRequirement) {
     // Keep this dependency-free and stdout/stderr friendly.
-    // eslint-disable-next-line no-console
+     
     console.error(
       `uilint requires Node.js >= ${minMajor}.${minMinor}.0. You are running Node.js ${ver}.`
     );

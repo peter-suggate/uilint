@@ -38,7 +38,7 @@ export function createPlan(
   const actions: InstallAction[] = [];
   const dependencies: DependencyInstall[] = [];
 
-  const { force = false } = options;
+  const { force: _force = false } = options;
   const { items } = choices;
 
   // Ensure .cursor directory exists if needed

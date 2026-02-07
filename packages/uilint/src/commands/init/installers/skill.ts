@@ -14,7 +14,7 @@ export const skillInstaller: Installer = {
   description: "Claude Code skill for enforcing UI consistency",
   icon: "⚡",
 
-  isApplicable(project: ProjectState): boolean {
+  isApplicable(_project: ProjectState): boolean {
     // Always applicable - works in any project
     return true;
   },
@@ -107,9 +107,9 @@ export const skillInstaller: Installer = {
   },
 
   async *execute(
-    targets: InstallTarget[],
-    config: InstallerConfig,
-    project: ProjectState
+    _targets: InstallTarget[],
+    _config: InstallerConfig,
+    _project: ProjectState
   ): AsyncGenerator<ProgressEvent> {
     yield {
       type: "start",

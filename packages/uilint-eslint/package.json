@@ -33,6 +33,7 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
+    "lint:strict": "eslint src/ --max-warnings 0",
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:ui": "vitest --ui",

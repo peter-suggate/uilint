@@ -334,7 +334,7 @@ export function loadRule(
   options: { typescript: boolean } = { typescript: true }
 ): RuleFiles {
   const { typescript } = options;
-  const extension = typescript ? ".ts" : ".js";
+  const _extension = typescript ? ".ts" : ".js";
 
   if (typescript) {
     // Load TypeScript source files

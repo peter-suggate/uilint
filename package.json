@@ -25,7 +25,8 @@
     "test": "pnpm --filter uilint-eslint --filter uilint-react --filter uilint --filter uilint-core --filter uilint-vision --filter uilint-semantic test",
     "test:coverage": "pnpm --filter uilint-eslint --filter uilint-react --filter uilint --filter uilint-core --filter uilint-vision --filter uilint-semantic test:coverage",
     "test:watch": "pnpm --filter uilint-eslint --filter uilint-react --filter uilint --filter uilint-core --filter uilint-vision --filter uilint-semantic test:watch",
-    "lint": "pnpm --filter uilint-react lint",
+    "lint": "pnpm -r lint",
+    "lint:strict": "pnpm -r lint:strict",
     "typecheck": "pnpm -r typecheck",
     "uilint": "node packages/uilint/dist/index.js",
     "uilint-cli": "node packages/uilint/dist/index.js",
@@ -45,10 +46,14 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/node": "^25.0.3",
+    "eslint": "^9.39.2",
+    "globals": "^17.0.0",
     "husky": "^9.1.7",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.53.0"
   },
   "packageManager": "pnpm@9.14.2",
   "engines": {

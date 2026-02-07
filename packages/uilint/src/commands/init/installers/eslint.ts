@@ -5,7 +5,7 @@
  */
 
 import { join } from "path";
-import { ruleRegistry, getRulesByCategory, getRuleDocs, getCategoryMeta } from "uilint-eslint";
+import { ruleRegistry, getRulesByCategory, getCategoryMeta } from "uilint-eslint";
 import type {
   Installer,
   InstallTarget,
@@ -225,15 +225,6 @@ function formatRuleOption(rule: RuleMeta): {
   };
 }
 
-/**
- * Display rule documentation in a nice format
- */
-function showRuleDoc(rule: RuleMeta): void {
-  prompts.note(
-    rule.docs.trim().slice(0, 500) + (rule.docs.length > 500 ? "..." : ""),
-    `📖 ${rule.name}`
-  );
-}
 
 export const eslintInstaller: Installer = {
   id: "eslint",
@@ -644,7 +635,7 @@ export const eslintInstaller: Installer = {
   async *execute(
     targets: InstallTarget[],
     config: InstallerConfig,
-    project: ProjectState
+    _project: ProjectState
   ): AsyncGenerator<ProgressEvent> {
     const eslintConfig = config as ESLintInstallerConfig;
 

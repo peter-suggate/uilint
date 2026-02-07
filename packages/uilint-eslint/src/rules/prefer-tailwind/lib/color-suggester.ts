@@ -6,7 +6,6 @@
  */
 
 import { spawnSync } from "child_process";
-import { readFileSync } from "fs";
 import { relative } from "path";
 import { UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
 import {

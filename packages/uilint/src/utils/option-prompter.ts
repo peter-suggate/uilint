@@ -15,7 +15,7 @@ import type { RuleMeta, OptionFieldSchema } from "uilint-eslint";
  */
 async function promptForField(
   field: OptionFieldSchema,
-  ruleName: string
+  _ruleName: string
 ): Promise<unknown> {
   const hint = field.description ? ` (${field.description})` : "";
 
@@ -26,7 +26,7 @@ async function promptForField(
         initialValue: field.defaultValue as boolean,
       });
 
-    case "number":
+    case "number": {
       const numResult = await prompts.text({
         message: field.label + hint,
         placeholder: field.placeholder || String(field.defaultValue),
@@ -38,6 +38,7 @@ async function promptForField(
         },
       });
       return Number(numResult);
+    }
 
     case "text":
       return prompts.text({

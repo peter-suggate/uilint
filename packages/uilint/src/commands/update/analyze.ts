@@ -5,14 +5,14 @@
  * and identifies what can be updated.
  */
 
-import { basename, relative } from "path";
-import { getRuleMetadata, ruleRegistry } from "uilint-eslint";
+import { basename } from "path";
+import { getRuleMetadata } from "uilint-eslint";
 import {
   detectPackageManager,
   getInstalledUilintPackages,
 } from "../../utils/package-manager.js";
 import { findWorkspaceRoot } from "uilint-core/node";
-import { readManifest, getInstalledRuleVersions } from "../../utils/manifest.js";
+import { getInstalledRuleVersions } from "../../utils/manifest.js";
 import {
   findMigrationPath,
   getMigrationsForRule,

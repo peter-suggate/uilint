@@ -172,16 +172,6 @@ function isZustandStoreCall(
 }
 
 /**
- * Get the store hook name from a call expression
- */
-function getStoreHookName(node: TSESTree.CallExpression): string | null {
-  if (node.callee.type === "Identifier") {
-    return node.callee.name;
-  }
-  return null;
-}
-
-/**
  * Check if a node is a useMemo call
  */
 function isUseMemoCall(node: TSESTree.CallExpression): boolean {

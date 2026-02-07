@@ -84,7 +84,7 @@ function stripComments(code: string): string {
 function normalizeWhitespace(code: string): string {
   return code
     .replace(/\s+/g, " ")
-    .replace(/\s*([{}\[\]();,:<>])\s*/g, "$1")
+    .replace(/\s*([{}[\]();,:<>])\s*/g, "$1")
     .trim();
 }
 

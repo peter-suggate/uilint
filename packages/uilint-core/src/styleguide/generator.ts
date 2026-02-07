@@ -7,10 +7,6 @@ import type {
   StyleGuide,
   TailwindThemeTokens,
 } from "../types.js";
-import {
-  extractClassTokensFromHtml,
-  topEntries,
-} from "../tailwind/class-tokens.js";
 
 /**
  * Generates a Markdown style guide from extracted styles
@@ -38,27 +34,6 @@ export function generateStyleGuideFromStyles(
   throw new Error(
     'Style guide auto-generation has been removed. Create ".uilint/styleguide.md" at your workspace root (recommended: run "/genstyleguide" in Cursor).'
   );
-}
-
-/**
- * Finds the greatest common divisor of an array of numbers
- */
-function findGCD(numbers: number[]): number {
-  if (numbers.length === 0) return 0;
-  if (numbers.length === 1) return numbers[0];
-
-  const gcd = (a: number, b: number): number => {
-    a = Math.abs(Math.round(a));
-    b = Math.abs(Math.round(b));
-    while (b) {
-      const t = b;
-      b = a % b;
-      a = t;
-    }
-    return a;
-  };
-
-  return numbers.reduce((acc, n) => gcd(acc, n));
 }
 
 /**

@@ -8,6 +8,10 @@ import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { parseModule, generateCode } from "magicast";
 
+/** Generic AST node type. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AstNode = Record<string, any>;
+
 export interface InstallJsxLocPluginOptions {
   projectPath: string;
   force?: boolean;
@@ -39,7 +43,7 @@ export function getNextConfigFilename(configPath: string): string {
 /**
  * Check if the source already has withJsxLoc imported
  */
-function hasJsxLocImport(source: string): boolean {
+function _hasJsxLocImport(source: string): boolean {
   return (
     source.includes('from "jsx-loc-plugin"') ||
     source.includes("from 'jsx-loc-plugin'")
@@ -49,11 +53,11 @@ function hasJsxLocImport(source: string): boolean {
 /**
  * Check if the source already uses withJsxLoc
  */
-function hasJsxLocWrapper(source: string): boolean {
+function _hasJsxLocWrapper(source: string): boolean {
   return source.includes("withJsxLoc(");
 }
 
-function isIdentifier(node: any, name?: string): boolean {
+function isIdentifier(node: AstNode, name?: string): boolean {
   return (
     !!node &&
     node.type === "Identifier" &&
@@ -61,7 +65,7 @@ function isIdentifier(node: any, name?: string): boolean {
   );
 }
 
-function isStringLiteral(node: any): node is { type: string; value: string } {
+function isStringLiteral(node: AstNode): node is { type: string; value: string } {
   return (
     !!node &&
     (node.type === "StringLiteral" || node.type === "Literal") &&
@@ -69,31 +73,31 @@ function isStringLiteral(node: any): node is { type: string; value: string } {
   );
 }
 
-function ensureEsmWithJsxLocImport(program: any): { changed: boolean } {
+function ensureEsmWithJsxLocImport(program: AstNode): { changed: boolean } {
   if (!program || program.type !== "Program") return { changed: false };
 
   // Find existing import from jsx-loc-plugin
   const existing = (program.body ?? []).find(
-    (s: any) => s?.type === "ImportDeclaration" && s.source?.value === "jsx-loc-plugin"
+    (s: AstNode) => s?.type === "ImportDeclaration" && s.source?.value === "jsx-loc-plugin"
   );
 
   if (existing) {
     const has = (existing.specifiers ?? []).some(
-      (sp: any) =>
+      (sp: AstNode) =>
         sp?.type === "ImportSpecifier" &&
         (sp.imported?.name === "withJsxLoc" || sp.imported?.value === "withJsxLoc")
     );
     if (has) return { changed: false };
 
     const spec = (parseModule('import { withJsxLoc } from "jsx-loc-plugin";')
-      .$ast as any).body?.[0]?.specifiers?.[0];
+      .$ast as unknown as AstNode).body?.[0]?.specifiers?.[0];
     if (!spec) return { changed: false };
     existing.specifiers = [...(existing.specifiers ?? []), spec];
     return { changed: true };
   }
 
   const importDecl = (parseModule('import { withJsxLoc } from "jsx-loc-plugin";')
-    .$ast as any).body?.[0];
+    .$ast as unknown as AstNode).body?.[0];
   if (!importDecl) return { changed: false };
 
   // Insert after last import
@@ -106,7 +110,7 @@ function ensureEsmWithJsxLocImport(program: any): { changed: boolean } {
   return { changed: true };
 }
 
-function ensureCjsWithJsxLocRequire(program: any): { changed: boolean } {
+function ensureCjsWithJsxLocRequire(program: AstNode): { changed: boolean } {
   if (!program || program.type !== "Program") return { changed: false };
 
   // Detect an existing require("jsx-loc-plugin") that binds withJsxLoc
@@ -122,13 +126,13 @@ function ensureCjsWithJsxLocRequire(program: any): { changed: boolean } {
       ) {
         // If destructuring, ensure property exists
         if (decl.id?.type === "ObjectPattern") {
-          const has = (decl.id.properties ?? []).some((p: any) => {
+          const has = (decl.id.properties ?? []).some((p: AstNode) => {
             if (p?.type !== "ObjectProperty" && p?.type !== "Property") return false;
             return isIdentifier(p.key, "withJsxLoc");
           });
           if (has) return { changed: false };
           const prop = (parseModule('const { withJsxLoc } = require("jsx-loc-plugin");')
-            .$ast as any).body?.[0]?.declarations?.[0]?.id?.properties?.[0];
+            .$ast as unknown as AstNode).body?.[0]?.declarations?.[0]?.id?.properties?.[0];
           if (!prop) return { changed: false };
           decl.id.properties = [...(decl.id.properties ?? []), prop];
           return { changed: true };
@@ -142,17 +146,17 @@ function ensureCjsWithJsxLocRequire(program: any): { changed: boolean } {
 
   // Insert: const { withJsxLoc } = require("jsx-loc-plugin");
   const reqDecl = (parseModule('const { withJsxLoc } = require("jsx-loc-plugin");')
-    .$ast as any).body?.[0];
+    .$ast as unknown as AstNode).body?.[0];
   if (!reqDecl) return { changed: false };
   program.body.unshift(reqDecl);
   return { changed: true };
 }
 
-function wrapEsmExportDefault(program: any): { changed: boolean } {
+function wrapEsmExportDefault(program: AstNode): { changed: boolean } {
   if (!program || program.type !== "Program") return { changed: false };
 
   const exportDecl = (program.body ?? []).find(
-    (s: any) => s?.type === "ExportDefaultDeclaration"
+    (s: AstNode) => s?.type === "ExportDefaultDeclaration"
   );
   if (!exportDecl) return { changed: false };
 
@@ -172,7 +176,7 @@ function wrapEsmExportDefault(program: any): { changed: boolean } {
   return { changed: true };
 }
 
-function wrapCjsModuleExports(program: any): { changed: boolean } {
+function wrapCjsModuleExports(program: AstNode): { changed: boolean } {
   if (!program || program.type !== "Program") return { changed: false };
 
   for (const stmt of program.body ?? []) {
@@ -225,7 +229,7 @@ export async function installJsxLocPlugin(
   const configFilename = getNextConfigFilename(configPath);
   const original = readFileSync(configPath, "utf-8");
 
-  let mod: any;
+  let mod: ReturnType<typeof parseModule>;
   try {
     mod = parseModule(original);
   } catch {

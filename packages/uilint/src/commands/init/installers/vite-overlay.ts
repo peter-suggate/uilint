@@ -95,8 +95,8 @@ export const viteOverlayInstaller: Installer = {
 
   async *execute(
     targets: InstallTarget[],
-    config: InstallerConfig,
-    project: ProjectState
+    _config: InstallerConfig,
+    _project: ProjectState
   ): AsyncGenerator<ProgressEvent> {
     if (targets.length === 0) return;
 

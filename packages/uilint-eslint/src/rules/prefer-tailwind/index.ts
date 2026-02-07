@@ -339,17 +339,6 @@ const HARD_CODED_COLOR_NAMES = [
 ];
 
 /**
- * Colors that are always allowed (not theme-dependent)
- */
-const ALWAYS_ALLOWED_COLORS = [
-  "white",
-  "black",
-  "transparent",
-  "inherit",
-  "current",
-];
-
-/**
  * Regex to match hard-coded Tailwind color classes
  * Matches patterns like: bg-red-500, text-blue-600/50, hover:bg-green-400, dark:text-slate-100
  * Color utilities: bg, text, border, ring, outline, decoration, accent, fill, stroke,

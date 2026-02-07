@@ -179,7 +179,7 @@ export default createRule<Options, MessageIds>({
     const fileDir = dirname(filePath);
 
     // Get styleguide
-    const { path: styleguidePath, content: styleguide } = getStyleguide(
+    const { path: _styleguidePath, content: styleguide } = getStyleguide(
       fileDir,
       options.styleguidePath
     );
@@ -245,10 +245,11 @@ export default createRule<Options, MessageIds>({
     }
 
     // Cache miss: run sync analysis now (slow), cache, then report.
-    ENABLE_CACHE &&
+    if (ENABLE_CACHE) {
       console.error(
         `[uilint] Cache miss for ${filePath}, running semantic analysis`
       );
+    }
 
     return {
       Program(node) {
@@ -317,10 +318,9 @@ function runSemanticAnalysisSync(
   sourceCode: string,
   styleguide: string,
   model: string,
-  filePath?: string
+  _filePath?: string
 ): CachedIssue[] {
   const startTime = Date.now();
-  const fileDisplay = filePath ? ` ${filePath}` : "";
 
   // Debug logging suppressed — errors flow through sentinel issues to the dashboard.
 

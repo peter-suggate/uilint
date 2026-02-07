@@ -9,10 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, relative } from "path";
 import { glob } from "glob";
 import { chunkFile, prepareEmbeddingInput } from "../embeddings/chunker.js";
-import {
-  OllamaEmbeddingClient,
-  type EmbeddingOptions,
-} from "../embeddings/ollama-embeddings.js";
+import { OllamaEmbeddingClient } from "../embeddings/ollama-embeddings.js";
 import { VectorStore } from "../index/vector-store.js";
 import { MetadataStore } from "../index/metadata-store.js";
 import {
@@ -141,7 +138,7 @@ export class IncrementalIndexer {
       await this.vectorStore.load(this.indexDir);
       await this.metadataStore.load(this.indexDir);
       await this.fileTracker.load(this.indexDir);
-    } catch (error) {
+    } catch {
       // If loading fails, start fresh
       this.vectorStore = new VectorStore();
       this.metadataStore = new MetadataStore();

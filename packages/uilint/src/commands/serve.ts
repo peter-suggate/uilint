@@ -57,17 +57,13 @@ import {
 } from "../utils/next-detect.js";
 import { resolvePathSpecifier } from "../utils/path-specifiers.js";
 import {
-  logInfo,
-  logSuccess,
   logWarning,
-  logError,
   pc,
 } from "../utils/prompts.js";
 import {
   enableDashboard,
   disableDashboard,
   isDashboardEnabled,
-  logActivity,
   logLint,
   logLintDone,
   logSubscribe,
@@ -94,7 +90,6 @@ import {
   updateBackgroundTaskProgress,
   completeBackgroundTask,
 } from "./serve/dashboard/logger.js";
-import { getDashboardStore } from "./serve/dashboard/store.js";
 import { ruleRegistry, type RuleOptionSchema } from "uilint-eslint";
 import {
   findEslintConfigFile,
@@ -207,8 +202,7 @@ interface VisionAnalyzeMessage {
   screenshot?: string;
   /** Screenshot filename persisted under `.uilint/screenshots/` (e.g. uilint-...png) */
   screenshotFile?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  manifest: any[];
+  manifest: Record<string, unknown>[];
   requestId?: string;
 }
 
@@ -299,8 +293,7 @@ interface WorkspaceCapabilitiesMessage {
 interface VisionResultMessage {
   type: "vision:result";
   route: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  issues: any[];
+  issues: Record<string, unknown>[];
   analysisTime: number;
   error?: string;
   requestId?: string;
@@ -570,6 +563,11 @@ const cache = new Map<string, CacheEntry>();
 const fastCache = new Map<string, CacheEntry>();
 const semanticCache = new Map<string, CacheEntry>();
 
+/** Minimal ESLint API surface used by the serve command. */
+interface ESLintInstance {
+  lintFiles(files: string[]): Promise<Array<{ messages: Record<string, unknown>[] }>>;
+}
+
 // ESLint instances cached per detected project root
 const eslintInstances = new Map<string, unknown>();
 
@@ -577,15 +575,12 @@ const eslintInstances = new Map<string, unknown>();
 const eslintFastInstances = new Map<string, unknown>();
 
 // Vision module is dynamically imported to avoid hard dependency on uilint-vision.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let visionModule: any = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let visionAnalyzer: any = null;
+let visionModule: Record<string, unknown> | null = null;
+let visionAnalyzer: unknown = null;
 
-async function getVisionModule(): Promise<any> {
+async function getVisionModule(): Promise<Record<string, unknown> | null> {
   if (visionModule) return visionModule;
   try {
-    // @ts-expect-error -- uilint-vision is an optional dependency
     visionModule = await import("uilint-vision/node");
     return visionModule;
   } catch {
@@ -593,12 +588,11 @@ async function getVisionModule(): Promise<any> {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getVisionAnalyzerInstance(): Promise<any> {
+async function getVisionAnalyzerInstance(): Promise<unknown> {
   if (visionAnalyzer) return visionAnalyzer;
   const mod = await getVisionModule();
   if (!mod) return null;
-  visionAnalyzer = mod.getVisionAnalyzer();
+  visionAnalyzer = (mod as Record<string, (...args: unknown[]) => unknown>).getVisionAnalyzer();
   return visionAnalyzer;
 }
 
@@ -682,9 +676,9 @@ function buildJsxElementSpans(
   code: string,
   dataLocFile: string
 ): JsxElementSpan[] {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+   
   const { parse } = localRequire("@typescript-eslint/typescript-estree") as {
-    parse: (src: string, options: Record<string, unknown>) => any;
+    parse: (src: string, options: Record<string, unknown>) => Record<string, unknown>;
   };
 
   const ast = parse(code, {
@@ -697,14 +691,14 @@ function buildJsxElementSpans(
 
   const spans: JsxElementSpan[] = [];
 
-  function walk(node: any): void {
+  function walk(node: Record<string, unknown>): void {
     if (!node || typeof node !== "object") return;
 
     // Prefer mapping to JSXElement range so we can capture nested ownership precisely.
     if (node.type === "JSXElement") {
       const range = node.range as [number, number] | undefined;
-      const opening = node.openingElement;
-      const loc = opening?.loc?.start;
+      const opening = node.openingElement as Record<string, unknown> | undefined;
+      const loc = (opening?.loc as Record<string, unknown> | undefined)?.start as Record<string, unknown> | undefined;
       if (
         range &&
         typeof range[0] === "number" &&
@@ -719,11 +713,11 @@ function buildJsxElementSpans(
     }
 
     for (const key of Object.keys(node)) {
-      const child = (node as any)[key];
+      const child = node[key];
       if (Array.isArray(child)) {
-        for (const item of child) walk(item);
+        for (const item of child) walk(item as Record<string, unknown>);
       } else if (child && typeof child === "object") {
-        walk(child);
+        walk(child as Record<string, unknown>);
       }
     }
   }
@@ -863,19 +857,21 @@ function resolveRequestedFilePath(filePath: string): string {
   return fromCwd;
 }
 
-async function getESLintForProject(projectCwd: string): Promise<any | null> {
+async function getESLintForProject(projectCwd: string): Promise<unknown> {
   const cached = eslintInstances.get(projectCwd);
-  if (cached) return cached as any;
+  if (cached) return cached;
 
   try {
     const req = createRequire(join(projectCwd, "package.json"));
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = req("eslint");
+
+    const mod = req("eslint") as Record<string, unknown>;
+    const modDefault = mod?.default as Record<string, unknown> | undefined;
     const ESLintCtor =
-      mod?.ESLint ?? mod?.default?.ESLint ?? mod?.default ?? mod;
+      mod?.ESLint ?? modDefault?.ESLint ?? mod?.default ?? mod;
     if (!ESLintCtor) return null;
 
-    const eslint = new ESLintCtor({ cwd: projectCwd });
+    const Ctor = ESLintCtor as new (opts: Record<string, unknown>) => unknown;
+    const eslint = new Ctor({ cwd: projectCwd });
     eslintInstances.set(projectCwd, eslint);
     return eslint;
   } catch {
@@ -891,19 +887,21 @@ async function getESLintWithOverrides(
   projectCwd: string,
   overrideRules: Record<string, string>,
   instanceCache: Map<string, unknown>
-): Promise<any | null> {
+): Promise<unknown> {
   const cacheKey = `${projectCwd}::${JSON.stringify(overrideRules)}`;
   const cached = instanceCache.get(cacheKey);
-  if (cached) return cached as any;
+  if (cached) return cached;
 
   try {
     const req = createRequire(join(projectCwd, "package.json"));
-    const mod = req("eslint");
+    const mod = req("eslint") as Record<string, unknown>;
+    const modDefault = mod?.default as Record<string, unknown> | undefined;
     const ESLintCtor =
-      mod?.ESLint ?? mod?.default?.ESLint ?? mod?.default ?? mod;
+      mod?.ESLint ?? modDefault?.ESLint ?? mod?.default ?? mod;
     if (!ESLintCtor) return null;
 
-    const eslint = new ESLintCtor({
+    const Ctor = ESLintCtor as new (opts: Record<string, unknown>) => unknown;
+    const eslint = new Ctor({
       cwd: projectCwd,
       overrideConfig: { rules: overrideRules },
     });
@@ -935,7 +933,7 @@ function isSemanticRuleEnabled(): boolean {
 function processLintResults(
   absolutePath: string,
   projectCwd: string,
-  messages: any[],
+  messages: Record<string, unknown>[],
   onProgress: (phase: string) => void
 ): LintIssue[] {
   const dataLocFile = normalizeDataLocFilePath(absolutePath, projectCwd);
@@ -961,8 +959,8 @@ function processLintResults(
   }
 
   let issues: LintIssue[] = messages
-    .filter((m: any) => typeof m?.message === "string")
-    .map((m: any) => {
+    .filter((m: Record<string, unknown>) => typeof m?.message === "string")
+    .map((m: Record<string, unknown>) => {
       const line = typeof m.line === "number" ? m.line : 1;
       const column = typeof m.column === "number" ? m.column : undefined;
       const mappedDataLoc =
@@ -978,7 +976,7 @@ function processLintResults(
       return {
         line,
         column,
-        message: m.message,
+        message: m.message as string,
         ruleId: typeof m.ruleId === "string" ? m.ruleId : undefined,
         messageId: typeof m.messageId === "string" ? m.messageId : undefined,
         dataLoc: mappedDataLoc,
@@ -1047,7 +1045,7 @@ async function lintFileFast(
 
   try {
     onProgress("Running ESLint...");
-    const results = await eslint.lintFiles([absolutePath]);
+    const results = await (eslint as ESLintInstance).lintFiles([absolutePath]);
     const messages =
       Array.isArray(results) && results.length > 0
         ? results[0].messages || []
@@ -1096,7 +1094,7 @@ async function lintFileSemantic(
 
   try {
     onProgress("Running semantic analysis...");
-    const results = await eslint.lintFiles([absolutePath]);
+    const results = await (eslint as ESLintInstance).lintFiles([absolutePath]);
     const messages =
       Array.isArray(results) && results.length > 0
         ? results[0].messages || []
@@ -1104,7 +1102,7 @@ async function lintFileSemantic(
 
     // Filter to only semantic rule results
     const semanticMessages = messages.filter(
-      (m: any) => m.ruleId === "uilint/semantic"
+      (m: Record<string, unknown>) => m.ruleId === "uilint/semantic"
     );
 
     if (semanticMessages.length === 0) return [];
@@ -1122,7 +1120,7 @@ async function lintFileSemantic(
 /**
  * Lint a file and return issues (legacy single-pass, used for backwards compat)
  */
-async function lintFile(
+async function _lintFile(
   filePath: string,
   onProgress: (phase: string) => void
 ): Promise<LintIssue[]> {
@@ -1167,7 +1165,7 @@ async function lintFile(
 
   try {
     onProgress("Running ESLint...");
-    const results = await eslint.lintFiles([absolutePath]);
+    const results = await (eslint as ESLintInstance).lintFiles([absolutePath]);
     const messages =
       Array.isArray(results) && results.length > 0
         ? results[0].messages || []
@@ -1200,8 +1198,8 @@ async function lintFile(
     }
 
     let issues: LintIssue[] = messages
-      .filter((m: any) => typeof m?.message === "string")
-      .map((m: any) => {
+      .filter((m: Record<string, unknown>) => typeof m?.message === "string")
+      .map((m: Record<string, unknown>) => {
         const line = typeof m.line === "number" ? m.line : 1;
         const column = typeof m.column === "number" ? m.column : undefined;
         const mappedDataLoc =
@@ -1217,7 +1215,7 @@ async function lintFile(
         return {
           line,
           column,
-          message: m.message,
+          message: m.message as string,
           ruleId: typeof m.ruleId === "string" ? m.ruleId : undefined,
           messageId: typeof m.messageId === "string" ? m.messageId : undefined,
           dataLoc: mappedDataLoc,
@@ -1274,8 +1272,8 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
 
   // Server-side tracing to confirm activity
   if (message.type === "lint:file" || message.type === "lint:element") {
-    const fp = (message as any).filePath as string | undefined;
-    const rid = (message as any).requestId as string | undefined;
+    const fp = (message as LintFileMessage | LintElementMessage).filePath;
+    const rid = (message as LintFileMessage | LintElementMessage).requestId;
     logLint(fp ?? "", rid);
   } else if (message.type === "subscribe:file") {
     logSubscribe(message.filePath);
@@ -1345,7 +1343,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         // Defer so the event loop can process WebSocket pings/messages
         setImmediate(async () => {
           try {
-            const semanticStart = Date.now();
+            const _semanticStart = Date.now();
             const semanticIssues = await lintFileSemantic(filePath, (phase) => {
               sendMessage(ws, { type: "lint:progress", filePath, requestId, phase });
             });
@@ -1521,7 +1519,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         screenshotFile,
         manifest,
         requestId,
-      } = message as any;
+      } = message as VisionAnalyzeMessage;
       logVisionAnalyze(route, requestId);
 
       const visionMod = await getVisionModule();
@@ -1533,7 +1531,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
           analysisTime: 0,
           error: "uilint-vision is not installed",
           requestId,
-        } as any);
+        });
         break;
       }
 
@@ -1542,7 +1540,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         route,
         requestId,
         phase: "Starting vision analysis...",
-      } as any);
+      });
 
       const startedAt = Date.now();
       const analyzer = await getVisionAnalyzerInstance();
@@ -1551,10 +1549,11 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       const releaseOllama = await acquireOllamaMutex();
 
       try {
+        const analyzerObj = analyzer as Record<string, unknown> | null;
         const analyzerModel =
-          typeof analyzer?.getModel === "function" ? analyzer.getModel() : undefined;
+          typeof analyzerObj?.getModel === "function" ? (analyzerObj.getModel as () => string)() : undefined;
         const analyzerBaseUrl =
-          typeof analyzer?.getBaseUrl === "function" ? analyzer.getBaseUrl() : undefined;
+          typeof analyzerObj?.getBaseUrl === "function" ? (analyzerObj.getBaseUrl as () => string)() : undefined;
 
         if (!screenshot) {
           sendMessage(ws, {
@@ -1564,11 +1563,11 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
             analysisTime: Date.now() - startedAt,
             error: "No screenshot provided for vision analysis",
             requestId,
-          } as any);
+          });
           break;
         }
 
-        const result = await visionMod.runVisionAnalysis({
+        const result = await (visionMod as Record<string, (...args: unknown[]) => Promise<Record<string, unknown>>>).runVisionAnalysis({
           imageBase64: screenshot,
           manifest,
           projectPath: serverAppRootForVision,
@@ -1581,10 +1580,10 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
               route,
               requestId,
               phase,
-            } as any);
+            });
           },
           pathResolver: resolvePathSpecifier,
-        });
+        }) as Record<string, unknown>;
 
         // Write markdown report (best-effort)
         if (typeof screenshotFile === "string" && screenshotFile.length > 0) {
@@ -1593,7 +1592,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
             const imagePath = join(screenshotsDir, screenshotFile);
             try {
               if (existsSync(imagePath)) {
-                const report = visionMod.writeVisionMarkdownReport({
+                const report = (visionMod as Record<string, (...args: unknown[]) => Record<string, unknown>>).writeVisionMarkdownReport({
                   imagePath,
                   route,
                   timestamp,
@@ -1609,7 +1608,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
                     requestId: requestId ?? null,
                   },
                 });
-                logServerInfo(`Wrote vision report`, report.outPath);
+                logServerInfo(`Wrote vision report`, report.outPath as string);
               }
             } catch (e) {
               logServerWarning(
@@ -1621,15 +1620,16 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         }
 
         const elapsed = Date.now() - startedAt;
-        logVisionDone(route, result.issues.length, elapsed);
+        const resultIssues = result.issues as Record<string, unknown>[];
+        logVisionDone(route, resultIssues.length, elapsed);
 
         sendMessage(ws, {
           type: "vision:result",
           route,
-          issues: result.issues,
-          analysisTime: result.analysisTime,
+          issues: resultIssues,
+          analysisTime: result.analysisTime as number,
           requestId,
-        } as any);
+        });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         const elapsed = Date.now() - startedAt;
@@ -1642,7 +1642,7 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
           analysisTime: elapsed,
           error: errorMessage,
           requestId,
-        } as any);
+        });
       } finally {
         releaseOllama();
       }
@@ -1650,19 +1650,20 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
     }
 
     case "vision:check": {
-      const { requestId } = message as any;
+      const { requestId } = message as VisionCheckMessage;
       logVisionCheck(requestId);
 
       try {
         const analyzer = await getVisionAnalyzerInstance();
         if (!analyzer) {
-          sendMessage(ws, { type: "vision:status", available: false, requestId } as any);
+          sendMessage(ws, { type: "vision:status", available: false, requestId });
           break;
         }
-        const model = typeof analyzer.getModel === "function" ? analyzer.getModel() : undefined;
-        sendMessage(ws, { type: "vision:status", available: true, model, requestId } as any);
+        const analyzerObj = analyzer as Record<string, unknown>;
+        const model = typeof analyzerObj.getModel === "function" ? (analyzerObj.getModel as () => string)() : undefined;
+        sendMessage(ws, { type: "vision:status", available: true, model, requestId });
       } catch {
-        sendMessage(ws, { type: "vision:status", available: false, requestId } as any);
+        sendMessage(ws, { type: "vision:status", available: false, requestId });
       }
       break;
     }
@@ -1928,7 +1929,7 @@ function handleCoverageFileChange(filePath: string): void {
 const configStore = new Map<string, unknown>();
 
 // Track connected clients for broadcasting
-let connectedClientsSet = new Set<WebSocket>();
+const connectedClientsSet = new Set<WebSocket>();
 
 /**
  * Broadcast config update to all connected clients
@@ -2007,7 +2008,7 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
   try {
     const { indexDirectory } = await import("uilint-duplicates");
     const result = await indexDirectory(appRoot, {
-      onProgress: (message: string, current: number, total: number) => {
+      onProgress: (message: string, current?: number, total?: number) => {
         // Update dashboard progress
         const progress =
           total && total > 0 ? Math.round(((current || 0) / total) * 100) : 0;

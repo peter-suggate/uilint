@@ -5,7 +5,7 @@
  * This is the main plugin definition that gets registered with pluginRegistry.
  */
 
-import type { PluginWithHandlers, PluginIssue, IssueContribution } from "uilint-core";
+import type { PluginWithHandlers, IssueContribution } from "uilint-core";
 import { pluginRegistry } from "uilint-core";
 
 import { semanticStateDefinition, type SemanticState } from "./state.js";

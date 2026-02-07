@@ -317,7 +317,7 @@ describe("registerESLintRule", () => {
   });
 
   it("stores a rule implementation", () => {
-    const mockRule = { create: () => ({}) } as any;
+    const mockRule = { create: () => ({}) } as unknown as Parameters<typeof registerESLintRule>[1];
     registerESLintRule("test-impl", mockRule);
 
     const rules = getExternalRules();
@@ -333,7 +333,7 @@ describe("clearExternalRules", () => {
 
   it("removes externally registered rules", () => {
     registerRuleMeta(createTestMeta({ id: "ext-rule-1" }));
-    registerESLintRule("ext-rule-1", { create: () => ({}) } as any);
+    registerESLintRule("ext-rule-1", { create: () => ({}) } as unknown as Parameters<typeof registerESLintRule>[1]);
 
     clearExternalRules();
 

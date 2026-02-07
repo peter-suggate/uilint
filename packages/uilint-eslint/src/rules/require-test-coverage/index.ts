@@ -33,7 +33,7 @@ function simpleGlobMatch(pattern: string, path: string): boolean {
   const normalizedPattern = pattern.replace(/\\/g, "/");
 
   // Escape regex special chars except our glob patterns
-  let regexStr = normalizedPattern
+  const regexStr = normalizedPattern
     .replace(/[.+^${}()|[\]\\]/g, "\\$&") // Escape regex special chars
     .replace(/\*\*/g, "{{GLOBSTAR}}") // Placeholder for **
     .replace(/\*/g, "[^/]*") // * matches anything except /

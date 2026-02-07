@@ -5,7 +5,7 @@
  * lint manifest for remote/production deployments.
  */
 
-import { existsSync, readFileSync, statSync } from "fs";
+import { readFileSync } from "fs";
 import { resolve, dirname, relative } from "path";
 import { glob } from "glob";
 import { execSync } from "child_process";

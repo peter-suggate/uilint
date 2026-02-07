@@ -78,6 +78,21 @@ export interface ScreenshotSaveMessage {
   requestId?: string;
 }
 
+export interface VisionCheckMessage {
+  type: "vision:check";
+  requestId?: string;
+}
+
+export interface VisionAnalyzeMessage {
+  type: "vision:analyze";
+  route: string;
+  timestamp: number;
+  screenshot?: string;
+  screenshotFile?: string;
+  manifest: ElementManifest[];
+  requestId?: string;
+}
+
 export type ClientMessage =
   | LintFileMessage
   | LintElementMessage
@@ -87,7 +102,9 @@ export type ClientMessage =
   | CoverageRequestMessage
   | SubscribeFileMessage
   | CacheInvalidateMessage
-  | ScreenshotSaveMessage;
+  | ScreenshotSaveMessage
+  | VisionCheckMessage
+  | VisionAnalyzeMessage;
 
 // ============================================================================
 // Server -> Client Messages
@@ -245,6 +262,29 @@ export interface ScreenshotErrorMessage {
   requestId?: string;
 }
 
+export interface VisionIssue {
+  severity: "error" | "warning" | "info";
+  category: string;
+  message: string;
+  dataLoc?: string;
+}
+
+export interface VisionStatusMessage {
+  type: "vision:status";
+  available: boolean;
+  model?: string;
+  requestId?: string;
+}
+
+export interface VisionResultMessage {
+  type: "vision:result";
+  route: string;
+  analysisTime: number;
+  issues: VisionIssue[];
+  error?: string;
+  requestId?: string;
+}
+
 export type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
@@ -264,4 +304,6 @@ export type ServerMessage =
   | DuplicatesIndexingCompleteMessage
   | DuplicatesIndexingErrorMessage
   | ScreenshotSavedMessage
-  | ScreenshotErrorMessage;
+  | ScreenshotErrorMessage
+  | VisionStatusMessage
+  | VisionResultMessage;

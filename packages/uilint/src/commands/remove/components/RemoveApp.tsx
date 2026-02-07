@@ -205,8 +205,8 @@ function FrameworkBadge({ type }: { type: ProjectWithInstalls["type"] }): React.
 function ProjectSelector({
   projects,
   cursor,
-  onSelect,
-  onCancel,
+  onSelect: _onSelect,
+  onCancel: _onCancel,
 }: {
   projects: ProjectWithInstalls[];
   cursor: number;
@@ -306,7 +306,7 @@ function SelectionList({
   cursor,
   selectedProject,
   canGoBack,
-  onBack,
+  onBack: _onBack,
 }: {
   items: RemoveItem[];
   selectedIds: Set<string>;

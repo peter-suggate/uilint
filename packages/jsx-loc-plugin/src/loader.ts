@@ -6,7 +6,7 @@ import { shouldProcessFile, transformJsxCode } from "./transform";
 import fs from "fs";
 
 interface LoaderContext {
-  async(): (err: Error | null, content?: string, map?: any) => void;
+  async(): (err: Error | null, content?: string, map?: unknown) => void;
   resourcePath: string;
 }
 

@@ -49,26 +49,23 @@ function formatMessage(msg: ServerMessage, json: boolean): string {
       return lines.join("\n");
     }
 
-    // Vision messages: types live in the plugin package but still flow through the WebSocket
-    case "vision:status" as any: {
-      const m = msg as any;
-      if (m.available) {
-        return `${chalk.cyan("vision:status")} ${chalk.green("available")} (${m.model})`;
+    case "vision:status": {
+      if (msg.available) {
+        return `${chalk.cyan("vision:status")} ${chalk.green("available")} (${msg.model})`;
       }
       return `${chalk.cyan("vision:status")} ${chalk.red("not available")}`;
     }
 
-    case "vision:result" as any: {
-      const m = msg as any;
+    case "vision:result": {
       const lines = [
-        `${chalk.cyan("vision:result")} ${m.route} (${m.analysisTime}ms)`,
+        `${chalk.cyan("vision:result")} ${msg.route} (${msg.analysisTime}ms)`,
       ];
-      if (m.error) {
-        lines.push(chalk.red(`  Error: ${m.error}`));
-      } else if (m.issues.length === 0) {
+      if (msg.error) {
+        lines.push(chalk.red(`  Error: ${msg.error}`));
+      } else if (msg.issues.length === 0) {
         lines.push(chalk.green("  No issues found"));
       } else {
-        for (const issue of m.issues) {
+        for (const issue of msg.issues) {
           const severity =
             issue.severity === "error"
               ? chalk.red("error")

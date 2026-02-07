@@ -8,12 +8,10 @@
 import { ResolverFactory } from "oxc-resolver";
 import { parse } from "@typescript-eslint/typescript-estree";
 import { readFileSync, existsSync } from "fs";
-import { dirname, join, extname } from "path";
+import { dirname, join } from "path";
 import type { TSESTree } from "@typescript-eslint/utils";
 
 // Module-level resolver instance (reused across calls)
-let resolverInstance: ReturnType<typeof ResolverFactory.prototype.sync> | null =
-  null;
 let resolverFactory: ResolverFactory | null = null;
 
 /**

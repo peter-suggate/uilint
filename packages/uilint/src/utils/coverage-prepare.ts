@@ -7,8 +7,7 @@
  * - Running tests with coverage to generate data
  */
 
-import { existsSync, readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import { readFileSync, writeFileSync } from "fs";
 import {
   detectPackageManager,
   installDependencies,

@@ -292,16 +292,17 @@ export function extractTailwindAllowlist(content: string): TailwindAllowlist {
 
   const parsed = tryParseFirstJsonCodeBlock(tailwindSection);
   if (parsed && typeof parsed === "object") {
-    const allowAnyColor = Boolean((parsed as any).allowAnyColor);
-    const allowStandardSpacing = Boolean((parsed as any).allowStandardSpacing);
+    const parsedObj = parsed as Record<string, unknown>;
+    const allowAnyColor = Boolean(parsedObj.allowAnyColor);
+    const allowStandardSpacing = Boolean(parsedObj.allowStandardSpacing);
 
-    const allowedUtilitiesArr = Array.isArray((parsed as any).allowedUtilities)
-      ? ((parsed as any).allowedUtilities as unknown[]).filter(
+    const allowedUtilitiesArr = Array.isArray(parsedObj.allowedUtilities)
+      ? (parsedObj.allowedUtilities as unknown[]).filter(
           (u): u is string => typeof u === "string"
         )
       : [];
 
-    const themeTokens = (parsed as any).themeTokens ?? {};
+    const themeTokens = (parsedObj.themeTokens ?? {}) as Record<string, unknown>;
     const themeColors = Array.isArray(themeTokens.colors)
       ? (themeTokens.colors as unknown[]).filter(
           (c): c is string => typeof c === "string"

@@ -9,6 +9,10 @@ import { existsSync, readFileSync } from "fs";
 import { join, dirname, relative } from "path";
 import { parseModule } from "magicast";
 
+/** Generic AST node type. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AstNode = Record<string, any>;
+
 /**
  * Information about a client boundary file
  */
@@ -49,7 +53,7 @@ function hasUseClientDirective(filePath: string): boolean {
     if (!program || program.type !== "Program") return false;
 
     // Check program.directives array (where babel/magicast puts "use client")
-    const directives = (program as any).directives ?? [];
+    const directives = (program as AstNode).directives ?? [];
     for (const directive of directives) {
       if (
         directive?.type === "Directive" &&
@@ -61,7 +65,7 @@ function hasUseClientDirective(filePath: string): boolean {
     }
 
     // Also check first statement as fallback (older parsing behavior)
-    const firstStmt = (program as any).body?.[0];
+    const firstStmt = (program as AstNode).body?.[0];
     if (
       firstStmt?.type === "ExpressionStatement" &&
       (firstStmt.expression?.type === "StringLiteral" ||
@@ -81,13 +85,13 @@ function hasUseClientDirective(filePath: string): boolean {
  * Extract imports from a parsed module
  */
 function extractImports(
-  program: any
+  program: AstNode
 ): Array<{ source: string; specifiers: string[] }> {
   const imports: Array<{ source: string; specifiers: string[] }> = [];
 
   if (!program || program.type !== "Program") return imports;
 
-  for (const stmt of (program as any).body ?? []) {
+  for (const stmt of (program as AstNode).body ?? []) {
     if (stmt?.type !== "ImportDeclaration") continue;
 
     const source = stmt.source?.value;
@@ -208,7 +212,7 @@ export function traceClientBoundaries(
   }
 
   // Parse the layout file
-  let program: any;
+  let program: AstNode;
   try {
     const content = readFileSync(layoutFile, "utf-8");
     const mod = parseModule(content);

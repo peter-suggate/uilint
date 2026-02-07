@@ -288,7 +288,7 @@ export async function runVisionAnalysis(
     issues: result.issues,
     analysisTime: result.analysisTime,
     // Prompt is available in newer uilint-core versions; keep this resilient across versions.
-    prompt: (result as any).prompt,
+    prompt: result.prompt,
     rawResponse: result.rawResponse,
     styleguideLocation,
     visionModel,

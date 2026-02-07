@@ -9,7 +9,7 @@ import { writeFileSync, mkdirSync, rmSync, existsSync, realpathSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { getComponentLibrary, clearCache } from "../rules/no-mixed-component-libraries/lib/import-graph";
-import { detectLibraryFromSource, LIBRARY_PATTERNS } from "../rules/no-mixed-component-libraries/lib/component-parser";
+import { detectLibraryFromSource } from "../rules/no-mixed-component-libraries/lib/component-parser";
 import {
   resolveImportPath,
   resolveExport,

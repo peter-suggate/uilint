@@ -9,7 +9,6 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { loadSelectedRules } from "../../utils/rule-loader.js";
 import { updateManifestRule } from "../../utils/manifest.js";
-import { applyMigrations } from "../../utils/migration-engine.js";
 import { updatePackages } from "../../utils/package-manager.js";
 import type {
   UpdatePlan,

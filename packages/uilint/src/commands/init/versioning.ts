@@ -37,7 +37,7 @@ function workspaceHasPackage(
 
 function tryReadInstalledVersion(pkgName: string): string | null {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+     
     const depPkg = require(`${pkgName}/package.json`) as Record<
       string,
       unknown
@@ -65,7 +65,7 @@ function tryReadInstalledVersion(pkgName: string): string | null {
  */
 export function getSelfDependencyVersionRange(pkgName: string): string | null {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+     
     const pkgJson = require("uilint/package.json") as Record<string, unknown>;
     const deps = pkgJson?.dependencies as Record<string, string> | undefined;
     const optDeps = pkgJson?.optionalDependencies as

@@ -1,5 +1,5 @@
 import { existsSync } from "fs";
-import { mkdir, readdir, writeFile } from "fs/promises";
+import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 
 export interface InstallNextRoutesOptions {

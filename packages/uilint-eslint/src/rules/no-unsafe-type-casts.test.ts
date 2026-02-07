@@ -15,7 +15,7 @@ RuleTester.afterAll = afterAll;
 RuleTester.describe = describe;
 RuleTester.it = (text, method) => {
   // Use vitest's it function
-  return (globalThis as any).it(text, method);
+  return (globalThis as unknown as Record<string, typeof it>).it(text, method);
 };
 
 const ruleTester = new RuleTester({

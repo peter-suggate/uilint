@@ -792,7 +792,7 @@ describe("Phase 2: Event Handler Resolution", () => {
       // Scenario: onClick={() => { console.log("clicked"); doThing(); }}
       // Handler body is at lines 5-7, statements at lines 6-6
       const handlerBodyLoc = loc(5, 0, 7, 1);
-      const arrowFn = createArrowFunctionExpression(handlerBodyLoc);
+      const _arrowFn = createArrowFunctionExpression(handlerBodyLoc);
 
       // Mock coverage data with statements inside the handler body
       const fileCoverage = createFileCoverage(
@@ -1234,21 +1234,6 @@ function createMockJSXElementForConditional(
     range: [0, 15],
     parent: null as unknown as TSESTree.Node,
   } as TSESTree.JSXElement;
-}
-
-// Helper to create a JSXExpressionContainer (for wrapping JSX in expressions)
-function createJSXExpressionContainerNode(
-  expression: TSESTree.Expression,
-  location?: SourceLocation
-): TSESTree.JSXExpressionContainer {
-  const nodeLoc = location || loc(1, 0, 1, 50);
-  return {
-    type: "JSXExpressionContainer",
-    expression,
-    loc: nodeLoc,
-    range: [0, 50],
-    parent: null as unknown as TSESTree.Node,
-  };
 }
 
 describe("Phase 3: Conditional Parent Analysis", () => {
@@ -2012,7 +1997,7 @@ describe("Phase 4: Import Dependency Coverage", () => {
     it("should find imports used in expression children", () => {
       // Scenario: <span>{formatDate(timestamp)}</span>
       // formatDate is imported from "./date-utils"
-      const formatDateImport = createImportDeclaration("./date-utils", [
+      const _formatDateImport = createImportDeclaration("./date-utils", [
         { imported: "formatDate", local: "formatDate" },
       ]);
 
@@ -2048,7 +2033,7 @@ describe("Phase 4: Import Dependency Coverage", () => {
       const usedFnIdentifier = createIdentifier("usedFn", loc(20, 10, 20, 16));
       const elementLoc = loc(20, 0, 20, 40);
 
-      const jsxElement = createJSXElementWithImportedProp(
+      const _jsxElement = createJSXElementWithImportedProp(
         elementLoc,
         "Component",
         "handler",
@@ -2299,7 +2284,7 @@ describe("Phase 4: Import Dependency Coverage", () => {
       ]);
 
       const utilsFilePath = "/src/utils.ts";
-      const coverage: IstanbulCoverage = {
+      const _coverage: IstanbulCoverage = {
         [utilsFilePath]: {
           path: utilsFilePath,
           statementMap: {
@@ -2685,7 +2670,7 @@ describe("Phase 4: Import Dependency Coverage", () => {
 
       // Create arrow function handler that calls trackEvent
       const trackEventIdentifier = createIdentifier("trackEvent", loc(30, 30, 30, 40));
-      const callExpr = createCallExpressionFromIdentifier(trackEventIdentifier, loc(30, 30, 30, 50));
+      const _callExpr = createCallExpressionFromIdentifier(trackEventIdentifier, loc(30, 30, 30, 50));
       const arrowFn = createArrowFunctionExpression(handlerLoc);
       (arrowFn.body as TSESTree.BlockStatement).body = [];
 

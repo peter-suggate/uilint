@@ -11,7 +11,6 @@ import {
   BackgroundTasks,
   ActivityLog,
   HelpBar,
-  OllamaStatus,
 } from "./components/index.js";
 import type { DashboardState } from "./types.js";
 import { getDashboardStore } from "./store.js";

@@ -49,6 +49,8 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest",
+    "lint": "eslint src/",
+    "lint:strict": "eslint src/ --max-warnings 0",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {

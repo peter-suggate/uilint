@@ -316,7 +316,6 @@ describeWithFixtures("require-test-coverage message format", () => {
 // ============================================
 describeWithFixtures("require-test-coverage severity levels", () => {
   const noTestsDir = join(FIXTURES_DIR, "with-no-tests");
-  const partialDir = join(FIXTURES_DIR, "with-partial-coverage");
 
   ruleTester.run("require-test-coverage", rule, {
     valid: [

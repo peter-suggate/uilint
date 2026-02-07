@@ -12,7 +12,6 @@ import {
   sanitizeIssues,
   ensureOllamaReady,
   readStyleGuide,
-  readStyleGuideFromProject,
   findStyleGuidePath,
   findUILintStyleGuideUpwards,
   STYLEGUIDE_PATHS,

@@ -19,7 +19,7 @@ import { Command } from "commander";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { generateManifest } from "./generator.js";
-import { logInfo, logSuccess, logError, logWarning, pc } from "../../utils/prompts.js";
+import { logInfo, logSuccess, logError, pc } from "../../utils/prompts.js";
 import { loadPluginESLintRules } from "../../utils/plugin-loader.js";
 
 /**

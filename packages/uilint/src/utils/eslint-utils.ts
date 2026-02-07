@@ -6,9 +6,13 @@
  */
 
 import { existsSync, readFileSync } from "fs";
+
+/** Generic AST node type. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AstNode = Record<string, any>;
 import { createRequire } from "module";
 import { dirname, resolve, relative, join } from "path";
-import { findEnclosingScopeBatch, type ScopeInfo } from "../scope-extractor.js";
+import { findEnclosingScopeBatch } from "../scope-extractor.js";
 
 /**
  * JSX element span with character offsets and data-loc
@@ -90,7 +94,7 @@ export function buildJsxElementSpans(
   // Use local require to get the TypeScript ESTree parser
   const localRequire = createRequire(import.meta.url);
   const { parse } = localRequire("@typescript-eslint/typescript-estree") as {
-    parse: (src: string, options: Record<string, unknown>) => any;
+    parse: (src: string, options: Record<string, unknown>) => AstNode;
   };
 
   const ast = parse(code, {
@@ -103,7 +107,7 @@ export function buildJsxElementSpans(
 
   const spans: JsxElementSpan[] = [];
 
-  function walk(node: any): void {
+  function walk(node: AstNode): void {
     if (!node || typeof node !== "object") return;
 
     // Prefer mapping to JSXElement range so we can capture nested ownership precisely.
@@ -125,7 +129,7 @@ export function buildJsxElementSpans(
     }
 
     for (const key of Object.keys(node)) {
-      const child = (node as any)[key];
+      const child = node[key];
       if (Array.isArray(child)) {
         for (const item of child) walk(item);
       } else if (child && typeof child === "object") {
@@ -215,9 +219,9 @@ const eslintInstances = new Map<string, unknown>();
 /**
  * Get or create an ESLint instance for a project directory.
  */
-export async function getESLintForProject(projectCwd: string): Promise<any | null> {
+export async function getESLintForProject(projectCwd: string): Promise<unknown> {
   const cached = eslintInstances.get(projectCwd);
-  if (cached) return cached as any;
+  if (cached) return cached;
 
   try {
     const req = createRequire(join(projectCwd, "package.json"));
@@ -266,7 +270,7 @@ export async function lintFileWithDataLoc(
 
   try {
     progress("Running ESLint...");
-    const results = await eslint.lintFiles([absolutePath]);
+    const results = await (eslint as { lintFiles(files: string[]): Promise<Array<{ messages: Record<string, unknown>[] }>> }).lintFiles([absolutePath]);
     const messages =
       Array.isArray(results) && results.length > 0
         ? results[0].messages || []
@@ -285,7 +289,7 @@ export async function lintFileWithDataLoc(
       lineStarts = buildLineStarts(fileCode);
       spans = buildJsxElementSpans(fileCode, dataLocFile);
       progress(`JSX map: ${spans.length} element(s)`);
-    } catch (e) {
+    } catch {
       // If parsing fails, we still return ESLint messages (unmapped).
       progress("JSX map failed (falling back to unmapped issues)");
       spans = [];
@@ -295,8 +299,8 @@ export async function lintFileWithDataLoc(
     }
 
     let issues: LintIssue[] = messages
-      .filter((m: any) => typeof m?.message === "string")
-      .map((m: any) => {
+      .filter((m: Record<string, unknown>) => typeof m?.message === "string")
+      .map((m: Record<string, unknown>) => {
         const line = typeof m.line === "number" ? m.line : 1;
         const column = typeof m.column === "number" ? m.column : undefined;
         const mappedDataLoc =
@@ -312,7 +316,7 @@ export async function lintFileWithDataLoc(
         return {
           line,
           column,
-          message: m.message,
+          message: m.message as string,
           ruleId: typeof m.ruleId === "string" ? m.ruleId : undefined,
           dataLoc: mappedDataLoc,
         } satisfies LintIssue;

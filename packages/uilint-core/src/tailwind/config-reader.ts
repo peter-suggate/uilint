@@ -46,8 +46,8 @@ export function readTailwindThemeTokens(
   if (!configPath) return null;
 
   const loader = jiti(import.meta.url, { interopDefault: true });
-  const loaded = loader(configPath) as any;
-  const config = (loaded?.default ?? loaded) as any;
+  const loaded = loader(configPath) as Record<string, unknown>;
+  const config = ((loaded?.default ?? loaded) as Record<string, unknown>);
   if (!config || typeof config !== "object") return null;
 
   // Best-effort: run resolveConfig to ensure config is valid/normalized.
@@ -57,17 +57,17 @@ export function readTailwindThemeTokens(
     const require = createRequire(import.meta.url);
     const maybe = require("tailwindcss/resolveConfig");
     const resolveConfig = (maybe?.default ?? maybe) as
-      | ((cfg: any) => any)
+      | ((cfg: Record<string, unknown>) => unknown)
       | undefined;
     if (typeof resolveConfig === "function") resolveConfig(config);
   } catch {
     // If resolve fails, still attempt to extract from raw object.
   }
 
-  const theme =
-    config.theme && typeof config.theme === "object" ? config.theme : {};
-  const extend =
-    theme.extend && typeof theme.extend === "object" ? theme.extend : {};
+  const theme: Record<string, unknown> =
+    config.theme && typeof config.theme === "object" ? (config.theme as Record<string, unknown>) : {};
+  const extend: Record<string, unknown> =
+    theme.extend && typeof theme.extend === "object" ? (theme.extend as Record<string, unknown>) : {};
 
   const colors = new Set<string>();
   const spacingKeys = new Set<string>();

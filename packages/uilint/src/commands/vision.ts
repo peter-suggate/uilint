@@ -7,11 +7,8 @@
 import { dirname, resolve, join } from "path";
 import {
   existsSync,
-  mkdirSync,
   readFileSync,
   readdirSync,
-  statSync,
-  writeFileSync,
 } from "fs";
 import { ensureOllamaReady, STYLEGUIDE_PATHS } from "uilint-core/node";
 
@@ -21,7 +18,6 @@ let _visionNodeModule: any = null;
 async function loadVisionModule() {
   if (_visionNodeModule) return _visionNodeModule;
   try {
-    // @ts-expect-error -- uilint-vision is an optional dependency
     _visionNodeModule = await import("uilint-vision/node");
     return _visionNodeModule;
   } catch {
@@ -166,14 +162,15 @@ function listScreenshotSidecars(dirPath: string): ScreenshotSidecarSummary[] {
   const out: ScreenshotSidecarSummary[] = [];
   for (const p of entries) {
     try {
-      const json = loadJsonFile<any>(p);
+      const json = loadJsonFile<Record<string, unknown>>(p);
+      const analysisResult = json?.analysisResult as Record<string, unknown> | undefined;
       const issues = Array.isArray(json?.issues)
         ? json.issues
-        : json?.analysisResult?.issues;
+        : analysisResult?.issues;
       out.push({
         path: p,
         filename:
-          json?.filename || json?.screenshotFile || p.split("/").pop() || p,
+          (json?.filename as string) || (json?.screenshotFile as string) || p.split("/").pop() || p,
         timestamp:
           typeof json?.timestamp === "number" ? json.timestamp : undefined,
         route: typeof json?.route === "string" ? json.route : undefined,

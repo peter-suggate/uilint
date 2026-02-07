@@ -5,7 +5,6 @@
 import type {
   ElementSnapshot,
   GroupedSnapshot,
-  ElementRole,
 } from "./types.js";
 
 /**

@@ -31,8 +31,6 @@
 import { SocketClient, createSocketClient, type SocketClientOptions } from "./client.js";
 import type {
   LintResultMessage,
-  SourceResultMessage,
-  SourceErrorMessage,
   CoverageResultMessage,
   CoverageErrorMessage,
   RuleConfigResultMessage,
@@ -41,6 +39,9 @@ import type {
   ElementManifest,
   LintIssue,
   ServerMessage,
+  VisionStatusMessage,
+  VisionResultMessage,
+  VisionIssue,
 } from "./types.js";
 
 export interface TestHarnessOptions extends SocketClientOptions {
@@ -186,7 +187,7 @@ export class SocketTestHarness {
    * Get vision status with model info
    * Note: Vision types live in the plugin package; messages still flow through the WebSocket.
    */
-  async getVisionStatus(timeout?: number): Promise<any> {
+  async getVisionStatus(timeout?: number): Promise<VisionStatusMessage> {
     return this.client.visionCheck(timeout);
   }
 
@@ -194,7 +195,7 @@ export class SocketTestHarness {
    * Run vision analysis on a screenshot
    * Note: Vision types live in the plugin package; messages still flow through the WebSocket.
    */
-  async analyzeVision(params: VisionAnalyzeParams, timeout?: number): Promise<any> {
+  async analyzeVision(params: VisionAnalyzeParams, timeout?: number): Promise<VisionResultMessage> {
     return this.client.visionAnalyze(params, timeout);
   }
 
@@ -202,7 +203,7 @@ export class SocketTestHarness {
    * Run vision analysis and return just the issues
    * Note: Vision types live in the plugin package; messages still flow through the WebSocket.
    */
-  async getVisionIssues(params: VisionAnalyzeParams, timeout?: number): Promise<any[]> {
+  async getVisionIssues(params: VisionAnalyzeParams, timeout?: number): Promise<VisionIssue[]> {
     const result = await this.analyzeVision(params, timeout);
     if (result.error) {
       throw new Error(result.error);

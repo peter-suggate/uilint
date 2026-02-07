@@ -19,7 +19,7 @@ import {
   planHasBreakingChanges,
 } from "./update/plan.js";
 import { executeUpdatePlan } from "./update/execute.js";
-import type { UpdateOptions, UpdateChoices } from "./update/types.js";
+import type { UpdateChoices } from "./update/types.js";
 import {
   intro,
   outro,
@@ -28,7 +28,6 @@ import {
   logError,
   logWarning,
   note,
-  pc,
   confirm,
 } from "../utils/prompts.js";
 import { loadPluginESLintRules } from "../utils/plugin-loader.js";

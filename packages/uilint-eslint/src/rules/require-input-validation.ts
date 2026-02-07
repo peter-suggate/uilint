@@ -141,11 +141,6 @@ export async function POST(request: Request) {
 });
 
 /**
- * HTTP method names (Next.js App Router style)
- */
-const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
-
-/**
  * Validation method names from common libraries
  */
 const VALIDATION_METHODS = [
@@ -374,7 +369,7 @@ export default createRule<Options, MessageIds>({
     // Track handlers and their validation status
     const handlerContexts = new Map<TSESTree.Node, ValidationContext>();
     let currentHandler: TSESTree.Node | null = null;
-    let currentMethod: string | null = null;
+    let _currentMethod: string | null = null;
 
     return {
       // Detect HTTP method handlers
@@ -382,7 +377,7 @@ export default createRule<Options, MessageIds>({
         const { isHandler, method } = isHttpMethodHandler(node, httpMethods);
         if (isHandler) {
           currentHandler = node;
-          currentMethod = method;
+          _currentMethod = method;
           handlerContexts.set(node, {
             hasValidation: false,
             bodyAccessNodes: [],
@@ -461,7 +456,7 @@ export default createRule<Options, MessageIds>({
         // Clean up
         if (currentHandler === node) {
           currentHandler = null;
-          currentMethod = null;
+          _currentMethod = null;
         }
         handlerContexts.delete(node);
       },

@@ -48,8 +48,12 @@ function truncate(str: string, maxLen: number): string {
   return clean.slice(0, maxLen - 1) + "…";
 }
 
-function getTypeDisplay(type: ActivityType): { label: string; color: string } {
-  const displays: Record<ActivityType, { label: string; color: string }> = {
+type InkColor =
+  | "black" | "red" | "green" | "yellow" | "blue"
+  | "magenta" | "cyan" | "white" | "gray" | "grey";
+
+function getTypeDisplay(type: ActivityType): { label: string; color: InkColor } {
+  const displays: Record<ActivityType, { label: string; color: InkColor }> = {
     "lint:file": { label: "lint", color: "blue" },
     "lint:element": { label: "lint", color: "blue" },
     "lint:done": { label: "lint", color: "green" },
@@ -98,7 +102,7 @@ function ActivityRow({
     <Box flexDirection="column">
       <Box>
         <Text dimColor>{formatTime(entry.timestamp)} </Text>
-        <Text color={color as any} bold>
+        <Text color={color} bold>
           {label.padEnd(7)}
         </Text>
         <Text color={entry.isError ? "red" : entry.isWarning ? "yellow" : undefined}>

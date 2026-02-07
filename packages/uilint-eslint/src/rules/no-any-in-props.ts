@@ -241,7 +241,7 @@ function containsAnyType(
       }
       return { hasAny: false, location: null };
 
-    case "TSConditionalType":
+    case "TSConditionalType": {
       // Check all parts of conditional type
       const checkResult = containsAnyType(
         node.checkType,
@@ -264,6 +264,7 @@ function containsAnyType(
       );
       if (falseResult.hasAny) return falseResult;
       return { hasAny: false, location: null };
+    }
 
     case "TSMappedType":
       if (node.typeAnnotation) {

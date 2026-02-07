@@ -12,9 +12,7 @@
  * - Caches results for performance
  */
 
-import { existsSync, readFileSync, statSync } from "fs";
-import { dirname, resolve } from "path";
-import { parse } from "@typescript-eslint/typescript-estree";
+import { existsSync, statSync } from "fs";
 import type { TSESTree } from "@typescript-eslint/utils";
 import { resolveImportPath, parseFile } from "./export-resolver.js";
 

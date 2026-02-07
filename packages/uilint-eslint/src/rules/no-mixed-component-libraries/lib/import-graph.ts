@@ -14,7 +14,6 @@ import {
   parseComponentBody,
   detectLibraryFromSource,
   type LibraryName,
-  type ComponentStyleInfo,
 } from "./component-parser.js";
 
 /**
