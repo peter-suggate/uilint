@@ -153,14 +153,21 @@ export function DevTool({
         // triggers auto-registration with uilint-core's registry, then
         // adapts them from declarative to imperative React plugins.
         // Pass empty manifests since local plugins are already registered above.
-        const externalPlugins = await loadPlugins([]);
-        for (const plugin of externalPlugins) {
-          pluginRegistry.register(plugin);
+        // Skip external plugins in static mode — vision and semantic analysis
+        // require a local language model (Ollama) which isn't available in
+        // static/preview deployments.
+        if (!isStaticMode) {
+          const externalPlugins = await loadPlugins([]);
+          for (const plugin of externalPlugins) {
+            pluginRegistry.register(plugin);
+          }
+          devLog(
+            `[DevTool] Loaded ${externalPlugins.length} external plugin(s):`,
+            externalPlugins.map((p) => p.id).join(", ")
+          );
+        } else {
+          devLog("[DevTool] Static mode: skipping vision/semantic plugins (no local LLM available)");
         }
-        devLog(
-          `[DevTool] Loaded ${externalPlugins.length} external plugin(s):`,
-          externalPlugins.map((p) => p.id).join(", ")
-        );
 
         await initializePlugins({ websocket, domObserver });
         pluginsInitialized = true;
