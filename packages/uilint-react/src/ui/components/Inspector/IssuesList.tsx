@@ -118,6 +118,12 @@ export function IssuesList({ className }: IssuesListProps) {
 
   // Store selectors
   const fileGroups = useComposedStore(selectFileGroups);
+  const availableRules = useComposedStore(
+    (s) => (s.plugins?.eslint as ESLintPluginSlice | undefined)?.availableRules
+  );
+  const disabledRules = useComposedStore(
+    (s) => (s.plugins?.eslint as ESLintPluginSlice | undefined)?.disabledRules
+  );
   const expandedRuleId = useComposedStore((s) => s.inspector.expandedRuleId);
   const expandedFilePath = useComposedStore((s) => s.inspector.expandedFilePath);
   const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
@@ -132,8 +138,19 @@ export function IssuesList({ className }: IssuesListProps) {
   const selectIssue = useComposedStore((s) => s.selectIssue);
   const showFullSourceView = useComposedStore((s) => s.showFullSourceView);
 
-  // Transform fileGroups to rule nodes
-  const ruleNodes = useMemo(() => fileGroupsToRuleNodes(fileGroups), [fileGroups]);
+  // Exclude disabled rules from the available rules shown as tiles
+  const enabledRules = useMemo(
+    () => (availableRules && disabledRules
+      ? availableRules.filter((r) => !disabledRules.has(r.id))
+      : availableRules),
+    [availableRules, disabledRules]
+  );
+
+  // Transform fileGroups to rule nodes (includes enabled rules with zero issues)
+  const ruleNodes = useMemo(
+    () => fileGroupsToRuleNodes(fileGroups, enabledRules),
+    [fileGroups, enabledRules]
+  );
 
   // Get the expanded rule and its file nodes
   const expandedRule = useMemo(
@@ -444,7 +461,7 @@ export function IssuesList({ className }: IssuesListProps) {
       {/* Main content - mosaic tile grid with in-place expansion */}
       {/* File views are now rendered INSIDE the expanded rule tile via renderExpandedContent */}
       <div ref={scrollContainerRef} className="flex-1 p-4 overflow-auto">
-        {fileGroups.length === 0 ? (
+        {ruleNodes.length === 0 ? (
           <EmptyState />
         ) : (
           <ExpandableTileGrid

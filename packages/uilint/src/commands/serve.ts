@@ -585,7 +585,6 @@ let visionAnalyzer: any = null;
 async function getVisionModule(): Promise<any> {
   if (visionModule) return visionModule;
   try {
-    // @ts-expect-error -- uilint-vision is an optional dependency
     visionModule = await import("uilint-vision/node");
     return visionModule;
   } catch {
@@ -2007,7 +2006,7 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
   try {
     const { indexDirectory } = await import("uilint-duplicates");
     const result = await indexDirectory(appRoot, {
-      onProgress: (message: string, current: number, total: number) => {
+      onProgress: (message: string, current?: number, total?: number) => {
         // Update dashboard progress
         const progress =
           total && total > 0 ? Math.round(((current || 0) / total) * 100) : 0;

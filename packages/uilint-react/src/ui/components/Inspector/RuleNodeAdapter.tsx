@@ -8,6 +8,7 @@
 
 import type { HierarchyNode, SeverityCounts } from "../HierarchicalTiles";
 import type { FileGroup } from "../../../core/store/file-groups-selector";
+import type { AvailableRule } from "../../../plugins/eslint/types";
 
 // ============================================================================
 // Types
@@ -63,6 +64,7 @@ export type FileForRuleNode = HierarchyNode<FileForRule>;
  * Format count text: "X issues in Y files" or "X issue in Y file"
  */
 function formatCountText(issueCount: number, fileCount: number): string {
+  if (issueCount === 0) return "No issues";
   const issuePlural = issueCount === 1 ? "issue" : "issues";
   const filePlural = fileCount === 1 ? "file" : "files";
   return `${issueCount} ${issuePlural} in ${fileCount} ${filePlural}`;
@@ -90,10 +92,17 @@ function getShortRuleName(ruleId: string): string {
  * - Level 0: Rules sorted by severity (errors first), then by count
  * - Level 1: Files for each rule, also sorted by severity then count
  *
+ * When availableRules is provided, rules with zero issues are also included
+ * so users can discover and configure them.
+ *
  * @param fileGroups - Array of FileGroup objects from the selector
+ * @param availableRules - Optional array of all available rules (to include zero-issue rules)
  * @returns Array of RuleNode objects ready for HierarchicalTiles
  */
-export function fileGroupsToRuleNodes(fileGroups: FileGroup[]): RuleNode[] {
+export function fileGroupsToRuleNodes(
+  fileGroups: FileGroup[],
+  availableRules: AvailableRule[] = []
+): RuleNode[] {
   // Aggregate issues by rule across all files
   const ruleMap = new Map<
     string,
@@ -155,6 +164,20 @@ export function fileGroupsToRuleNodes(fileGroups: FileGroup[]): RuleNode[] {
         severity: issue.severity,
         line: issue.line,
         column: issue.column,
+      });
+    }
+  }
+
+  // Add available rules that have no issues yet
+  for (const rule of availableRules) {
+    if (!ruleMap.has(rule.id)) {
+      ruleMap.set(rule.id, {
+        ruleId: rule.id,
+        ruleName: rule.name || getShortRuleName(rule.id),
+        totalCount: 0,
+        severityCounts: { error: 0, warning: 0, info: 0 },
+        highestSeverity: "info",
+        files: new Map(),
       });
     }
   }

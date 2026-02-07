@@ -124,6 +124,9 @@ function formatIssueSummaryParts(
   count: number,
   fileCount?: number
 ): { count: number; suffix: string } {
+  if (count === 0) {
+    return { count: 0, suffix: "issues" };
+  }
   const issueWord = count === 1 ? "issue" : "issues";
   if (fileCount !== undefined && fileCount > 0) {
     const fileWord = fileCount === 1 ? "file" : "files";
