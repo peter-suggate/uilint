@@ -277,7 +277,7 @@ const strictConfig: Linter.Config = {
       ]],
     "uilint/semantic": ["warn", ...[
         {
-          "model": "qwen3-coder:30b",
+          "model": "qwen3-vl:8b-instruct",
           "styleguidePath": ".uilint/styleguide.md"
         }
       ]],

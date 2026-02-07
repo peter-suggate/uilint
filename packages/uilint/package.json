@@ -62,6 +62,8 @@
     "uilint-core": "workspace:*",
     "uilint-duplicates": "workspace:*",
     "uilint-eslint": "workspace:*",
+    "uilint-semantic": "workspace:*",
+    "uilint-vision": "workspace:*",
     "ws": "^8.19.0"
   },
   "optionalDependencies": {

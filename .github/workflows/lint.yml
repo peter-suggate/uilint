@@ -28,6 +28,8 @@ jobs:
         run: |
           pnpm --filter uilint-core build
           pnpm --filter uilint-eslint build
+          pnpm --filter uilint-vision build
+          pnpm --filter uilint-semantic build
 
       - name: Run tests with coverage (for require-test-coverage rule)
         working-directory: packages/uilint-react

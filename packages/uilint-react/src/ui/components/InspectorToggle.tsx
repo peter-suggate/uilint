@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useComposedStore } from "../../core/store";
 import { UILintInspectorIcon, SearchIcon } from "../icons";
 import { getGlassStyles } from "./primitives";
+import { PluginToolbar } from "./PluginToolbar";
 
 /** Detect macOS for showing correct modifier key symbol */
 function isMac(): boolean {
@@ -59,6 +60,9 @@ export function InspectorToggle() {
           pointerEvents: "auto",
         }}
       >
+        {/* Plugin toolbar action groups (e.g., Vision Capture) */}
+        <PluginToolbar />
+
         {/* Keyboard shortcut hint - shown on non-touch devices */}
         {showShortcutHint && (
           <motion.div

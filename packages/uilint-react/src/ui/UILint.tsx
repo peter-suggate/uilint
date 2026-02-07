@@ -18,7 +18,18 @@ import { InspectorSidebar } from "./components/Inspector";
 import { InspectorToggle } from "./components/InspectorToggle";
 import { RegionSelector } from "./components/RegionSelector";
 import { useComposedStore } from "../core/store";
-import type { VisionSlice } from "../plugins/vision/slice";
+import type { VisionState } from "uilint-vision/plugin";
+import type { CaptureRegion } from "uilint-vision";
+
+/**
+ * Extended vision state with setter functions created by the adapter.
+ * The adapter automatically creates setXxx functions for each state property.
+ */
+interface VisionSliceExtended extends VisionState {
+  setRegionSelectionActive: (active: boolean) => void;
+  setSelectedRegion: (region: CaptureRegion | null) => void;
+  triggerVisionAnalysis: () => Promise<void>;
+}
 
 // Track if we created the portal (for cleanup)
 let portalCreatedByUs = false;
@@ -63,7 +74,7 @@ export function UILint({ enabled = true }: UILintProps) {
 
   // Get vision state for region selection
   const visionState = useComposedStore(
-    (s) => s.plugins?.vision as VisionSlice | undefined
+    (s) => s.plugins?.vision as VisionSliceExtended | undefined
   );
   const regionSelectionActive = visionState?.regionSelectionActive ?? false;
   const setSelectedRegion = visionState?.setSelectedRegion;

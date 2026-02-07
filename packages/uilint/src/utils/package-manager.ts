@@ -35,10 +35,18 @@ export function detectPackageManager(projectPath: string): PackageManager {
   return "npm";
 }
 
+export interface SpawnOutputOptions {
+  /** When true, suppress streaming to process.stdout/stderr. Output is still captured in buffers. */
+  silent?: boolean;
+  /** Optional callback invoked with each stdout/stderr chunk for routing output elsewhere. */
+  onOutput?: (chunk: Buffer, stream: "stdout" | "stderr") => void;
+}
+
 function spawnAsync(
   command: string,
   args: string[],
-  cwd: string
+  cwd: string,
+  options: SpawnOutputOptions = {}
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -54,13 +62,19 @@ function spawnAsync(
     const MAX_CAPTURE = 64 * 1024; // keep last 64KB per stream
 
     child.stdout?.on("data", (chunk: Buffer) => {
-      process.stdout.write(chunk);
+      if (!options.silent) {
+        process.stdout.write(chunk);
+      }
+      options.onOutput?.(chunk, "stdout");
       stdoutChunks.push(chunk);
       // keep bounded
       while (Buffer.concat(stdoutChunks).length > MAX_CAPTURE) stdoutChunks.shift();
     });
     child.stderr?.on("data", (chunk: Buffer) => {
-      process.stderr.write(chunk);
+      if (!options.silent) {
+        process.stderr.write(chunk);
+      }
+      options.onOutput?.(chunk, "stderr");
       stderrChunks.push(chunk);
       while (Buffer.concat(stderrChunks).length > MAX_CAPTURE) stderrChunks.shift();
     });
@@ -163,7 +177,7 @@ export async function installDependencies(
   pm: PackageManager,
   projectPath: string,
   packages: string[],
-  options: { dev?: boolean } = { dev: true }
+  options: { dev?: boolean } & SpawnOutputOptions = { dev: true }
 ): Promise<void> {
   if (!packages.length) return;
 
@@ -173,27 +187,31 @@ export async function installDependencies(
   if (!packagesToInstall.length) return;
 
   const isDev = options.dev ?? true;
+  const spawnOpts: SpawnOutputOptions = { silent: options.silent, onOutput: options.onOutput };
 
   switch (pm) {
     case "pnpm":
       await spawnAsync(
         "pnpm",
         ["add", ...(isDev ? ["-D"] : []), ...packagesToInstall],
-        projectPath
+        projectPath,
+        spawnOpts
       );
       return;
     case "yarn":
       await spawnAsync(
         "yarn",
         ["add", ...(isDev ? ["-D"] : []), ...packagesToInstall],
-        projectPath
+        projectPath,
+        spawnOpts
       );
       return;
     case "bun":
       await spawnAsync(
         "bun",
         ["add", ...(isDev ? ["-d"] : []), ...packagesToInstall],
-        projectPath
+        projectPath,
+        spawnOpts
       );
       return;
     case "npm":
@@ -201,7 +219,8 @@ export async function installDependencies(
       await spawnAsync(
         "npm",
         ["install", isDev ? "--save-dev" : "--save", ...packagesToInstall],
-        projectPath
+        projectPath,
+        spawnOpts
       );
       return;
   }
@@ -232,10 +251,11 @@ export function getTestCoverageCommand(pm: PackageManager): {
  */
 export async function runTestsWithCoverage(
   pm: PackageManager,
-  projectPath: string
+  projectPath: string,
+  options: SpawnOutputOptions = {}
 ): Promise<void> {
   const { command, args } = getTestCoverageCommand(pm);
-  await spawnAsync(command, args, projectPath);
+  await spawnAsync(command, args, projectPath, options);
 }
 
 /**
@@ -291,7 +311,8 @@ export function getInstalledUilintPackages(
 export async function uninstallDependencies(
   pm: PackageManager,
   projectPath: string,
-  packages: string[]
+  packages: string[],
+  options: SpawnOutputOptions = {}
 ): Promise<void> {
   if (!packages.length) return;
 
@@ -306,20 +327,21 @@ export async function uninstallDependencies(
 
   switch (pm) {
     case "pnpm":
-      await spawnAsync("pnpm", ["remove", ...packagesToUninstall], projectPath);
+      await spawnAsync("pnpm", ["remove", ...packagesToUninstall], projectPath, options);
       return;
     case "yarn":
-      await spawnAsync("yarn", ["remove", ...packagesToUninstall], projectPath);
+      await spawnAsync("yarn", ["remove", ...packagesToUninstall], projectPath, options);
       return;
     case "bun":
-      await spawnAsync("bun", ["remove", ...packagesToUninstall], projectPath);
+      await spawnAsync("bun", ["remove", ...packagesToUninstall], projectPath, options);
       return;
     case "npm":
     default:
       await spawnAsync(
         "npm",
         ["uninstall", ...packagesToUninstall],
-        projectPath
+        projectPath,
+        options
       );
       return;
   }
@@ -332,11 +354,12 @@ export async function updatePackages(
   pm: PackageManager,
   projectPath: string,
   packages: string[],
-  options: { dev?: boolean } = { dev: true }
+  options: { dev?: boolean } & SpawnOutputOptions = { dev: true }
 ): Promise<void> {
   if (!packages.length) return;
 
   const isDev = options.dev ?? true;
+  const spawnOpts: SpawnOutputOptions = { silent: options.silent, onOutput: options.onOutput };
 
   // Use @latest to update to latest version
   const packagesWithLatest = packages.map((pkg) => `${pkg}@latest`);
@@ -346,21 +369,24 @@ export async function updatePackages(
       await spawnAsync(
         "pnpm",
         ["add", ...(isDev ? ["-D"] : []), ...packagesWithLatest],
-        projectPath
+        projectPath,
+        spawnOpts
       );
       return;
     case "yarn":
       await spawnAsync(
         "yarn",
         ["add", ...(isDev ? ["-D"] : []), ...packagesWithLatest],
-        projectPath
+        projectPath,
+        spawnOpts
       );
       return;
     case "bun":
       await spawnAsync(
         "bun",
         ["add", ...(isDev ? ["-d"] : []), ...packagesWithLatest],
-        projectPath
+        projectPath,
+        spawnOpts
       );
       return;
     case "npm":
@@ -368,7 +394,8 @@ export async function updatePackages(
       await spawnAsync(
         "npm",
         ["install", isDev ? "--save-dev" : "--save", ...packagesWithLatest],
-        projectPath
+        projectPath,
+        spawnOpts
       );
       return;
   }

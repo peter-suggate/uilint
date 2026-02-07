@@ -36,5 +36,9 @@ export {
   loadPlugin,
   getPluginManifest,
   BUILT_IN_PLUGINS,
+  LOCAL_PLUGINS,
   type PluginManifest,
 } from "./loader";
+
+// Adapter
+export { adaptPlugin, adaptPlugins } from "./adapter";

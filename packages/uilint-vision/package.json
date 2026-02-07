@@ -1,0 +1,56 @@
+{
+  "name": "uilint-vision",
+  "version": "0.2.136",
+  "description": "Vision-based UI consistency analysis for UILint",
+  "author": "Peter Suggate",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/peter-suggate/uilint.git",
+    "directory": "packages/uilint-vision"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    },
+    "./browser": {
+      "types": "./dist/browser/index.d.ts",
+      "import": "./dist/browser/index.js"
+    },
+    "./plugin": {
+      "types": "./dist/plugin/index.d.ts",
+      "import": "./dist/plugin/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "uilint-core": "workspace:*"
+  },
+  "dependencies": {
+    "html-to-image": "^1.11.13"
+  },
+  "optionalDependencies": {
+    "ollama": "^0.6.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsup": "^8.0.0",
+    "vitest": "^2.0.0"
+  }
+}

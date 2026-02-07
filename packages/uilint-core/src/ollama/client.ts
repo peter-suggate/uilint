@@ -18,7 +18,7 @@ import {
 import { UILINT_DEFAULT_OLLAMA_MODEL } from "./defaults.js";
 
 const DEFAULT_BASE_URL = "http://localhost:11434";
-const DEFAULT_TIMEOUT = 60000;
+const DEFAULT_TIMEOUT = 120000;
 
 export class OllamaClient {
   private baseUrl: string;
@@ -238,9 +238,6 @@ export class OllamaClient {
         body: JSON.stringify({
           model: this.model,
           prompt,
-          // Enable thinking when streaming so we can surface reasoning traces for thinking-capable models.
-          // For models that don't support it, Ollama will ignore it.
-          think: true,
           stream: true,
           ...(jsonFormat && { format: "json" }),
         }),
@@ -279,18 +276,7 @@ export class OllamaClient {
           if (!line.trim()) continue;
           try {
             const chunk = JSON.parse(line);
-            const thinkingDelta: string = chunk.thinking || "";
             const delta: string = chunk.response || "";
-
-            // Stream thinking trace first (if any). Keep it separate from the final response.
-            if (thinkingDelta) {
-              onProgress(
-                lastLineEmitted,
-                fullResponse,
-                undefined,
-                thinkingDelta
-              );
-            }
 
             if (delta) {
               fullResponse += delta;

@@ -16,8 +16,8 @@ import { websocket, MAX_RECONNECT_ATTEMPTS } from "./core/services/websocket";
 import { domObserver } from "./core/services/dom-observer";
 import { initializePlugins, getStoreApi } from "./core/store";
 import { pluginRegistry } from "./core/plugin-system/registry";
+import { loadPlugins } from "./core/plugin-system/loader";
 import { eslintPlugin, configureStaticMode, clearStaticMode } from "./plugins/eslint";
-import { visionPlugin } from "./plugins/vision";
 import { fixPromptPlugin } from "./plugins/fix-prompt";
 import { injectDevToolStyles } from "./styles/inject-styles";
 
@@ -145,9 +145,23 @@ export function DevTool({
 
       // Register and initialize plugins (only once)
       if (!pluginsInitialized) {
+        // Register local plugins
         pluginRegistry.register(eslintPlugin);
-        pluginRegistry.register(visionPlugin);
         pluginRegistry.register(fixPromptPlugin);
+
+        // Load external plugins (vision, semantic) — imports them,
+        // triggers auto-registration with uilint-core's registry, then
+        // adapts them from declarative to imperative React plugins.
+        // Pass empty manifests since local plugins are already registered above.
+        const externalPlugins = await loadPlugins([]);
+        for (const plugin of externalPlugins) {
+          pluginRegistry.register(plugin);
+        }
+        devLog(
+          `[DevTool] Loaded ${externalPlugins.length} external plugin(s):`,
+          externalPlugins.map((p) => p.id).join(", ")
+        );
+
         await initializePlugins({ websocket, domObserver });
         pluginsInitialized = true;
         devLog("[DevTool] Plugins initialized in", isStaticMode ? "static" : "websocket", "mode");

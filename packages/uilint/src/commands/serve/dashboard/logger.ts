@@ -6,8 +6,23 @@
  */
 
 import { getDashboardStore } from "./store.js";
-import type { ActivityType } from "./types.js";
+import type { ActivityType, ActivityCategory } from "./types.js";
 import pc from "picocolors";
+
+/**
+ * Derive a coarse category from an activity type for log filtering.
+ */
+function deriveCategory(
+  type: ActivityType,
+  isError?: boolean
+): ActivityCategory {
+  if (isError || type === "error") return "errors";
+  if (type === "warning") return "errors";
+  if (type.startsWith("vision:")) return "vision";
+  if (type.startsWith("semantic:")) return "semantic";
+  if (type.startsWith("lint:")) return "lint";
+  return "system";
+}
 
 // Simple console logging functions that work in any environment (including non-TTY)
 // These use direct console.log instead of @clack/prompts which can suppress output
@@ -62,7 +77,8 @@ export function logActivity(
 ): void {
   if (useDashboard) {
     const store = getDashboardStore();
-    store.addActivity({ type, message, detail, isError, isWarning });
+    const category = deriveCategory(type, isError);
+    store.addActivity({ type, message, detail, isError, isWarning, category });
   } else {
     // Fall back to console logging
     const prefix = `${pc.dim("[ws]")} `;
@@ -92,7 +108,10 @@ export function logLintDone(
   issueCount: number,
   elapsedMs: number
 ): void {
-  logActivity("lint:done", `${filePath} \u2192 ${issueCount} issue(s) (${elapsedMs}ms)`);
+  logActivity(
+    "lint:done",
+    `${filePath} \u2192 ${issueCount} issue(s) (${elapsedMs}ms)`
+  );
 }
 
 /**
@@ -125,7 +144,10 @@ export function logVisionDone(
   issueCount: number,
   elapsedMs: number
 ): void {
-  logActivity("vision:done", `${route} \u2192 ${issueCount} issue(s) (${elapsedMs}ms)`);
+  logActivity(
+    "vision:done",
+    `${route} \u2192 ${issueCount} issue(s) (${elapsedMs}ms)`
+  );
 }
 
 /**
@@ -199,7 +221,10 @@ export function logClientConnect(totalClients: number): void {
   if (useDashboard) {
     const store = getDashboardStore();
     store.incrementClients();
-    store.addActivity({ type: "client:connect", message: `(${totalClients} total)` });
+    store.addActivity({
+      type: "client:connect",
+      message: `(${totalClients} total)`,
+    });
   } else {
     consoleInfo(`Client connected (${totalClients} total)`);
   }
@@ -212,7 +237,10 @@ export function logClientDisconnect(totalClients: number): void {
   if (useDashboard) {
     const store = getDashboardStore();
     store.decrementClients();
-    store.addActivity({ type: "client:disconnect", message: `(${totalClients} total)` });
+    store.addActivity({
+      type: "client:disconnect",
+      message: `(${totalClients} total)`,
+    });
   } else {
     consoleInfo(`Client disconnected (${totalClients} total)`);
   }
@@ -349,4 +377,19 @@ export function completeBackgroundTask(
       consoleSuccess(successMessage);
     }
   }
+}
+
+/**
+ * Log a rule internal/sentinel error.
+ *
+ * Sentinel errors are internal failures from rules with fallible backends
+ * (e.g. LLM unavailable, index not built). They are filtered from client
+ * results and only shown in the dashboard/server logs.
+ */
+export function logRuleInternalError(
+  ruleId: string,
+  filePath: string,
+  detail: string
+): void {
+  logActivity("error", `Rule error [${ruleId}] ${filePath}`, detail, true);
 }

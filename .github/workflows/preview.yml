@@ -56,6 +56,8 @@ jobs:
           cd packages/uilint && pnpm pack --pack-destination /tmp/packages && cd ../..
           cd packages/uilint-react && pnpm pack --pack-destination /tmp/packages && cd ../..
           cd packages/uilint-eslint && pnpm pack --pack-destination /tmp/packages && cd ../..
+          cd packages/uilint-vision && pnpm pack --pack-destination /tmp/packages && cd ../..
+          cd packages/uilint-semantic && pnpm pack --pack-destination /tmp/packages && cd ../..
           cd packages/jsx-loc-plugin && pnpm pack --pack-destination /tmp/packages && cd ../..
           ls -la /tmp/packages/
 
@@ -92,6 +94,8 @@ jobs:
             pnpm add /tmp/packages/uilint-[0-9]*.tgz
             pnpm add /tmp/packages/uilint-react-*.tgz
             pnpm add /tmp/packages/uilint-eslint-*.tgz
+            pnpm add /tmp/packages/uilint-vision-*.tgz
+            pnpm add /tmp/packages/uilint-semantic-*.tgz
             pnpm add /tmp/packages/jsx-loc-plugin-*.tgz
           else
             # Use published npm version (after automatic publish on main)

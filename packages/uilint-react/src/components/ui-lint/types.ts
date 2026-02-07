@@ -2,7 +2,7 @@
  * Types for UILint Source Visualization
  */
 
-import type { VisionIssue } from "../../scanner/vision-capture";
+import type { VisionIssue } from "uilint-vision";
 
 /**
  * Source location from data-loc attribute
@@ -277,4 +277,4 @@ export type {
   VisionIssue,
   VisionAnalysisResult,
   ElementManifest,
-} from "../../scanner/vision-capture";
+} from "uilint-vision";

@@ -31,10 +31,10 @@ for item in *; do
     esac
 done
 
-# Copy hidden files (except .DS_Store, .uilint, .next)
+# Copy hidden files (except .DS_Store, .next)
 for item in .*; do
     case "$item" in
-        .|..|.DS_Store|.uilint|.next) ;;
+        .|..|.DS_Store|.next) ;;
         *) cp -R "$item" "$TEST_APP_DIR/" ;;
     esac
 done
