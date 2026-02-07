@@ -21,7 +21,6 @@ let _visionNodeModule: any = null;
 async function loadVisionModule() {
   if (_visionNodeModule) return _visionNodeModule;
   try {
-    // @ts-expect-error -- uilint-vision is an optional dependency
     _visionNodeModule = await import("uilint-vision/node");
     return _visionNodeModule;
   } catch {
