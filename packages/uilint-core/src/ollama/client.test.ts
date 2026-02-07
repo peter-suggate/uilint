@@ -365,7 +365,7 @@ describe("OllamaClient", () => {
         expect(onProgress).toHaveBeenCalled();
       });
 
-      it("handles thinking delta in streaming response", async () => {
+      it("ignores thinking chunks and only processes response content", async () => {
         const chunks = [
           { thinking: "Let me think...", response: "" },
           { thinking: "", response: "Answer: 42", done: true },
@@ -374,18 +374,15 @@ describe("OllamaClient", () => {
 
         const onProgress = vi.fn();
         const client = new OllamaClient();
-        await client.complete("Think about this", {
+        const result = await client.complete("Think about this", {
           stream: true,
           onProgress,
         });
 
-        // Check that thinking delta was passed to onProgress
-        expect(onProgress).toHaveBeenCalledWith(
-          expect.any(String),
-          expect.any(String),
-          undefined,
-          "Let me think..."
-        );
+        // Thinking chunks are ignored; only the response content is collected
+        expect(result).toBe("Answer: 42");
+        expect(onProgress).toHaveBeenCalledTimes(1);
+        expect(onProgress).toHaveBeenCalledWith("Answer: 42", "Answer: 42", "Answer: 42");
       });
 
       it("falls back to non-streaming when only stream option provided without onProgress", async () => {

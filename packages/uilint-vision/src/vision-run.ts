@@ -157,7 +157,7 @@ async function ensureOllamaReadyCached(params: {
 
   const p = ensureOllamaReady({ model: params.model, baseUrl: params.baseUrl })
     .then(() => undefined)
-    .catch((e) => {
+    .catch((e: unknown) => {
       // If startup/pull fails, allow retry on next request.
       ollamaReadyOnce.delete(key);
       throw e;
