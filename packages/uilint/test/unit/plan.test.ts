@@ -562,16 +562,22 @@ describe("createPlan - ESLint", () => {
     const pkg = createMockPackage();
     const state = createMockProjectState({ packages: [pkg] });
 
-    // Use the semantic rule which declares npmDependencies: ["xxhash-wasm"]
-    const semanticRule = ruleRegistry.find((r) => r.id === "semantic");
-    expect(semanticRule).toBeDefined();
-    expect(semanticRule?.npmDependencies).toContain("xxhash-wasm");
+    // Create a mock rule with npmDependencies (semantic rules have been moved to plugins)
+    const mockRuleWithDeps: RuleMetadata = {
+      id: "mock-rule-with-deps",
+      name: "Mock Rule With Deps",
+      description: "A mock rule that declares npmDependencies",
+      category: "static",
+      defaultSeverity: "warn",
+      docs: "Mock docs",
+      npmDependencies: ["xxhash-wasm"],
+    };
 
     const choices = createMockChoices({
       items: ["eslint"],
       eslint: {
         packagePaths: [pkg.path],
-        selectedRules: [semanticRule!],
+        selectedRules: [mockRuleWithDeps],
       },
     });
 

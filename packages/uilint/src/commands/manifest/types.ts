@@ -63,8 +63,8 @@ export interface ManifestRuleMeta {
   name: string;
   /** Rule description */
   description: string;
-  /** Category: static (ESLint) or semantic (AI) */
-  category: "static" | "semantic";
+  /** Category: e.g. "static" (ESLint), or plugin-defined */
+  category: string;
   /** Default severity */
   defaultSeverity: "error" | "warn" | "off";
   /** Current severity from ESLint config */

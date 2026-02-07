@@ -136,6 +136,11 @@ export { DevTool } from "./DevTool";
 export type { DevToolProps, DevToolMode } from "./DevTool";
 
 // =============================================================================
+// Plugin registration
+// =============================================================================
+export { registerExternalPlugin } from "./core/plugin-system/loader";
+
+// =============================================================================
 // Static mode (for production deployments)
 // =============================================================================
 export {

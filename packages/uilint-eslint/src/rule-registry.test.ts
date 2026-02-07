@@ -131,29 +131,6 @@ describe("ruleRegistry", () => {
     });
   });
 
-  describe("semantic rules", () => {
-    it("should have semantic rules", () => {
-      const semanticRules = getRulesByCategory("semantic");
-      expect(semanticRules.length).toBeGreaterThan(0);
-    });
-
-    it("semantic rules should have requirements or postInstallInstructions", () => {
-      const semanticRules = getRulesByCategory("semantic");
-
-      for (const rule of semanticRules) {
-        // Semantic rules typically need Ollama or other external tools
-        // At minimum they should have requirements or postInstallInstructions
-        const hasRequirements = rule.requirements && rule.requirements.length > 0;
-        const hasPostInstall = Boolean(rule.postInstallInstructions);
-
-        expect(
-          hasRequirements || hasPostInstall,
-          `${rule.id}: semantic rule should have requirements or postInstallInstructions`
-        ).toBe(true);
-      }
-    });
-  });
-
   describe("rules with requirements", () => {
     const rulesWithRequirements = ruleRegistry.filter(
       (r) => r.requirements && r.requirements.length > 0

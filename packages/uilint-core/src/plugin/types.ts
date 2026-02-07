@@ -1,8 +1,8 @@
 /**
  * Plugin System Types
  *
- * These types define the contract between analysis packages (vision, semantic)
- * and the host (uilint-react, uilint CLI). Analysis packages export PluginDefinitions,
+ * These types define the contract between plugin packages and the host
+ * (uilint-react, uilint CLI). Plugin packages export PluginDefinitions,
  * hosts interpret and render them.
  *
  * NO REACT CODE - This is pure TypeScript.
@@ -251,8 +251,8 @@ export interface CodeComparisonSection {
  */
 export interface BadgeSection {
   type: "badge";
-  /** Badge variant determines styling */
-  variant: "similarity" | "severity" | "status" | "category" | "count";
+  /** Badge variant determines styling. Plugins can define custom variants. */
+  variant: string;
   /** Value to display */
   value: DataBinding;
   /** Optional label before value */
@@ -557,8 +557,8 @@ export interface RuleOptionSchema {
  * Requirement for a rule to function.
  */
 export interface RuleRequirement {
-  /** Type of requirement */
-  type: "ollama" | "styleguide" | "semantic-index" | "connection";
+  /** Type of requirement. Plugins define their own requirement types. */
+  type: string;
   /** Human-readable description */
   description: string;
   /** Hint for how to set up */
@@ -569,7 +569,7 @@ export interface RuleRequirement {
  * ESLint rule definition with UI metadata.
  */
 export interface RuleDefinition {
-  /** Rule ID (e.g., "semantic-vision", "no-semantic-duplicates") */
+  /** Rule ID */
   id: string;
   /** Human-readable name */
   name: string;
@@ -708,6 +708,6 @@ export interface PluginDefinition<TState = unknown> {
   handlesRuleCategories?: string[];
 
   // === Browser Actions ===
-  /** Browser-side actions this plugin needs (e.g., "capture-screenshot") */
+  /** Browser-side actions this plugin needs. Plugins register handlers for these. */
   browserActions?: string[];
 }

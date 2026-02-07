@@ -55,19 +55,17 @@ export interface ComposedStoreOptions {
 
 // Import plugin slice types for type composition
 import type { ESLintPluginSlice } from "../../plugins/eslint/slice";
-// External plugin state types (setters are added dynamically by the adapter)
-import type { VisionState } from "uilint-vision/plugin";
-import type { SemanticState } from "uilint-semantic/plugin";
 
 /**
  * Map of plugin IDs to their slice types.
- * Extend this interface when adding new plugins.
- * Note: Vision and semantic use external state types; setters are added at runtime by the adapter.
+ *
+ * Known local plugins are typed explicitly. External plugins (e.g. vision,
+ * semantic) register dynamically via the plugin system and are accessed
+ * through the index signature.
  */
 export interface PluginSliceMap {
   eslint: ESLintPluginSlice;
-  vision: VisionState;
-  semantic: SemanticState;
+  [pluginId: string]: unknown;
 }
 
 /**
@@ -601,24 +599,7 @@ export async function initializePlugins(
         const slice = plugin.createSlice(scopedServices);
 
         // Register the slice in the store
-        // We need to cast here since not all plugin IDs are in PluginSliceMap
-        if (plugin.id in ({} as PluginSliceMap)) {
-          store.getState().registerPluginSlice(
-            plugin.id as keyof PluginSliceMap,
-            slice as PluginSliceMap[keyof PluginSliceMap]
-          );
-        } else {
-          // For unknown plugins, still register them but without strict typing
-          devLog(
-            `[initializePlugins] Registering unknown plugin slice: ${plugin.id}`
-          );
-          store.setState((state) => ({
-            plugins: {
-              ...state.plugins,
-              [plugin.id]: slice,
-            },
-          }));
-        }
+        store.getState().registerPluginSlice(plugin.id, slice);
       } catch (error) {
         devError(
           `[initializePlugins] Failed to create slice for plugin ${plugin.id}:`,

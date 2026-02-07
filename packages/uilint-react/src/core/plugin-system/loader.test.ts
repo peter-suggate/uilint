@@ -19,9 +19,7 @@ vi.mock("uilint-core", async (importOriginal) => {
   };
 });
 
-// Mock external plugin imports to prevent side effects
-vi.mock("uilint-vision/plugin", () => ({}));
-vi.mock("uilint-semantic/plugin", () => ({}));
+// No external plugin mocks needed — plugins are registered dynamically
 
 describe("loader", () => {
   describe("getPluginManifest", () => {

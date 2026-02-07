@@ -10,8 +10,6 @@ import type {
   ClientMessage,
   ServerMessage,
   LintResultMessage,
-  VisionStatusMessage,
-  VisionResultMessage,
   SourceResultMessage,
   SourceErrorMessage,
   CoverageResultMessage,
@@ -259,20 +257,22 @@ export class SocketClient {
 
   /**
    * Check if vision analysis is available
+   * Note: Vision types live in the plugin package; messages still flow through the WebSocket.
    */
-  async visionCheck(timeout = 10000): Promise<VisionStatusMessage> {
+  async visionCheck(timeout = 10000): Promise<any> {
     const requestId = this.generateRequestId();
-    this.send({ type: "vision:check", requestId });
-    return (await this.waitFor(
+    this.send({ type: "vision:check", requestId } as any);
+    return await this.waitFor(
       (msg) =>
-        msg.type === "vision:status" &&
-        (msg as VisionStatusMessage).requestId === requestId,
+        (msg as any).type === "vision:status" &&
+        (msg as any).requestId === requestId,
       timeout
-    )) as VisionStatusMessage;
+    );
   }
 
   /**
    * Run vision analysis
+   * Note: Vision types live in the plugin package; messages still flow through the WebSocket.
    */
   async visionAnalyze(
     params: {
@@ -282,7 +282,7 @@ export class SocketClient {
       screenshotFile?: string;
     },
     timeout = 120000
-  ): Promise<VisionResultMessage> {
+  ): Promise<any> {
     const requestId = this.generateRequestId();
     this.send({
       type: "vision:analyze",
@@ -292,13 +292,13 @@ export class SocketClient {
       screenshotFile: params.screenshotFile,
       manifest: params.manifest,
       requestId,
-    });
-    return (await this.waitFor(
+    } as any);
+    return await this.waitFor(
       (msg) =>
-        msg.type === "vision:result" &&
-        (msg as VisionResultMessage).requestId === requestId,
+        (msg as any).type === "vision:result" &&
+        (msg as any).requestId === requestId,
       timeout
-    )) as VisionResultMessage;
+    );
   }
 
   /**

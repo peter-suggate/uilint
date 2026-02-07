@@ -2,18 +2,16 @@
  * Dashboard state types for the WebSocket server CLI
  */
 
+/**
+ * Activity types for the dashboard log.
+ * Core types are listed here. Plugins can use any string as an activity type.
+ */
 export type ActivityType =
   | "lint:file"
   | "lint:element"
   | "lint:done"
   | "subscribe"
   | "cache:invalidate"
-  | "vision:analyze"
-  | "vision:done"
-  | "vision:check"
-  | "semantic:analyze"
-  | "semantic:done"
-  | "semantic:error"
   | "config:set"
   | "rule:config:set"
   | "screenshot:save"
@@ -25,10 +23,14 @@ export type ActivityType =
   | "client:disconnect"
   | "error"
   | "warning"
-  | "info";
+  | "info"
+  | (string & {});
 
-/** Coarse category for activity log filtering */
-export type ActivityCategory = "all" | "errors" | "vision" | "semantic" | "lint" | "system";
+/**
+ * Coarse category for activity log filtering.
+ * Plugins can register their own categories via string extension.
+ */
+export type ActivityCategory = "all" | "errors" | "lint" | "system" | (string & {});
 
 export interface ActivityEntry {
   id: string;

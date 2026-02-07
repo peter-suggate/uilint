@@ -18,10 +18,6 @@ export default defineConfig({
       // Resolve workspace packages from source during tests
       // This avoids needing built dist folders in CI
       "uilint-core": path.resolve(__dirname, "../uilint-core/src/index.ts"),
-      "uilint-vision/plugin": path.resolve(__dirname, "../uilint-vision/src/plugin/index.ts"),
-      "uilint-vision": path.resolve(__dirname, "../uilint-vision/src/index.ts"),
-      "uilint-semantic/plugin": path.resolve(__dirname, "../uilint-semantic/src/plugin/index.ts"),
-      "uilint-semantic": path.resolve(__dirname, "../uilint-semantic/src/index.ts"),
     },
   },
 });

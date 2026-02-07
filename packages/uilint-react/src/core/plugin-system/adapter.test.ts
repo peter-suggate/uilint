@@ -20,11 +20,7 @@ vi.mock("../../ui/components/Schema/icon-map", () => ({
   getIcon: () => () => null,
 }));
 
-// Mock uilint-vision for browser actions
-vi.mock("uilint-vision", () => ({
-  captureScreenshot: vi.fn().mockResolvedValue("data:image/png;base64,test"),
-  collectElementManifest: vi.fn().mockReturnValue([]),
-}));
+// No need to mock uilint-vision — browser actions are now registered by plugins
 
 describe("adapter", () => {
   describe("adaptPlugin", () => {

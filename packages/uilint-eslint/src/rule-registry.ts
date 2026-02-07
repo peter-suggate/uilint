@@ -4,6 +4,10 @@
  * Central registry of all UILint ESLint rules with metadata for CLI tooling.
  * Metadata is now colocated with each rule file - this module re-exports
  * the collected metadata for use by installers and other tools.
+ *
+ * NOTE: The semantic, semantic-vision, and no-semantic-duplicates rules have
+ * been moved to their respective plugin packages (uilint-vision, uilint-semantic).
+ * They are no longer registered here.
  */
 
 // Re-export types from create-rule for consumers
@@ -30,20 +34,17 @@ export {
 import { meta as consistentDarkMode } from "./rules/consistent-dark-mode.js";
 import { meta as noDirectStoreImport } from "./rules/no-direct-store-import.js";
 import { meta as preferZustandStateManagement } from "./rules/prefer-zustand-state-management.js";
-import { meta as semanticVision } from "./rules/semantic-vision.js";
 import { meta as enforceAbsoluteImports } from "./rules/enforce-absolute-imports.js";
 import { meta as noAnyInProps } from "./rules/no-any-in-props.js";
 import { meta as zustandUseSelectors } from "./rules/zustand-use-selectors.js";
 import { meta as noSecretsInCode } from "./rules/no-secrets-in-code.js";
 import { meta as requireInputValidation } from "./rules/require-input-validation.js";
 import { meta as noPropDrillingDepth } from "./rules/no-prop-drilling-depth.js";
-import { meta as noSemanticDuplicates } from "./rules/no-semantic-duplicates.js";
 import { meta as noUnsafeTypeCasts } from "./rules/no-unsafe-type-casts.js";
 import { meta as preferStoreSelectors } from "./rules/prefer-store-selectors.js";
 
 // Directory-based rules (complex rules with colocated utilities)
 import { meta as noMixedComponentLibraries } from "./rules/no-mixed-component-libraries/index.js";
-import { meta as semantic } from "./rules/semantic/index.js";
 import { meta as requireTestCoverage } from "./rules/require-test-coverage/index.js";
 import { meta as preferTailwind } from "./rules/prefer-tailwind/index.js";
 
@@ -59,31 +60,28 @@ import type { RuleMeta } from "./utils/create-rule.js";
  * 4. Run `pnpm generate:index` to regenerate exports
  */
 export const ruleRegistry: RuleMeta[] = [
-  // Existing rules
+  // UI consistency rules
   consistentDarkMode,
   noDirectStoreImport,
   preferZustandStateManagement,
   noMixedComponentLibraries,
-  semantic,
-  semanticVision,
-  // New UI rules
+  // Import rules
   enforceAbsoluteImports,
+  // Type safety rules
   noAnyInProps,
+  noUnsafeTypeCasts,
+  // State management rules
   zustandUseSelectors,
+  preferStoreSelectors,
+  // Code quality rules
   noPropDrillingDepth,
-  // New security rules
+  // Security rules
   noSecretsInCode,
   requireInputValidation,
-  // Semantic duplicate detection
-  noSemanticDuplicates,
   // Test coverage enforcement
   requireTestCoverage,
   // Style preferences
   preferTailwind,
-  // Type safety
-  noUnsafeTypeCasts,
-  // Zustand best practices
-  preferStoreSelectors,
 ];
 
 /**
@@ -97,7 +95,7 @@ export function getRuleMetadata(id: string): RuleMeta | undefined {
  * Get all rules in a category
  */
 export function getRulesByCategory(
-  category: "static" | "semantic"
+  category: string
 ): RuleMeta[] {
   return ruleRegistry.filter((rule) => rule.category === category);
 }

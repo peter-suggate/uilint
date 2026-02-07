@@ -6,7 +6,7 @@
  * - HeatmapOverlay: Colored borders on elements with issues
  * - CommandPalette: Search interface for issues
  * - InspectorSidebar: Detail panel for issues/elements
- * - RegionSelector: Full-screen overlay for region capture
+ * - RegionSelector: Full-screen overlay for plugin-driven region capture
  *
  * Note: Keyboard shortcuts are handled by the subscription system
  * (initializeKeyboardShortcuts in subscriptions.ts) when the store is created.
@@ -18,18 +18,6 @@ import { InspectorSidebar } from "./components/Inspector";
 import { InspectorToggle } from "./components/InspectorToggle";
 import { RegionSelector } from "./components/RegionSelector";
 import { useComposedStore } from "../core/store";
-import type { VisionState } from "uilint-vision/plugin";
-import type { CaptureRegion } from "uilint-vision";
-
-/**
- * Extended vision state with setter functions created by the adapter.
- * The adapter automatically creates setXxx functions for each state property.
- */
-interface VisionSliceExtended extends VisionState {
-  setRegionSelectionActive: (active: boolean) => void;
-  setSelectedRegion: (region: CaptureRegion | null) => void;
-  triggerVisionAnalysis: () => Promise<void>;
-}
 
 // Track if we created the portal (for cleanup)
 let portalCreatedByUs = false;
@@ -72,34 +60,25 @@ export function UILint({ enabled = true }: UILintProps) {
   // Note: Keyboard shortcuts are handled by the subscription system
   // (initializeKeyboardShortcuts) when the store is created. No hook needed here.
 
-  // Get vision state for region selection
-  const visionState = useComposedStore(
-    (s) => s.plugins?.vision as VisionSliceExtended | undefined
-  );
-  const regionSelectionActive = visionState?.regionSelectionActive ?? false;
-  const setSelectedRegion = visionState?.setSelectedRegion;
-  const setRegionSelectionActive = visionState?.setRegionSelectionActive;
-  const triggerVisionAnalysis = visionState?.triggerVisionAnalysis;
+  // Get generic overlay interaction state from the core slice
+  const overlayInteraction = useComposedStore((s) => s.overlayInteraction);
+  const completeOverlayInteraction = useComposedStore((s) => s.completeOverlayInteraction);
+  const cancelOverlayInteraction = useComposedStore((s) => s.cancelOverlayInteraction);
+
+  const regionSelectionActive = overlayInteraction?.type === "region-select";
 
   // Handle region selection completed
   const handleRegionSelected = useCallback(
     (region: { x: number; y: number; width: number; height: number }) => {
-      if (setSelectedRegion && setRegionSelectionActive && triggerVisionAnalysis) {
-        setSelectedRegion(region);
-        setRegionSelectionActive(false);
-        // Trigger vision analysis with the selected region
-        triggerVisionAnalysis();
-      }
+      completeOverlayInteraction(region);
     },
-    [setSelectedRegion, setRegionSelectionActive, triggerVisionAnalysis]
+    [completeOverlayInteraction]
   );
 
   // Handle region selection cancelled
   const handleRegionCancel = useCallback(() => {
-    if (setRegionSelectionActive) {
-      setRegionSelectionActive(false);
-    }
-  }, [setRegionSelectionActive]);
+    cancelOverlayInteraction();
+  }, [cancelOverlayInteraction]);
 
   // Ensure portal container exists
   useEffect(() => {

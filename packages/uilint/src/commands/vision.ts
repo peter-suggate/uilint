@@ -14,14 +14,39 @@ import {
   writeFileSync,
 } from "fs";
 import { ensureOllamaReady, STYLEGUIDE_PATHS } from "uilint-core/node";
-import {
-  UILINT_DEFAULT_VISION_MODEL,
-  type ElementManifest,
-  type VisionIssue,
-  resolveVisionStyleGuide,
-  runVisionAnalysis,
-  writeVisionMarkdownReport,
-} from "uilint-vision/node";
+
+// Vision module is dynamically imported to avoid hard dependency on uilint-vision.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _visionNodeModule: any = null;
+async function loadVisionModule() {
+  if (_visionNodeModule) return _visionNodeModule;
+  try {
+    // @ts-expect-error -- uilint-vision is an optional dependency
+    _visionNodeModule = await import("uilint-vision/node");
+    return _visionNodeModule;
+  } catch {
+    return null;
+  }
+}
+// Re-declare the key types locally so the rest of the file compiles
+// without importing from uilint-vision.
+type ElementManifest = {
+  id: string;
+  text: string;
+  dataLoc: string;
+  rect: { x: number; y: number; width: number; height: number };
+  tagName: string;
+  role?: string;
+  instanceCount?: number;
+};
+type VisionIssue = {
+  elementText: string;
+  dataLoc?: string;
+  message: string;
+  category: string;
+  severity: string;
+  suggestion?: string;
+};
 import { resolvePathSpecifier } from "../utils/path-specifiers.js";
 import { flushLangfuse } from "../utils/llm-client.js";
 import { nsNow, nsToMs, formatMs, maybeMs } from "../utils/timing.js";
@@ -207,6 +232,18 @@ export async function vision(options: VisionOptions): Promise<void> {
   const dbgDump = debugDumpPath(options);
 
   if (!isJsonOutput) intro("Vision (Screenshot) Analysis");
+
+  // Load vision module dynamically
+  const visionMod = await loadVisionModule();
+  if (!visionMod) {
+    logError("uilint-vision is not installed. Run: pnpm add uilint-vision");
+    process.exit(1);
+  }
+
+  const UILINT_DEFAULT_VISION_MODEL = visionMod.UILINT_DEFAULT_VISION_MODEL;
+  const resolveVisionStyleGuide = visionMod.resolveVisionStyleGuide;
+  const runVisionAnalysis = visionMod.runVisionAnalysis;
+  const writeVisionMarkdownReport = visionMod.writeVisionMarkdownReport;
 
   try {
     const projectPath = process.cwd();
