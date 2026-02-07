@@ -170,6 +170,22 @@ export interface RuleMeta {
   plugin?: string;
 
   /**
+   * ESLint import specifier for external plugin rules.
+   *
+   * When set, `uilint init` will generate an import from this specifier
+   * instead of looking for the rule in `.uilint/rules/`. The import should
+   * be a default export of the ESLint rule implementation.
+   *
+   * Example: `"uilint-vision/eslint-rules/semantic-vision"`
+   *
+   * The generated ESLint config will include:
+   * ```js
+   * import SemanticVisionRule from "uilint-vision/eslint-rules/semantic-vision";
+   * ```
+   */
+  eslintImport?: string;
+
+  /**
    * Custom inspector panel ID to use for this rule's issues.
    * If not specified, uses the plugin's default issue inspector.
    * Plugins define their own panel IDs.

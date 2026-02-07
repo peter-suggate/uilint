@@ -8,14 +8,15 @@
 import { existsSync, readFileSync } from "fs";
 import { spawnSync } from "child_process";
 import { dirname, join, relative } from "path";
-import { createRule, defineRuleMeta } from "../../utils/create-rule.js";
 import {
+  createRule,
+  defineRuleMeta,
   getCacheEntry,
   hashContentSync,
   setCacheEntry,
   type CachedIssue,
-} from "./lib/cache.js";
-import { getStyleguide } from "./lib/styleguide-loader.js";
+  getStyleguide,
+} from "uilint-eslint";
 import { UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
 import { buildSourceScanPrompt } from "uilint-core";
 
@@ -42,6 +43,7 @@ export const meta = defineRuleMeta({
   defaultEnabled: false,
   requiresStyleguide: true,
   plugin: "semantic",
+  eslintImport: "uilint-semantic/eslint-rules/semantic",
   customInspector: "semantic-issue",
   requirements: [
     {

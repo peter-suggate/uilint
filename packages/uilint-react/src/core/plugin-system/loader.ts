@@ -82,21 +82,45 @@ export async function loadPlugin(
 }
 
 /**
+ * Known external plugin module specifiers.
+ *
+ * These are attempted via dynamic import during plugin loading.
+ * If a package is not installed, the import fails silently and the
+ * plugin is skipped. This allows vision/semantic plugins to be
+ * auto-discovered without consumers needing to call registerExternalPlugin().
+ */
+const KNOWN_PLUGIN_SPECIFIERS = [
+  "uilint-vision/plugin",
+  "uilint-semantic/plugin",
+];
+
+/**
  * Load external plugins from the uilint-core plugin registry.
- * These are imported via side-effect imports which auto-register with the registry.
+ * First tries to discover known plugin packages, then loads any explicitly
+ * registered plugins, and finally adapts all registered plugins to React.
  */
 async function loadExternalPlugins(): Promise<Plugin[]> {
-  // Import all registered external plugins (triggers their auto-registration)
-  const importPromises = externalPluginImports.map(async (importFn) => {
+  // Try importing known plugin packages (triggers auto-registration with core registry)
+  const discoveryPromises = KNOWN_PLUGIN_SPECIFIERS.map(async (specifier) => {
+    try {
+      await import(/* @vite-ignore */ specifier);
+      devLog(`[Loader] Discovered external plugin: ${specifier}`);
+    } catch {
+      // Package not installed — skip silently
+      devLog(`[Loader] Optional plugin not available: ${specifier}`);
+    }
+  });
+
+  // Also import any explicitly registered plugins
+  const explicitPromises = externalPluginImports.map(async (importFn) => {
     try {
       await importFn();
     } catch (error) {
-      // External plugins may not be installed - this is fine
       devWarn("Failed to import external plugin:", error);
     }
   });
 
-  await Promise.all(importPromises);
+  await Promise.all([...discoveryPromises, ...explicitPromises]);
 
   // Get all registered plugins from the core registry
   const registeredPlugins = corePluginRegistry.getAll();

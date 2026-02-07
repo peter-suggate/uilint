@@ -577,6 +577,15 @@ export const eslintInstaller: Installer = {
         }
       }
 
+      // Collect plugin packages for external rules (e.g. uilint-vision, uilint-semantic)
+      const externalPluginPkgs = new Set<string>();
+      for (const cr of configuredRules) {
+        if (cr.rule.eslintImport) {
+          const pkgName = cr.rule.eslintImport.split("/").slice(0, 1).join("/");
+          externalPluginPkgs.add(pkgName);
+        }
+      }
+
       // Install dependencies using the package manager for this specific target
       const packages = [
         toInstallSpecifier("uilint-eslint", {
@@ -586,6 +595,13 @@ export const eslintInstaller: Installer = {
         }),
         "typescript-eslint",
         ...ruleNpmDeps,
+        ...[...externalPluginPkgs].map((pkg) =>
+          toInstallSpecifier(pkg, {
+            preferWorkspaceProtocol: project.packageManager === "pnpm",
+            workspaceRoot: project.workspaceRoot,
+            targetProjectPath: target.path,
+          })
+        ),
       ];
 
       dependencies.push({

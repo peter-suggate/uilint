@@ -562,7 +562,8 @@ describe("createPlan - ESLint", () => {
     const pkg = createMockPackage();
     const state = createMockProjectState({ packages: [pkg] });
 
-    // Create a mock rule with npmDependencies (semantic rules have been moved to plugins)
+    // Create a mock external rule with npmDependencies
+    // Uses eslintImport so it's treated as an external plugin rule (not loaded from disk)
     const mockRuleWithDeps: RuleMetadata = {
       id: "mock-rule-with-deps",
       name: "Mock Rule With Deps",
@@ -571,6 +572,7 @@ describe("createPlan - ESLint", () => {
       defaultSeverity: "warn",
       docs: "Mock docs",
       npmDependencies: ["xxhash-wasm"],
+      eslintImport: "mock-plugin/eslint-rules/mock-rule-with-deps",
     };
 
     const choices = createMockChoices({

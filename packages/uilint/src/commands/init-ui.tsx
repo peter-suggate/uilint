@@ -32,6 +32,7 @@ import type {
 import type { ConfiguredRule } from "./init/components/RuleSelector.js";
 import { ruleRegistry } from "uilint-eslint";
 import { pc } from "../utils/prompts.js";
+import { loadPluginESLintRules } from "../utils/plugin-loader.js";
 import { detectCoverageSetup } from "../utils/coverage-detect.js";
 import { runTestsWithCoverage, detectPackageManager } from "../utils/package-manager.js";
 
@@ -323,6 +324,9 @@ export async function initUI(
   options: InstallOptions = {},
   executeOptions: ExecuteOptions = {}
 ): Promise<void> {
+  // Load plugin ESLint rules so vision/semantic rules appear in the registry
+  await loadPluginESLintRules();
+
   const projectPath = process.cwd();
 
   // Non-interactive mode: use flags directly without TTY

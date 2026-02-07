@@ -11,7 +11,7 @@
  */
 export interface CategoryMeta {
   /** Category identifier */
-  id: "static" | "semantic";
+  id: string;
   /** Display name */
   name: string;
   /** Short description */
@@ -47,4 +47,14 @@ export const categoryRegistry: CategoryMeta[] = [
  */
 export function getCategoryMeta(id: string): CategoryMeta | undefined {
   return categoryRegistry.find((cat) => cat.id === id);
+}
+
+/**
+ * Register a new category from a plugin package.
+ * Idempotent: silently skips if a category with the same id already exists.
+ */
+export function registerCategory(meta: CategoryMeta): void {
+  const existing = categoryRegistry.find((c) => c.id === meta.id);
+  if (existing) return;
+  categoryRegistry.push(meta);
 }

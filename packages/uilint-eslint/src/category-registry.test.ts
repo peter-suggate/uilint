@@ -2,12 +2,12 @@
  * Tests for Category Registry
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
-import { categoryRegistry, getCategoryMeta, type CategoryMeta } from "./category-registry.js";
+import { describe, it, expect, beforeAll, afterEach } from "vitest";
+import { categoryRegistry, getCategoryMeta, registerCategory, type CategoryMeta } from "./category-registry.js";
 
 describe("categoryRegistry", () => {
-  it("should have exactly two categories", () => {
-    expect(categoryRegistry).toHaveLength(2);
+  it("should have at least the two built-in categories", () => {
+    expect(categoryRegistry.length).toBeGreaterThanOrEqual(2);
   });
 
   it("should have static and semantic categories", () => {
@@ -71,5 +71,57 @@ describe("getCategoryMeta", () => {
   it("should return undefined for unknown category", () => {
     const cat = getCategoryMeta("unknown");
     expect(cat).toBeUndefined();
+  });
+});
+
+describe("registerCategory", () => {
+  afterEach(() => {
+    // Remove any test categories added during tests
+    const testIndex = categoryRegistry.findIndex((c) => c.id === "test-cat");
+    if (testIndex !== -1) categoryRegistry.splice(testIndex, 1);
+    const visionIndex = categoryRegistry.findIndex((c) => c.id === "vision");
+    if (visionIndex !== -1) categoryRegistry.splice(visionIndex, 1);
+  });
+
+  it("registers a new category", () => {
+    registerCategory({
+      id: "vision",
+      name: "Vision Rules",
+      description: "AI-powered visual analysis",
+      icon: "👁️",
+      defaultEnabled: false,
+    });
+
+    const cat = getCategoryMeta("vision");
+    expect(cat).toBeDefined();
+    expect(cat?.name).toBe("Vision Rules");
+  });
+
+  it("is idempotent for duplicate registrations", () => {
+    const before = categoryRegistry.length;
+
+    registerCategory({
+      id: "static",
+      name: "Different Name",
+      description: "Different",
+      icon: "🔧",
+      defaultEnabled: true,
+    });
+
+    expect(categoryRegistry.length).toBe(before);
+    // Original metadata preserved
+    expect(getCategoryMeta("static")?.name).toBe("Static Rules");
+  });
+
+  it("makes category findable via getCategoryMeta", () => {
+    registerCategory({
+      id: "test-cat",
+      name: "Test Category",
+      description: "For testing",
+      icon: "🧪",
+      defaultEnabled: false,
+    });
+
+    expect(getCategoryMeta("test-cat")?.id).toBe("test-cat");
   });
 });

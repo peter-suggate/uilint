@@ -10,7 +10,7 @@
  * - The index is stored at .uilint/.duplicates-index/
  */
 
-import { createRule, defineRuleMeta } from "../utils/create-rule.js";
+import { createRule, defineRuleMeta } from "uilint-eslint";
 import type { TSESTree } from "@typescript-eslint/utils";
 import { existsSync, readFileSync, appendFileSync, writeFileSync } from "fs";
 import { dirname, join, relative } from "path";
@@ -77,6 +77,7 @@ export const meta = defineRuleMeta({
   hint: "Finds similar code via embeddings",
   defaultEnabled: false,
   plugin: "semantic",
+  eslintImport: "uilint-semantic/eslint-rules/no-semantic-duplicates",
   customInspector: "duplicates",
   requirements: [
     {

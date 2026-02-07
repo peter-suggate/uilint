@@ -1344,11 +1344,16 @@ export async function installEslintPlugin(
 
   let ruleImportNames: Map<string, string> | undefined;
 
+  // External plugin rules (e.g. vision, semantic) live in their own npm packages
+  // and don't need local imports from .uilint/rules/. Only import local rules.
+  const localRulesToApply = rulesToApply.filter((r) => !r.eslintImport);
+  const externalRulesToApply = rulesToApply.filter((r) => r.eslintImport);
+
   // Add imports for local rules
   if (kind === "esm") {
     const result = addLocalRuleImportsAst(
       mod,
-      rulesToApply,
+      localRulesToApply,
       configPath,
       rulesRoot,
       fileExtension,
@@ -1359,7 +1364,7 @@ export async function installEslintPlugin(
   } else {
     const result = addLocalRuleRequiresAst(
       mod.$ast,
-      rulesToApply,
+      localRulesToApply,
       configPath,
       rulesRoot,
       fileExtension,
@@ -1369,7 +1374,54 @@ export async function installEslintPlugin(
     if (result.changed) modifiedAst = true;
   }
 
-  // Add config block with local rules (or update existing one)
+  // Add imports for external plugin rules (from their npm packages)
+  if (externalRulesToApply.length > 0 && ruleImportNames) {
+    const used = collectTopLevelBindings(mod.$ast);
+    // Include already-added local rule import names
+    for (const name of ruleImportNames.values()) used.add(name);
+
+    for (const rule of externalRulesToApply) {
+      const importSpecifier = rule.eslintImport!;
+
+      // Check if already imported
+      const existingLocal = findExistingDefaultImportLocalName(mod.$ast, importSpecifier);
+      if (existingLocal) {
+        ruleImportNames.set(rule.id, existingLocal);
+        used.add(existingLocal);
+        continue;
+      }
+
+      // Generate a safe import name (e.g., SemanticVisionRule)
+      const importName = chooseUniqueIdentifier(
+        `${rule.id
+          .replace(/-([a-z])/g, (_: string, c: string) => c.toUpperCase())
+          .replace(/^./, (c: string) => c.toUpperCase())}Rule`,
+        used
+      );
+      ruleImportNames.set(rule.id, importName);
+      used.add(importName);
+
+      if (kind === "esm") {
+        mod.imports.$add({
+          imported: "default",
+          local: importName,
+          from: importSpecifier,
+        });
+      } else {
+        // CommonJS require
+        const requireStmt = parseModule(
+          `const ${importName} = require("${importSpecifier}");`
+        );
+        const stmt = (requireStmt.$ast as any).body?.[0];
+        if (stmt) {
+          mod.$ast.body.splice(0, 0, stmt);
+        }
+      }
+      modifiedAst = true;
+    }
+  }
+
+  // Add config block with all rules (local + external)
   if (ruleImportNames && ruleImportNames.size > 0) {
     if (existingConfig.configObj !== null) {
       // Update the existing config block instead of creating a new one

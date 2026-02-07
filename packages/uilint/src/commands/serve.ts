@@ -108,6 +108,7 @@ import {
   needsCoveragePreparation,
 } from "../utils/coverage-prepare.js";
 import { enrichIssuesWithScopeInfo } from "../utils/eslint-utils.js";
+import { loadPluginESLintRules } from "../utils/plugin-loader.js";
 
 // ---------------------------------------------------------------------------
 // Sentinel issue detection (generic, driven by rule metadata)
@@ -116,16 +117,25 @@ import { enrichIssuesWithScopeInfo } from "../utils/eslint-utils.js";
 // `sentinelMessageIds` in their metadata. Issues reported with those
 // messageIds are internal error signals, not user-facing lint issues.
 // The serve command logs them to the dashboard and filters them out.
+//
+// Built lazily so that dynamically registered plugin rules are included.
 // ---------------------------------------------------------------------------
 
-/** Set of "ruleId:messageId" keys for fast sentinel lookup */
-const sentinelKeys = new Set<string>();
-for (const rule of ruleRegistry) {
-  if (rule.sentinelMessageIds) {
-    for (const mid of rule.sentinelMessageIds) {
-      sentinelKeys.add(`uilint/${rule.id}:${mid}`);
+/** Lazily built set of "ruleId:messageId" keys for fast sentinel lookup */
+let _sentinelKeys: Set<string> | null = null;
+
+function getSentinelKeys(): Set<string> {
+  if (!_sentinelKeys) {
+    _sentinelKeys = new Set<string>();
+    for (const rule of ruleRegistry) {
+      if (rule.sentinelMessageIds) {
+        for (const mid of rule.sentinelMessageIds) {
+          _sentinelKeys.add(`uilint/${rule.id}:${mid}`);
+        }
+      }
     }
   }
+  return _sentinelKeys;
 }
 
 /**
@@ -134,7 +144,7 @@ for (const rule of ruleRegistry) {
  */
 function isSentinelIssue(issue: LintIssue): boolean {
   if (!issue.ruleId || !issue.messageId) return false;
-  return sentinelKeys.has(`${issue.ruleId}:${issue.messageId}`);
+  return getSentinelKeys().has(`${issue.ruleId}:${issue.messageId}`);
 }
 
 export interface ServeOptions {
@@ -2265,6 +2275,10 @@ export async function serve(options: ServeOptions): Promise<void> {
   } else {
     disableDashboard();
   }
+
+  // Load plugin ESLint rules before anything accesses the registries.
+  // This triggers auto-registration of vision/semantic rules if installed.
+  await loadPluginESLintRules();
 
   const cwd = process.cwd();
   const wsRoot = findWorkspaceRoot(cwd);

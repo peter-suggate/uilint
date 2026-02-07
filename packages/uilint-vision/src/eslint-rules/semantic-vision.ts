@@ -13,7 +13,7 @@
 
 import { existsSync, readdirSync, readFileSync } from "fs";
 import { dirname, join, relative } from "path";
-import { createRule, defineRuleMeta } from "../utils/create-rule.js";
+import { createRule, defineRuleMeta } from "uilint-eslint";
 
 type MessageIds = "visionIssue" | "analysisStale";
 
@@ -41,6 +41,7 @@ export const meta = defineRuleMeta({
   defaultEnabled: false,
   requiresStyleguide: false,
   plugin: "vision",
+  eslintImport: "uilint-vision/eslint-rules/semantic-vision",
   customInspector: "vision-issue",
   heatmapColor: "#8B5CF6",
   postInstallInstructions: "Add the UILint browser overlay to your app and run analysis from the browser to generate cached results.",

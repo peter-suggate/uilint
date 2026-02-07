@@ -4,13 +4,18 @@
  * These tests ensure all rules have proper metadata for CLI integration.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
   ruleRegistry,
   getRuleMetadata,
   getRulesByCategory,
   getAllRuleIds,
   getCategoryMeta,
+  registerRuleMeta,
+  registerRuleMetas,
+  registerESLintRule,
+  getExternalRules,
+  clearExternalRules,
   type RuleMeta,
 } from "./rule-registry.js";
 
@@ -19,15 +24,12 @@ import consistentDarkMode from "./rules/consistent-dark-mode.js";
 import noDirectStoreImport from "./rules/no-direct-store-import.js";
 import preferZustandStateManagement from "./rules/prefer-zustand-state-management.js";
 import noMixedComponentLibraries from "./rules/no-mixed-component-libraries/index.js";
-import semantic from "./rules/semantic/index.js";
-import semanticVision from "./rules/semantic-vision.js";
 import enforceAbsoluteImports from "./rules/enforce-absolute-imports.js";
 import noAnyInProps from "./rules/no-any-in-props.js";
 import zustandUseSelectors from "./rules/zustand-use-selectors.js";
 import noPropDrillingDepth from "./rules/no-prop-drilling-depth.js";
 import noSecretsInCode from "./rules/no-secrets-in-code.js";
 import requireInputValidation from "./rules/require-input-validation.js";
-import noSemanticDuplicates from "./rules/no-semantic-duplicates.js";
 import requireTestCoverage from "./rules/require-test-coverage/index.js";
 import preferTailwind from "./rules/prefer-tailwind/index.js";
 import noUnsafeTypeCasts from "./rules/no-unsafe-type-casts.js";
@@ -39,15 +41,12 @@ const eslintRules: Record<string, { meta?: { schema?: unknown[] }; defaultOption
   "no-direct-store-import": noDirectStoreImport,
   "prefer-zustand-state-management": preferZustandStateManagement,
   "no-mixed-component-libraries": noMixedComponentLibraries,
-  "semantic": semantic,
-  "semantic-vision": semanticVision,
   "enforce-absolute-imports": enforceAbsoluteImports,
   "no-any-in-props": noAnyInProps,
   "zustand-use-selectors": zustandUseSelectors,
   "no-prop-drilling-depth": noPropDrillingDepth,
   "no-secrets-in-code": noSecretsInCode,
   "require-input-validation": requireInputValidation,
-  "no-semantic-duplicates": noSemanticDuplicates,
   "require-test-coverage": requireTestCoverage,
   "prefer-tailwind": preferTailwind,
   "no-unsafe-type-casts": noUnsafeTypeCasts,
@@ -72,7 +71,7 @@ describe("ruleRegistry", () => {
         expect(rule.id, `${rule.id}: missing id`).toBeDefined();
         expect(rule.name, `${rule.id}: missing name`).toBeDefined();
         expect(rule.description, `${rule.id}: missing description`).toBeDefined();
-        expect(rule.category, `${rule.id}: missing category`).toMatch(/^(static|semantic)$/);
+        expect(rule.category, `${rule.id}: missing category`).toBeDefined();
         expect(rule.defaultSeverity, `${rule.id}: missing defaultSeverity`).toMatch(
           /^(error|warn|off)$/
         );
@@ -227,6 +226,131 @@ describe("getRulesByCategory", () => {
   it("should return semantic rules", () => {
     const rules = getRulesByCategory("semantic");
     expect(rules.every((r) => r.category === "semantic")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Dynamic registration tests
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a minimal RuleMeta for testing
+ */
+function createTestMeta(overrides: Partial<RuleMeta> & { id: string }): RuleMeta {
+  return {
+    name: `Test Rule ${overrides.id}`,
+    version: "1.0.0",
+    description: `Test rule ${overrides.id}`,
+    defaultSeverity: "warn",
+    category: "static",
+    icon: "🧪",
+    hint: "test",
+    defaultEnabled: false,
+    ...overrides,
+  };
+}
+
+describe("registerRuleMeta", () => {
+  beforeEach(() => {
+    clearExternalRules();
+  });
+
+  it("registers a new rule metadata entry", () => {
+    const meta = createTestMeta({ id: "test-rule-1" });
+    registerRuleMeta(meta);
+
+    expect(ruleRegistry).toContain(meta);
+  });
+
+  it("makes rule findable via getRuleMetadata", () => {
+    const meta = createTestMeta({ id: "test-rule-2" });
+    registerRuleMeta(meta);
+
+    expect(getRuleMetadata("test-rule-2")).toBe(meta);
+  });
+
+  it("makes rule appear in getRulesByCategory", () => {
+    const meta = createTestMeta({ id: "test-rule-3", category: "vision" });
+    registerRuleMeta(meta);
+
+    const visionRules = getRulesByCategory("vision");
+    expect(visionRules).toContain(meta);
+  });
+
+  it("throws if rule ID already registered", () => {
+    const meta = createTestMeta({ id: "test-rule-4" });
+    registerRuleMeta(meta);
+
+    expect(() => registerRuleMeta(meta)).toThrow(
+      'Rule "test-rule-4" is already registered'
+    );
+  });
+
+  it("throws if trying to register a built-in rule ID", () => {
+    const meta = createTestMeta({ id: "consistent-dark-mode" });
+    expect(() => registerRuleMeta(meta)).toThrow(
+      'Rule "consistent-dark-mode" is already registered'
+    );
+  });
+});
+
+describe("registerRuleMetas", () => {
+  beforeEach(() => {
+    clearExternalRules();
+  });
+
+  it("registers multiple rule metadata entries", () => {
+    const metas = [
+      createTestMeta({ id: "batch-rule-1" }),
+      createTestMeta({ id: "batch-rule-2" }),
+    ];
+    registerRuleMetas(metas);
+
+    expect(getRuleMetadata("batch-rule-1")).toBeDefined();
+    expect(getRuleMetadata("batch-rule-2")).toBeDefined();
+  });
+});
+
+describe("registerESLintRule", () => {
+  beforeEach(() => {
+    clearExternalRules();
+  });
+
+  it("stores a rule implementation", () => {
+    const mockRule = { create: () => ({}) } as any;
+    registerESLintRule("test-impl", mockRule);
+
+    const rules = getExternalRules();
+    expect(rules.has("test-impl")).toBe(true);
+    expect(rules.get("test-impl")).toBe(mockRule);
+  });
+});
+
+describe("clearExternalRules", () => {
+  beforeEach(() => {
+    clearExternalRules();
+  });
+
+  it("removes externally registered rules", () => {
+    registerRuleMeta(createTestMeta({ id: "ext-rule-1" }));
+    registerESLintRule("ext-rule-1", { create: () => ({}) } as any);
+
+    clearExternalRules();
+
+    expect(getRuleMetadata("ext-rule-1")).toBeUndefined();
+    expect(getExternalRules().size).toBe(0);
+  });
+
+  it("preserves built-in static rules", () => {
+    const builtInCount = ruleRegistry.length;
+    registerRuleMeta(createTestMeta({ id: "ext-rule-2" }));
+    expect(ruleRegistry.length).toBe(builtInCount + 1);
+
+    clearExternalRules();
+
+    expect(ruleRegistry.length).toBe(builtInCount);
+    expect(getRuleMetadata("consistent-dark-mode")).toBeDefined();
+    expect(getRuleMetadata("prefer-tailwind")).toBeDefined();
   });
 });
 

@@ -5,9 +5,8 @@
  * Metadata is now colocated with each rule file - this module re-exports
  * the collected metadata for use by installers and other tools.
  *
- * NOTE: The semantic, semantic-vision, and no-semantic-duplicates rules have
- * been moved to their respective plugin packages (uilint-vision, uilint-semantic).
- * They are no longer registered here.
+ * Plugin packages (e.g. uilint-vision, uilint-semantic) contribute their
+ * rules dynamically via `registerRuleMeta()` and `registerESLintRule()`.
  */
 
 // Re-export types from create-rule for consumers
@@ -26,6 +25,7 @@ export type { RuleMeta as RuleMetadata } from "./utils/create-rule.js";
 export {
   categoryRegistry,
   getCategoryMeta,
+  registerCategory,
   type CategoryMeta,
 } from "./category-registry.js";
 
@@ -113,4 +113,68 @@ export function getRuleDocs(id: string): string | undefined {
  */
 export function getAllRuleIds(): string[] {
   return ruleRegistry.map((rule) => rule.id);
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic registration API for plugin packages
+// ---------------------------------------------------------------------------
+
+import type { RuleModule } from "@typescript-eslint/utils/ts-eslint";
+
+/** Registry for ESLint rule implementations contributed by plugin packages */
+const externalRuleImplementations = new Map<string, RuleModule<string, readonly unknown[]>>();
+
+/** Set of built-in rule IDs (for clearExternalRules) */
+const builtInRuleIds = new Set(ruleRegistry.map((r) => r.id));
+
+/**
+ * Register additional rule metadata from an external plugin package.
+ *
+ * @param meta - Rule metadata to register
+ * @throws Error if a rule with the same id is already registered
+ */
+export function registerRuleMeta(meta: RuleMeta): void {
+  const existing = ruleRegistry.find((r) => r.id === meta.id);
+  if (existing) {
+    throw new Error(`Rule "${meta.id}" is already registered in the rule registry`);
+  }
+  ruleRegistry.push(meta);
+}
+
+/**
+ * Register multiple rule metadata entries from an external plugin package.
+ */
+export function registerRuleMetas(metas: RuleMeta[]): void {
+  for (const meta of metas) {
+    registerRuleMeta(meta);
+  }
+}
+
+/**
+ * Register an ESLint rule implementation from a plugin package.
+ * This makes the rule available to ESLint when constructing the plugin object.
+ */
+export function registerESLintRule(id: string, rule: RuleModule<string, readonly unknown[]>): void {
+  externalRuleImplementations.set(id, rule);
+}
+
+/**
+ * Get all registered external rule implementations.
+ * Used by the serve command to merge plugin rules into the ESLint plugin.
+ */
+export function getExternalRules(): Map<string, RuleModule<string, readonly unknown[]>> {
+  return externalRuleImplementations;
+}
+
+/**
+ * Remove all externally registered rules (useful for testing).
+ * Preserves the built-in static rules.
+ */
+export function clearExternalRules(): void {
+  for (let i = ruleRegistry.length - 1; i >= 0; i--) {
+    if (!builtInRuleIds.has(ruleRegistry[i].id)) {
+      ruleRegistry.splice(i, 1);
+    }
+  }
+  externalRuleImplementations.clear();
 }

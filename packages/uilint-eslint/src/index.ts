@@ -415,14 +415,14 @@ export { plugin, rules, configs, meta };
 // Re-export utilities for custom rule creation
 export { createRule } from "./utils/create-rule.js";
 
-// Re-export styleguide utilities (from semantic rule)
+// Re-export styleguide utilities
 export {
   loadStyleguide,
   findStyleguidePath,
   getStyleguide,
-} from "./rules/semantic/lib/styleguide-loader.js";
+} from "./utils/styleguide-loader.js";
 
-// Re-export cache utilities (from semantic rule)
+// Re-export cache utilities
 export {
   hashContent,
   hashContentSync,
@@ -435,7 +435,7 @@ export {
   type CacheEntry,
   type CachedIssue,
   type CacheStore,
-} from "./rules/semantic/lib/cache.js";
+} from "./utils/cache.js";
 
 // Re-export import graph utilities (from no-mixed-component-libraries rule)
 export {
@@ -453,6 +453,12 @@ export {
   getAllRuleIds,
   categoryRegistry,
   getCategoryMeta,
+  registerRuleMeta,
+  registerRuleMetas,
+  registerESLintRule,
+  getExternalRules,
+  clearExternalRules,
+  registerCategory,
   type RuleMeta,
   type RuleMetadata,  // Backward compatibility alias
   type OptionFieldSchema,
