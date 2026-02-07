@@ -375,6 +375,19 @@ export function getAvailableRules(services: PluginServices): AvailableRule[] {
 }
 
 /**
+ * Get disabled rules set from the ESLint plugin state.
+ *
+ * @param services - Plugin services for state access
+ * @returns Set of disabled rule IDs
+ */
+function getDisabledRules(services: PluginServices): Set<string> {
+  const fullState = services.getState<{ plugins?: { eslint?: ESLintPluginSlice } }>();
+  const state = fullState?.plugins?.eslint;
+
+  return state?.disabledRules ?? new Set<string>();
+}
+
+/**
  * Get tile items based on current filter state.
  *
  * NEW BEHAVIOR (flat command palette):
@@ -391,13 +404,17 @@ export function getTileItems(
 ): TileItem[] {
   const allIssues = getAllIssues(services);
   const availableRules = getAvailableRules(services);
+  const disabledRules = getDisabledRules(services);
 
-  if (allIssues.length === 0 && availableRules.length === 0) {
+  // Exclude disabled rules from the available rules shown as tiles
+  const enabledRules = availableRules.filter((r) => !disabledRules.has(r.id));
+
+  if (allIssues.length === 0 && enabledRules.length === 0) {
     return [];
   }
 
-  // Use the new flat tile generation (includes rules with zero issues)
-  return getAllTilesFlat(allIssues, availableRules);
+  // Use the new flat tile generation (includes enabled rules with zero issues)
+  return getAllTilesFlat(allIssues, enabledRules);
 }
 
 /**

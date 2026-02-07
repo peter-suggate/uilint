@@ -122,6 +122,9 @@ export function IssuesList({ className }: IssuesListProps) {
   const availableRules = useComposedStore(
     (s) => (s.plugins?.eslint as ESLintPluginSlice | undefined)?.availableRules
   );
+  const disabledRules = useComposedStore(
+    (s) => (s.plugins?.eslint as ESLintPluginSlice | undefined)?.disabledRules
+  );
   const expandedRuleId = useComposedStore((s) => s.inspector.expandedRuleId);
   const expandedFilePath = useComposedStore((s) => s.inspector.expandedFilePath);
   const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
@@ -136,10 +139,18 @@ export function IssuesList({ className }: IssuesListProps) {
   const selectIssue = useComposedStore((s) => s.selectIssue);
   const showFullSourceView = useComposedStore((s) => s.showFullSourceView);
 
-  // Transform fileGroups to rule nodes (includes rules with zero issues)
+  // Exclude disabled rules from the available rules shown as tiles
+  const enabledRules = useMemo(
+    () => (availableRules && disabledRules
+      ? availableRules.filter((r) => !disabledRules.has(r.id))
+      : availableRules),
+    [availableRules, disabledRules]
+  );
+
+  // Transform fileGroups to rule nodes (includes enabled rules with zero issues)
   const ruleNodes = useMemo(
-    () => fileGroupsToRuleNodes(fileGroups, availableRules),
-    [fileGroups, availableRules]
+    () => fileGroupsToRuleNodes(fileGroups, enabledRules),
+    [fileGroups, enabledRules]
   );
 
   // Get the expanded rule and its file nodes
