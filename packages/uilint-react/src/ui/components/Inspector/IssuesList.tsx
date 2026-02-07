@@ -17,7 +17,6 @@ import {
 } from "../../../core/store/file-groups-selector";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
 import type { ESLintPluginSlice } from "../../../plugins/eslint/slice";
-import type { AvailableRule } from "../../../plugins/eslint/types";
 import { RuleHeader } from "./RuleHeader";
 import { FileSourceView } from "./FileSourceView";
 import { IssueSummaryView } from "./IssueSummaryView";
