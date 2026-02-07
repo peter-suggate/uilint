@@ -14,6 +14,17 @@ import {
   MANIFEST_SCHEMA_VERSION,
   type RuleManifest,
 } from "../../src/utils/manifest.js";
+import { ruleRegistry } from "uilint-eslint";
+
+/** Look up the current registry version for a rule */
+function registryVersion(ruleId: string): string {
+  const rule = ruleRegistry.find((r) => r.id === ruleId);
+  if (!rule) throw new Error(`Rule ${ruleId} not found in registry`);
+  return rule.version;
+}
+
+const PREFER_TAILWIND_VERSION = registryVersion("prefer-tailwind");
+const CONSISTENT_DARK_MODE_VERSION = registryVersion("consistent-dark-mode");
 
 describe("Update Analyze", () => {
   let testDir: string;
@@ -33,15 +44,13 @@ describe("Update Analyze", () => {
   });
 
   describe("analyzeForUpdates", () => {
-    it("detects outdated rules (installed 1.0.0, available 1.1.0)", () => {
+    it("detects outdated rules (installed < available)", () => {
       // Create manifest with old version
       const manifest: RuleManifest = {
         schemaVersion: MANIFEST_SCHEMA_VERSION,
         installedAt: "2024-01-01T00:00:00Z",
         uilintVersion: "0.1.0",
         rules: {
-          // This rule exists in registry with version 1.0.0
-          // When we bump the registry version, this test will detect it
           "prefer-tailwind": {
             version: "0.9.0", // Older than current
             installedAt: "2024-01-01T00:00:00Z",
@@ -60,8 +69,7 @@ describe("Update Analyze", () => {
       expect(rule).toBeDefined();
       expect(rule?.hasUpdate).toBe(true);
       expect(rule?.installedVersion).toBe("0.9.0");
-      // Available version should be current (1.0.0)
-      expect(rule?.availableVersion).toBe("1.0.0");
+      expect(rule?.availableVersion).toBe(PREFER_TAILWIND_VERSION);
     });
 
     it("detects up-to-date rules (installed = available)", () => {
@@ -72,7 +80,7 @@ describe("Update Analyze", () => {
         uilintVersion: "0.1.0",
         rules: {
           "prefer-tailwind": {
-            version: "1.0.0", // Same as registry
+            version: PREFER_TAILWIND_VERSION, // Same as registry
             installedAt: "2024-01-01T00:00:00Z",
           },
         },
@@ -85,8 +93,8 @@ describe("Update Analyze", () => {
       const rule = pkg?.rules.find((r) => r.ruleId === "prefer-tailwind");
 
       expect(rule?.hasUpdate).toBe(false);
-      expect(rule?.installedVersion).toBe("1.0.0");
-      expect(rule?.availableVersion).toBe("1.0.0");
+      expect(rule?.installedVersion).toBe(PREFER_TAILWIND_VERSION);
+      expect(rule?.availableVersion).toBe(PREFER_TAILWIND_VERSION);
     });
 
     it("handles missing manifest (treats as version 0.0.0)", () => {
@@ -106,7 +114,7 @@ describe("Update Analyze", () => {
         uilintVersion: "0.1.0",
         rules: {
           "prefer-tailwind": {
-            version: "1.0.0",
+            version: PREFER_TAILWIND_VERSION,
             installedAt: "2024-01-01T00:00:00Z",
           },
         },
@@ -158,7 +166,7 @@ describe("Update Analyze", () => {
             installedAt: "2024-01-01T00:00:00Z",
           },
           "consistent-dark-mode": {
-            version: "1.0.0", // Current
+            version: CONSISTENT_DARK_MODE_VERSION, // Current
             installedAt: "2024-01-01T00:00:00Z",
           },
         },
