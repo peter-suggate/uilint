@@ -713,7 +713,7 @@ describe("WebSocketServiceImpl", () => {
     });
 
     it("exports correct max reconnect attempts", () => {
-      expect(MAX_RECONNECT_ATTEMPTS).toBe(5);
+      expect(MAX_RECONNECT_ATTEMPTS).toBe(10);
     });
 
     it("exports correct reconnect base delay", () => {

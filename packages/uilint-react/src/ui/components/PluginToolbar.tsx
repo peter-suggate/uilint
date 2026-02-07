@@ -267,7 +267,7 @@ export function PluginToolbar() {
   const isCommandPaletteOpen = useComposedStore((s) => s.commandPalette.open);
 
   // Subscribe to plugin state changes to re-evaluate visibility
-  const pluginState = useComposedStore((s) => s.plugins);
+  const _pluginState = useComposedStore((s) => s.plugins);
 
   // Get all toolbar action groups from the registry
   const allGroups = pluginRegistry.getAllToolbarActionGroups();
