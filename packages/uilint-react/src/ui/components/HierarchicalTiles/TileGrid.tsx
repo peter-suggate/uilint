@@ -110,6 +110,16 @@ export function buildConfigTags(metadata: Record<string, unknown> | undefined): 
 
   const tags: ConfigTag[] = [];
 
+  // DEBUG: temporary logging to diagnose missing config tags
+  console.log("[ConfigTags] rule metadata:", {
+    ruleId: metadata.ruleId,
+    category: metadata.category,
+    currentSeverity: metadata.currentSeverity,
+    defaultSeverity: metadata.defaultSeverity,
+    hasOptions: !!metadata.currentOptions,
+    hasSchema: !!metadata.optionSchema,
+  });
+
   // Category tag — "semantic" is notable (AI-powered)
   const category = metadata.category as string | undefined;
   if (category === "semantic") {
