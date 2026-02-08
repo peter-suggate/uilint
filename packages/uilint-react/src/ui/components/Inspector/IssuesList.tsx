@@ -17,6 +17,7 @@ import {
 } from "../../../core/store/file-groups-selector";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
 import type { ESLintPluginSlice } from "../../../plugins/eslint/slice";
+import type { AvailableRule } from "../../../plugins/eslint/types";
 import { RuleHeader } from "./RuleHeader";
 import { FileSourceView } from "./FileSourceView";
 import { IssueSummaryView } from "./IssueSummaryView";
@@ -42,13 +43,27 @@ import { cn } from "../../../lib/utils";
 
 /**
  * Convert RuleNode to BaseTileItem for TileGrid.
+ * Optionally attaches rule config metadata for config tag display.
  */
-function ruleNodeToTileItem(node: RuleNode): BaseTileItem & { data: RuleNode["data"] } {
+function ruleNodeToTileItem(
+  node: RuleNode,
+  ruleMeta?: AvailableRule
+): BaseTileItem & { data: RuleNode["data"] } {
   return {
     id: node.id,
     label: node.label,
     count: node.count ?? 0,
     fileCount: node.fileCount,
+    metadata: {
+      isRule: true,
+      ruleId: node.id,
+      tileType: "rule" as const,
+      category: ruleMeta?.category,
+      currentSeverity: ruleMeta?.currentSeverity,
+      defaultSeverity: ruleMeta?.defaultSeverity,
+      currentOptions: ruleMeta?.currentOptions,
+      optionSchema: ruleMeta?.optionSchema,
+    },
     data: node.data,
   };
 }
@@ -124,6 +139,11 @@ export function IssuesList({ className }: IssuesListProps) {
   const showFullSource = useComposedStore((s) => s.inspector.showFullSource);
   const availableWidth = useComposedStore((s) => s.inspector.layoutAvailableWidth);
 
+  // Available rules for config tag metadata
+  const allAvailableRules = useComposedStore(
+    (s) => (s.plugins?.eslint as ESLintPluginSlice | undefined)?.availableRules
+  );
+
   // Store actions
   const expandRule = useComposedStore((s) => s.expandRule);
   const collapseRule = useComposedStore((s) => s.collapseRule);
@@ -149,10 +169,19 @@ export function IssuesList({ className }: IssuesListProps) {
     [fileNodes, expandedFilePath]
   );
 
+  // Build a lookup map for available rules
+  const availableRulesMap = useMemo(() => {
+    const map = new Map<string, AvailableRule>();
+    for (const rule of allAvailableRules ?? []) {
+      map.set(rule.id, rule);
+    }
+    return map;
+  }, [allAvailableRules]);
+
   // Convert nodes to BaseTileItem format for TileGrid
   const ruleTileItems = useMemo(
-    () => ruleNodes.map(ruleNodeToTileItem),
-    [ruleNodes]
+    () => ruleNodes.map((node) => ruleNodeToTileItem(node, availableRulesMap.get(node.id))),
+    [ruleNodes, availableRulesMap]
   );
   const fileTileItems = useMemo(
     () => fileNodes.map(fileNodeToTileItem),
