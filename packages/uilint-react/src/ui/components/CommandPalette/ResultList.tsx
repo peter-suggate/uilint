@@ -77,19 +77,19 @@ function SeverityCountBadges({
   return (
     <div className="flex items-center gap-1.5 flex-shrink-0">
       {counts.error > 0 && (
-        <span className="flex items-center gap-0.5 text-[10px] text-error/70 tabular-nums">
+        <span className="flex items-center gap-0.5 text-[10px] text-error font-medium tabular-nums">
           <AlertCircle size={10} />
           {counts.error}
         </span>
       )}
       {counts.warning > 0 && (
-        <span className="flex items-center gap-0.5 text-[10px] text-warning/70 tabular-nums">
+        <span className="flex items-center gap-0.5 text-[10px] text-warning font-medium tabular-nums">
           <AlertTriangle size={10} />
           {counts.warning}
         </span>
       )}
       {counts.info > 0 && (
-        <span className="flex items-center gap-0.5 text-[10px] text-info/70 tabular-nums">
+        <span className="flex items-center gap-0.5 text-[10px] text-info font-medium tabular-nums">
           <Info size={10} />
           {counts.info}
         </span>

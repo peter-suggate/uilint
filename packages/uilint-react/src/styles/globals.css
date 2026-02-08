@@ -131,32 +131,32 @@
   --uilint-tile-rule: oklch(0.65 0.15 259);
   --uilint-tile-file: oklch(0.68 0.14 142);
 
-  /* Core colors - amber tinted (hue ~75) */
-  --uilint-background: oklch(0.985 0.015 75);
-  --uilint-background-elevated: oklch(0.97 0.02 75);
-  --uilint-foreground: oklch(0.18 0.02 75);
+  /* Core colors - zinc neutral (hue ~265, low chroma) */
+  --uilint-background: oklch(0.985 0.002 265);
+  --uilint-background-elevated: oklch(0.967 0.003 265);
+  --uilint-foreground: oklch(0.141 0.005 265);
 
-  /* Surface colors - amber tinted */
-  --uilint-surface: oklch(0.985 0.015 75);
-  --uilint-surface-elevated: oklch(0.97 0.02 75);
+  /* Surface colors - zinc neutral */
+  --uilint-surface: oklch(0.985 0.002 265);
+  --uilint-surface-elevated: oklch(0.967 0.003 265);
 
-  /* Text colors - warm amber tints */
-  --uilint-text-primary: oklch(0.18 0.02 75);
-  --uilint-text-secondary: oklch(0.40 0.025 75);
-  --uilint-text-muted: oklch(0.55 0.03 75);
-  --uilint-text-disabled: oklch(0.70 0.02 75);
+  /* Text colors - cool zinc */
+  --uilint-text-primary: oklch(0.141 0.005 265);
+  --uilint-text-secondary: oklch(0.370 0.013 265);
+  --uilint-text-muted: oklch(0.552 0.016 265);
+  --uilint-text-disabled: oklch(0.705 0.015 265);
 
-  /* Interactive states - amber tinted */
-  --uilint-hover: oklch(0.75 0.08 75 / 15%);
-  --uilint-active: oklch(0.70 0.10 75 / 20%);
+  /* Interactive states - zinc neutral */
+  --uilint-hover: oklch(0.552 0.016 265 / 12%);
+  --uilint-active: oklch(0.442 0.017 265 / 16%);
 
-  /* Borders - amber tinted */
-  --uilint-border: oklch(0.90 0.025 75);
-  --uilint-border-focus: oklch(0.70 0.15 75);
+  /* Borders - zinc neutral */
+  --uilint-border: oklch(0.920 0.004 265);
+  --uilint-border-focus: oklch(0.552 0.016 265);
 
-  /* Accent colors - rich amber */
-  --uilint-accent: oklch(0.70 0.16 75);
-  --uilint-accent-foreground: oklch(0.985 0.015 75);
+  /* Accent colors - zinc mid-tone */
+  --uilint-accent: oklch(0.442 0.017 265);
+  --uilint-accent-foreground: oklch(0.985 0.002 265);
 
   /* Status colors */
   --uilint-success: oklch(0.723 0.191 142.5);
@@ -168,14 +168,14 @@
   --uilint-info: oklch(0.623 0.214 259);
   --uilint-info-bg: oklch(0.623 0.214 259 / 15%);
 
-  /* Effects - amber tinted */
-  --uilint-shadow: 0 4px 20px oklch(0.3 0.05 75 / 15%);
-  --uilint-shadow-lg: 0 8px 32px oklch(0.3 0.05 75 / 20%);
-  --uilint-backdrop: oklch(0.985 0.015 75 / 92%);
+  /* Effects - zinc neutral */
+  --uilint-shadow: 0 4px 20px oklch(0.141 0.005 265 / 12%);
+  --uilint-shadow-lg: 0 8px 32px oklch(0.141 0.005 265 / 18%);
+  --uilint-backdrop: oklch(0.985 0.002 265 / 92%);
 
   /* Glass morphism - semi-transparent for frosted glass effect */
-  --uilint-glass: oklch(0.99 0.01 75 / 70%);
-  --uilint-glass-border: oklch(1 0.02 75 / 25%);
+  --uilint-glass: oklch(0.99 0.002 265 / 70%);
+  --uilint-glass-border: oklch(1 0.002 265 / 25%);
   --uilint-glass-highlight: oklch(1 0 0 / 40%);
 
   /* Glass blur intensity variants */
@@ -184,15 +184,15 @@
   --uilint-glass-blur-heavy: 24px;
 
   /* Glass background variants */
-  --uilint-glass-light: oklch(0.99 0.01 75 / 50%);
-  --uilint-glass-medium: oklch(0.99 0.01 75 / 70%);
-  --uilint-glass-heavy: oklch(0.99 0.01 75 / 85%);
+  --uilint-glass-light: oklch(0.99 0.002 265 / 50%);
+  --uilint-glass-medium: oklch(0.99 0.002 265 / 70%);
+  --uilint-glass-heavy: oklch(0.99 0.002 265 / 85%);
 
   /* Kbd (keyboard hint) styling */
-  --uilint-kbd-background: linear-gradient(180deg, oklch(1 0 0) 0%, oklch(0.96 0.01 75) 100%);
+  --uilint-kbd-background: linear-gradient(180deg, oklch(1 0 0) 0%, oklch(0.967 0.003 265) 100%);
   --uilint-kbd-border: oklch(0 0 0 / 10%);
   --uilint-kbd-shadow: 0 1px 0 oklch(0 0 0 / 8%);
-  --uilint-kbd-text: oklch(0.45 0.03 75);
+  --uilint-kbd-text: oklch(0.442 0.017 265);
 
   /* Badge styling */
   --uilint-badge-radius: 6px;
@@ -208,7 +208,7 @@
   --uilint-button-default-border: transparent;
 
   /* Button variants - secondary */
-  --uilint-button-secondary-bg: oklch(0.95 0.01 75);
+  --uilint-button-secondary-bg: oklch(0.967 0.003 265);
   --uilint-button-secondary-text: var(--uilint-text-primary);
   --uilint-button-secondary-border: var(--uilint-border);
 
@@ -238,7 +238,7 @@
   --uilint-input-border-focus: var(--uilint-border-focus);
   --uilint-input-placeholder: var(--uilint-text-muted);
   --uilint-input-radius: 8px;
-  --uilint-input-ring: oklch(0.70 0.15 75 / 25%);
+  --uilint-input-ring: oklch(0.552 0.016 265 / 25%);
 
   /* Card styling */
   --uilint-card-bg: var(--uilint-surface);
@@ -261,10 +261,10 @@
   --uilint-icon-button-size-lg: 40px;
   --uilint-icon-button-radius: 8px;
 
-  /* Scrollbar - amber tinted */
-  --uilint-scrollbar-track: oklch(0.92 0.02 75);
-  --uilint-scrollbar-thumb: oklch(0.70 0.04 75);
-  --uilint-scrollbar-thumb-hover: oklch(0.55 0.05 75);
+  /* Scrollbar - zinc neutral */
+  --uilint-scrollbar-track: oklch(0.920 0.004 265);
+  --uilint-scrollbar-thumb: oklch(0.705 0.015 265);
+  --uilint-scrollbar-thumb-hover: oklch(0.552 0.016 265);
 
   /* Sizing */
   --uilint-radius: 12px;
@@ -290,32 +290,32 @@
 .dark .dev-tool-root,
 .dev-tool-root.dark,
 .dev-tool-root[data-theme="dark"] {
-  /* Core colors - amber tinted dark */
-  --uilint-background: oklch(0.16 0.02 75);
-  --uilint-background-elevated: oklch(0.22 0.025 75);
-  --uilint-foreground: oklch(0.95 0.025 75);
+  /* Core colors - zinc neutral dark */
+  --uilint-background: oklch(0.141 0.005 265);
+  --uilint-background-elevated: oklch(0.210 0.006 265);
+  --uilint-foreground: oklch(0.985 0.002 265);
 
-  /* Surface colors - amber tinted dark */
-  --uilint-surface: oklch(0.16 0.02 75);
-  --uilint-surface-elevated: oklch(0.22 0.025 75);
+  /* Surface colors - zinc neutral dark */
+  --uilint-surface: oklch(0.141 0.005 265);
+  --uilint-surface-elevated: oklch(0.210 0.006 265);
 
-  /* Text colors - warm amber tints */
-  --uilint-text-primary: oklch(0.95 0.025 75);
-  --uilint-text-secondary: oklch(0.82 0.03 75);
-  --uilint-text-muted: oklch(0.65 0.035 75);
-  --uilint-text-disabled: oklch(0.45 0.025 75);
+  /* Text colors - cool zinc */
+  --uilint-text-primary: oklch(0.985 0.002 265);
+  --uilint-text-secondary: oklch(0.870 0.006 265);
+  --uilint-text-muted: oklch(0.705 0.015 265);
+  --uilint-text-disabled: oklch(0.442 0.017 265);
 
-  /* Interactive states - amber tinted */
-  --uilint-hover: oklch(0.80 0.10 75 / 12%);
-  --uilint-active: oklch(0.80 0.12 75 / 18%);
+  /* Interactive states - zinc neutral */
+  --uilint-hover: oklch(0.705 0.015 265 / 12%);
+  --uilint-active: oklch(0.705 0.015 265 / 18%);
 
-  /* Borders - amber tinted */
-  --uilint-border: oklch(0.95 0.03 75 / 12%);
-  --uilint-border-focus: oklch(0.75 0.15 75);
+  /* Borders - zinc neutral */
+  --uilint-border: oklch(0.985 0.002 265 / 12%);
+  --uilint-border-focus: oklch(0.705 0.015 265);
 
-  /* Accent colors - rich amber */
-  --uilint-accent: oklch(0.75 0.15 75);
-  --uilint-accent-foreground: oklch(0.16 0.02 75);
+  /* Accent colors - zinc lighter for dark bg */
+  --uilint-accent: oklch(0.705 0.015 265);
+  --uilint-accent-foreground: oklch(0.141 0.005 265);
 
   /* Status colors */
   --uilint-success: oklch(0.723 0.191 142.5);
@@ -327,26 +327,26 @@
   --uilint-info: oklch(0.623 0.214 259);
   --uilint-info-bg: oklch(0.623 0.214 259 / 20%);
 
-  /* Effects - amber tinted */
-  --uilint-shadow: 0 4px 20px oklch(0.1 0.03 75 / 40%);
+  /* Effects - zinc neutral */
+  --uilint-shadow: 0 4px 20px oklch(0 0 0 / 40%);
   --uilint-shadow-lg: 0 8px 32px oklch(0 0 0 / 50%);
-  --uilint-backdrop: oklch(0.12 0.02 75 / 92%);
+  --uilint-backdrop: oklch(0.141 0.005 265 / 92%);
 
   /* Glass morphism - semi-transparent for frosted glass effect */
-  --uilint-glass: oklch(0.18 0.02 75 / 70%);
-  --uilint-glass-border: oklch(1 0.02 75 / 12%);
+  --uilint-glass: oklch(0.210 0.006 265 / 70%);
+  --uilint-glass-border: oklch(1 0.002 265 / 12%);
   --uilint-glass-highlight: oklch(1 0 0 / 10%);
 
   /* Glass background variants - dark */
-  --uilint-glass-light: oklch(0.20 0.02 75 / 50%);
-  --uilint-glass-medium: oklch(0.18 0.02 75 / 70%);
-  --uilint-glass-heavy: oklch(0.16 0.02 75 / 85%);
+  --uilint-glass-light: oklch(0.230 0.006 265 / 50%);
+  --uilint-glass-medium: oklch(0.210 0.006 265 / 70%);
+  --uilint-glass-heavy: oklch(0.180 0.005 265 / 85%);
 
   /* Kbd (keyboard hint) styling - dark */
-  --uilint-kbd-background: linear-gradient(180deg, oklch(0.28 0.02 75) 0%, oklch(0.22 0.02 75) 100%);
+  --uilint-kbd-background: linear-gradient(180deg, oklch(0.274 0.006 265) 0%, oklch(0.210 0.006 265) 100%);
   --uilint-kbd-border: oklch(1 0 0 / 10%);
   --uilint-kbd-shadow: 0 1px 0 oklch(0 0 0 / 20%);
-  --uilint-kbd-text: oklch(0.75 0.03 75);
+  --uilint-kbd-text: oklch(0.705 0.015 265);
 
   /* Button variants - default (accent) */
   --uilint-button-default-bg: var(--uilint-accent);
@@ -354,7 +354,7 @@
   --uilint-button-default-border: transparent;
 
   /* Button variants - secondary - dark */
-  --uilint-button-secondary-bg: oklch(0.25 0.02 75);
+  --uilint-button-secondary-bg: oklch(0.274 0.006 265);
   --uilint-button-secondary-text: var(--uilint-text-primary);
   --uilint-button-secondary-border: var(--uilint-border);
 
@@ -379,11 +379,11 @@
   --uilint-button-glass-border: var(--uilint-glass-border);
 
   /* Input styling - dark */
-  --uilint-input-bg: oklch(0.20 0.02 75 / 60%);
+  --uilint-input-bg: oklch(0.230 0.006 265 / 60%);
   --uilint-input-border: var(--uilint-border);
   --uilint-input-border-focus: var(--uilint-border-focus);
   --uilint-input-placeholder: var(--uilint-text-muted);
-  --uilint-input-ring: oklch(0.75 0.15 75 / 25%);
+  --uilint-input-ring: oklch(0.705 0.015 265 / 25%);
 
   /* Card styling - dark */
   --uilint-card-bg: var(--uilint-surface);
@@ -399,10 +399,10 @@
   --uilint-card-glass-bg: var(--uilint-glass-medium);
   --uilint-card-glass-border: var(--uilint-glass-border);
 
-  /* Scrollbar - amber tinted */
-  --uilint-scrollbar-track: oklch(0.22 0.02 75);
-  --uilint-scrollbar-thumb: oklch(0.40 0.04 75);
-  --uilint-scrollbar-thumb-hover: oklch(0.50 0.05 75);
+  /* Scrollbar - zinc neutral */
+  --uilint-scrollbar-track: oklch(0.210 0.006 265);
+  --uilint-scrollbar-thumb: oklch(0.370 0.013 265);
+  --uilint-scrollbar-thumb-hover: oklch(0.442 0.017 265);
 
   /* Color scheme for native elements */
   color-scheme: dark;
@@ -412,27 +412,27 @@
 @media (prefers-color-scheme: dark) {
   :root:not(.light) .dev-tool-root:not(.light):not([data-theme="light"]),
   .dev-tool-root:not(.light):not([data-theme="light"]) {
-    /* Only apply if not explicitly set to light - amber tinted dark */
-    --uilint-background: oklch(0.16 0.02 75);
-    --uilint-background-elevated: oklch(0.22 0.025 75);
-    --uilint-foreground: oklch(0.95 0.025 75);
+    /* Only apply if not explicitly set to light - zinc neutral dark */
+    --uilint-background: oklch(0.141 0.005 265);
+    --uilint-background-elevated: oklch(0.210 0.006 265);
+    --uilint-foreground: oklch(0.985 0.002 265);
 
-    --uilint-surface: oklch(0.16 0.02 75);
-    --uilint-surface-elevated: oklch(0.22 0.025 75);
+    --uilint-surface: oklch(0.141 0.005 265);
+    --uilint-surface-elevated: oklch(0.210 0.006 265);
 
-    --uilint-text-primary: oklch(0.95 0.025 75);
-    --uilint-text-secondary: oklch(0.82 0.03 75);
-    --uilint-text-muted: oklch(0.65 0.035 75);
-    --uilint-text-disabled: oklch(0.45 0.025 75);
+    --uilint-text-primary: oklch(0.985 0.002 265);
+    --uilint-text-secondary: oklch(0.870 0.006 265);
+    --uilint-text-muted: oklch(0.705 0.015 265);
+    --uilint-text-disabled: oklch(0.442 0.017 265);
 
-    --uilint-hover: oklch(0.80 0.10 75 / 12%);
-    --uilint-active: oklch(0.80 0.12 75 / 18%);
+    --uilint-hover: oklch(0.705 0.015 265 / 12%);
+    --uilint-active: oklch(0.705 0.015 265 / 18%);
 
-    --uilint-border: oklch(0.95 0.03 75 / 12%);
-    --uilint-border-focus: oklch(0.75 0.15 75);
+    --uilint-border: oklch(0.985 0.002 265 / 12%);
+    --uilint-border-focus: oklch(0.705 0.015 265);
 
-    --uilint-accent: oklch(0.75 0.15 75);
-    --uilint-accent-foreground: oklch(0.16 0.02 75);
+    --uilint-accent: oklch(0.705 0.015 265);
+    --uilint-accent-foreground: oklch(0.141 0.005 265);
 
     --uilint-success: oklch(0.723 0.191 142.5);
     --uilint-success-bg: oklch(0.723 0.191 142.5 / 20%);
@@ -441,15 +441,15 @@
     --uilint-error: oklch(0.72 0.17 25);
     --uilint-error-bg: oklch(0.72 0.17 25 / 20%);
 
-    --uilint-shadow: 0 4px 20px oklch(0.1 0.03 75 / 40%);
-    --uilint-backdrop: oklch(0.12 0.02 75 / 92%);
+    --uilint-shadow: 0 4px 20px oklch(0 0 0 / 40%);
+    --uilint-backdrop: oklch(0.141 0.005 265 / 92%);
 
-    --uilint-glass: oklch(0.18 0.02 75 / 70%);
-    --uilint-glass-border: oklch(1 0.02 75 / 12%);
+    --uilint-glass: oklch(0.210 0.006 265 / 70%);
+    --uilint-glass-border: oklch(1 0.002 265 / 12%);
 
-    --uilint-scrollbar-track: oklch(0.22 0.02 75);
-    --uilint-scrollbar-thumb: oklch(0.40 0.04 75);
-    --uilint-scrollbar-thumb-hover: oklch(0.50 0.05 75);
+    --uilint-scrollbar-track: oklch(0.210 0.006 265);
+    --uilint-scrollbar-thumb: oklch(0.370 0.013 265);
+    --uilint-scrollbar-thumb-hover: oklch(0.442 0.017 265);
 
     color-scheme: dark;
   }
@@ -460,27 +460,27 @@
 .light .dev-tool-root,
 .dev-tool-root.light,
 .dev-tool-root[data-theme="light"] {
-  /* Force light theme variables - amber tinted */
-  --uilint-background: oklch(0.985 0.015 75);
-  --uilint-background-elevated: oklch(0.97 0.02 75);
-  --uilint-foreground: oklch(0.18 0.02 75);
+  /* Force light theme variables - zinc neutral */
+  --uilint-background: oklch(0.985 0.002 265);
+  --uilint-background-elevated: oklch(0.967 0.003 265);
+  --uilint-foreground: oklch(0.141 0.005 265);
 
-  --uilint-surface: oklch(0.985 0.015 75);
-  --uilint-surface-elevated: oklch(0.97 0.02 75);
+  --uilint-surface: oklch(0.985 0.002 265);
+  --uilint-surface-elevated: oklch(0.967 0.003 265);
 
-  --uilint-text-primary: oklch(0.18 0.02 75);
-  --uilint-text-secondary: oklch(0.40 0.025 75);
-  --uilint-text-muted: oklch(0.55 0.03 75);
-  --uilint-text-disabled: oklch(0.70 0.02 75);
+  --uilint-text-primary: oklch(0.141 0.005 265);
+  --uilint-text-secondary: oklch(0.370 0.013 265);
+  --uilint-text-muted: oklch(0.552 0.016 265);
+  --uilint-text-disabled: oklch(0.705 0.015 265);
 
-  --uilint-hover: oklch(0.75 0.08 75 / 15%);
-  --uilint-active: oklch(0.70 0.10 75 / 20%);
+  --uilint-hover: oklch(0.552 0.016 265 / 12%);
+  --uilint-active: oklch(0.442 0.017 265 / 16%);
 
-  --uilint-border: oklch(0.90 0.025 75);
-  --uilint-border-focus: oklch(0.70 0.15 75);
+  --uilint-border: oklch(0.920 0.004 265);
+  --uilint-border-focus: oklch(0.552 0.016 265);
 
-  --uilint-accent: oklch(0.70 0.16 75);
-  --uilint-accent-foreground: oklch(0.985 0.015 75);
+  --uilint-accent: oklch(0.442 0.017 265);
+  --uilint-accent-foreground: oklch(0.985 0.002 265);
 
   --uilint-success: oklch(0.723 0.191 142.5);
   --uilint-success-bg: oklch(0.723 0.191 142.5 / 15%);
@@ -489,15 +489,15 @@
   --uilint-error: oklch(0.72 0.17 25);
   --uilint-error-bg: oklch(0.72 0.17 25 / 15%);
 
-  --uilint-shadow: 0 4px 20px oklch(0.3 0.05 75 / 15%);
-  --uilint-backdrop: oklch(0.985 0.015 75 / 92%);
+  --uilint-shadow: 0 4px 20px oklch(0.141 0.005 265 / 12%);
+  --uilint-backdrop: oklch(0.985 0.002 265 / 92%);
 
-  --uilint-glass: oklch(0.99 0.01 75 / 70%);
-  --uilint-glass-border: oklch(1 0.02 75 / 25%);
+  --uilint-glass: oklch(0.99 0.002 265 / 70%);
+  --uilint-glass-border: oklch(1 0.002 265 / 25%);
 
-  --uilint-scrollbar-track: oklch(0.92 0.02 75);
-  --uilint-scrollbar-thumb: oklch(0.70 0.04 75);
-  --uilint-scrollbar-thumb-hover: oklch(0.55 0.05 75);
+  --uilint-scrollbar-track: oklch(0.920 0.004 265);
+  --uilint-scrollbar-thumb: oklch(0.705 0.015 265);
+  --uilint-scrollbar-thumb-hover: oklch(0.552 0.016 265);
 
   color-scheme: light;
 }
