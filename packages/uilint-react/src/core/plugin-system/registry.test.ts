@@ -16,6 +16,8 @@ import type {
   RuleUIContribution,
   RuleMeta,
   ToolbarAction,
+  ToolbarActionGroup,
+  RuleDefinition,
 } from "./types";
 
 // ============================================================================
@@ -1131,6 +1133,374 @@ describe("PluginRegistry", () => {
       expect(actions).toContain(visibleAction);
       expect(actions).toContain(hiddenAction);
       expect(actions).toContain(noPredicateAction);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // getAllToolbarActionGroups() Tests
+  // --------------------------------------------------------------------------
+
+  describe("getAllToolbarActionGroups()", () => {
+    it("returns empty array when no plugins have toolbar groups", () => {
+      const plugin = createMockPlugin({ id: "no-groups" });
+      registry.register(plugin);
+
+      const groups = registry.getAllToolbarActionGroups();
+      expect(groups).toEqual([]);
+    });
+
+    it("aggregates toolbar groups from multiple plugins", () => {
+      const group1: ToolbarActionGroup = {
+        id: "group-1",
+        icon: "play",
+        tooltip: "Group 1",
+        priority: 10,
+        actions: [createMockToolbarAction({ id: "a1" })],
+      };
+      const group2: ToolbarActionGroup = {
+        id: "group-2",
+        icon: "stop",
+        tooltip: "Group 2",
+        priority: 20,
+        actions: [createMockToolbarAction({ id: "a2" })],
+      };
+
+      const plugin1 = createMockPlugin({
+        id: "p1",
+        toolbarActionGroups: [group1],
+      });
+      const plugin2 = createMockPlugin({
+        id: "p2",
+        toolbarActionGroups: [group2],
+      });
+
+      registry.register(plugin1);
+      registry.register(plugin2);
+
+      const groups = registry.getAllToolbarActionGroups();
+      expect(groups).toHaveLength(2);
+      // Sorted by priority (higher first)
+      expect(groups[0].id).toBe("group-2");
+      expect(groups[1].id).toBe("group-1");
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // getAllTileProviders() Tests
+  // --------------------------------------------------------------------------
+
+  describe("getAllTileProviders()", () => {
+    it("returns empty array when no plugins have tile providers", () => {
+      const plugin = createMockPlugin({ id: "no-tiles" });
+      registry.register(plugin);
+      const services = createMockPluginServices();
+      simulatePluginInitialization(registry, services);
+
+      const providers = registry.getAllTileProviders();
+      expect(providers).toEqual([]);
+    });
+
+    it("returns tile providers from initialized plugins", () => {
+      const tileProvider = {
+        getTiles: vi.fn(() => []),
+      };
+
+      const plugin = createMockPlugin({
+        id: "tile-plugin",
+        tileProvider,
+      } as Partial<Plugin>);
+
+      registry.register(plugin);
+      const services = createMockPluginServices();
+      simulatePluginInitialization(registry, services);
+
+      const providers = registry.getAllTileProviders();
+      expect(providers).toHaveLength(1);
+      expect(providers[0].pluginId).toBe("tile-plugin");
+      expect(providers[0].provider).toBe(tileProvider);
+    });
+
+    it("skips uninitialized plugins", () => {
+      const tileProvider = {
+        getTiles: vi.fn(() => []),
+      };
+
+      const plugin = createMockPlugin({
+        id: "uninit-plugin",
+        tileProvider,
+      } as Partial<Plugin>);
+
+      registry.register(plugin);
+      // Don't initialize
+
+      const providers = registry.getAllTileProviders();
+      expect(providers).toEqual([]);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // getAllCategoryProviders() Tests
+  // --------------------------------------------------------------------------
+
+  describe("getAllCategoryProviders()", () => {
+    it("returns empty array (deprecated)", () => {
+      const plugin = createMockPlugin({ id: "p" });
+      registry.register(plugin);
+
+      const providers = registry.getAllCategoryProviders();
+      expect(providers).toEqual([]);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // getAllRules() Tests
+  // --------------------------------------------------------------------------
+
+  describe("getAllRules()", () => {
+    it("returns empty array when services not initialized", () => {
+      const plugin = createMockPlugin({ id: "p" });
+      registry.register(plugin);
+
+      const rules = registry.getAllRules();
+      expect(rules).toEqual([]);
+    });
+
+    it("aggregates rules from all plugins with getRules", () => {
+      const rule1: RuleDefinition = {
+        id: "p1/rule-a",
+        name: "Rule A",
+        description: "First rule",
+        category: "style",
+        defaultSeverity: "warn",
+      };
+      const rule2: RuleDefinition = {
+        id: "p2/rule-b",
+        name: "Rule B",
+        description: "Second rule",
+        category: "layout",
+        defaultSeverity: "error",
+      };
+
+      const plugin1 = createMockPlugin({
+        id: "p1",
+        getRules: () => [rule1],
+      });
+      const plugin2 = createMockPlugin({
+        id: "p2",
+        getRules: () => [rule2],
+      });
+      const plugin3 = createMockPlugin({ id: "p3" }); // no getRules
+
+      registry.register(plugin1);
+      registry.register(plugin2);
+      registry.register(plugin3);
+
+      const services = createMockPluginServices();
+      simulatePluginInitialization(registry, services);
+
+      const rules = registry.getAllRules();
+      expect(rules).toHaveLength(2);
+      expect(rules).toContainEqual(rule1);
+      expect(rules).toContainEqual(rule2);
+    });
+
+    it("handles plugin getRules throwing an error", () => {
+      const plugin = createMockPlugin({
+        id: "bad-plugin",
+        getRules: () => {
+          throw new Error("getRules failed");
+        },
+      });
+
+      registry.register(plugin);
+      const services = createMockPluginServices();
+      simulatePluginInitialization(registry, services);
+
+      // Should not throw, just returns empty
+      const rules = registry.getAllRules();
+      expect(rules).toEqual([]);
+    });
+
+    it("skips uninitialized plugins", () => {
+      const plugin1 = createMockPlugin({
+        id: "init-plugin",
+        getRules: () => [{ id: "r1", name: "R1", description: "", category: "style", defaultSeverity: "warn" as const }],
+      });
+      const plugin2 = createMockPlugin({
+        id: "uninit-plugin",
+        getRules: () => [{ id: "r2", name: "R2", description: "", category: "style", defaultSeverity: "warn" as const }],
+      });
+
+      registry.register(plugin1);
+      registry.register(plugin2);
+
+      const services = createMockPluginServices();
+      registry.setServices(services);
+      registry.markPluginInitialized("init-plugin");
+      // Don't initialize uninit-plugin
+
+      const rules = registry.getAllRules();
+      expect(rules).toHaveLength(1);
+      expect(rules[0].id).toBe("r1");
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // setRuleSeverity() Tests
+  // --------------------------------------------------------------------------
+
+  describe("setRuleSeverity()", () => {
+    it("does nothing when services not initialized", () => {
+      const plugin = createMockPlugin({ id: "p" });
+      registry.register(plugin);
+      // Should not throw
+      expect(() => registry.setRuleSeverity("p/rule", "error")).not.toThrow();
+    });
+
+    it("delegates to plugin that handles the rule via handlesRules", () => {
+      const setRuleSeverity = vi.fn();
+      const plugin = createMockPlugin({
+        id: "rule-handler",
+        handlesRules: (meta) => meta.id === "my-rule",
+        setRuleSeverity,
+      });
+
+      registry.register(plugin);
+      const services = createMockPluginServices();
+      simulatePluginInitialization(registry, services);
+
+      registry.setRuleSeverity("my-rule", "error");
+      expect(setRuleSeverity).toHaveBeenCalledWith("my-rule", "error", services);
+    });
+
+    it("delegates to plugin by ID prefix", () => {
+      const setRuleSeverity = vi.fn();
+      const plugin = createMockPlugin({
+        id: "eslint",
+        setRuleSeverity,
+      });
+
+      registry.register(plugin);
+      const services = createMockPluginServices();
+      simulatePluginInitialization(registry, services);
+
+      registry.setRuleSeverity("eslint/no-unused-vars", "off");
+      expect(setRuleSeverity).toHaveBeenCalledWith("eslint/no-unused-vars", "off", services);
+    });
+
+    it("warns when no plugin handles the rule", () => {
+      const plugin = createMockPlugin({ id: "other" });
+      registry.register(plugin);
+      const services = createMockPluginServices();
+      simulatePluginInitialization(registry, services);
+
+      // Should not throw
+      expect(() => registry.setRuleSeverity("unknown/rule", "warning")).not.toThrow();
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // getRuleConfig() Tests
+  // --------------------------------------------------------------------------
+
+  describe("getRuleConfig()", () => {
+    it("returns undefined when services not initialized", () => {
+      const plugin = createMockPlugin({ id: "p" });
+      registry.register(plugin);
+      expect(registry.getRuleConfig("p/rule")).toBeUndefined();
+    });
+
+    it("returns config from plugin that handles the rule via handlesRules", () => {
+      const config = { maxLines: 100, severity: "warn" };
+      const plugin = createMockPlugin({
+        id: "config-plugin",
+        handlesRules: (meta) => meta.id === "my-rule",
+        getRuleConfig: () => config,
+      });
+
+      registry.register(plugin);
+      const services = createMockPluginServices();
+      simulatePluginInitialization(registry, services);
+
+      expect(registry.getRuleConfig("my-rule")).toBe(config);
+    });
+
+    it("returns config from plugin by ID prefix", () => {
+      const config = { enabled: true };
+      const plugin = createMockPlugin({
+        id: "eslint",
+        getRuleConfig: () => config,
+      });
+
+      registry.register(plugin);
+      const services = createMockPluginServices();
+      simulatePluginInitialization(registry, services);
+
+      expect(registry.getRuleConfig("eslint/no-console")).toBe(config);
+    });
+
+    it("returns undefined when no plugin handles the rule", () => {
+      const plugin = createMockPlugin({ id: "other" });
+      registry.register(plugin);
+      const services = createMockPluginServices();
+      simulatePluginInitialization(registry, services);
+
+      expect(registry.getRuleConfig("unknown/rule")).toBeUndefined();
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // setRuleConfig() Tests
+  // --------------------------------------------------------------------------
+
+  describe("setRuleConfig()", () => {
+    it("does nothing when services not initialized", () => {
+      const plugin = createMockPlugin({ id: "p" });
+      registry.register(plugin);
+      expect(() => registry.setRuleConfig("p/rule", {})).not.toThrow();
+    });
+
+    it("delegates to plugin that handles the rule via handlesRules", () => {
+      const setRuleConfig = vi.fn();
+      const plugin = createMockPlugin({
+        id: "config-plugin",
+        handlesRules: (meta) => meta.id === "my-rule",
+        setRuleConfig,
+      });
+
+      registry.register(plugin);
+      const services = createMockPluginServices();
+      simulatePluginInitialization(registry, services);
+
+      const config = { maxLines: 50 };
+      registry.setRuleConfig("my-rule", config);
+      expect(setRuleConfig).toHaveBeenCalledWith("my-rule", config, services);
+    });
+
+    it("delegates to plugin by ID prefix", () => {
+      const setRuleConfig = vi.fn();
+      const plugin = createMockPlugin({
+        id: "eslint",
+        setRuleConfig,
+      });
+
+      registry.register(plugin);
+      const services = createMockPluginServices();
+      simulatePluginInitialization(registry, services);
+
+      const config = { enabled: false };
+      registry.setRuleConfig("eslint/no-console", config);
+      expect(setRuleConfig).toHaveBeenCalledWith("eslint/no-console", config, services);
+    });
+
+    it("warns when no plugin handles the rule", () => {
+      const plugin = createMockPlugin({ id: "other" });
+      registry.register(plugin);
+      const services = createMockPluginServices();
+      simulatePluginInitialization(registry, services);
+
+      // Should not throw
+      expect(() => registry.setRuleConfig("unknown/rule", {})).not.toThrow();
     });
   });
 });
