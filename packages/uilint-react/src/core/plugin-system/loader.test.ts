@@ -40,8 +40,15 @@ describe("loader", () => {
     });
 
     it("returns undefined for external plugin id 'semantic' (loaded via adapter)", () => {
-      // Semantic is now loaded from uilint-semantic package via adapter
+      // Semantic (styleguide) is now loaded from uilint-semantic package via adapter
       const manifest = getPluginManifest("semantic");
+
+      expect(manifest).toBeUndefined();
+    });
+
+    it("returns undefined for external plugin id 'duplicates' (loaded via adapter)", () => {
+      // Duplicates is loaded from uilint-duplicates package via adapter
+      const manifest = getPluginManifest("duplicates");
 
       expect(manifest).toBeUndefined();
     });
@@ -65,13 +72,14 @@ describe("loader", () => {
       expect(BUILT_IN_PLUGINS).toHaveLength(1);
     });
 
-    it("contains only eslint plugin (vision and semantic are external)", () => {
+    it("contains only eslint plugin (vision, semantic, and duplicates are external)", () => {
       const pluginIds = BUILT_IN_PLUGINS.map((p) => p.id);
 
       expect(pluginIds).toContain("eslint");
       // These are now external, loaded via adapter
       expect(pluginIds).not.toContain("vision");
       expect(pluginIds).not.toContain("semantic");
+      expect(pluginIds).not.toContain("duplicates");
     });
 
     it("each manifest has required fields", () => {

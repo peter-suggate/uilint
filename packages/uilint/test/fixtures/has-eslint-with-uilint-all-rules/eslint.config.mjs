@@ -27,10 +27,10 @@ export default [
       "uilint/require-test-coverage": "warn",
       "uilint/no-unsafe-type-casts": "error",
       "uilint/prefer-store-selectors": "warn",
-      // Semantic rules
+      // Plugin rules (styleguide, vision, duplicates)
       "uilint/semantic": "warn",
       "uilint/semantic-vision": "warn",
-      "uilint/no-semantic-duplicates": "warn",
+      "uilint/no-duplicates": "warn",
     },
   },
 ];

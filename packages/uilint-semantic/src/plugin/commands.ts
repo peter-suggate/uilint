@@ -1,32 +1,32 @@
 /**
- * Semantic Plugin Commands
+ * Styleguide Plugin Commands
  *
- * Command palette commands for the semantic plugin.
+ * Command palette commands for the styleguide plugin.
  * Declarative - no React.
  */
 
 import type { CommandDefinition } from "uilint-core";
 
 /**
- * Semantic plugin commands
+ * Styleguide plugin commands
  */
-export const semanticCommands: CommandDefinition[] = [
+export const styleguideCommands: CommandDefinition[] = [
   {
-    id: "semantic:rebuild-index",
-    title: "Rebuild Duplicates Index",
-    keywords: ["semantic", "duplicates", "index", "rebuild", "scan"],
-    category: "Semantic",
-    subtitle: "Rebuild the semantic code index for duplicate detection",
-    icon: "refresh",
-    action: { type: "start-indexing" },
+    id: "styleguide:check-status",
+    title: "Check Styleguide Status",
+    keywords: ["styleguide", "status", "check", "model", "ollama"],
+    category: "Styleguide",
+    subtitle: "Check if styleguide and LLM model are available",
+    icon: "check-circle",
+    action: { type: "check-styleguide-status" },
   },
   {
-    id: "semantic:clear-filter",
-    title: "Clear Duplicate Filter",
-    keywords: ["semantic", "duplicates", "clear", "filter", "heatmap"],
-    category: "Semantic",
-    subtitle: "Clear the heatmap filter for duplicates",
-    icon: "x",
-    action: { type: "clear-heatmap-filter" },
+    id: "styleguide:reload",
+    title: "Reload Styleguide",
+    keywords: ["styleguide", "reload", "refresh"],
+    category: "Styleguide",
+    subtitle: "Reload the styleguide file from disk",
+    icon: "refresh",
+    action: { type: "reload-styleguide" },
   },
 ];

@@ -185,7 +185,7 @@ describe("eslintPlugin.handlesRules", () => {
   });
 
   it("does not handle non-uilint rules without static category", () => {
-    const rule: RuleMeta = { id: "some-other-rule", category: "semantic" };
+    const rule: RuleMeta = { id: "some-other-rule", category: "styleguide" };
     expect(handlesRules(rule)).toBe(false);
   });
 });

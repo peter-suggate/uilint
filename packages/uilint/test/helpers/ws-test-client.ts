@@ -138,7 +138,7 @@ export interface RulesMetadataMessage extends ServerMessage {
     id: string;
     name: string;
     description: string;
-    category: "static" | "semantic";
+    category: string;
     defaultSeverity: "error" | "warn" | "off";
     currentSeverity?: "error" | "warn" | "off";
     currentOptions?: Record<string, unknown>;

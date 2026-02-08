@@ -34,6 +34,26 @@
     "./node": {
       "types": "./dist/node.d.ts",
       "import": "./dist/node.js"
+    },
+    "./plugin": {
+      "types": "./dist/plugin/index.d.ts",
+      "import": "./dist/plugin/index.js"
+    },
+    "./eslint-rules": {
+      "types": "./dist/eslint-rules/index.d.ts",
+      "import": "./dist/eslint-rules/index.js"
+    },
+    "./eslint-rules/register": {
+      "types": "./dist/eslint-rules/register.d.ts",
+      "import": "./dist/eslint-rules/register.js"
+    },
+    "./eslint-rules/no-duplicates": {
+      "types": "./dist/eslint-rules/no-duplicates.d.ts",
+      "import": "./dist/eslint-rules/no-duplicates.js"
+    },
+    "./cli-manifest": {
+      "types": "./dist/cli-manifest.d.ts",
+      "import": "./dist/cli-manifest.js"
     }
   },
   "files": [
@@ -65,7 +85,8 @@
     "vitest": "^4.0.16"
   },
   "peerDependencies": {
-    "uilint-core": "workspace:*"
+    "uilint-core": "workspace:*",
+    "uilint-eslint": "workspace:*"
   },
   "keywords": [
     "duplicate-detection",

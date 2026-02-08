@@ -1,90 +1,90 @@
 /**
- * Integration Tests: Semantic Plugin Registration
+ * Integration Tests: Styleguide Plugin Registration
  *
- * Tests that verify the semantic plugin integrates correctly with the
+ * Tests that verify the styleguide plugin integrates correctly with the
  * core plugin registry system.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { PluginRegistry, pluginRegistry } from "uilint-core";
 
-describe("Semantic Plugin Integration", () => {
+describe("Styleguide Plugin Integration", () => {
   describe("auto-registration", () => {
     it("registers with global pluginRegistry on import", async () => {
-      // Import the semantic package - this should trigger auto-registration
+      // Import the styleguide package - this should trigger auto-registration
       await import("../../src/index.js");
 
       // Verify plugin is registered
-      expect(pluginRegistry.has("semantic")).toBe(true);
+      expect(pluginRegistry.has("styleguide")).toBe(true);
 
-      const plugin = pluginRegistry.get("semantic");
+      const plugin = pluginRegistry.get("styleguide");
       expect(plugin).toBeDefined();
-      expect(plugin?.name).toBe("Semantic Analysis");
+      expect(plugin?.name).toBe("Styleguide Checking");
     });
 
     it("exports plugin definition", async () => {
-      const semantic = await import("../../src/index.js");
+      const mod = await import("../../src/index.js");
 
       // Check plugin is exported
-      expect(semantic.semanticPlugin).toBeDefined();
-      expect(semantic.semanticPlugin.id).toBe("semantic");
-      expect(semantic.semanticPlugin.state).toBeDefined();
-      expect(semantic.semanticPlugin.commands).toBeDefined();
-      expect(semantic.semanticPlugin.panels).toBeDefined();
-      expect(semantic.semanticPlugin.rules).toBeDefined();
+      expect(mod.styleguidePlugin).toBeDefined();
+      expect(mod.styleguidePlugin.id).toBe("styleguide");
+      expect(mod.styleguidePlugin.state).toBeDefined();
+      expect(mod.styleguidePlugin.commands).toBeDefined();
+      expect(mod.styleguidePlugin.panels).toBeDefined();
+      expect(mod.styleguidePlugin.rules).toBeDefined();
     });
   });
 
   describe("plugin definition completeness", () => {
     it("has all required metadata", async () => {
-      const { semanticPlugin } = await import("../../src/index.js");
+      const { styleguidePlugin } = await import("../../src/index.js");
 
-      expect(semanticPlugin.id).toBe("semantic");
-      expect(semanticPlugin.name).toBe("Semantic Analysis");
-      expect(semanticPlugin.version).toBe("1.0.0");
-      expect(semanticPlugin.description).toBeTruthy();
+      expect(styleguidePlugin.id).toBe("styleguide");
+      expect(styleguidePlugin.name).toBe("Styleguide Checking");
+      expect(styleguidePlugin.version).toBe("1.0.0");
+      expect(styleguidePlugin.description).toBeTruthy();
     });
 
     it("has valid state definition", async () => {
-      const { semanticPlugin } = await import("../../src/index.js");
+      const { styleguidePlugin } = await import("../../src/index.js");
 
-      expect(semanticPlugin.state).toBeDefined();
-      expect(semanticPlugin.state.initialState).toBeDefined();
-      expect(semanticPlugin.state.computed).toBeDefined();
+      expect(styleguidePlugin.state).toBeDefined();
+      expect(styleguidePlugin.state.initialState).toBeDefined();
+      expect(styleguidePlugin.state.computed).toBeDefined();
 
       // Verify computed functions work
-      const initialState = semanticPlugin.state.initialState;
-      const computed = semanticPlugin.state.computed!;
+      const initialState = styleguidePlugin.state.initialState;
+      const computed = styleguidePlugin.state.computed!;
 
-      expect(computed.isIndexReady(initialState)).toBe(false);
-      expect(computed.isIndexing(initialState)).toBe(false);
+      expect(computed.isReady(initialState)).toBe(false);
+      expect(computed.isAnalyzing(initialState)).toBe(false);
       expect(computed.hasError(initialState)).toBe(false);
       expect(computed.progressPercent(initialState)).toBe(0);
     });
 
     it("has action handlers", async () => {
-      const { semanticPlugin } = await import("../../src/index.js");
+      const { styleguidePlugin } = await import("../../src/index.js");
 
-      expect(semanticPlugin.actions).toBeDefined();
-      expect(typeof semanticPlugin.actions!["start-indexing"]).toBe("function");
-      expect(typeof semanticPlugin.actions!["handle-indexing-complete"]).toBe("function");
-      expect(typeof semanticPlugin.actions!["select-duplicate"]).toBe("function");
+      expect(styleguidePlugin.actions).toBeDefined();
+      expect(typeof styleguidePlugin.actions!["check-styleguide-status"]).toBe("function");
+      expect(typeof styleguidePlugin.actions!["handle-analysis-complete"]).toBe("function");
+      expect(typeof styleguidePlugin.actions!["reload-styleguide"]).toBe("function");
     });
 
     it("has message handlers for WebSocket messages", async () => {
-      const { semanticPlugin } = await import("../../src/index.js");
+      const { styleguidePlugin } = await import("../../src/index.js");
 
-      expect(semanticPlugin.messageHandlers).toBeDefined();
-      expect(typeof semanticPlugin.messageHandlers!["duplicates:indexing:start"]).toBe("function");
-      expect(typeof semanticPlugin.messageHandlers!["duplicates:indexing:progress"]).toBe("function");
-      expect(typeof semanticPlugin.messageHandlers!["duplicates:indexing:complete"]).toBe("function");
-      expect(typeof semanticPlugin.messageHandlers!["duplicates:indexing:error"]).toBe("function");
+      expect(styleguidePlugin.messageHandlers).toBeDefined();
+      expect(typeof styleguidePlugin.messageHandlers!["styleguide:status"]).toBe("function");
+      expect(typeof styleguidePlugin.messageHandlers!["styleguide:analysis:progress"]).toBe("function");
+      expect(typeof styleguidePlugin.messageHandlers!["styleguide:analysis:complete"]).toBe("function");
+      expect(typeof styleguidePlugin.messageHandlers!["styleguide:analysis:error"]).toBe("function");
     });
 
-    it("handles semantic rule category", async () => {
-      const { semanticPlugin } = await import("../../src/index.js");
+    it("handles styleguide rule category", async () => {
+      const { styleguidePlugin } = await import("../../src/index.js");
 
-      expect(semanticPlugin.handlesRuleCategories).toContain("semantic");
+      expect(styleguidePlugin.handlesRuleCategories).toContain("styleguide");
     });
   });
 
@@ -96,43 +96,50 @@ describe("Semantic Plugin Integration", () => {
     });
 
     it("can register plugin with isolated registry", async () => {
-      const { semanticPlugin } = await import("../../src/index.js");
+      const { styleguidePlugin } = await import("../../src/index.js");
 
-      expect(() => isolatedRegistry.register(semanticPlugin)).not.toThrow();
-      expect(isolatedRegistry.has("semantic")).toBe(true);
+      expect(() => isolatedRegistry.register(styleguidePlugin)).not.toThrow();
+      expect(isolatedRegistry.has("styleguide")).toBe(true);
     });
 
     it("can unregister and re-register", async () => {
-      const { semanticPlugin } = await import("../../src/index.js");
+      const { styleguidePlugin } = await import("../../src/index.js");
 
-      isolatedRegistry.register(semanticPlugin);
-      expect(isolatedRegistry.has("semantic")).toBe(true);
+      isolatedRegistry.register(styleguidePlugin);
+      expect(isolatedRegistry.has("styleguide")).toBe(true);
 
-      isolatedRegistry.unregister("semantic");
-      expect(isolatedRegistry.has("semantic")).toBe(false);
+      isolatedRegistry.unregister("styleguide");
+      expect(isolatedRegistry.has("styleguide")).toBe(false);
 
-      isolatedRegistry.register(semanticPlugin);
-      expect(isolatedRegistry.has("semantic")).toBe(true);
+      isolatedRegistry.register(styleguidePlugin);
+      expect(isolatedRegistry.has("styleguide")).toBe(true);
     });
   });
 
   describe("rule definitions", () => {
-    it("provides no-semantic-duplicates rule", async () => {
-      const { semanticPlugin } = await import("../../src/index.js");
+    it("provides semantic rule", async () => {
+      const { styleguidePlugin } = await import("../../src/index.js");
 
-      const rule = semanticPlugin.rules?.find((r) => r.id === "no-semantic-duplicates");
+      const rule = styleguidePlugin.rules?.find((r) => r.id === "semantic");
       expect(rule).toBeDefined();
-      expect(rule!.name).toBe("No Semantic Duplicates");
-      expect(rule!.category).toBe("semantic");
-      expect(rule!.defaultSeverity).toBe("warn");
+      expect(rule!.name).toBe("Semantic Analysis");
+      expect(rule!.category).toBe("styleguide");
     });
 
     it("rule has proper requirements", async () => {
-      const { semanticPlugin } = await import("../../src/index.js");
+      const { styleguidePlugin } = await import("../../src/index.js");
 
-      const rule = semanticPlugin.rules?.find((r) => r.id === "no-semantic-duplicates");
-      expect(rule!.requirements).toHaveLength(1);
-      expect(rule!.requirements![0].type).toBe("semantic-index");
+      const rule = styleguidePlugin.rules?.find((r) => r.id === "semantic");
+      expect(rule!.requirements).toHaveLength(2);
+      expect(rule!.requirements![0].type).toBe("ollama");
+      expect(rule!.requirements![1].type).toBe("styleguide");
+    });
+
+    it("does not contain duplicates rules (moved to uilint-duplicates)", async () => {
+      const { styleguidePlugin } = await import("../../src/index.js");
+
+      const dupRule = styleguidePlugin.rules?.find((r) => r.id === "no-semantic-duplicates");
+      expect(dupRule).toBeUndefined();
     });
   });
 });

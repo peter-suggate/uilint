@@ -1,158 +1,83 @@
 /**
- * Semantic Plugin Panels
+ * Styleguide Plugin Panels
  *
- * Inspector panel definitions for the semantic plugin.
+ * Inspector panel definitions for the styleguide plugin.
  * Declarative - no React.
  */
 
 import type { PanelDefinition } from "uilint-core";
 
 /**
- * Duplicates inspector panel
+ * Styleguide status panel
  */
-export const duplicatesPanelDefinition: PanelDefinition = {
-  id: "duplicates",
-  title: "Duplicate Code",
-  priority: 10,
-
-  loading: {
-    when: { binding: "isLoading" },
-    message: "Loading code comparison...",
-  },
-
-  empty: {
-    when: { expression: "!sourceCode && !targetCode" },
-    message: "No duplicate information available.",
-    icon: "search",
-  },
-
-  layout: [
-    // Similarity badge
-    {
-      type: "badge",
-      variant: "similarity",
-      value: { binding: "similarity" },
-      centered: true,
-    },
-
-    // Source code section
-    {
-      type: "code-viewer",
-      label: "This Code",
-      icon: "target",
-      code: {
-        fetch: {
-          type: "source-code",
-          params: {
-            filePath: { binding: "sourceLocation.filePath" },
-            line: { binding: "sourceLocation.startLine" },
-            contextAbove: 10,
-            contextBelow: 10,
-          },
-        },
-      },
-      location: { binding: "sourceLocation" },
-      diffHighlighting: true,
-      maxHeight: 250,
-      onNavigate: {
-        type: "open-editor",
-        payloadBindings: { dataLoc: "sourceDataLoc" },
-      },
-    },
-
-    // Target code section
-    {
-      type: "code-viewer",
-      label: "Similar Code",
-      icon: "link",
-      code: {
-        fetch: {
-          type: "source-code",
-          params: {
-            filePath: { binding: "targetLocation.filePath" },
-            line: { binding: "targetLocation.startLine" },
-            contextAbove: 10,
-            contextBelow: 10,
-          },
-        },
-      },
-      location: { binding: "targetLocation" },
-      diffHighlighting: true,
-      maxHeight: 250,
-      onNavigate: {
-        type: "open-editor",
-        payloadBindings: { dataLoc: "targetDataLoc" },
-      },
-    },
-
-    { type: "divider", spacing: "medium" },
-
-    // Actions
-    {
-      type: "actions",
-      direction: "row",
-      actions: [
-        {
-          id: "toggle-heatmap",
-          label: {
-            condition: { binding: "heatmapFilterActive" },
-            true: "Clear Heatmap Filter",
-            false: "Focus in Heatmap",
-          },
-          icon: "filter",
-          variant: "primary",
-          action: {
-            type: "toggle-heatmap-filter",
-            payloadBindings: {
-              sourceDataLoc: "sourceDataLoc",
-              targetDataLoc: "targetDataLoc",
-            },
-          },
-        },
-      ],
-    },
-  ],
-};
-
-/**
- * Index status panel
- */
-export const indexStatusPanelDefinition: PanelDefinition = {
-  id: "semantic-index-status",
-  title: "Index Status",
+export const styleguideStatusPanelDefinition: PanelDefinition = {
+  id: "styleguide-status",
+  title: "Styleguide Status",
   priority: 5,
 
   layout: [
-    // Status badge
+    // Styleguide loaded status
     {
       type: "badge",
       variant: "status",
-      value: { binding: "indexStatus" },
+      value: {
+        condition: { binding: "styleguideLoaded" },
+        true: "Styleguide Loaded",
+        false: "No Styleguide",
+      },
       centered: true,
     },
 
-    // Progress (when indexing)
+    // Styleguide path (when loaded)
     {
       type: "conditional",
-      condition: { expression: "indexStatus === 'indexing'" },
+      condition: { binding: "styleguideLoaded" },
+      then: [
+        {
+          type: "text",
+          content: { binding: "styleguidePath" },
+          variant: "caption",
+        },
+      ],
+      else: [
+        {
+          type: "text",
+          content: "Create a styleguide at .uilint/styleguide.md to enable LLM-powered analysis.",
+          variant: "body",
+        },
+      ],
+    },
+
+    { type: "divider", spacing: "small" },
+
+    // Model availability
+    {
+      type: "badge",
+      variant: "status",
+      value: {
+        condition: { binding: "modelAvailable" },
+        true: "Model Ready",
+        false: "Model Unavailable",
+      },
+      centered: true,
+    },
+
+    // Model name
+    {
+      type: "text",
+      content: { binding: "modelName" },
+      variant: "caption",
+    },
+
+    // Analysis progress (when analyzing)
+    {
+      type: "conditional",
+      condition: { expression: "analysisStatus === 'analyzing'" },
       then: [
         {
           type: "progress",
           value: { binding: "progressPercent" },
-          label: { binding: "indexProgress.message" },
-        },
-      ],
-    },
-
-    // Stats (when ready)
-    {
-      type: "conditional",
-      condition: { expression: "indexStatus === 'ready' && indexStats" },
-      then: [
-        {
-          type: "text",
-          content: { binding: "indexStats.totalChunks" },
-          variant: "body",
+          label: { binding: "analysisProgress.filePath" },
         },
       ],
     },
@@ -160,30 +85,50 @@ export const indexStatusPanelDefinition: PanelDefinition = {
     // Error (when error)
     {
       type: "conditional",
-      condition: { expression: "indexStatus === 'error'" },
+      condition: { expression: "analysisStatus === 'error'" },
       then: [
         {
           type: "text",
-          content: { binding: "lastIndexError" },
+          content: { binding: "lastAnalysisError" },
           variant: "error",
+        },
+      ],
+    },
+
+    // Stats (when analysis complete)
+    {
+      type: "conditional",
+      condition: { expression: "analysisStatus === 'complete'" },
+      then: [
+        {
+          type: "text",
+          content: { binding: "analyzedFileCount" },
+          variant: "body",
         },
       ],
     },
 
     { type: "divider" },
 
-    // Rebuild action
+    // Actions
     {
       type: "actions",
       direction: "column",
       actions: [
         {
-          id: "rebuild-index",
-          label: "Rebuild Index",
+          id: "check-status",
+          label: "Check Status",
+          icon: "check-circle",
+          variant: "secondary",
+          action: { type: "check-styleguide-status" },
+        },
+        {
+          id: "reload-styleguide",
+          label: "Reload Styleguide",
           icon: "refresh",
           variant: "secondary",
-          action: { type: "start-indexing" },
-          disabled: { binding: "isIndexing" },
+          action: { type: "reload-styleguide" },
+          disabled: { expression: "!styleguideLoaded" },
         },
       ],
     },
@@ -191,9 +136,8 @@ export const indexStatusPanelDefinition: PanelDefinition = {
 };
 
 /**
- * All semantic panel definitions
+ * All styleguide panel definitions
  */
-export const semanticPanelDefinitions: PanelDefinition[] = [
-  duplicatesPanelDefinition,
-  indexStatusPanelDefinition,
+export const styleguidePanelDefinitions: PanelDefinition[] = [
+  styleguideStatusPanelDefinition,
 ];

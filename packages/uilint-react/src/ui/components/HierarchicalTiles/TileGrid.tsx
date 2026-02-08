@@ -110,10 +110,10 @@ export function buildConfigTags(metadata: Record<string, unknown> | undefined): 
 
   const tags: ConfigTag[] = [];
 
-  // Category tag — "semantic" is notable (AI-powered)
+  // Category tag — non-static categories are notable (plugin-provided)
   const category = metadata.category as string | undefined;
-  if (category === "semantic") {
-    tags.push({ label: "semantic", accent: true });
+  if (category && category !== "static") {
+    tags.push({ label: category, accent: true });
   } else if (category === "static") {
     tags.push({ label: "static" });
   }

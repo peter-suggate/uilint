@@ -172,10 +172,10 @@ export function RulePanel({ data }: InspectorPanelProps) {
             fontSize: 11,
             fontWeight: 500,
             textTransform: "uppercase",
-            background: rule.category === "semantic"
+            background: rule.category !== "static"
               ? "rgba(59, 130, 246, 0.1)"
               : "var(--uilint-surface-elevated)",
-            color: rule.category === "semantic"
+            color: rule.category !== "static"
               ? "var(--uilint-accent)"
               : "var(--uilint-text-muted)",
             padding: "2px 6px",

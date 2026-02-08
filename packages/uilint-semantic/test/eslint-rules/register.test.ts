@@ -6,7 +6,7 @@ import {
   getCategoryMeta,
 } from "uilint-eslint";
 
-describe("semantic ESLint rule registration", () => {
+describe("styleguide ESLint rule registration", () => {
   // Import once — the side-effect registers rules on first import.
   // Module caching means subsequent imports are no-ops, so we don't
   // clear between tests (only clean up after all tests).
@@ -19,25 +19,20 @@ describe("semantic ESLint rule registration", () => {
 
     const meta = getRuleMetadata("semantic");
     expect(meta).toBeDefined();
-    expect(meta!.plugin).toBe("semantic");
-    expect(meta!.category).toBe("semantic");
+    expect(meta!.plugin).toBe("styleguide");
+    expect(meta!.category).toBe("styleguide");
   });
 
-  it("registers no-semantic-duplicates rule meta on import", async () => {
-    const meta = getRuleMetadata("no-semantic-duplicates");
-    expect(meta).toBeDefined();
-    expect(meta!.plugin).toBe("semantic");
-  });
-
-  it("registers both rule implementations on import", async () => {
+  it("registers only the semantic rule implementation", async () => {
     const rules = getExternalRules();
     expect(rules.has("semantic")).toBe(true);
-    expect(rules.has("no-semantic-duplicates")).toBe(true);
+    // no-semantic-duplicates has been moved to uilint-duplicates
+    expect(rules.has("no-semantic-duplicates")).toBe(false);
   });
 
-  it("registers semantic category", async () => {
-    // "semantic" category already exists as built-in, registerCategory is idempotent
-    const cat = getCategoryMeta("semantic");
+  it("registers styleguide category", async () => {
+    const cat = getCategoryMeta("styleguide");
     expect(cat).toBeDefined();
+    expect(cat!.name).toBe("Styleguide Rules");
   });
 });

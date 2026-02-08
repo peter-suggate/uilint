@@ -26,7 +26,7 @@ export interface PluginCLIManifest {
 }
 
 /** Package names to probe for CLI manifests */
-const KNOWN_PLUGIN_PACKAGES = ["uilint-vision", "uilint-semantic"];
+const KNOWN_PLUGIN_PACKAGES = ["uilint-vision", "uilint-semantic", "uilint-duplicates"];
 
 /**
  * Discover available plugin manifests by probing `<pkg>/cli-manifest`.

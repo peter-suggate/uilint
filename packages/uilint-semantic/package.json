@@ -1,7 +1,7 @@
 {
   "name": "uilint-semantic",
   "version": "0.2.141",
-  "description": "Semantic code analysis and duplicate detection for UILint",
+  "description": "LLM-powered styleguide checking for UILint",
   "author": "Peter Suggate",
   "repository": {
     "type": "git",
@@ -36,10 +36,6 @@
     "./eslint-rules/semantic": {
       "types": "./dist/eslint-rules/semantic/index.d.ts",
       "import": "./dist/eslint-rules/semantic/index.js"
-    },
-    "./eslint-rules/no-semantic-duplicates": {
-      "types": "./dist/eslint-rules/no-semantic-duplicates.d.ts",
-      "import": "./dist/eslint-rules/no-semantic-duplicates.js"
     },
     "./cli-manifest": {
       "types": "./dist/cli-manifest.d.ts",

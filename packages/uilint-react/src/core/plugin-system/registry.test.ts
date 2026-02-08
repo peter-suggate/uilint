@@ -589,14 +589,14 @@ describe("PluginRegistry", () => {
     it("finds plugin by ruleCategories match", () => {
       const plugin = createMockPlugin({
         id: "category-handler",
-        ruleCategories: ["semantic", "accessibility"],
+        ruleCategories: ["styleguide", "accessibility"],
       });
 
       registry.register(plugin);
 
       const ruleMeta = createMockRuleMeta({
         id: "other/rule",
-        category: "semantic",
+        category: "styleguide",
       });
       const found = registry.getPluginForRule("other/rule", ruleMeta);
 

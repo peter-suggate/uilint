@@ -92,6 +92,7 @@ export async function loadPlugin(
 const KNOWN_PLUGIN_SPECIFIERS = [
   "uilint-vision/plugin",
   "uilint-semantic/plugin",
+  "uilint-duplicates/plugin",
 ];
 
 /**

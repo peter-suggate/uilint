@@ -40,7 +40,7 @@ export interface AvailableRule {
   id: string;
   name: string;
   description: string;
-  category: "static" | "semantic";
+  category: string;
   defaultSeverity: "error" | "warn" | "off";
   /** Current severity from ESLint config (may differ from default) */
   currentSeverity?: "error" | "warn" | "off";

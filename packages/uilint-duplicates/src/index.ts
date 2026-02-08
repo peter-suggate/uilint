@@ -151,3 +151,16 @@ export type {
   IndexerOptions,
   IndexUpdateResult,
 } from "./cache/incremental-indexer.js";
+
+// Plugin definition (auto-registers with pluginRegistry on import)
+export { duplicatesPlugin } from "./plugin/index.js";
+export type { DuplicatesState } from "./plugin/state.js";
+
+// WebSocket message types
+export type {
+  DuplicatesIndexingStartMessage,
+  DuplicatesIndexingProgressMessage,
+  DuplicatesIndexingCompleteMessage,
+  DuplicatesIndexingErrorMessage,
+  DuplicatesMessage,
+} from "./plugin/messages.js";

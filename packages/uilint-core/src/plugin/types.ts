@@ -85,6 +85,7 @@ export function isConditionalValue<T>(value: unknown): value is ConditionalValue
 
 /**
  * Icon identifiers - the host maps these to actual icon components.
+ * Any lucide-react icon name is accepted; the listed names provide autocompletion.
  */
 export type IconName =
   // UI Navigation
@@ -117,6 +118,10 @@ export type IconName =
   | "git-branch"
   | "copy"
   | "clipboard"
+  // Content
+  | "book"
+  | "book-open"
+  | "bookmark"
   // Actions
   | "play"
   | "pause"
@@ -130,7 +135,9 @@ export type IconName =
   | "loader"
   | "check-circle"
   | "x-circle"
-  | "clock";
+  | "clock"
+  // Allow any string for forward compatibility with lucide-react icons
+  | (string & {});
 
 // =============================================================================
 // ACTIONS

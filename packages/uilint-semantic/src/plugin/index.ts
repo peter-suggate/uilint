@@ -1,5 +1,5 @@
 /**
- * Semantic Plugin Definition
+ * Styleguide Plugin Definition
  *
  * Complete plugin export - NO REACT.
  * This is the main plugin definition that gets registered with pluginRegistry.
@@ -8,61 +8,65 @@
 import type { PluginWithHandlers, IssueContribution } from "uilint-core";
 import { pluginRegistry } from "uilint-core";
 
-import { semanticStateDefinition, type SemanticState } from "./state.js";
-import { semanticActionHandlers } from "./actions.js";
-import { semanticCommands } from "./commands.js";
-import { semanticPanelDefinitions } from "./panels.js";
-import { semanticRuleDefinitions } from "./rules.js";
-import { semanticMessageHandlers } from "./messages.js";
+import { styleguideStateDefinition, type StyleguideState } from "./state.js";
+import { styleguideActionHandlers } from "./actions.js";
+import { styleguideCommands } from "./commands.js";
+import { styleguidePanelDefinitions } from "./panels.js";
+import { styleguideRuleDefinitions } from "./rules.js";
+import { styleguideMessageHandlers } from "./messages.js";
 
 /**
- * Semantic plugin definition
+ * Styleguide plugin definition
  *
- * Contains everything needed for semantic analysis EXCEPT React components.
+ * Contains everything needed for styleguide checking EXCEPT React components.
  * The host (uilint-react) imports this and renders the appropriate UI.
  */
-export const semanticPlugin: PluginWithHandlers<SemanticState> = {
+export const styleguidePlugin: PluginWithHandlers<StyleguideState> = {
   // === Metadata ===
-  id: "semantic",
-  name: "Semantic Analysis",
+  id: "styleguide",
+  name: "Styleguide Checking",
   version: "1.0.0",
-  description: "Semantic code analysis and duplicate detection",
-  icon: "brain",
+  description: "LLM-powered styleguide enforcement",
+  icon: "book",
 
   // === State ===
-  state: semanticStateDefinition,
-  actions: semanticActionHandlers,
+  state: styleguideStateDefinition,
+  actions: styleguideActionHandlers,
 
   // === UI Contributions (Declarative) ===
-  commands: semanticCommands,
-  panels: semanticPanelDefinitions,
-  // No toolbar groups for semantic plugin
+  commands: styleguideCommands,
+  panels: styleguidePanelDefinitions,
 
   // === Rules ===
-  rules: semanticRuleDefinitions,
-  handlesRuleCategories: ["semantic"],
+  rules: styleguideRuleDefinitions,
+  handlesRuleCategories: ["styleguide"],
 
   // === WebSocket ===
-  messageHandlers: semanticMessageHandlers,
+  messageHandlers: styleguideMessageHandlers,
 
   // === Issue Aggregation ===
-  // Note: Issues come from ESLint rule, not directly from plugin state
-  // This is here for completeness but semantic issues flow through ESLint
-  getIssues: (_state: SemanticState): IssueContribution => {
-    // Semantic issues are reported by the no-semantic-duplicates ESLint rule
-    // They don't come from plugin state, so we return empty
-    return { pluginId: "semantic", issues: new Map() };
+  // Styleguide issues are reported by the semantic ESLint rule.
+  // They don't come from plugin state, so we return empty.
+  getIssues: (_state: StyleguideState): IssueContribution => {
+    return { pluginId: "styleguide", issues: new Map() };
   },
 
   // === Browser Actions ===
-  // Semantic plugin doesn't need browser actions
   browserActions: [],
+
+  // === Lifecycle ===
+  onLoad: (ctx) => {
+    // Check styleguide + model availability on load if connected
+    if (ctx.websocket.isConnected) {
+      ctx.websocket.send({ type: "styleguide:check" });
+    }
+  },
 };
 
 // Auto-register with plugin registry on import
-pluginRegistry.register(semanticPlugin);
+pluginRegistry.register(styleguidePlugin);
 
 // Export types for host apps
-export type { SemanticState } from "./state.js";
+export type { StyleguideState } from "./state.js";
 
-export default semanticPlugin;
+export default styleguidePlugin;

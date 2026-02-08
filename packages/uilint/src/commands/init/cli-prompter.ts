@@ -7,7 +7,7 @@
 
 import * as prompts from "../../utils/prompts.js";
 import type { RuleMetadata, OptionFieldSchema } from "uilint-eslint";
-import { getRulesByCategory, getCategoryMeta } from "uilint-eslint";
+import { getRulesByCategory, getCategoryMeta, getPluginCategories } from "uilint-eslint";
 import type {
   InstallItem,
   NextAppInfo,
@@ -177,9 +177,7 @@ export class CLIPrompter implements Prompter {
 
   async selectEslintRules(): Promise<RuleMetadata[]> {
     const staticRules = getRulesByCategory("static");
-    const semanticRules = getRulesByCategory("semantic");
     const staticCat = getCategoryMeta("static");
-    const semanticCat = getCategoryMeta("semantic");
 
     // Helper to get default enabled rules for a category
     const getDefaultEnabled = (rules: RuleMetadata[], categoryDefaultEnabled: boolean) =>
@@ -204,26 +202,36 @@ export class CLIPrompter implements Prompter {
       initialValues: getDefaultEnabled(staticRules, staticCat?.defaultEnabled ?? true),
     });
 
-    // Semantic rules section
-    prompts.log("");
-    prompts.log(
-      prompts.pc.bold(`${semanticCat?.icon ?? "🧠"} ${semanticCat?.name ?? "Semantic Rules"}`) +
-      prompts.pc.dim(` (${semanticCat?.description ?? "LLM-powered analysis"})`)
-    );
+    const allRules = [...staticRules];
+    const allSelectedIds = [...selectedStatic];
 
-    const selectedSemantic = await prompts.multiselect({
-      message: "Select semantic rules",
-      options: semanticRules.map((rule) => ({
-        value: rule.id,
-        label: `${rule.icon ?? ""} ${rule.name}`.trim(),
-        hint: rule.hint ?? rule.description,
-      })),
-      initialValues: getDefaultEnabled(semanticRules, semanticCat?.defaultEnabled ?? false),
-    });
+    // Dynamically discover plugin categories (styleguide, duplicates, etc.)
+    const pluginCategories = getPluginCategories();
+    for (const cat of pluginCategories) {
+      const rules = getRulesByCategory(cat.id);
+      if (rules.length === 0) continue;
 
-    const allRules = [...staticRules, ...semanticRules];
-    const selectedIds = new Set([...selectedStatic, ...selectedSemantic]);
+      prompts.log("");
+      prompts.log(
+        prompts.pc.bold(`${cat.icon ?? "🔌"} ${cat.name}`) +
+        prompts.pc.dim(` (${cat.description})`)
+      );
 
+      const selected = await prompts.multiselect({
+        message: `Select ${cat.name.toLowerCase()}`,
+        options: rules.map((rule) => ({
+          value: rule.id,
+          label: `${rule.icon ?? ""} ${rule.name}`.trim(),
+          hint: rule.hint ?? rule.description,
+        })),
+        initialValues: getDefaultEnabled(rules, cat.defaultEnabled),
+      });
+
+      allRules.push(...rules);
+      allSelectedIds.push(...selected);
+    }
+
+    const selectedIds = new Set(allSelectedIds);
     return allRules.filter((r) => selectedIds.has(r.id)) as RuleMetadata[];
   }
 

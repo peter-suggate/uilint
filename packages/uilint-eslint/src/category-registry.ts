@@ -33,13 +33,6 @@ export const categoryRegistry: CategoryMeta[] = [
     icon: "\u{1F4CB}",
     defaultEnabled: true,
   },
-  {
-    id: "semantic",
-    name: "Semantic Rules",
-    description: "LLM-powered analysis",
-    icon: "\u{1F9E0}",
-    defaultEnabled: false,
-  },
 ];
 
 /**
@@ -47,6 +40,14 @@ export const categoryRegistry: CategoryMeta[] = [
  */
 export function getCategoryMeta(id: string): CategoryMeta | undefined {
   return categoryRegistry.find((cat) => cat.id === id);
+}
+
+/**
+ * Get all registered categories (excluding "static" which is built-in).
+ * Returns plugin-provided categories like "styleguide", "duplicates", etc.
+ */
+export function getPluginCategories(): CategoryMeta[] {
+  return categoryRegistry.filter((cat) => cat.id !== "static");
 }
 
 /**

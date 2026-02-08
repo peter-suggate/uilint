@@ -1,69 +1,105 @@
 /**
- * Semantic Plugin Message Handlers
+ * Styleguide Plugin Message Handlers
  *
- * WebSocket message handlers for the semantic plugin.
+ * WebSocket message handlers for the styleguide plugin.
  * Plain functions - no React.
  */
 
 import type { MessageHandlers, PluginContext } from "uilint-core";
-import type { SemanticState } from "./state.js";
-import type {
-  DuplicatesIndexingProgressMessage,
-  DuplicatesIndexingCompleteMessage,
-  DuplicatesIndexingErrorMessage,
-} from "../types.js";
+import type { StyleguideState } from "./state.js";
 
 /**
- * Message handlers for the semantic plugin
+ * WebSocket message types for styleguide
  */
-export const semanticMessageHandlers: MessageHandlers<SemanticState> = {
+export interface StyleguideStatusMessage {
+  type: "styleguide:status";
+  styleguideLoaded: boolean;
+  styleguidePath: string | null;
+  modelAvailable: boolean;
+  modelName: string;
+}
+
+export interface StyleguideAnalysisProgressMessage {
+  type: "styleguide:analysis:progress";
+  filePath: string;
+  current: number;
+  total: number;
+}
+
+export interface StyleguideAnalysisCompleteMessage {
+  type: "styleguide:analysis:complete";
+  analyzedFileCount: number;
+  issueCount: number;
+}
+
+export interface StyleguideAnalysisErrorMessage {
+  type: "styleguide:analysis:error";
+  error: string;
+}
+
+export type StyleguideMessage =
+  | StyleguideStatusMessage
+  | StyleguideAnalysisProgressMessage
+  | StyleguideAnalysisCompleteMessage
+  | StyleguideAnalysisErrorMessage;
+
+/**
+ * Message handlers for the styleguide plugin
+ */
+export const styleguideMessageHandlers: MessageHandlers<StyleguideState> = {
   /**
-   * Handle indexing started
+   * Handle styleguide status response
    */
-  "duplicates:indexing:start": (ctx: PluginContext<SemanticState>) => {
-    ctx.dispatch("handle-indexing-start");
+  "styleguide:status": (
+    ctx: PluginContext<StyleguideState>,
+    message: unknown
+  ) => {
+    const msg = message as StyleguideStatusMessage;
+    ctx.dispatch("handle-styleguide-status", {
+      styleguideLoaded: msg.styleguideLoaded,
+      styleguidePath: msg.styleguidePath,
+      modelAvailable: msg.modelAvailable,
+      modelName: msg.modelName,
+    });
   },
 
   /**
-   * Handle indexing progress
+   * Handle analysis progress
    */
-  "duplicates:indexing:progress": (
-    ctx: PluginContext<SemanticState>,
+  "styleguide:analysis:progress": (
+    ctx: PluginContext<StyleguideState>,
     message: unknown
   ) => {
-    const msg = message as DuplicatesIndexingProgressMessage;
-    ctx.dispatch("handle-indexing-progress", {
-      message: msg.message,
+    const msg = message as StyleguideAnalysisProgressMessage;
+    ctx.dispatch("handle-analysis-progress", {
+      filePath: msg.filePath,
       current: msg.current,
       total: msg.total,
     });
   },
 
   /**
-   * Handle indexing complete
+   * Handle analysis complete
    */
-  "duplicates:indexing:complete": (
-    ctx: PluginContext<SemanticState>,
+  "styleguide:analysis:complete": (
+    ctx: PluginContext<StyleguideState>,
     message: unknown
   ) => {
-    const msg = message as DuplicatesIndexingCompleteMessage;
-    ctx.dispatch("handle-indexing-complete", {
-      added: msg.added,
-      modified: msg.modified,
-      deleted: msg.deleted,
-      totalChunks: msg.totalChunks,
-      duration: msg.duration,
+    const msg = message as StyleguideAnalysisCompleteMessage;
+    ctx.dispatch("handle-analysis-complete", {
+      analyzedFileCount: msg.analyzedFileCount,
+      issueCount: msg.issueCount,
     });
   },
 
   /**
-   * Handle indexing error
+   * Handle analysis error
    */
-  "duplicates:indexing:error": (
-    ctx: PluginContext<SemanticState>,
+  "styleguide:analysis:error": (
+    ctx: PluginContext<StyleguideState>,
     message: unknown
   ) => {
-    const msg = message as DuplicatesIndexingErrorMessage;
-    ctx.dispatch("handle-indexing-error", { error: msg.error });
+    const msg = message as StyleguideAnalysisErrorMessage;
+    ctx.dispatch("handle-analysis-error", { error: msg.error });
   },
 };

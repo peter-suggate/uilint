@@ -67,13 +67,17 @@
   },
   "peerDependencies": {
     "uilint-vision": "workspace:*",
-    "uilint-semantic": "workspace:*"
+    "uilint-semantic": "workspace:*",
+    "uilint-duplicates": "workspace:*"
   },
   "peerDependenciesMeta": {
     "uilint-vision": {
       "optional": true
     },
     "uilint-semantic": {
+      "optional": true
+    },
+    "uilint-duplicates": {
       "optional": true
     }
   },
