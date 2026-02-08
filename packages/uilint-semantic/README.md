@@ -1,6 +1,6 @@
 # uilint-semantic
 
-Semantic analysis plugin for UILint. Provides duplicate code detection and semantic similarity analysis.
+LLM-powered styleguide checking plugin for UILint. Enforces design system consistency using local AI models.
 
 ## Installation
 
@@ -12,107 +12,67 @@ pnpm add uilint-semantic
 
 ### Plugin System
 
-The semantic plugin auto-registers with the UILint plugin registry:
+The styleguide plugin auto-registers with the UILint plugin registry:
 
 ```typescript
 import "uilint-semantic"; // Auto-registers plugin
 
 import { pluginRegistry } from "uilint-core";
-const semanticPlugin = pluginRegistry.get("semantic");
+const styleguidePlugin = pluginRegistry.get("styleguide");
 ```
 
 ### Types
 
 ```typescript
-import type {
-  DuplicateMatch,
-  DuplicateGroup,
-  Chunk,
-  IndexStats,
-} from "uilint-semantic";
+import type { StyleguideState } from "uilint-semantic";
 ```
 
 ## Features
 
-- **Duplicate Detection**: Find semantically similar code patterns
-- **Code Indexing**: Build searchable index of code chunks
-- **Similarity Scoring**: Configurable similarity thresholds
-- **Issue Reporting**: ESLint rule for duplicate detection
+- **LLM-Powered Analysis**: Uses local Ollama models to check code against your styleguide
+- **Styleguide Enforcement**: Validates components match your design system rules
+- **Progress Tracking**: Real-time analysis progress and status
 
 ## Plugin Definition
 
-The semantic plugin provides:
+The styleguide plugin provides:
 
 ### Commands
-- `semantic:rebuild-index` - Rebuild the duplicates index
-- `semantic:clear-filter` - Clear heatmap filter
+- `styleguide:check-status` - Check styleguide and model availability
+- `styleguide:reload` - Reload styleguide from disk
 
 ### Panels
-- **Duplicates Panel**: Side-by-side code comparison with diff highlighting
-- **Index Status Panel**: Shows indexing progress and statistics
+- **Styleguide Status Panel**: Shows model availability, styleguide status, and analysis progress
 
 ### Rules
-- `no-semantic-duplicates` - ESLint rule to detect duplicate code
+- `semantic` - LLM-powered styleguide analysis rule (category: `styleguide`)
 
 ### State
 ```typescript
-interface SemanticState {
-  indexStatus: "idle" | "indexing" | "ready" | "error";
-  indexProgress: IndexProgress | null;
-  indexStats: IndexStats | null;
-  lastIndexError: string | null;
-  selectedDuplicate: SelectedDuplicate | null;
-}
-```
-
-## Types
-
-### DuplicateMatch
-```typescript
-interface DuplicateMatch {
-  sourceDataLoc: string;
-  targetDataLoc: string;
-  similarity: number;
-  sourceCode?: string;
-  targetCode?: string;
-}
-```
-
-### IndexStats
-```typescript
-interface IndexStats {
-  totalChunks: number;
-  added: number;
-  modified: number;
-  deleted: number;
-  duration: number;
-}
-```
-
-### Chunk
-```typescript
-interface Chunk {
-  id: string;
-  kind: ChunkKind;
-  filePath: string;
-  startLine: number;
-  endLine: number;
-  code: string;
-  hash: string;
+interface StyleguideState {
+  styleguideLoaded: boolean;
+  styleguidePath: string | null;
+  modelAvailable: boolean;
+  modelName: string | null;
+  analysisStatus: "idle" | "analyzing" | "complete" | "error";
+  analysisProgress: { current: number; total: number } | null;
+  lastAnalysisError: string | null;
+  analyzedFileCount: number;
+  issueCount: number;
 }
 ```
 
 ## Configuration
 
-The `no-semantic-duplicates` rule accepts options:
+The `semantic` rule requires:
+1. A local Ollama instance running
+2. A styleguide file at `.uilint/styleguide.md`
 
 ```javascript
-// .eslintrc.js
+// eslint.config.mjs
 {
   rules: {
-    "uilint/no-semantic-duplicates": ["warn", {
-      threshold: 0.75, // Similarity threshold (0-1)
-    }]
+    "uilint/semantic": ["warn"]
   }
 }
 ```
@@ -123,11 +83,11 @@ The plugin handles these WebSocket message types:
 
 | Message | Direction | Description |
 |---------|-----------|-------------|
-| `duplicates:index` | Client→Server | Request indexing |
-| `duplicates:indexing:start` | Server→Client | Indexing started |
-| `duplicates:indexing:progress` | Server→Client | Progress update |
-| `duplicates:indexing:complete` | Server→Client | Indexing finished |
-| `duplicates:indexing:error` | Server→Client | Indexing error |
+| `styleguide:check` | Client→Server | Check styleguide status |
+| `styleguide:status` | Server→Client | Styleguide/model availability |
+| `styleguide:analysis:progress` | Server→Client | Analysis progress update |
+| `styleguide:analysis:complete` | Server→Client | Analysis finished |
+| `styleguide:analysis:error` | Server→Client | Analysis error |
 
 ## License
 
