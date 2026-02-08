@@ -297,16 +297,6 @@ function aggregateByRuleWithIssues(
     ruleMetadata.set(rule.id, rule);
   }
 
-  // DEBUG: temporary logging to diagnose missing rule metadata
-  const issueRuleIds = [...issuesByRule.keys()];
-  const availableRuleIds = availableRules.map((r) => r.id);
-  console.log("[tile-provider] aggregateByRuleWithIssues:", {
-    issueRuleIds,
-    availableRuleIds,
-    availableRulesCount: availableRules.length,
-    firstMatch: issueRuleIds[0] ? ruleMetadata.has(issueRuleIds[0]) : "no issues",
-  });
-
   // Convert to tiles
   const tiles: TileItem[] = [];
 
