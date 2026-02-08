@@ -242,6 +242,7 @@ export {
   getAllRuleIds,
   categoryRegistry,
   getCategoryMeta,
+  getPluginCategories,
   registerRuleMeta,
   registerRuleMetas,
   registerESLintRule,
