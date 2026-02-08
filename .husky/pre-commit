@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 # CRITICAL: pipefail ensures lint/typecheck failures aren't masked by `| tee`.
 # Without it, `cmd | tee` returns tee's exit code (always 0), silently swallowing failures.
