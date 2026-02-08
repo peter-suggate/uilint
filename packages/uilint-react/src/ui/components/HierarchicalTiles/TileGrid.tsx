@@ -105,7 +105,7 @@ function EmptyState() {
  * Build config tags from tile metadata for rule tiles.
  * Returns tags for category, severity overrides, and key options.
  */
-function buildConfigTags(metadata: Record<string, unknown> | undefined): ConfigTag[] {
+export function buildConfigTags(metadata: Record<string, unknown> | undefined): ConfigTag[] {
   if (!metadata?.isRule) return [];
 
   const tags: ConfigTag[] = [];
