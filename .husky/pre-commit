@@ -1,8 +1,11 @@
 #!/bin/sh
 set -e
 # CRITICAL: pipefail ensures lint/typecheck failures aren't masked by `| tee`.
-# Without it, `cmd | tee` returns tee's exit code (always 0), silently swallowing failures.
-set -o pipefail
+# Husky v9 runs hooks with `sh` (which may be dash), so we re-exec under bash
+# to get pipefail support. Without pipefail, `cmd | tee` always returns 0.
+if [ -z "$_HUSKY_BASH_REEXEC" ]; then
+  _HUSKY_BASH_REEXEC=1 exec bash -eo pipefail "$0" "$@"
+fi
 
 echo "Linting uilint-react..."
 pnpm --filter uilint-react lint:strict 2>&1 | tee /tmp/pre-commit-lint.log
