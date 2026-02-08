@@ -23,6 +23,11 @@ import { ExternalLinkIcon } from "../../icons";
 
 export type TileBucket = "xs" | "sm" | "md" | "lg" | "xl";
 
+export interface ConfigTag {
+  label: string;
+  accent?: boolean;
+}
+
 export interface TileProps extends VariantProps<typeof tileVariants> {
   id: string;
   label: string;
@@ -33,6 +38,8 @@ export interface TileProps extends VariantProps<typeof tileVariants> {
   count: number;
   /** Number of files (for "X issues in Y files" display) */
   fileCount?: number;
+  /** Compact config tags shown on lg/xl tiles */
+  configTags?: ConfigTag[];
   bucket: TileBucket;
   isSelected: boolean;
   onClick: () => void;
@@ -117,6 +124,47 @@ function TypeGradient({ tileType }: { tileType?: "rule" | "file" }) {
 }
 
 /**
+ * Config tags - small pills showing rule config info on larger tiles
+ */
+function ConfigTags({
+  tags,
+  bucket,
+}: {
+  tags: ConfigTag[];
+  bucket: TileBucket;
+}) {
+  if (tags.length === 0) return null;
+
+  // Only show on lg/xl buckets
+  const maxTags = bucket === "xl" ? 3 : 2;
+  const visibleTags = tags.slice(0, maxTags);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2, delay: 0.15 }}
+      className="flex flex-wrap gap-1 mt-1.5 overflow-hidden max-h-[2.25rem]"
+    >
+      {visibleTags.map((tag) => (
+        <span
+          key={tag.label}
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[10px] leading-tight",
+            "border border-foreground/[0.06]",
+            tag.accent
+              ? "text-purple-500/70 bg-purple-500/[0.06] border-purple-500/10 dark:text-purple-400/70 dark:bg-purple-400/[0.06] dark:border-purple-400/10"
+              : "text-muted-foreground/60 bg-foreground/[0.03]"
+          )}
+        >
+          {tag.label}
+        </span>
+      ))}
+    </motion.div>
+  );
+}
+
+/**
  * Format the issue summary parts (e.g., "72" and "issues in 4 files")
  * Returns count separately for prominent styling
  */
@@ -183,6 +231,7 @@ export function Tile({
   tileType,
   count,
   fileCount,
+  configTags,
   bucket,
   isSelected,
   onClick,
@@ -278,6 +327,13 @@ export function Tile({
             </motion.button>
           )}
         </div>
+
+        {/* Config tags - only on lg/xl rule tiles */}
+        {configTags &&
+          configTags.length > 0 &&
+          (bucket === "lg" || bucket === "xl") && (
+            <ConfigTags tags={configTags} bucket={bucket} />
+          )}
 
         {/* Bottom section: Issue summary */}
         <div
