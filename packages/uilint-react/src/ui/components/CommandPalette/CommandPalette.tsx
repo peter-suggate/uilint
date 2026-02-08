@@ -1,53 +1,74 @@
 /**
- * CommandPalette - Elegant command interface inspired by Spotlight & Raycast
+ * CommandPalette - Two-panel search interface with live preview
  *
- * REDESIGNED: Flat tile interface showing all rules and files together.
- * Single click on any tile opens the inspector with that context.
+ * Rebar-inspired redesign: result list on the left, preview pane on the right.
+ * Supports fuzzy search across rules, files, and commands via plugin system.
  *
  * Features:
- * - Hero search input with glassmorphic styling
- * - Flat tile grid showing rules + files sorted by issue count
- * - Search filters tiles by underlying issues
- * - Single click opens inspector
- *
- * Visual design:
- * - Minimal colors, visual hierarchy through opacity/weight
- * - Glassmorphic container with backdrop blur
- * - Staggered animations with crisp easing
- * - shadcn class conventions
+ * - Two-panel layout (860px desktop, full-screen mobile)
+ * - Grouped result list (Rules, Files) with severity badges
+ * - Plugin-provided preview pane content
+ * - Fuzzy search via fuse.js
+ * - 1D keyboard navigation (ArrowUp/Down, Enter, Escape, Tab)
+ * - Mobile push navigation (tap slides to preview)
+ * - Slick motion animations throughout
  */
 
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
+import { ArrowLeft } from "lucide-react";
 import { devError } from "uilint-core";
 import { cn } from "../../../lib/utils";
 import { useComposedStore, getPluginServices } from "../../../core/store";
-import { useTileItems, useTileNavigation } from "../../hooks";
+import { useSearchItems } from "../../hooks/useSearchItems";
+import { useFuzzySearch } from "../../hooks/useFuzzySearch";
+import { useListNavigation } from "../../hooks/useListNavigation";
 import { SearchInput } from "./SearchInput";
-import { TileGrid } from "../HierarchicalTiles/TileGrid";
+import { ResultList } from "./ResultList";
+import { PreviewPane } from "./PreviewPane";
 import { OnboardingState } from "./OnboardingState";
-import { RuleToggleBar } from "./RuleToggleBar";
 import { GlassPanel } from "../primitives";
-import type { TileItem } from "../../../core/plugin-system/types";
+import type { SearchItem } from "../../../core/plugin-system/types";
 import type { ScanStatus } from "../../../plugins/eslint/slice";
 
-// Crisp easing for panel motion
+// ============================================================================
+// Constants
+// ============================================================================
+
 const panelTransition = {
   duration: 0.12,
   ease: [0.32, 0.72, 0, 1] as const,
 };
 
+const mobileSlideTransition = {
+  duration: 0.2,
+  ease: [0.32, 0.72, 0, 1] as const,
+};
+
+// ============================================================================
+// Component
+// ============================================================================
+
 export function CommandPalette() {
+  // --- Store subscriptions ---
   const isOpen = useComposedStore((s) => s.commandPalette.open);
   const query = useComposedStore((s) => s.commandPalette.query);
+  const selectedItemId = useComposedStore((s) => s.commandPalette.selectedItemId);
+  const selectedIndex = useComposedStore((s) => s.commandPalette.selectedIndex);
+  const previewFocused = useComposedStore((s) => s.commandPalette.previewFocused);
+  const mobileView = useComposedStore((s) => s.commandPalette.mobileView);
+
   const closeCommandPalette = useComposedStore((s) => s.closeCommandPalette);
   const setQuery = useComposedStore((s) => s.setCommandPaletteQuery);
+  const setSelectedItem = useComposedStore((s) => s.setCommandPaletteSelectedItem);
+  const togglePreviewFocus = useComposedStore((s) => s.toggleCommandPalettePreviewFocus);
+  const pushToPreview = useComposedStore((s) => s.pushToPreview);
+  const popToList = useComposedStore((s) => s.popToList);
   const openInspectorPanel = useComposedStore((s) => s.openInspectorPanel);
   const expandRule = useComposedStore((s) => s.expandRule);
   const expandFileInRule = useComposedStore((s) => s.expandFileInRule);
 
-  // Mobile detection from store
   const isMobile = useComposedStore((s) => s.mobile.isMobile);
 
   // Connection status for onboarding
@@ -58,49 +79,56 @@ export function CommandPalette() {
       (s.plugins?.eslint as { scanStatus?: ScanStatus } | undefined)?.scanStatus
   );
 
-  // Determine if we should show onboarding state
-  const showOnboarding = React.useMemo(() => {
-    // In websocket mode, show onboarding if not connected
-    if (connectionStatus.mode === "websocket" && !wsConnected) {
-      return true;
-    }
-    // In static mode, show onboarding if scan status is error
-    if (connectionStatus.mode === "static" && scanStatus === "error") {
-      return true;
-    }
+  const showOnboarding = useMemo(() => {
+    if (connectionStatus.mode === "websocket" && !wsConnected) return true;
+    if (connectionStatus.mode === "static" && scanStatus === "error") return true;
     return false;
   }, [connectionStatus.mode, wsConnected, scanStatus]);
 
-  // Determine onboarding variant
-  const onboardingVariant = React.useMemo(() => {
+  const onboardingVariant = useMemo(() => {
     if (connectionStatus.mode === "static" && scanStatus === "error") {
       return "manifest-error" as const;
     }
     return "disconnected" as const;
   }, [connectionStatus.mode, scanStatus]);
 
-  // Get tile items using the hook (flat list of rules + files)
-  const { items: tileItems, isLoading } = useTileItems(query);
+  // --- Search data ---
+  const searchItems = useSearchItems();
+  const { grouped, flatItems } = useFuzzySearch(searchItems, query);
 
-  // Handle tile click - opens inspector with appropriate context
-  const handleTileClick = useCallback(
-    async (item: TileItem) => {
+  // Selected item object
+  const selectedItem = useMemo(() => {
+    if (!selectedItemId) return flatItems[0] ?? null;
+    return flatItems.find((i) => i.id === selectedItemId) ?? flatItems[0] ?? null;
+  }, [selectedItemId, flatItems]);
+
+  // --- Callbacks ---
+  const handleItemSelect = useCallback(
+    (item: SearchItem, index: number) => {
+      setSelectedItem(item.id, index);
+      // On mobile, also push to preview
+      if (isMobile) {
+        pushToPreview();
+      }
+    },
+    [setSelectedItem, isMobile, pushToPreview]
+  );
+
+  const handleItemConfirm = useCallback(
+    async (item: SearchItem) => {
       const services = getPluginServices();
       if (!services) {
         devError("[CommandPalette] Plugin services not available");
         return;
       }
 
-      // Check if item has an execute function in metadata (commands)
-      const execute = item.metadata?.execute as
-        | ((services: unknown) => Promise<void>)
-        | undefined;
-      if (execute) {
+      // Check for execute function
+      if (item.execute) {
         try {
-          await execute(services);
+          await item.execute(services);
         } catch (error) {
           devError(
-            `[CommandPalette] Error executing tile item "${item.id}":`,
+            `[CommandPalette] Error executing item "${item.id}":`,
             error
           );
         }
@@ -108,28 +136,20 @@ export function CommandPalette() {
         return;
       }
 
-      // Open inspector with context based on tile type
+      // Open inspector with context based on item type
       const tileType = item.metadata?.tileType as string | undefined;
 
       if (tileType === "rule") {
-        // Rule tile: expand the rule in inspector
         const ruleId = item.metadata?.ruleId as string;
-        if (ruleId) {
-          expandRule(ruleId);
-        }
+        if (ruleId) expandRule(ruleId);
       } else if (tileType === "file") {
-        // File tile: expand to show the file in inspector
-        // For global file tiles, we just open the inspector (file will be shown in the default view)
         const filePath = item.metadata?.filePath as string;
         if (filePath) {
-          // If there's a ruleId, expand that rule and then the file
           const ruleId = item.metadata?.ruleId as string | undefined;
           if (ruleId) {
             expandRule(ruleId);
             expandFileInRule(filePath);
           }
-          // For global file tiles (no ruleId), just open inspector
-          // The IssuesList will show all issues for that file
         }
       }
 
@@ -139,23 +159,17 @@ export function CommandPalette() {
     [closeCommandPalette, openInspectorPanel, expandRule, expandFileInRule]
   );
 
-  // Use tile navigation for 2D keyboard navigation
-  const { selectedIndex, handleKeyDown: tileHandleKeyDown } = useTileNavigation(
-    tileItems,
-    3, // columns
-    handleTileClick,
-    () => {} // No back navigation needed in flat mode
-  );
+  // --- Keyboard navigation ---
+  const { handleKeyDown } = useListNavigation({
+    flatItems,
+    selectedIndex,
+    onSelect: (index, id) => setSelectedItem(id, index),
+    onConfirm: handleItemConfirm,
+    onEscape: closeCommandPalette,
+    onTabToggle: togglePreviewFocus,
+  });
 
-  // Keyboard handler for tile navigation
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      // Delegate to tile navigation for Up/Down/Left/Right/Enter/etc.
-      tileHandleKeyDown(e);
-    },
-    [tileHandleKeyDown]
-  );
-
+  // --- Render ---
   const portalRoot = document.getElementById("uilint-portal") || document.body;
 
   return createPortal(
@@ -196,15 +210,25 @@ export function CommandPalette() {
                 "overflow-hidden",
                 isMobile
                   ? "w-full h-full flex flex-col rounded-none pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]"
-                  : "w-[580px] h-auto block rounded-[20px]"
+                  : "w-[860px] h-auto flex flex-col rounded-[20px]"
               )}
             >
-              {/* Mobile Header with Close Button */}
+              {/* Mobile Header */}
               {isMobile && (
                 <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
-                  <span className="text-[15px] font-semibold text-text-primary">
-                    Search
-                  </span>
+                  {mobileView === "preview" ? (
+                    <button
+                      onClick={popToList}
+                      className="flex items-center gap-1.5 text-sm font-medium text-accent bg-transparent border-none cursor-pointer rounded-lg px-2 py-1"
+                    >
+                      <ArrowLeft size={16} />
+                      Back
+                    </button>
+                  ) : (
+                    <span className="text-[15px] font-semibold text-text-primary">
+                      Search
+                    </span>
+                  )}
                   <button
                     onClick={closeCommandPalette}
                     className="px-4 py-2 text-sm font-medium text-accent bg-transparent border-none cursor-pointer rounded-lg"
@@ -214,77 +238,94 @@ export function CommandPalette() {
                 </div>
               )}
 
-              {/* Hero Search Input */}
+              {/* Search Input */}
               <SearchInput
                 value={query}
                 onChange={setQuery}
                 size={isMobile ? "default" : "large"}
               />
 
-              {/* Rule Toggle Bar - quick toggles for filtering rules */}
-              {!showOnboarding && <RuleToggleBar />}
-
-              {/* Content Area: Tile Grid or Onboarding */}
-              <div
-                className={cn(
-                  "min-h-0 overflow-y-auto overflow-x-hidden",
-                  "[-webkit-overflow-scrolling:touch]",
-                  isMobile ? "flex-1 max-h-none" : "max-h-[440px]"
-                )}
-              >
-                <AnimatePresence mode={isMobile ? "sync" : "wait"}>
-                  {/* Onboarding state - show when not connected */}
-                  {showOnboarding ? (
-                    <motion.div
-                      key="onboarding"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.15 }}
-                    >
-                      <OnboardingState variant={onboardingVariant} />
-                    </motion.div>
-                  ) : isLoading ? (
-                    /* Loading state */
-                    <motion.div
-                      key="loading"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.15 }}
-                      className="py-12 px-6 flex flex-col items-center justify-center"
-                    >
+              {/* Content Area */}
+              {showOnboarding ? (
+                <div className="py-8 px-6">
+                  <OnboardingState variant={onboardingVariant} />
+                </div>
+              ) : isMobile ? (
+                /* Mobile: push navigation between list and preview */
+                <div className="flex-1 min-h-0 overflow-hidden relative">
+                  <AnimatePresence mode="sync" initial={false}>
+                    {mobileView === "list" ? (
                       <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{
-                          duration: 1,
-                          repeat: Infinity,
-                          ease: "linear",
-                        }}
-                        className="w-6 h-6 rounded-full border-2 border-border border-t-accent"
-                      />
-                      <div className="mt-3 text-[13px] text-text-muted">
-                        Loading...
-                      </div>
-                    </motion.div>
-                  ) : (
-                    /* Flat Tile Grid - rules + files together */
-                    <motion.div
-                      key="tiles"
-                      initial={isMobile ? false : { opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={isMobile ? undefined : { opacity: 0 }}
-                      transition={{ duration: isMobile ? 0 : 0.1 }}
-                    >
-                      <TileGrid
-                        items={tileItems}
-                        onTileClick={handleTileClick}
-                        selectedIndex={selectedIndex}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                        key="mobile-list"
+                        initial={{ x: "-100%" }}
+                        animate={{ x: 0 }}
+                        exit={{ x: "-100%" }}
+                        transition={mobileSlideTransition}
+                        className="absolute inset-0 overflow-y-auto overflow-x-hidden [-webkit-overflow-scrolling:touch]"
+                      >
+                        <ResultList
+                          grouped={grouped}
+                          flatItems={flatItems}
+                          selectedItemId={selectedItemId}
+                          selectedIndex={selectedIndex}
+                          onItemSelect={handleItemSelect}
+                          onItemConfirm={handleItemConfirm}
+                        />
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="mobile-preview"
+                        initial={{ x: "100%" }}
+                        animate={{ x: 0 }}
+                        exit={{ x: "100%" }}
+                        transition={mobileSlideTransition}
+                        className="absolute inset-0 overflow-y-auto overflow-x-hidden [-webkit-overflow-scrolling:touch]"
+                      >
+                        <PreviewPane
+                          selectedItem={selectedItem}
+                          isFocused={true}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                /* Desktop: two-panel layout */
+                <div className="flex flex-1 min-h-0 max-h-[520px]">
+                  {/* Result list (left panel) */}
+                  <div
+                    className={cn(
+                      "w-[340px] flex-shrink-0",
+                      "overflow-y-auto overflow-x-hidden",
+                      "[-webkit-overflow-scrolling:touch]",
+                      "border-r border-foreground/[0.06]"
+                    )}
+                  >
+                    <ResultList
+                      grouped={grouped}
+                      flatItems={flatItems}
+                      selectedItemId={selectedItem?.id ?? null}
+                      selectedIndex={selectedIndex}
+                      onItemSelect={handleItemSelect}
+                      onItemConfirm={handleItemConfirm}
+                    />
+                  </div>
+
+                  {/* Preview pane (right panel) */}
+                  <div
+                    className={cn(
+                      "flex-1 min-w-0",
+                      "overflow-y-auto overflow-x-hidden",
+                      "[-webkit-overflow-scrolling:touch]"
+                    )}
+                  >
+                    <PreviewPane
+                      selectedItem={selectedItem}
+                      isFocused={previewFocused}
+                    />
+                  </div>
+                </div>
+              )}
             </GlassPanel>
           </motion.div>
         </motion.div>

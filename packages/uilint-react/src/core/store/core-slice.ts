@@ -77,12 +77,19 @@ export interface CommandPaletteState {
   open: boolean;
   /** Current search query */
   query: string;
-  /** Currently selected index for keyboard navigation */
+  /** ID of the currently highlighted item in the result list */
+  selectedItemId: string | null;
+  /** Flat index for keyboard navigation (position in flattened grouped list) */
   selectedIndex: number;
+  /** Whether the preview pane has focus (Tab toggles) */
+  previewFocused: boolean;
+  /** On mobile, the current view: "list" or "preview" */
+  mobileView: "list" | "preview";
   /**
    * Expansion path for the expandable tile UI.
    * Stack of expanded tiles representing the current drill-down state.
    * Empty array = root view (no expansion).
+   * @deprecated Kept for HierarchicalTiles in inspector sidebar
    */
   expansionPath: ExpansionPath;
 }
@@ -199,6 +206,14 @@ export interface CoreSlice {
   setCommandPaletteQuery: (query: string) => void;
   /** Set the selected index for keyboard navigation */
   setCommandPaletteSelectedIndex: (index: number) => void;
+  /** Set the selected item ID and index (two-panel palette) */
+  setCommandPaletteSelectedItem: (id: string | null, index: number) => void;
+  /** Toggle focus between result list and preview pane */
+  toggleCommandPalettePreviewFocus: () => void;
+  /** Mobile: push to preview view */
+  pushToPreview: () => void;
+  /** Mobile: pop back to list view */
+  popToList: () => void;
 
   // ============ Tile Expansion ============
   /**
@@ -389,7 +404,10 @@ function setStorageValue<T>(key: string, value: T): void {
 const DEFAULT_COMMAND_PALETTE_STATE: CommandPaletteState = {
   open: false,
   query: "",
+  selectedItemId: null,
   selectedIndex: 0,
+  previewFocused: false,
+  mobileView: "list",
   expansionPath: [],
 };
 
@@ -502,19 +520,24 @@ export const createCoreSlice = (
         ...get().commandPalette,
         open: true,
         query: "",
+        selectedItemId: null,
         selectedIndex: 0,
+        previewFocused: false,
+        mobileView: "list",
       },
     });
   },
 
   closeCommandPalette: () => {
-    const current = get().commandPalette;
     set({
       commandPalette: {
-        ...current,
+        ...get().commandPalette,
         open: false,
         query: "",
+        selectedItemId: null,
         selectedIndex: 0,
+        previewFocused: false,
+        mobileView: "list",
       },
     });
   },
@@ -524,7 +547,9 @@ export const createCoreSlice = (
       commandPalette: {
         ...get().commandPalette,
         query,
+        selectedItemId: null,
         selectedIndex: 0,
+        previewFocused: false,
       },
     });
   },
@@ -534,6 +559,44 @@ export const createCoreSlice = (
       commandPalette: {
         ...get().commandPalette,
         selectedIndex: index,
+      },
+    });
+  },
+
+  setCommandPaletteSelectedItem: (id, index) => {
+    set({
+      commandPalette: {
+        ...get().commandPalette,
+        selectedItemId: id,
+        selectedIndex: index,
+      },
+    });
+  },
+
+  toggleCommandPalettePreviewFocus: () => {
+    const current = get().commandPalette;
+    set({
+      commandPalette: {
+        ...current,
+        previewFocused: !current.previewFocused,
+      },
+    });
+  },
+
+  pushToPreview: () => {
+    set({
+      commandPalette: {
+        ...get().commandPalette,
+        mobileView: "preview",
+      },
+    });
+  },
+
+  popToList: () => {
+    set({
+      commandPalette: {
+        ...get().commandPalette,
+        mobileView: "list",
       },
     });
   },

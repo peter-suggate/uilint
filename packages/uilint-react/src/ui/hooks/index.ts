@@ -3,6 +3,9 @@ export { useElementRects } from "./useElementRects";
 export { useSourceCode } from "./useSourceCode";
 export { useTileNavigation, type UseTileNavigationReturn } from "./useTileNavigation";
 export { useTileItems, type UseTileItemsResult } from "./useTileItems";
+export { useFuzzySearch, type UseFuzzySearchResult } from "./useFuzzySearch";
+export { useSearchItems } from "./useSearchItems";
+export { useListNavigation, type UseListNavigationReturn } from "./useListNavigation";
 
 // Re-export BREAKPOINTS from core-slice for backward compatibility
 export { BREAKPOINTS } from "../../core/store/core-slice";

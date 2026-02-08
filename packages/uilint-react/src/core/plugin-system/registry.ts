@@ -19,6 +19,8 @@ import type {
   ToolbarAction,
   ToolbarActionGroup,
   CategoryProvider,
+  SearchItem,
+  PreviewPanelResult,
 } from "./types";
 
 /**
@@ -307,6 +309,53 @@ export class PluginRegistry {
    */
   getAllCategoryProviders(): CategoryProvider[] {
     return [];
+  }
+
+  /**
+   * Aggregate all search items from all registered plugins.
+   * Used by the two-panel command palette for fuzzy search.
+   *
+   * @returns Array of all search items from all plugins
+   */
+  getAllSearchItems(): SearchItem[] {
+    if (!this.services) return [];
+    const items: SearchItem[] = [];
+    for (const { plugin, initialized } of this.plugins.values()) {
+      if (!initialized || !plugin.getSearchItems) continue;
+      try {
+        items.push(...plugin.getSearchItems(this.services));
+      } catch (error) {
+        devError(
+          `[PluginRegistry] Error getting search items from "${plugin.id}":`,
+          error
+        );
+      }
+    }
+    return items;
+  }
+
+  /**
+   * Get preview panel for a search item by trying each plugin.
+   * Returns the first non-null result.
+   *
+   * @param item - The search item to get a preview for
+   * @returns Preview panel result, or null if no plugin provides one
+   */
+  getPreviewPanel(item: SearchItem): PreviewPanelResult {
+    if (!this.services) return null;
+    for (const { plugin, initialized } of this.plugins.values()) {
+      if (!initialized || !plugin.getPreviewPanel) continue;
+      try {
+        const result = plugin.getPreviewPanel(item, this.services);
+        if (result) return result;
+      } catch (error) {
+        devError(
+          `[PluginRegistry] Error getting preview panel from "${plugin.id}":`,
+          error
+        );
+      }
+    }
+    return null;
   }
 
   /**
