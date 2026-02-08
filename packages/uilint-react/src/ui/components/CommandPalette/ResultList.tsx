@@ -139,7 +139,9 @@ function ResultItem({
         delay: Math.min(animIndex * 0.02, 0.15),
       }}
       onClick={onConfirm}
+      onMouseDown={(e) => e.preventDefault()}
       onMouseEnter={onSelect}
+      tabIndex={-1}
       className={cn(
         "w-full text-left relative",
         "flex items-center gap-2.5 px-3 py-2",
@@ -152,7 +154,7 @@ function ResultItem({
       {isSelected && (
         <motion.div
           layoutId="result-list-highlight"
-          className="absolute inset-0 bg-foreground/[0.06] rounded-md"
+          className="absolute inset-0 bg-foreground/[0.06]"
           transition={{ duration: 0.15, ease: crispEase }}
         />
       )}

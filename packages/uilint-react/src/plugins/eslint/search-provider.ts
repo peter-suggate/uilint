@@ -43,7 +43,7 @@ export function getSearchItems(services: PluginServices): SearchItem[] {
       id: `rule:${ruleId}`,
       section: "rules",
       label: meta?.name || shortName,
-      subtitle: meta?.description || ruleId,
+      subtitle: ruleId,
       severityCounts: countSeverities(ruleIssues),
       count: ruleIssues.length,
       fileCount: uniqueFiles.size,

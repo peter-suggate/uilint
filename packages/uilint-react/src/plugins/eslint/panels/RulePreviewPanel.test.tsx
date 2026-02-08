@@ -6,11 +6,58 @@
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import React from "react";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, fireEvent } from "@testing-library/react";
 import { RulePreviewPanel } from "./RulePreviewPanel";
 import type { PluginServices } from "../../../core/plugin-system/types";
 import type { Issue } from "../../../ui/types";
 import type { AvailableRule } from "../types";
+
+// Mock useComposedStore — returns values based on selector
+const mockStoreState = {
+  plugins: {
+    eslint: {
+      ruleConfigs: new Map<string, { severity: string; options?: Record<string, unknown> }>(),
+      ruleConfigUpdating: new Map<string, boolean>(),
+    },
+  },
+};
+
+vi.mock("../../../core/store", () => ({
+  useComposedStore: (selector: (s: typeof mockStoreState) => unknown) =>
+    selector(mockStoreState),
+}));
+
+// Mock pluginRegistry
+vi.mock("../../../core/plugin-system/registry", () => ({
+  pluginRegistry: {
+    setRuleSeverity: vi.fn(),
+    setRuleConfig: vi.fn(),
+  },
+}));
+
+// Mock RuleConfig to avoid rendering the full form
+vi.mock("../../../ui/components/Inspector/RuleConfig", () => ({
+  RuleConfig: ({
+    ruleId,
+    currentSeverity,
+    onSeverityChange,
+  }: {
+    ruleId: string;
+    currentSeverity: string;
+    onSeverityChange: (s: string) => void;
+  }) =>
+    React.createElement(
+      "div",
+      { "data-testid": "rule-config" },
+      React.createElement("span", { "data-testid": "config-rule-id" }, ruleId),
+      React.createElement("span", { "data-testid": "config-severity" }, currentSeverity),
+      React.createElement(
+        "button",
+        { "data-testid": "change-severity", onClick: () => onSeverityChange("error") },
+        "Set Error"
+      )
+    ),
+}));
 
 function createMockServices(
   issues: Issue[],
@@ -71,6 +118,9 @@ function makeIssue(overrides: Partial<Issue> = {}): Issue {
 describe("RulePreviewPanel", () => {
   afterEach(() => {
     cleanup();
+    // Reset mock store state
+    mockStoreState.plugins.eslint.ruleConfigs = new Map();
+    mockStoreState.plugins.eslint.ruleConfigUpdating = new Map();
   });
 
   it("renders rule name and description", () => {
@@ -134,5 +184,49 @@ describe("RulePreviewPanel", () => {
 
     expect(getByText("2 issues")).toBeTruthy();
     expect(getByText("2 files")).toBeTruthy();
+  });
+
+  it("renders RuleConfig with correct props", () => {
+    const rules: AvailableRule[] = [
+      {
+        id: "uilint/semantic",
+        name: "Semantic consistency",
+        description: "Check consistency",
+        category: "semantic",
+        defaultSeverity: "warn",
+      },
+    ];
+    const issues = [makeIssue()];
+    const services = createMockServices(issues, rules);
+
+    const { getByTestId } = render(
+      <RulePreviewPanel ruleId="uilint/semantic" services={services} />
+    );
+
+    expect(getByTestId("rule-config")).toBeTruthy();
+    expect(getByTestId("config-rule-id").textContent).toBe("uilint/semantic");
+    expect(getByTestId("config-severity").textContent).toBe("warn");
+  });
+
+  it("calls pluginRegistry.setRuleSeverity on severity change", async () => {
+    const { pluginRegistry } = await import("../../../core/plugin-system/registry");
+    const rules: AvailableRule[] = [
+      {
+        id: "uilint/semantic",
+        name: "Semantic consistency",
+        description: "Check consistency",
+        category: "semantic",
+        defaultSeverity: "warn",
+      },
+    ];
+    const issues = [makeIssue()];
+    const services = createMockServices(issues, rules);
+
+    const { getByTestId } = render(
+      <RulePreviewPanel ruleId="uilint/semantic" services={services} />
+    );
+
+    fireEvent.click(getByTestId("change-severity"));
+    expect(pluginRegistry.setRuleSeverity).toHaveBeenCalledWith("uilint/semantic", "error");
   });
 });

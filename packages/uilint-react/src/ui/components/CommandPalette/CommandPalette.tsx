@@ -169,6 +169,17 @@ export function CommandPalette() {
     onTabToggle: togglePreviewFocus,
   });
 
+  // Container-level handler: only Escape (works when focus is in preview pane)
+  const handleContainerKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeCommandPalette();
+      }
+    },
+    [closeCommandPalette]
+  );
+
   // --- Render ---
   const portalRoot = document.getElementById("uilint-portal") || document.body;
 
@@ -189,7 +200,7 @@ export function CommandPalette() {
           onClick={(e) => {
             if (e.target === e.currentTarget) closeCommandPalette();
           }}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleContainerKeyDown}
         >
           <motion.div
             initial={
@@ -242,6 +253,7 @@ export function CommandPalette() {
               <SearchInput
                 value={query}
                 onChange={setQuery}
+                onKeyDown={handleKeyDown}
                 size={isMobile ? "default" : "large"}
               />
 

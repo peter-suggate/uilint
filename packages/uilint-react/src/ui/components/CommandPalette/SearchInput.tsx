@@ -90,6 +90,8 @@ export interface SearchInputProps extends VariantProps<typeof searchContainerVar
   value: string;
   /** Callback when value changes */
   onChange: (value: string) => void;
+  /** Keyboard handler for navigation keys (ArrowUp/Down, Enter, Escape, etc.) */
+  onKeyDown?: (e: React.KeyboardEvent) => void;
   /** Placeholder text */
   placeholder?: string;
   /** Auto focus on mount */
@@ -117,6 +119,7 @@ export interface SearchInputProps extends VariantProps<typeof searchContainerVar
 export function SearchInput({
   value,
   onChange,
+  onKeyDown,
   placeholder = "Search commands, issues, rules...",
   autoFocus = true,
   size,
@@ -168,6 +171,7 @@ export function SearchInput({
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           placeholder={placeholder}

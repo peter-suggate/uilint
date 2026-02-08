@@ -186,7 +186,7 @@ describe("getSearchItems", () => {
 
     const ruleItem = items.find((i) => i.id === "rule:my-rule");
     expect(ruleItem!.label).toBe("My Custom Rule");
-    expect(ruleItem!.subtitle).toBe("A custom rule");
+    expect(ruleItem!.subtitle).toBe("my-rule");
   });
 
   it("extracts short name from scoped rule IDs", () => {

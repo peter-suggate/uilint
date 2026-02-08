@@ -1,11 +1,11 @@
 /**
  * RulePreviewPanel - Preview pane content for a rule search item
  *
- * Shows: rule name, description, severity hint, and issues grouped by file.
- * Reuses patterns from IssueSummaryView for compact issue rows.
+ * Shows: rule name, description, severity hint, interactive config,
+ * and issues grouped by file. Reuses RuleConfig for live editing.
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { motion } from "motion/react";
 import {
   AlertCircle,
@@ -17,7 +17,11 @@ import {
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import type { PluginServices } from "../../../core/plugin-system/types";
+import { useComposedStore } from "../../../core/store";
+import { pluginRegistry } from "../../../core/plugin-system/registry";
 import { getAllIssues, getAvailableRules } from "../tile-provider";
+import { RuleConfig } from "../../../ui/components/Inspector/RuleConfig";
+import type { ESLintPluginSlice } from "../slice";
 import type { Issue } from "../../../ui/types";
 
 // ============================================================================
@@ -168,6 +172,54 @@ export function RulePreviewPanel({ ruleId, services }: RulePreviewPanelProps) {
     );
   }, [ruleIssues]);
 
+  // --- Reactive config from store ---
+  const ruleConfig = useComposedStore((s) => {
+    const eslintState = s.plugins?.eslint as ESLintPluginSlice | undefined;
+    return eslintState?.ruleConfigs?.get(ruleId);
+  });
+
+  const isUpdating = useComposedStore((s) => {
+    const eslintState = s.plugins?.eslint as ESLintPluginSlice | undefined;
+    return eslintState?.ruleConfigUpdating?.get(ruleId) ?? false;
+  });
+
+  const currentSeverity: "off" | "warn" | "error" = useMemo(() => {
+    return ruleConfig?.severity ?? ruleMeta?.defaultSeverity ?? "warn";
+  }, [ruleConfig?.severity, ruleMeta?.defaultSeverity]);
+
+  const defaultOptions = useMemo(() => {
+    if (!ruleMeta?.defaultOptions) return {};
+    return Array.isArray(ruleMeta.defaultOptions)
+      ? (ruleMeta.defaultOptions[0] as Record<string, unknown>) ?? {}
+      : (ruleMeta.defaultOptions as Record<string, unknown>) ?? {};
+  }, [ruleMeta?.defaultOptions]);
+
+  // --- Config callbacks ---
+  const handleSeverityChange = useCallback(
+    (severity: "off" | "warn" | "error") => {
+      const apiSeverity = severity === "warn" ? "warning" : severity;
+      pluginRegistry.setRuleSeverity(ruleId, apiSeverity);
+    },
+    [ruleId]
+  );
+
+  const handleOptionChange = useCallback(
+    (key: string, value: unknown) => {
+      const currentOptions = ruleConfig?.options ?? {};
+      const newOptions = { ...currentOptions, [key]: value };
+      pluginRegistry.setRuleConfig(ruleId, newOptions);
+    },
+    [ruleId, ruleConfig?.options]
+  );
+
+  const handleResetOptions = useCallback(() => {
+    if (!ruleMeta?.defaultOptions) return;
+    const defaultOpts = Array.isArray(ruleMeta.defaultOptions)
+      ? (ruleMeta.defaultOptions[0] as Record<string, unknown>) ?? {}
+      : (ruleMeta.defaultOptions as Record<string, unknown>) ?? {};
+    pluginRegistry.setRuleConfig(ruleId, defaultOpts);
+  }, [ruleId, ruleMeta?.defaultOptions]);
+
   const shortName = ruleId.includes("/") ? ruleId.split("/").pop()! : ruleId;
   const highestSeverity = ruleIssues.some((i) => i.severity === "error")
     ? "error"
@@ -205,6 +257,21 @@ export function RulePreviewPanel({ ruleId, services }: RulePreviewPanelProps) {
             </span>
           )}
         </div>
+      </div>
+
+      {/* Configuration */}
+      <div className="border-b border-foreground/[0.06]">
+        <RuleConfig
+          ruleId={ruleId}
+          currentSeverity={currentSeverity}
+          onSeverityChange={handleSeverityChange}
+          optionSchema={ruleMeta?.optionSchema}
+          currentOptions={ruleConfig?.options}
+          defaultOptions={defaultOptions}
+          onOptionChange={handleOptionChange}
+          onResetOptions={handleResetOptions}
+          isUpdating={isUpdating}
+        />
       </div>
 
       {/* File groups */}
