@@ -477,4 +477,44 @@ describe("ESLint schema consistency", () => {
       }
     }
   });
+
+  it("all meta.defaultOptions properties should be present in ESLint schema", () => {
+    // meta.defaultOptions (from defineRuleMeta) is what eslint-config-inject.ts
+    // serializes into the consumer's eslint.config.js. If it contains properties
+    // not in the ESLint schema, ESLint will reject the config with
+    // "should NOT have additional properties" when additionalProperties: false.
+    for (const ruleMeta of ruleRegistry) {
+      const eslintRule = eslintRules[ruleMeta.id];
+      if (!eslintRule?.meta?.schema) {
+        continue;
+      }
+
+      const schemaProperties = getSchemaProperties(eslintRule.meta.schema);
+      if (schemaProperties.size === 0) {
+        continue;
+      }
+
+      const metaDefaults = ruleMeta.defaultOptions;
+      if (!metaDefaults || metaDefaults.length === 0) {
+        continue;
+      }
+
+      const firstDefault = metaDefaults[0];
+      if (!firstDefault || typeof firstDefault !== "object") {
+        continue;
+      }
+
+      const defaultKeys = Object.keys(firstDefault as Record<string, unknown>);
+
+      for (const key of defaultKeys) {
+        expect(
+          schemaProperties.has(key),
+          `Rule "${ruleMeta.id}": meta.defaultOptions property "${key}" is not in ESLint schema. ` +
+            `ESLint schema has: [${[...schemaProperties].join(", ")}]. ` +
+            `meta.defaultOptions is serialized into consumer eslint.config.js by the init command, ` +
+            `so any property not in the schema will cause ESLint to reject the config.`
+        ).toBe(true);
+      }
+    }
+  });
 });

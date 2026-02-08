@@ -40,6 +40,10 @@
     "./eslint-rules/no-semantic-duplicates": {
       "types": "./dist/eslint-rules/no-semantic-duplicates.d.ts",
       "import": "./dist/eslint-rules/no-semantic-duplicates.js"
+    },
+    "./cli-manifest": {
+      "types": "./dist/cli-manifest.d.ts",
+      "import": "./dist/cli-manifest.js"
     }
   },
   "files": [

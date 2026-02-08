@@ -373,6 +373,8 @@ export interface InstallOptions {
   react?: boolean;
   eslint?: boolean;
   skill?: boolean;
+  /** Plugin CLI flags selected (e.g. ["vision", "semantic"]) */
+  plugins?: string[];
 }
 
 export interface PlanOptions {

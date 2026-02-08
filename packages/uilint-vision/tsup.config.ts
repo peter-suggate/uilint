@@ -9,6 +9,7 @@ export default defineConfig({
     "eslint-rules/index": "src/eslint-rules/index.ts",
     "eslint-rules/register": "src/eslint-rules/register.ts",
     "eslint-rules/semantic-vision": "src/eslint-rules/semantic-vision.ts",
+    "cli-manifest": "src/cli-manifest.ts",
   },
   format: ["esm"],
   dts: true,

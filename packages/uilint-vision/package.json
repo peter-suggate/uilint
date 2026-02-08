@@ -40,6 +40,10 @@
     "./eslint-rules/semantic-vision": {
       "types": "./dist/eslint-rules/semantic-vision.d.ts",
       "import": "./dist/eslint-rules/semantic-vision.js"
+    },
+    "./cli-manifest": {
+      "types": "./dist/cli-manifest.d.ts",
+      "import": "./dist/cli-manifest.js"
     }
   },
   "files": [

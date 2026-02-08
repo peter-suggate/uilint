@@ -8,7 +8,7 @@
  * 4. Completion summary
  *
  * Non-interactive mode:
- * Use --react, --eslint, --genstyleguide, or --skill flags to skip prompts.
+ * Use --react, --eslint, --genstyleguide, --skill flags (plus any plugin flags) to skip prompts.
  */
 
 import React from "react";
@@ -32,9 +32,10 @@ import type {
 import type { ConfiguredRule } from "./init/components/RuleSelector.js";
 import { ruleRegistry } from "uilint-eslint";
 import { pc } from "../utils/prompts.js";
-import { loadPluginESLintRules } from "../utils/plugin-loader.js";
+import { discoverPlugins, loadPluginESLintRules, type PluginCLIManifest } from "../utils/plugin-loader.js";
 import { detectCoverageSetup } from "../utils/coverage-detect.js";
-import { runTestsWithCoverage, detectPackageManager } from "../utils/package-manager.js";
+import { runTestsWithCoverage, detectPackageManager, installDependencies } from "../utils/package-manager.js";
+import { toInstallSpecifier } from "./init/versioning.js";
 
 // Import installers to trigger registration
 import "./init/installers/index.js";
@@ -273,8 +274,28 @@ function isInteractiveTerminal(): boolean {
  */
 function hasNonInteractiveFlags(options: InstallOptions): boolean {
   return Boolean(
-    options.react || options.eslint || options.genstyleguide || options.skill
+    options.react || options.eslint || options.genstyleguide || options.skill ||
+    (options.plugins && options.plugins.length > 0)
   );
+}
+
+/**
+ * Pre-install plugin packages into the consumer project when flags are set.
+ * This ensures the plugins are available for loadPluginESLintRules() to import.
+ */
+async function preInstallPlugins(
+  selectedManifests: PluginCLIManifest[],
+  projectPath: string,
+): Promise<void> {
+  if (selectedManifests.length === 0) return;
+
+  const pluginPackages = selectedManifests.map((m) =>
+    toInstallSpecifier(m.packageName),
+  );
+
+  console.log(pc.dim(`Installing plugins: ${pluginPackages.join(", ")}...`));
+  const pm = detectPackageManager(projectPath);
+  await installDependencies(pm, projectPath, pluginPackages, { dev: true, silent: true });
 }
 
 /**
@@ -282,20 +303,48 @@ function hasNonInteractiveFlags(options: InstallOptions): boolean {
  */
 async function initNonInteractive(
   options: InstallOptions,
-  executeOptions: ExecuteOptions = {}
+  executeOptions: ExecuteOptions = {},
 ): Promise<void> {
   const projectPath = process.cwd();
 
   console.log(pc.blue("UILint init (non-interactive mode)"));
+
+  // Discover which plugins the user selected via CLI flags
+  const allManifests = await discoverPlugins();
+  const selectedPluginFlags = options.plugins ?? [];
+  const selectedManifests = allManifests.filter((m) =>
+    selectedPluginFlags.includes(m.cliFlag),
+  );
+
+  // Pre-install plugin packages so their rules can register before planning.
+  // When running via npx, the plugins are optional peer deps and not available
+  // alongside the CLI — we install them into the consumer project first, then
+  // load them from there.
+  await preInstallPlugins(selectedManifests, projectPath);
+
+  // Re-discover after install (packages are now available in consumer project)
+  const manifests =
+    selectedManifests.length > 0
+      ? await discoverPlugins(projectPath)
+      : allManifests;
+
+  // Load plugin rules (resolving from consumer project where they were just installed)
+  await loadPluginESLintRules(manifests, projectPath);
+
   console.log(pc.dim("Analyzing project..."));
 
   const project = await analyze(projectPath);
+
+  // Ensure --eslint is implied when any plugin is selected
+  if (selectedPluginFlags.length > 0 && !options.eslint) {
+    options.eslint = true;
+  }
 
   // Gather choices using flags (auto-prompter handles edge cases)
   const choices = await gatherChoices(project, options, autoPrompter);
 
   if (choices.items.length === 0) {
-    console.log("\nNo features selected. Use --react, --eslint, --genstyleguide, or --skill.");
+    console.log("\nNo features selected. Use --react, --eslint, --genstyleguide, --skill, or a plugin flag.");
     process.exit(1);
   }
 
@@ -324,9 +373,6 @@ export async function initUI(
   options: InstallOptions = {},
   executeOptions: ExecuteOptions = {}
 ): Promise<void> {
-  // Load plugin ESLint rules so vision/semantic rules appear in the registry
-  await loadPluginESLintRules();
-
   const projectPath = process.cwd();
 
   // Non-interactive mode: use flags directly without TTY
@@ -335,10 +381,14 @@ export async function initUI(
     return;
   }
 
+  // Interactive mode: load any locally-available plugin rules
+  const manifests = await discoverPlugins(projectPath);
+  await loadPluginESLintRules(manifests, projectPath);
+
   // Check if terminal supports interactive mode
   if (!isInteractiveTerminal()) {
     console.error("\n✗ Interactive mode requires a TTY terminal.");
-    console.error("Use --react, --eslint, --genstyleguide, or --skill for non-interactive mode.\n");
+    console.error("Use --react, --eslint, --genstyleguide, --skill, or a plugin flag for non-interactive mode.\n");
     process.exit(1);
   }
 

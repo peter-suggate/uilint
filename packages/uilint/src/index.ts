@@ -170,25 +170,15 @@ program
     });
   });
 
-// Init command
-program
+// Init command — plugin flags are added dynamically below in main()
+const initCommand = program
   .command("init")
   .description("Initialize UILint integration")
   .option("--force", "Overwrite existing configuration files")
   .option("--react", "Install React DevTool (non-interactive)")
   .option("--eslint", "Install ESLint rules (non-interactive)")
   .option("--genstyleguide", "Generate styleguide (non-interactive)")
-  .option("--skill", "Install Claude skill (non-interactive)")
-  .action(async (options) => {
-    const { initUI } = await import("./commands/init-ui.js");
-    await initUI({
-      force: options.force,
-      react: options.react,
-      eslint: options.eslint,
-      genstyleguide: options.genstyleguide,
-      skill: options.skill,
-    });
-  });
+  .option("--skill", "Install Claude skill (non-interactive)");
 
 // Remove command
 program
@@ -312,4 +302,35 @@ program
     });
   });
 
-program.parse();
+// Discover plugin manifests and wire up the init command dynamically
+async function main() {
+  const { discoverPlugins } = await import("./utils/plugin-loader.js");
+  const pluginManifests = await discoverPlugins();
+
+  // Add a --<flag> option for each discovered plugin
+  for (const manifest of pluginManifests) {
+    initCommand.option(`--${manifest.cliFlag}`, manifest.cliDescription);
+  }
+
+  // Wire up the init action handler (after plugin options are registered)
+  initCommand.action(async (options) => {
+    // Collect plugin flags into a string array
+    const plugins = pluginManifests
+      .filter((m) => options[m.cliFlag])
+      .map((m) => m.cliFlag);
+
+    const { initUI } = await import("./commands/init-ui.js");
+    await initUI({
+      force: options.force,
+      react: options.react,
+      eslint: options.eslint,
+      genstyleguide: options.genstyleguide,
+      skill: options.skill,
+      plugins: plugins.length > 0 ? plugins : undefined,
+    });
+  });
+
+  await program.parseAsync();
+}
+
+main();

@@ -30,7 +30,7 @@ import {
   note,
   confirm,
 } from "../utils/prompts.js";
-import { loadPluginESLintRules } from "../utils/plugin-loader.js";
+import { discoverPlugins, loadPluginESLintRules } from "../utils/plugin-loader.js";
 
 export interface UpgradeCommandOptions {
   check?: boolean;
@@ -45,8 +45,9 @@ export interface UpgradeCommandOptions {
 export async function upgrade(options: UpgradeCommandOptions): Promise<void> {
   intro("UILint Upgrade");
 
-  // Load plugin ESLint rules so vision/semantic rules appear in the registry
-  await loadPluginESLintRules();
+  // Load plugin ESLint rules so plugin rules appear in the registry
+  const pluginManifests = await discoverPlugins();
+  await loadPluginESLintRules(pluginManifests);
 
   try {
     const projectPath = process.cwd();

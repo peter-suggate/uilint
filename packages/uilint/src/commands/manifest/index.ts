@@ -20,7 +20,7 @@ import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { generateManifest } from "./generator.js";
 import { logInfo, logSuccess, logError, pc } from "../../utils/prompts.js";
-import { loadPluginESLintRules } from "../../utils/plugin-loader.js";
+import { discoverPlugins, loadPluginESLintRules } from "../../utils/plugin-loader.js";
 
 /**
  * Create the build-manifest command
@@ -64,8 +64,9 @@ interface BuildManifestOptions {
  * Build manifest action
  */
 async function buildManifest(options: BuildManifestOptions): Promise<void> {
-  // Load plugin ESLint rules so vision/semantic rules appear in the registry
-  await loadPluginESLintRules();
+  // Load plugin ESLint rules so plugin rules appear in the registry
+  const pluginManifests = await discoverPlugins();
+  await loadPluginESLintRules(pluginManifests);
 
   const startTime = Date.now();
   const outputPath = resolve(process.cwd(), options.output);
