@@ -42,9 +42,12 @@ import {
   readFileSync,
   mkdirSync,
   writeFileSync,
+  unlinkSync,
 } from "fs";
+import { createServer, type IncomingMessage, type ServerResponse } from "http";
 import { createRequire } from "module";
 import { dirname, resolve, relative, join, parse } from "path";
+import { URL } from "url";
 import { WebSocketServer, WebSocket } from "ws";
 import { watch, type FSWatcher } from "chokidar";
 import { findWorkspaceRoot } from "uilint-core/node";
@@ -103,7 +106,7 @@ import {
   needsCoveragePreparation,
 } from "../utils/coverage-prepare.js";
 import { enrichIssuesWithScopeInfo } from "../utils/eslint-utils.js";
-import { loadPluginESLintRules } from "../utils/plugin-loader.js";
+import { discoverPlugins, loadPluginESLintRules } from "../utils/plugin-loader.js";
 
 // ---------------------------------------------------------------------------
 // Sentinel issue detection (generic, driven by rule metadata)
@@ -146,6 +149,42 @@ export interface ServeOptions {
   port?: number;
   /** Disable dashboard UI (use simple logging) */
   noDashboard?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Port discovery constants
+// ---------------------------------------------------------------------------
+export const DEFAULT_PORT = 9234;
+export const PORT_RANGE_SIZE = 10;
+
+/**
+ * Try to listen on a port. Resolves true if available, false if in use.
+ */
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const srv = createServer();
+    srv.once("error", () => {
+      resolve(false);
+    });
+    srv.once("listening", () => {
+      srv.close(() => resolve(true));
+    });
+    srv.listen(port, "127.0.0.1");
+  });
+}
+
+/**
+ * Find an available port starting from `preferred`, scanning up to
+ * PORT_RANGE_SIZE ports.
+ */
+async function findAvailablePort(preferred: number): Promise<number> {
+  for (let offset = 0; offset < PORT_RANGE_SIZE; offset++) {
+    const port = preferred + offset;
+    if (await isPortAvailable(port)) return port;
+  }
+  throw new Error(
+    `No available ports in range ${preferred}–${preferred + PORT_RANGE_SIZE - 1}`
+  );
 }
 
 export interface LintIssue {
@@ -2265,7 +2304,7 @@ function handleRuleConfigSet(
  * Start the WebSocket server
  */
 export async function serve(options: ServeOptions): Promise<void> {
-  const port = options.port || 9234;
+  const preferredPort = options.port || DEFAULT_PORT;
 
   // Determine if we should use the dashboard UI
   // Enable dashboard if TTY and not explicitly disabled
@@ -2278,8 +2317,9 @@ export async function serve(options: ServeOptions): Promise<void> {
   }
 
   // Load plugin ESLint rules before anything accesses the registries.
-  // This triggers auto-registration of vision/semantic rules if installed.
-  await loadPluginESLintRules();
+  // This triggers auto-registration of plugin rules if installed.
+  const pluginManifests = await discoverPlugins();
+  await loadPluginESLintRules(pluginManifests);
 
   const cwd = process.cwd();
   const wsRoot = findWorkspaceRoot(cwd);
@@ -2316,8 +2356,83 @@ export async function serve(options: ServeOptions): Promise<void> {
     logServerInfo(`Watching coverage`, coveragePath);
   }
 
-  // Create WebSocket server
-  const wss = new WebSocketServer({ port });
+  // Find an available port (auto-increment if preferred port is in use)
+  const port = await findAvailablePort(preferredPort);
+  if (port !== preferredPort) {
+    logServerInfo(`Port ${preferredPort} in use, using ${port}`);
+  }
+
+  // Create HTTP server with discovery endpoint and WebSocket upgrade
+  const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+    // CORS preflight
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      });
+      res.end();
+      return;
+    }
+
+    const parsedUrl = new URL(req.url ?? "/", `http://localhost:${port}`);
+
+    if (parsedUrl.pathname === "/_uilint/info") {
+      const probePath = parsedUrl.searchParams.get("probe");
+      let probeExists: boolean | undefined;
+      if (probePath) {
+        // Check if the probed file exists relative to appRoot
+        const absolute = join(appRoot, probePath);
+        probeExists = existsSync(absolute);
+      }
+
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      });
+      res.end(
+        JSON.stringify({
+          appRoot,
+          workspaceRoot: wsRoot,
+          serverCwd: cwd,
+          port,
+          pid: process.pid,
+          ...(probeExists !== undefined && { probeExists }),
+        })
+      );
+      return;
+    }
+
+    res.writeHead(404);
+    res.end();
+  });
+
+  // Create WebSocket server in noServer mode (HTTP server handles upgrade)
+  const wss = new WebSocketServer({ noServer: true });
+
+  httpServer.on("upgrade", (request, socket, head) => {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit("connection", ws, request);
+    });
+  });
+
+  // Start listening
+  httpServer.listen(port, "127.0.0.1");
+
+  // Write port file so other tools can find this server
+  const portFilePath = join(appRoot, ".uilint", "port");
+  const uilintDir = join(appRoot, ".uilint");
+  if (!existsSync(uilintDir)) mkdirSync(uilintDir, { recursive: true });
+  writeFileSync(portFilePath, String(port), "utf-8");
+
+  /** Clean up port file on shutdown */
+  function removePortFile(): void {
+    try {
+      unlinkSync(portFilePath);
+    } catch {
+      // Ignore — file may already be gone
+    }
+  }
 
   // WebSocket keepalive: ping all clients every 30 seconds to detect stale connections
   const PING_INTERVAL = 30_000;
@@ -2449,7 +2564,9 @@ export async function serve(options: ServeOptions): Promise<void> {
       onQuit: () => {
         clearInterval(pingInterval);
         wss.close();
+        httpServer.close();
         fileWatcher?.close();
+        removePortFile();
       },
       onRebuildIndex: () => {
         buildDuplicatesIndex(appRoot);
@@ -2465,7 +2582,9 @@ export async function serve(options: ServeOptions): Promise<void> {
         logServerInfo("Shutting down...");
         clearInterval(pingInterval);
         wss.close();
+        httpServer.close();
         fileWatcher?.close();
+        removePortFile();
         resolve();
       });
     });

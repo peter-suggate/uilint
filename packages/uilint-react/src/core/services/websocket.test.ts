@@ -1,15 +1,21 @@
 /**
  * Unit tests for WebSocket service
  * Tests connection management, message routing, and handler registration
+ *
+ * @vitest-environment jsdom
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   WebSocketServiceImpl,
   createWebSocketService,
+  discoverServer,
   DEFAULT_WS_URL,
+  DEFAULT_PORT,
   MAX_RECONNECT_ATTEMPTS,
   RECONNECT_BASE_DELAY,
+  DISCOVERY_PORT_START,
+  DISCOVERY_PORT_COUNT,
 } from "./websocket";
 
 /**
@@ -712,6 +718,15 @@ describe("WebSocketServiceImpl", () => {
       expect(DEFAULT_WS_URL).toBe("ws://localhost:9234");
     });
 
+    it("exports correct default port", () => {
+      expect(DEFAULT_PORT).toBe(9234);
+    });
+
+    it("exports correct discovery port range", () => {
+      expect(DISCOVERY_PORT_START).toBe(9234);
+      expect(DISCOVERY_PORT_COUNT).toBe(10);
+    });
+
     it("exports correct max reconnect attempts", () => {
       expect(MAX_RECONNECT_ATTEMPTS).toBe(10);
     });
@@ -719,5 +734,131 @@ describe("WebSocketServiceImpl", () => {
     it("exports correct reconnect base delay", () => {
       expect(RECONNECT_BASE_DELAY).toBe(1000);
     });
+  });
+});
+
+describe("discoverServer", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  function mockFetch(servers: Map<number, { appRoot: string; probeExists?: boolean }>) {
+    globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const match = url.match(/localhost:(\d+)/);
+      if (!match) return new Response(null, { status: 404 });
+      const port = parseInt(match[1], 10);
+      const server = servers.get(port);
+      if (!server) throw new Error("Connection refused");
+      return new Response(
+        JSON.stringify({
+          appRoot: server.appRoot,
+          workspaceRoot: server.appRoot,
+          serverCwd: server.appRoot,
+          port,
+          pid: 1234,
+          ...(server.probeExists !== undefined && { probeExists: server.probeExists }),
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    });
+  }
+
+  it("returns null when no servers are running", async () => {
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("Connection refused");
+    });
+
+    const result = await discoverServer();
+    expect(result).toBeNull();
+  });
+
+  it("returns the single running server", async () => {
+    mockFetch(new Map([[9234, { appRoot: "/project-a" }]]));
+
+    const result = await discoverServer();
+    expect(result).not.toBeNull();
+    expect(result!.port).toBe(9234);
+    expect(result!.appRoot).toBe("/project-a");
+  });
+
+  it("returns server on non-default port", async () => {
+    mockFetch(new Map([[9237, { appRoot: "/project-b" }]]));
+
+    const result = await discoverServer();
+    expect(result).not.toBeNull();
+    expect(result!.port).toBe(9237);
+  });
+
+  it("prefers server where probeExists is true when multiple servers run", async () => {
+    // Set up a data-loc element in the DOM
+    const el = document.createElement("div");
+    el.setAttribute("data-loc", "src/App.tsx:5:0");
+    document.body.appendChild(el);
+
+    mockFetch(
+      new Map([
+        [9234, { appRoot: "/project-a", probeExists: false }],
+        [9235, { appRoot: "/project-b", probeExists: true }],
+      ])
+    );
+
+    const result = await discoverServer();
+    expect(result).not.toBeNull();
+    expect(result!.port).toBe(9235);
+    expect(result!.appRoot).toBe("/project-b");
+
+    document.body.removeChild(el);
+  });
+
+  it("falls back to default port when no probe match", async () => {
+    mockFetch(
+      new Map([
+        [9234, { appRoot: "/project-a", probeExists: false }],
+        [9235, { appRoot: "/project-b", probeExists: false }],
+      ])
+    );
+
+    const result = await discoverServer();
+    expect(result).not.toBeNull();
+    expect(result!.port).toBe(9234);
+  });
+
+  it("scans all ports in the discovery range", async () => {
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("Connection refused");
+    });
+
+    await discoverServer();
+
+    // Should have tried all ports in the range
+    expect(globalThis.fetch).toHaveBeenCalledTimes(DISCOVERY_PORT_COUNT);
+    for (let i = 0; i < DISCOVERY_PORT_COUNT; i++) {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`localhost:${DISCOVERY_PORT_START + i}`),
+        expect.any(Object)
+      );
+    }
+  });
+
+  it("strips line:col from data-loc for probe path", async () => {
+    const el = document.createElement("div");
+    el.setAttribute("data-loc", "src/components/Button.tsx:42:8");
+    document.body.appendChild(el);
+
+    mockFetch(new Map([[9234, { appRoot: "/project", probeExists: true }]]));
+
+    await discoverServer();
+
+    // The fetch should include the file path without line:col
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("probe=src%2Fcomponents%2FButton.tsx"),
+      expect.any(Object)
+    );
+
+    document.body.removeChild(el);
   });
 });

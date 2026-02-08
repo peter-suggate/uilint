@@ -8,10 +8,16 @@
 import { devLog, devWarn, devError } from "uilint-core";
 
 // Constants
-export const DEFAULT_WS_URL = "ws://localhost:9234";
+export const DEFAULT_PORT = 9234;
+export const DEFAULT_WS_URL = `ws://localhost:${DEFAULT_PORT}`;
 export const MAX_RECONNECT_ATTEMPTS = 10;
 export const RECONNECT_BASE_DELAY = 1000;
 export const MAX_RECONNECT_DELAY = 10_000;
+
+// Discovery constants
+export const DISCOVERY_PORT_START = DEFAULT_PORT;
+export const DISCOVERY_PORT_COUNT = 10;
+export const DISCOVERY_TIMEOUT_MS = 500;
 
 // Type definitions
 export type MessageHandler<T = unknown> = (data: T) => void;
@@ -363,6 +369,102 @@ export class WebSocketServiceImpl implements WebSocketService {
       this.connect(this.url);
     }, delay);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Server discovery
+// ---------------------------------------------------------------------------
+
+export interface ServerInfo {
+  appRoot: string;
+  workspaceRoot: string;
+  serverCwd: string;
+  port: number;
+  pid: number;
+  probeExists?: boolean;
+}
+
+/**
+ * Probe a single port for a running uilint server.
+ * Returns null if the port is not a uilint server or unreachable.
+ */
+async function probePort(
+  port: number,
+  probePath: string | null
+): Promise<ServerInfo | null> {
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(
+    () => controller.abort(),
+    DISCOVERY_TIMEOUT_MS
+  );
+  try {
+    const query = probePath ? `?probe=${encodeURIComponent(probePath)}` : "";
+    const res = await fetch(`http://localhost:${port}/_uilint/info${query}`, {
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as ServerInfo;
+  } catch {
+    return null;
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}
+
+/**
+ * Extract a sample file path from the first data-loc attribute in the DOM.
+ * Returns the file path portion (strips :line:col suffix).
+ */
+function getSampleDataLoc(): string | null {
+  if (typeof document === "undefined") return null;
+  const el = document.querySelector("[data-loc]");
+  if (!el) return null;
+  const loc = el.getAttribute("data-loc");
+  if (!loc) return null;
+  // data-loc format: "relative/path/file.tsx:line:col"
+  // Strip the trailing :line:col
+  const parts = loc.split(":");
+  if (parts.length >= 3) {
+    return parts.slice(0, -2).join(":");
+  }
+  return loc;
+}
+
+/**
+ * Discover the uilint server that owns this app by scanning ports
+ * and probing with a data-loc path from the DOM.
+ *
+ * Returns the matching ServerInfo, or null if none found.
+ */
+export async function discoverServer(): Promise<ServerInfo | null> {
+  // SSR guard
+  if (typeof window === "undefined") return null;
+
+  const sampleLoc = getSampleDataLoc();
+
+  const ports = Array.from(
+    { length: DISCOVERY_PORT_COUNT },
+    (_, i) => DISCOVERY_PORT_START + i
+  );
+
+  const results = await Promise.all(ports.map((p) => probePort(p, sampleLoc)));
+  const servers = results.filter(
+    (info): info is ServerInfo => info !== null
+  );
+
+  if (servers.length === 0) return null;
+  if (servers.length === 1) return servers[0];
+
+  // Multiple servers — prefer the one that owns our file
+  if (sampleLoc) {
+    const match = servers.find((s) => s.probeExists === true);
+    if (match) return match;
+  }
+
+  // Fallback: prefer the default port, then the lowest port
+  return (
+    servers.find((s) => s.port === DISCOVERY_PORT_START) ?? servers[0]
+  );
 }
 
 /**

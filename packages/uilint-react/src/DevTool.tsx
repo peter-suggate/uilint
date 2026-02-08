@@ -12,7 +12,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { devLog, devWarn } from "uilint-core";
 import { UILint } from "./ui";
-import { websocket, MAX_RECONNECT_ATTEMPTS } from "./core/services/websocket";
+import { websocket, discoverServer, MAX_RECONNECT_ATTEMPTS } from "./core/services/websocket";
 import { domObserver } from "./core/services/dom-observer";
 import { initializePlugins, getStoreApi } from "./core/store";
 import { pluginRegistry } from "./core/plugin-system/registry";
@@ -184,8 +184,13 @@ export function DevTool({
         devLog("[DevTool] Static mode: starting DOM observer");
         domObserver.start();
       } else {
-        // WebSocket mode: Connect and wait for connection before starting observer
-        websocket.connect();
+        // WebSocket mode: Discover server, then connect
+        const server = await discoverServer();
+        const wsUrl = server ? `ws://localhost:${server.port}` : undefined;
+        if (server) {
+          devLog(`[DevTool] Discovered server on port ${server.port}`);
+        }
+        websocket.connect(wsUrl);
 
         unsubscribeConnection = websocket.onConnectionChange((connected) => {
           if (connected) {
