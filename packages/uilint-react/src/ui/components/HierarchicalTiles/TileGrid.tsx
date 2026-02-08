@@ -12,9 +12,10 @@ import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles } from "lucide-react";
 import { cn } from "../../../lib/utils";
-import { Tile } from "./Tile";
+import { Tile, type ConfigTag } from "./Tile";
 import { calculateMosaicLayout } from "./layout";
 import { crispEase } from "./animations";
+import type { OptionFieldSchema } from "../../../plugins/eslint/types";
 
 // ============================================================================
 // Types
@@ -94,6 +95,53 @@ function EmptyState() {
       </div>
     </motion.div>
   );
+}
+
+// ============================================================================
+// Config Tag Helpers
+// ============================================================================
+
+/**
+ * Build config tags from tile metadata for rule tiles.
+ * Returns tags for category, severity overrides, and key options.
+ */
+export function buildConfigTags(metadata: Record<string, unknown> | undefined): ConfigTag[] {
+  if (!metadata?.isRule) return [];
+
+  const tags: ConfigTag[] = [];
+
+  // Category tag — "semantic" is notable (AI-powered)
+  const category = metadata.category as string | undefined;
+  if (category === "semantic") {
+    tags.push({ label: "semantic", accent: true });
+  } else if (category === "static") {
+    tags.push({ label: "static" });
+  }
+
+  // Severity override tag — show when current differs from default
+  const currentSeverity = metadata.currentSeverity as string | undefined;
+  const defaultSeverity = metadata.defaultSeverity as string | undefined;
+  if (currentSeverity && defaultSeverity && currentSeverity !== defaultSeverity) {
+    tags.push({ label: currentSeverity });
+  }
+
+  // Key option values — show the first 1-2 configured options
+  const currentOptions = metadata.currentOptions as Record<string, unknown> | undefined;
+  const optionSchema = metadata.optionSchema as { fields?: OptionFieldSchema[] } | undefined;
+  if (currentOptions && optionSchema?.fields) {
+    for (const field of optionSchema.fields) {
+      const value = currentOptions[field.key];
+      if (value !== undefined && value !== field.defaultValue) {
+        const display = typeof value === "boolean"
+          ? `${field.label}: ${value ? "on" : "off"}`
+          : `${field.label}: ${String(value)}`;
+        tags.push({ label: display });
+        if (tags.length >= 4) break; // will be capped by bucket in Tile
+      }
+    }
+  }
+
+  return tags;
 }
 
 // ============================================================================
@@ -178,6 +226,7 @@ export function TileGrid<T extends BaseTileItem>({
                 tileType={item.tileType ?? (item.metadata?.tileType as "rule" | "file" | undefined)}
                 count={item.count}
                 fileCount={item.fileCount}
+                configTags={buildConfigTags(item.metadata)}
                 bucket={tileLayout.bucket}
                 isSelected={globalIndex === selectedIndex}
                 onClick={() => onTileClick(item)}

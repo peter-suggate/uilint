@@ -84,14 +84,13 @@ function buildRuleMetadata(appRoot: string): ManifestRuleMeta[] {
     : new Map<string, { severity: "error" | "warn" | "off"; options?: Record<string, unknown> }>();
 
   // Only include rules that are configured in the ESLint config
-  // Use full rule IDs (uilint/...) for consistency with ESLint output
+  // readRuleConfigsFromConfig strips the "uilint/" prefix, so match on bare rule.id
   return ruleRegistry
-    .filter((rule) => currentRuleConfigs.has(`uilint/${rule.id}`))
+    .filter((rule) => currentRuleConfigs.has(rule.id))
     .map((rule) => {
-      const fullId = `uilint/${rule.id}`;
-      const currentConfig = currentRuleConfigs.get(fullId);
+      const currentConfig = currentRuleConfigs.get(rule.id);
       return {
-        id: fullId,
+        id: `uilint/${rule.id}`,
         name: rule.name,
         description: rule.description,
         category: rule.category,

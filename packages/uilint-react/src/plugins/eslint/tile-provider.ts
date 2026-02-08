@@ -93,6 +93,11 @@ export function aggregateByRule(
         isRule: true,
         ruleId,
         tileType: "rule" as TileType,
+        category: meta?.category,
+        currentSeverity: meta?.currentSeverity,
+        defaultSeverity: meta?.defaultSeverity,
+        currentOptions: meta?.currentOptions,
+        optionSchema: meta?.optionSchema,
       },
     });
   }
@@ -318,6 +323,12 @@ function aggregateByRuleWithIssues(
         tileType: "rule" as TileType,
         // Store issues for search filtering
         issues: ruleIssues,
+        // Rule config data for tile display
+        category: meta?.category,
+        currentSeverity: meta?.currentSeverity,
+        defaultSeverity: meta?.defaultSeverity,
+        currentOptions: meta?.currentOptions,
+        optionSchema: meta?.optionSchema,
       },
     });
   }

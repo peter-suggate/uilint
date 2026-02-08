@@ -11,7 +11,7 @@
  * - Line 1: Rule/file name (label)
  * - Line 2: "X issues in Y files" or "X issues"
  */
-import React, { useMemo } from "react";
+import React, { useMemo, useLayoutEffect } from "react";
 import { motion } from "motion/react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../../lib/utils";
@@ -23,6 +23,11 @@ import { ExternalLinkIcon } from "../../icons";
 
 export type TileBucket = "xs" | "sm" | "md" | "lg" | "xl";
 
+export interface ConfigTag {
+  label: string;
+  accent?: boolean;
+}
+
 export interface TileProps extends VariantProps<typeof tileVariants> {
   id: string;
   label: string;
@@ -33,6 +38,8 @@ export interface TileProps extends VariantProps<typeof tileVariants> {
   count: number;
   /** Number of files (for "X issues in Y files" display) */
   fileCount?: number;
+  /** Compact config tags shown on lg/xl tiles */
+  configTags?: ConfigTag[];
   bucket: TileBucket;
   isSelected: boolean;
   onClick: () => void;
@@ -117,6 +124,38 @@ function TypeGradient({ tileType }: { tileType?: "rule" | "file" }) {
 }
 
 /**
+ * Config tags - small pills showing rule config info on tiles with enough room.
+ * Rendered by the parent only after measuring that sufficient vertical space exists.
+ */
+function ConfigTags({ tags, maxTags }: { tags: ConfigTag[]; maxTags: number }) {
+  const visibleTags = tags.slice(0, maxTags);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2, delay: 0.1 }}
+      className="flex flex-wrap gap-1 mt-1.5 overflow-hidden max-h-[2.25rem]"
+    >
+      {visibleTags.map((tag) => (
+        <span
+          key={tag.label}
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[10px] leading-tight",
+            "border border-foreground/[0.06]",
+            tag.accent
+              ? "text-purple-500/70 bg-purple-500/[0.06] border-purple-500/10 dark:text-purple-400/70 dark:bg-purple-400/[0.06] dark:border-purple-400/10"
+              : "text-muted-foreground/60 bg-foreground/[0.03]"
+          )}
+        >
+          {tag.label}
+        </span>
+      ))}
+    </motion.div>
+  );
+}
+
+/**
  * Format the issue summary parts (e.g., "72" and "issues in 4 files")
  * Returns count separately for prominent styling
  */
@@ -176,6 +215,12 @@ function getSummaryFontSize(bucket: TileBucket): string {
 // Main Component
 // ============================================================================
 
+/**
+ * Minimum vertical gap (px) between top and bottom content before we show tags.
+ * Tags are ~18px tall + 6px top margin = ~24px. We add breathing room.
+ */
+const MIN_GAP_FOR_TAGS = 32;
+
 export function Tile({
   id,
   label,
@@ -183,12 +228,45 @@ export function Tile({
   tileType,
   count,
   fileCount,
+  configTags,
   bucket,
   isSelected,
   onClick,
   onOpenInInspector,
 }: TileProps) {
   const [isHovered, setIsHovered] = React.useState(false);
+
+  // Measurement refs — measure gap between top content and bottom summary
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const topRef = React.useRef<HTMLDivElement>(null);
+  const bottomRef = React.useRef<HTMLDivElement>(null);
+  const [tagsVisible, setTagsVisible] = React.useState(false);
+
+  const hasTags = Boolean(configTags?.length);
+
+  // Measure available vertical gap and decide whether tags fit.
+  // Runs before paint so the fade-in starts from the correct state.
+  useLayoutEffect(() => {
+    if (!hasTags) {
+      setTagsVisible(false);
+      return;
+    }
+
+    const container = containerRef.current;
+    const top = topRef.current;
+    const bottom = bottomRef.current;
+    if (!container || !top || !bottom) {
+      setTagsVisible(false);
+      return;
+    }
+
+    const containerHeight = container.clientHeight;
+    const topHeight = top.offsetHeight;
+    const bottomHeight = bottom.offsetHeight;
+    const availableGap = containerHeight - topHeight - bottomHeight;
+
+    setTagsVisible(availableGap >= MIN_GAP_FOR_TAGS);
+  }, [hasTags, bucket, label, subtitle, count, fileCount]);
 
   const handleOpenInInspector = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -217,6 +295,9 @@ export function Tile({
   // Get path font size (smaller than summary)
   const pathFontSize = bucket === "xs" ? "text-[10px]" : "text-xs";
 
+  // Cap visible tags: xl gets 3, lg gets 2, smaller buckets get 1
+  const maxTags = bucket === "xl" ? 3 : bucket === "lg" ? 2 : 1;
+
   return (
     <motion.div
       data-tile-id={id}
@@ -232,9 +313,9 @@ export function Tile({
       className={cn(tileVariants({ selected: isSelected, size: bucket }))}
     >
       {/* Content: path + label at top, issue summary at bottom */}
-      <div className="flex flex-col justify-between h-full">
+      <div ref={containerRef} className="flex flex-col justify-between h-full">
         {/* Top section: path, icon + label, and inspector button */}
-        <div className="flex items-start justify-between gap-1.5">
+        <div ref={topRef} className="flex items-start justify-between gap-1.5">
           <div className="flex-1 min-w-0 flex flex-col">
             {/* Path (subtitle) - small subdued text above label, mono for files */}
             {subtitle && (
@@ -279,8 +360,14 @@ export function Tile({
           )}
         </div>
 
+        {/* Config tags - shown only when measured gap is large enough */}
+        {tagsVisible && configTags && configTags.length > 0 && (
+          <ConfigTags tags={configTags} maxTags={maxTags} />
+        )}
+
         {/* Bottom section: Issue summary */}
         <div
+          ref={bottomRef}
           className={cn(
             "flex items-baseline gap-1 mt-auto pt-2",
             summaryFontSize

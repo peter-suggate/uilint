@@ -15,7 +15,7 @@ import React, { useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { Tile } from "./Tile";
-import { TileGrid } from "./TileGrid";
+import { TileGrid, buildConfigTags } from "./TileGrid";
 import { TileHeader } from "./TileHeader";
 import { calculateMosaicLayout, calculateExpandedLayout } from "./layout";
 import type { LayoutItem } from "./layout";
@@ -282,6 +282,7 @@ export function ExpandableTileGrid<T extends BaseTileItem>({
                 tileType={item.tileType ?? (item.metadata?.tileType as "rule" | "file" | undefined)}
                 count={item.count}
                 fileCount={item.fileCount}
+                configTags={buildConfigTags(item.metadata)}
                 bucket={originalLayoutItem.bucket}
                 isSelected={isSelected}
                 onClick={() => onTileClick(item)}

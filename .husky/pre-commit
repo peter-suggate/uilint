@@ -1,4 +1,8 @@
 #!/bin/bash
+# Re-exec under bash when husky runs the hook via sh (which lacks pipefail).
+if [ -z "$BASH_VERSION" ]; then
+  exec bash "$0" "$@"
+fi
 set -e
 # CRITICAL: pipefail ensures lint/typecheck failures aren't masked by `| tee`.
 # Husky v9 runs hooks with `sh` (which may be dash), so we re-exec under bash
