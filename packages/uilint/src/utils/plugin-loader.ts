@@ -7,7 +7,9 @@
  */
 
 import { createRequire } from "module";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
+import { pathToFileURL } from "url";
 import { logInfo } from "./prompts.js";
 
 /**
@@ -23,17 +25,70 @@ export interface PluginCLIManifest {
   cliDescription: string;
   /** Import specifier for the register module, e.g. "uilint-vision/eslint-rules/register" */
   registerSpecifier: string;
+  /** Display name shown in the interactive install UI, e.g. "Vision Analysis" */
+  displayName: string;
+  /** Description shown in the interactive install UI */
+  displayDescription: string;
+  /** Emoji icon for the interactive install UI, e.g. "👁️" */
+  displayIcon: string;
 }
 
 /** Package names to probe for CLI manifests */
 const KNOWN_PLUGIN_PACKAGES = ["uilint-vision", "uilint-semantic", "uilint-duplicates"];
 
 /**
+ * Resolve and import a package subpath specifier from a given project directory.
+ *
+ * First tries CJS `createRequire().resolve()`, which works for packages with
+ * a `"require"` export condition. If that fails (e.g. the package only defines
+ * `"import"`), falls back to manually reading the package's `exports` map and
+ * constructing a file URL.
+ */
+async function importFromProject(
+  specifier: string,
+  projectPath: string,
+): Promise<unknown> {
+  // Try CJS resolution first (fast path)
+  try {
+    const req = createRequire(join(projectPath, "package.json"));
+    const resolved = req.resolve(specifier);
+    return await import(resolved);
+  } catch {
+    // CJS resolution failed — try ESM-only export resolution
+  }
+
+  // Parse "pkg/subpath" → ["pkg", "./subpath"]
+  const slashIdx = specifier.indexOf("/");
+  if (slashIdx === -1) return undefined;
+  const pkgName = specifier.slice(0, slashIdx);
+  const subpath = `./${specifier.slice(slashIdx + 1)}`;
+
+  const pkgDir = join(projectPath, "node_modules", pkgName);
+  const pkgJsonPath = join(pkgDir, "package.json");
+  if (!existsSync(pkgJsonPath)) return undefined;
+
+  const pkgJson = JSON.parse(readFileSync(pkgJsonPath, "utf8"));
+  const exportEntry = pkgJson.exports?.[subpath];
+  if (!exportEntry) return undefined;
+
+  const importPath =
+    typeof exportEntry === "string"
+      ? exportEntry
+      : exportEntry.import ?? exportEntry.default;
+  if (!importPath) return undefined;
+
+  const fullPath = join(pkgDir, importPath);
+  if (!existsSync(fullPath)) return undefined;
+
+  return await import(pathToFileURL(fullPath).href);
+}
+
+/**
  * Discover available plugin manifests by probing `<pkg>/cli-manifest`.
  *
  * @param resolveFrom - Optional project path to resolve plugins from.
- *   When provided, uses createRequire anchored to the project's package.json
- *   so plugins installed in the project's node_modules can be found.
+ *   When provided, resolves plugins from the project's node_modules
+ *   so plugins installed in the project can be found.
  * @returns Array of discovered plugin manifests
  */
 export async function discoverPlugins(
@@ -44,15 +99,13 @@ export async function discoverPlugins(
   for (const pkg of KNOWN_PLUGIN_PACKAGES) {
     const specifier = `${pkg}/cli-manifest`;
     try {
-      let mod: { cliManifest?: PluginCLIManifest };
+      let mod: { cliManifest?: PluginCLIManifest } | undefined;
       if (resolveFrom) {
-        const req = createRequire(join(resolveFrom, "package.json"));
-        const resolved = req.resolve(specifier);
-        mod = (await import(resolved)) as typeof mod;
+        mod = (await importFromProject(specifier, resolveFrom)) as typeof mod;
       } else {
         mod = (await import(specifier)) as typeof mod;
       }
-      if (mod.cliManifest) {
+      if (mod?.cliManifest) {
         manifests.push(mod.cliManifest);
       }
     } catch {
@@ -66,6 +119,14 @@ export async function discoverPlugins(
 /**
  * Load ESLint rules from discovered plugins by importing their register modules.
  *
+ * The register modules call `registerRuleMeta()` from `uilint-eslint`, which
+ * mutates the shared `ruleRegistry` array.  To avoid the dual-package problem
+ * (project-resolved plugin getting a different `uilint-eslint` instance), we
+ * always try a bare `import()` first — this resolves from the CLI's own
+ * context so both the CLI and the plugin share the same `ruleRegistry`.
+ * Only falls back to project-scoped resolution when the bare import fails
+ * (e.g. when running via `npx` where plugins aren't alongside the CLI).
+ *
  * @param manifests - Plugin manifests (from discoverPlugins)
  * @param resolveFrom - Optional project path to resolve plugins from.
  * @returns Array of loaded plugin package names
@@ -78,16 +139,19 @@ export async function loadPluginESLintRules(
 
   for (const manifest of manifests) {
     try {
-      if (resolveFrom) {
-        const req = createRequire(join(resolveFrom, "package.json"));
-        const resolved = req.resolve(manifest.registerSpecifier);
-        await import(resolved);
-      } else {
-        await import(manifest.registerSpecifier);
-      }
+      // Prefer bare import so the register module shares the CLI's uilint-eslint
+      await import(manifest.registerSpecifier);
       loaded.push(manifest.packageName);
     } catch {
-      // Plugin register module not available — skip silently
+      // Bare import failed — try from consumer project if a path was provided
+      if (resolveFrom) {
+        try {
+          await importFromProject(manifest.registerSpecifier, resolveFrom);
+          loaded.push(manifest.packageName);
+        } catch {
+          // Plugin register module not available — skip silently
+        }
+      }
     }
   }
 

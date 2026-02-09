@@ -46,7 +46,7 @@ sed 's/"name": "[^"]*"/"name": "test-app"/' "$TEST_APP_DIR/package.json" > "$TES
 echo "Installing dependencies..."
 cd "$ROOT_DIR" && pnpm install
 
-echo "Running uilint init --eslint --react..."
-cd "$TEST_APP_DIR" && node "$UILINT_CLI" init --eslint --react
+echo "Running uilint init --eslint --react --vision --semantic --duplicates..."
+cd "$TEST_APP_DIR" && node "$UILINT_CLI" init --eslint --react --vision --semantic --duplicates
 
 echo "Done! Test app is ready at apps/test-app"

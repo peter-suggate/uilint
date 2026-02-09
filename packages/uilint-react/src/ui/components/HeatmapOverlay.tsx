@@ -75,12 +75,10 @@ function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, isPrev
   }
   const finalOpacity = isHovered || isSelected ? Math.max(baseOpacity, 0.8) : baseOpacity;
 
-  // Preview glow — subtle pulse via box-shadow
+  // Preview glow — animated pulse via CSS animation
   // Stagger delay per element for a ripple effect (capped at 0.3s)
   const previewDelay = Math.min(previewStaggerIndex * 0.03, 0.3);
-  const previewBoxShadow = isPreviewed && !isSelected
-    ? `0 0 4px 1px ${color}50`
-    : undefined;
+  const isGlowing = isPreviewed && !isSelected;
 
   return (
     <div
@@ -98,8 +96,13 @@ function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, isPrev
         zIndex: isSelected ? 99991 : 99990,
         boxShadow: isSelected
           ? `0 0 0 2px ${color}40, 0 0 12px ${color}60`
-          : previewBoxShadow,
-      }}
+          : undefined,
+        // CSS custom property for the pulse animation color
+        "--uilint-pulse-color": `${color}80`,
+        animation: isGlowing
+          ? `uilint-pulse 1.5s ease-in-out ${previewDelay}s infinite`
+          : "none",
+      } as React.CSSProperties}
     >
       {/* Clickable indicator - inset square */}
       <span

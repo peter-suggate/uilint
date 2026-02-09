@@ -9,4 +9,7 @@ export const cliManifest = {
   cliFlag: "vision",
   cliDescription: "Install vision analysis rules (non-interactive)",
   registerSpecifier: "uilint-vision/eslint-rules/register",
+  displayName: "Vision Analysis",
+  displayDescription: "AI-powered visual consistency analysis using screenshots",
+  displayIcon: "👁️",
 } as const;

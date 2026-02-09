@@ -404,7 +404,13 @@ export async function initUI(
         const project = await projectPromise;
         const choices = selectionsToUserChoices(selections, project, eslintRules, injectionPointConfig);
 
-        const hasInstalls = choices.items.length > 0;
+        // Collect plugin install plans from selected plugin installers
+        const pluginSelections = selections.filter(
+          (s) => s.selected && s.targets.length > 0 && s.installer.id.startsWith("plugin-"),
+        );
+        const hasPluginInstalls = pluginSelections.length > 0;
+
+        const hasInstalls = choices.items.length > 0 || hasPluginInstalls;
         const hasRemovals = removeSelections && removeSelections.length > 0;
 
         if (!hasInstalls && !hasRemovals) {
@@ -415,6 +421,13 @@ export async function initUI(
         // Generate install plan using existing plan logic
         const { createPlan } = await import("./init/plan.js");
         const plan = createPlan(project, choices, { force: options.force });
+
+        // Merge plugin dependencies into the plan
+        for (const sel of pluginSelections) {
+          const pluginPlan = sel.installer.plan(sel.targets, {}, project);
+          plan.actions.push(...pluginPlan.actions);
+          plan.dependencies.push(...pluginPlan.dependencies);
+        }
 
         // Generate removal plan actions
         if (hasRemovals && removeSelections) {

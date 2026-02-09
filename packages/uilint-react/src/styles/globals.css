@@ -536,10 +536,10 @@
 @keyframes uilint-pulse {
   0%,
   100% {
-    opacity: 1;
+    box-shadow: 0 0 6px 2px var(--uilint-pulse-color, rgba(255, 165, 0, 0.4));
   }
   50% {
-    opacity: 0.6;
+    box-shadow: 0 0 16px 6px var(--uilint-pulse-color, rgba(255, 165, 0, 0.6));
   }
 }
 

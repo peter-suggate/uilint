@@ -58,6 +58,7 @@ jobs:
           cd packages/uilint-eslint && pnpm pack --pack-destination /tmp/packages && cd ../..
           cd packages/uilint-vision && pnpm pack --pack-destination /tmp/packages && cd ../..
           cd packages/uilint-semantic && pnpm pack --pack-destination /tmp/packages && cd ../..
+          cd packages/uilint-duplicates && pnpm pack --pack-destination /tmp/packages && cd ../..
           cd packages/jsx-loc-plugin && pnpm pack --pack-destination /tmp/packages && cd ../..
           ls -la /tmp/packages/
 
@@ -85,7 +86,7 @@ jobs:
             pnpm add /tmp/packages/uilint-*.tgz
 
             # Run uilint init to set up the project (this adds deps to package.json)
-            npx uilint init --react --eslint
+            npx uilint init --react --eslint --vision --semantic --duplicates
 
             # Now install all local packages from tarballs (after init modified package.json)
             # Installing from tarballs ensures subpath exports resolve correctly
@@ -96,11 +97,12 @@ jobs:
             pnpm add /tmp/packages/uilint-eslint-*.tgz
             pnpm add /tmp/packages/uilint-vision-*.tgz
             pnpm add /tmp/packages/uilint-semantic-*.tgz
+            pnpm add /tmp/packages/uilint-duplicates-*.tgz
             pnpm add /tmp/packages/jsx-loc-plugin-*.tgz
           else
             # Use published npm version (after automatic publish on main)
             echo "Using published npm packages..."
-            npx uilint@latest init --react --eslint
+            npx uilint@latest init --react --eslint --vision --semantic --duplicates
           fi
 
           # Final install to ensure all dependencies are resolved

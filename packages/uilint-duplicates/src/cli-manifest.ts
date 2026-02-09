@@ -9,4 +9,7 @@ export const cliManifest = {
   cliFlag: "duplicates",
   cliDescription: "Install duplicate detection rules (non-interactive)",
   registerSpecifier: "uilint-duplicates/eslint-rules/register",
+  displayName: "Duplicate Detection",
+  displayDescription: "Detect and flag duplicate UI components and patterns",
+  displayIcon: "🔄",
 } as const;

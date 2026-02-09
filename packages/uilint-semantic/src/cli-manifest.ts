@@ -9,4 +9,7 @@ export const cliManifest = {
   cliFlag: "semantic",
   cliDescription: "Install styleguide checking rules (non-interactive)",
   registerSpecifier: "uilint-semantic/eslint-rules/register",
+  displayName: "Semantic Analysis",
+  displayDescription: "LLM-powered code analysis and duplicate detection",
+  displayIcon: "🧠",
 } as const;

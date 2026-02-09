@@ -17,8 +17,10 @@ import { RuleSelector, type ConfiguredRule } from "./RuleSelector.js";
 import { InjectionPointSelector } from "./InjectionPointSelector.js";
 import type { ProjectState } from "../types.js";
 import type { InstallerSelection, InstallTarget } from "../installers/types.js";
-import { getAllInstallers } from "../installers/registry.js";
+import { getAllInstallers, registerInstaller } from "../installers/registry.js";
 import { getInjectionPoints, type InjectionPoint } from "../installers/next-overlay.js";
+import { discoverPlugins } from "../../../utils/plugin-loader.js";
+import { createPluginInstaller } from "../installers/plugin.js";
 
 /**
  * Map InstallTarget to ConfigItem status
@@ -87,22 +89,13 @@ function buildConfigItemsForProject(
       if (installer.id === "eslint") {
         return target.path === selectedProject.path;
       }
-      // Global features (genstyleguide, skill) always included
+      // Global features (genstyleguide, skill, plugins) always included
       return true;
     });
 
     if (relevantTargets.length === 0) continue;
 
-    // Map installer IDs to display info
-    const displayInfo: Record<string, { category: string; icon: string }> = {
-      next: { category: "UI Analysis", icon: "🔍" },
-      vite: { category: "UI Analysis", icon: "🔍" },
-      eslint: { category: "ESLint Rules", icon: "📋" },
-      genstyleguide: { category: "Cursor Integration", icon: "📝" },
-      skill: { category: "Cursor Integration", icon: "⚡" },
-    };
-
-    const info = displayInfo[installer.id] || { category: "Other", icon: "•" };
+    const info = getInstallerDisplayInfo(installer);
 
     for (const target of relevantTargets) {
       items.push({
@@ -122,23 +115,45 @@ function buildConfigItemsForProject(
 /**
  * Build config items for global features only (no project-specific items)
  */
+/** Resolve display info for an installer — uses known mappings, falls back to installer metadata for plugins */
+function getInstallerDisplayInfo(installer: { id: string; icon?: string }): { category: string; icon: string } {
+  const knownDisplayInfo: Record<string, { category: string; icon: string }> = {
+    next: { category: "UI Analysis", icon: "🔍" },
+    vite: { category: "UI Analysis", icon: "🔍" },
+    eslint: { category: "ESLint Rules", icon: "📋" },
+    genstyleguide: { category: "Cursor Integration", icon: "📝" },
+    skill: { category: "Cursor Integration", icon: "⚡" },
+  };
+
+  if (knownDisplayInfo[installer.id]) {
+    return knownDisplayInfo[installer.id];
+  }
+
+  // Plugin installers: use "AI Plugins" category with installer's own icon
+  if (installer.id.startsWith("plugin-")) {
+    return { category: "AI Plugins", icon: installer.icon ?? "🔌" };
+  }
+
+  return { category: "Other", icon: "•" };
+}
+
+/** Check if an installer is a global feature (not project-scoped) */
+function isGlobalInstaller(installerId: string): boolean {
+  return installerId === "genstyleguide" || installerId === "skill" || installerId.startsWith("plugin-");
+}
+
+/**
+ * Build config items for global features only (no project-specific items)
+ */
 function buildGlobalConfigItems(selections: InstallerSelection[]): ConfigItem[] {
   const items: ConfigItem[] = [];
 
   for (const selection of selections) {
     const { installer, targets } = selection;
 
-    // Only include global installers
-    if (installer.id !== "genstyleguide" && installer.id !== "skill") {
-      continue;
-    }
+    if (!isGlobalInstaller(installer.id)) continue;
 
-    const displayInfo: Record<string, { category: string; icon: string }> = {
-      genstyleguide: { category: "Cursor Integration", icon: "📝" },
-      skill: { category: "Cursor Integration", icon: "⚡" },
-    };
-
-    const info = displayInfo[installer.id] || { category: "Other", icon: "•" };
+    const info = getInstallerDisplayInfo(installer);
 
     for (const target of targets) {
       items.push({
@@ -311,14 +326,20 @@ export function InstallApp({
     if (phase !== "scanning") return;
 
     projectPromise
-      .then((proj) => {
+      .then(async (proj) => {
         setProject(proj);
+
+        // Discover plugin manifests and register their installers
+        const manifests = await discoverPlugins(proj.projectPath);
+        for (const manifest of manifests) {
+          registerInstaller(createPluginInstaller(manifest));
+        }
 
         // Get detected projects
         const projects = getDetectedProjects(proj);
         setDetectedProjects(projects);
 
-        // Build installer selections
+        // Build installer selections (now includes plugin installers)
         const installers = getAllInstallers();
         const initialSelections: InstallerSelection[] = installers
           .filter((installer) => installer.isApplicable(proj))
@@ -379,6 +400,19 @@ export function InstallApp({
 
   // Handle feature selection submission
   const handleFeatureSubmit = (selectedIds: string[], removeIds: string[]) => {
+    // Auto-imply ESLint when a plugin is selected (plugins provide ESLint rules)
+    const pluginSelected = selectedIds.some((id) => id.startsWith("plugin-"));
+    const eslintSelected = selectedIds.some((id) => id.startsWith("eslint:"));
+    if (pluginSelected && !eslintSelected) {
+      // Find ESLint items in configItems and add them
+      const eslintIds = configItems
+        .filter((item) => item.id.startsWith("eslint:"))
+        .map((item) => item.id);
+      if (eslintIds.length > 0) {
+        selectedIds = [...selectedIds, ...eslintIds];
+      }
+    }
+
     setSelectedFeatureIds(selectedIds);
     setRemoveFeatureIds(removeIds);
 
