@@ -34,7 +34,7 @@ export interface PluginCLIManifest {
 }
 
 /** Package names to probe for CLI manifests */
-const KNOWN_PLUGIN_PACKAGES = ["uilint-vision", "uilint-semantic", "uilint-duplicates"];
+const KNOWN_PLUGIN_PACKAGES = ["uilint-vision", "uilint-semantic", "uilint-duplicates", "uilint-coverage"];
 
 /**
  * Resolve and import a package subpath specifier from a given project directory.

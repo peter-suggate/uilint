@@ -2644,11 +2644,14 @@ async function buildCoverageData(appRoot: string): Promise<void> {
   if (isPreparingCoverage) return;
 
   isPreparingCoverage = true;
+  setPluginStatus("coverage", "processing", "Checking coverage setup...");
 
   try {
     // Check if coverage rule is enabled
     if (!isCoverageRuleEnabled(appRoot)) {
       logServerInfo("Coverage rule not enabled, skipping preparation");
+      setPluginStatus("coverage", "complete", "Rule not enabled");
+      setTimeout(() => setPluginStatus("coverage", "idle"), 3000);
       return;
     }
 
@@ -2658,11 +2661,14 @@ async function buildCoverageData(appRoot: string): Promise<void> {
     // Check if preparation needed
     if (!needsCoveragePreparation(setup)) {
       logServerInfo("Coverage data is up-to-date");
+      setPluginStatus("coverage", "complete", "Coverage data up-to-date");
+      setTimeout(() => setPluginStatus("coverage", "idle"), 3000);
       return;
     }
 
     // Run preparation
     startBackgroundTask("coverage-prep", "Coverage Prep", "Starting...");
+    setPluginStatus("coverage", "processing", "Starting coverage preparation...");
     broadcast({ type: "coverage:setup:start" });
 
     // Check environment variables for skipping
@@ -2682,6 +2688,7 @@ async function buildCoverageData(appRoot: string): Promise<void> {
           undefined,
           message
         );
+        setPluginStatus("coverage", "processing", message);
         broadcast({ type: "coverage:setup:progress", message, phase });
       },
     });
@@ -2689,6 +2696,8 @@ async function buildCoverageData(appRoot: string): Promise<void> {
     if (result.error) {
       // Continue with warning on test failures (don't block server startup)
       completeBackgroundTask("coverage-prep", undefined, result.error);
+      setPluginStatus("coverage", "error", result.error);
+      setTimeout(() => setPluginStatus("coverage", "idle"), 3000);
     } else {
       const parts = [];
       if (result.packageAdded) parts.push("package installed");
@@ -2696,12 +2705,12 @@ async function buildCoverageData(appRoot: string): Promise<void> {
       if (result.testsRan) parts.push("tests ran");
       if (result.coverageGenerated) parts.push("coverage generated");
 
-      completeBackgroundTask(
-        "coverage-prep",
-        `Coverage prepared: ${parts.join(", ")} in ${(
-          result.duration / 1000
-        ).toFixed(1)}s`
-      );
+      const successMsg = `Coverage prepared: ${parts.join(", ")} in ${(
+        result.duration / 1000
+      ).toFixed(1)}s`;
+      completeBackgroundTask("coverage-prep", successMsg);
+      setPluginStatus("coverage", "complete", successMsg);
+      setTimeout(() => setPluginStatus("coverage", "idle"), 3000);
     }
 
     broadcast({
@@ -2711,6 +2720,8 @@ async function buildCoverageData(appRoot: string): Promise<void> {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     completeBackgroundTask("coverage-prep", undefined, msg);
+    setPluginStatus("coverage", "error", msg);
+    setTimeout(() => setPluginStatus("coverage", "idle"), 3000);
     broadcast({ type: "coverage:setup:error", error: msg });
   } finally {
     isPreparingCoverage = false;
@@ -2822,6 +2833,7 @@ export async function serve(options: ServeOptions): Promise<void> {
     registerPlugin("semantic", "Semantic", "qwen3-vl:8b-instruct");
     registerPlugin("vision", "Vision", "qwen3-vl:8b-instruct");
     registerPlugin("duplicates", "Duplicates", "nomic-embed-text");
+    registerPlugin("coverage", "Coverage", "vitest");
   } else {
     disableDashboard();
   }

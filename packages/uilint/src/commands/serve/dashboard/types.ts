@@ -57,14 +57,14 @@ export interface BackgroundTask {
 }
 
 // ============================================================================
-// Plugin Status (Ollama-consuming plugins)
+// Plugin Status
 // ============================================================================
 
-/** Known plugin identifiers that use the Ollama mutex. */
-export type PluginId = "semantic" | "vision" | "duplicates";
+/** Known plugin identifiers. */
+export type PluginId = "semantic" | "vision" | "duplicates" | "coverage";
 
 /**
- * Lifecycle states for an Ollama-consuming plugin.
+ * Plugin lifecycle states.
  *
  * idle              → Not doing anything (default resting state)
  * waiting-for-ollama → Called acquireOllamaMutex(), queued behind another plugin
@@ -86,7 +86,7 @@ export interface PluginState {
   id: PluginId;
   /** Human-readable short name (e.g. "Semantic") */
   name: string;
-  /** Ollama model this plugin uses (e.g. "qwen3-vl:8b-instruct") */
+  /** Backend this plugin uses (e.g. "qwen3-vl:8b-instruct" for Ollama, "vitest" for coverage) */
   model: string;
   /** Current lifecycle status */
   status: PluginLifecycle;
@@ -138,7 +138,7 @@ export interface DashboardState {
   // Background tasks
   backgroundTasks: Map<string, BackgroundTask>;
 
-  // Plugin states (Ollama-consuming plugins)
+  // Plugin states
   pluginStates: Map<PluginId, PluginState>;
 
   // Activity log (most recent first)

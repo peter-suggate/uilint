@@ -8,7 +8,7 @@
  * - Statement coverage percentage
  */
 
-import { createRule, defineRuleMeta } from "../../utils/create-rule.js";
+import { createRule, defineRuleMeta } from "uilint-eslint";
 import { existsSync, readFileSync, statSync } from "fs";
 import { dirname, join, basename, relative } from "path";
 import { execSync } from "child_process";

@@ -30,7 +30,6 @@ import zustandUseSelectors from "./rules/zustand-use-selectors.js";
 import noPropDrillingDepth from "./rules/no-prop-drilling-depth.js";
 import noSecretsInCode from "./rules/no-secrets-in-code.js";
 import requireInputValidation from "./rules/require-input-validation.js";
-import requireTestCoverage from "./rules/require-test-coverage/index.js";
 import preferTailwind from "./rules/prefer-tailwind/index.js";
 import noUnsafeTypeCasts from "./rules/no-unsafe-type-casts.js";
 import preferStoreSelectors from "./rules/prefer-store-selectors.js";
@@ -47,7 +46,6 @@ const eslintRules: Record<string, { meta?: { schema?: unknown[] }; defaultOption
   "no-prop-drilling-depth": noPropDrillingDepth,
   "no-secrets-in-code": noSecretsInCode,
   "require-input-validation": requireInputValidation,
-  "require-test-coverage": requireTestCoverage,
   "prefer-tailwind": preferTailwind,
   "no-unsafe-type-casts": noUnsafeTypeCasts,
   "prefer-store-selectors": preferStoreSelectors,
@@ -131,15 +129,11 @@ describe("ruleRegistry", () => {
   });
 
   describe("rules with requirements", () => {
-    const rulesWithRequirements = ruleRegistry.filter(
-      (r) => r.requirements && r.requirements.length > 0
-    );
+    it("requirements should have valid structure when present", () => {
+      const rulesWithRequirements = ruleRegistry.filter(
+        (r) => r.requirements && r.requirements.length > 0
+      );
 
-    it("should have some rules with requirements", () => {
-      expect(rulesWithRequirements.length).toBeGreaterThan(0);
-    });
-
-    it("requirements should have valid structure", () => {
       for (const rule of rulesWithRequirements) {
         for (const req of rule.requirements!) {
           expect(req.type, `${rule.id}: requirement missing type`).toBeDefined();
@@ -149,8 +143,11 @@ describe("ruleRegistry", () => {
       }
     });
 
-    it("requirement types should be valid", () => {
+    it("requirement types should be valid when present", () => {
       const validTypes = ["ollama", "git", "coverage", "semantic-index", "styleguide"];
+      const rulesWithRequirements = ruleRegistry.filter(
+        (r) => r.requirements && r.requirements.length > 0
+      );
 
       for (const rule of rulesWithRequirements) {
         for (const req of rule.requirements!) {

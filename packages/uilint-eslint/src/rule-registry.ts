@@ -46,7 +46,6 @@ import { meta as preferStoreSelectors } from "./rules/prefer-store-selectors.js"
 
 // Directory-based rules (complex rules with colocated utilities)
 import { meta as noMixedComponentLibraries } from "./rules/no-mixed-component-libraries/index.js";
-import { meta as requireTestCoverage } from "./rules/require-test-coverage/index.js";
 import { meta as preferTailwind } from "./rules/prefer-tailwind/index.js";
 
 import type { RuleMeta } from "./utils/create-rule.js";
@@ -79,8 +78,6 @@ export const ruleRegistry: RuleMeta[] = [
   // Security rules
   noSecretsInCode,
   requireInputValidation,
-  // Test coverage enforcement
-  requireTestCoverage,
   // Style preferences
   preferTailwind,
 ];
