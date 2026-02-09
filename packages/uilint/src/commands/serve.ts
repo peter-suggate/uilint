@@ -59,10 +59,7 @@ import {
   findNextAppRouterProjects,
 } from "../utils/next-detect.js";
 import { resolvePathSpecifier } from "../utils/path-specifiers.js";
-import {
-  logWarning,
-  pc,
-} from "../utils/prompts.js";
+import { logWarning, pc } from "../utils/prompts.js";
 import {
   enableDashboard,
   disableDashboard,
@@ -114,7 +111,10 @@ import {
   needsCoveragePreparation,
 } from "../utils/coverage-prepare.js";
 import { enrichIssuesWithScopeInfo } from "../utils/eslint-utils.js";
-import { discoverPlugins, loadPluginESLintRules } from "../utils/plugin-loader.js";
+import {
+  discoverPlugins,
+  loadPluginESLintRules,
+} from "../utils/plugin-loader.js";
 
 // ---------------------------------------------------------------------------
 // Sentinel issue detection (generic, driven by rule metadata)
@@ -191,7 +191,9 @@ async function findAvailablePort(preferred: number): Promise<number> {
     if (await isPortAvailable(port)) return port;
   }
   throw new Error(
-    `No available ports in range ${preferred}–${preferred + PORT_RANGE_SIZE - 1}`
+    `No available ports in range ${preferred}–${
+      preferred + PORT_RANGE_SIZE - 1
+    }`
   );
 }
 
@@ -647,7 +649,9 @@ const semanticCache = new Map<string, CacheEntry>();
 
 /** Minimal ESLint API surface used by the serve command. */
 interface ESLintInstance {
-  lintFiles(files: string[]): Promise<Array<{ messages: Record<string, unknown>[] }>>;
+  lintFiles(
+    files: string[]
+  ): Promise<Array<{ messages: Record<string, unknown>[] }>>;
 }
 
 // ESLint instances cached per detected project root
@@ -674,7 +678,9 @@ async function getVisionAnalyzerInstance(): Promise<unknown> {
   if (visionAnalyzer) return visionAnalyzer;
   const mod = await getVisionModule();
   if (!mod) return null;
-  visionAnalyzer = (mod as Record<string, (...args: unknown[]) => unknown>).getVisionAnalyzer();
+  visionAnalyzer = (
+    mod as Record<string, (...args: unknown[]) => unknown>
+  ).getVisionAnalyzer();
   return visionAnalyzer;
 }
 
@@ -832,9 +838,11 @@ function buildJsxElementSpans(
   code: string,
   dataLocFile: string
 ): JsxElementSpan[] {
-   
   const { parse } = localRequire("@typescript-eslint/typescript-estree") as {
-    parse: (src: string, options: Record<string, unknown>) => Record<string, unknown>;
+    parse: (
+      src: string,
+      options: Record<string, unknown>
+    ) => Record<string, unknown>;
   };
 
   const ast = parse(code, {
@@ -853,8 +861,11 @@ function buildJsxElementSpans(
     // Prefer mapping to JSXElement range so we can capture nested ownership precisely.
     if (node.type === "JSXElement") {
       const range = node.range as [number, number] | undefined;
-      const opening = node.openingElement as Record<string, unknown> | undefined;
-      const loc = (opening?.loc as Record<string, unknown> | undefined)?.start as Record<string, unknown> | undefined;
+      const opening = node.openingElement as
+        | Record<string, unknown>
+        | undefined;
+      const loc = (opening?.loc as Record<string, unknown> | undefined)
+        ?.start as Record<string, unknown> | undefined;
       if (
         range &&
         typeof range[0] === "number" &&
@@ -1022,8 +1033,7 @@ async function getESLintForProject(projectCwd: string): Promise<unknown> {
 
     const mod = req("eslint") as Record<string, unknown>;
     const modDefault = mod?.default as Record<string, unknown> | undefined;
-    const ESLintCtor =
-      mod?.ESLint ?? modDefault?.ESLint ?? mod?.default ?? mod;
+    const ESLintCtor = mod?.ESLint ?? modDefault?.ESLint ?? mod?.default ?? mod;
     if (!ESLintCtor) return null;
 
     const Ctor = ESLintCtor as new (opts: Record<string, unknown>) => unknown;
@@ -1052,8 +1062,7 @@ async function getESLintWithOverrides(
     const req = createRequire(join(projectCwd, "package.json"));
     const mod = req("eslint") as Record<string, unknown>;
     const modDefault = mod?.default as Record<string, unknown> | undefined;
-    const ESLintCtor =
-      mod?.ESLint ?? modDefault?.ESLint ?? mod?.default ?? mod;
+    const ESLintCtor = mod?.ESLint ?? modDefault?.ESLint ?? mod?.default ?? mod;
     if (!ESLintCtor) return null;
 
     const Ctor = ESLintCtor as new (opts: Record<string, unknown>) => unknown;
@@ -1107,7 +1116,10 @@ function processLintResults(
     onProgress(`JSX map: ${spans.length} element(s)`);
   } catch (e) {
     onProgress("JSX map failed (falling back to unmapped issues)");
-    logServerError("JSX map failed", e instanceof Error ? e.message : String(e));
+    logServerError(
+      "JSX map failed",
+      e instanceof Error ? e.message : String(e)
+    );
     spans = [];
     lineStarts = [];
     codeLength = 0;
@@ -1141,7 +1153,9 @@ function processLintResults(
 
   const mappedCount = issues.filter((i) => Boolean(i.dataLoc)).length;
   if (issues.length > 0) {
-    onProgress(`Mapped ${mappedCount}/${issues.length} issue(s) to JSX elements`);
+    onProgress(
+      `Mapped ${mappedCount}/${issues.length} issue(s) to JSX elements`
+    );
   }
 
   // Enrich issues with scope information
@@ -1149,7 +1163,9 @@ function processLintResults(
     onProgress("Extracting scope info...");
     issues = enrichIssuesWithScopeInfo(issues, fileCode);
     const scopeCount = issues.filter((i) => Boolean(i.scopeInfo)).length;
-    onProgress(`Enriched ${scopeCount}/${issues.length} issue(s) with scope info`);
+    onProgress(
+      `Enriched ${scopeCount}/${issues.length} issue(s) with scope info`
+    );
   }
 
   return issues;
@@ -1171,7 +1187,11 @@ async function lintFileFast(
   }
 
   const mtimeMs = (() => {
-    try { return statSync(absolutePath).mtimeMs; } catch { return 0; }
+    try {
+      return statSync(absolutePath).mtimeMs;
+    } catch {
+      return 0;
+    }
   })();
 
   // Check fast-pass cache
@@ -1193,7 +1213,9 @@ async function lintFileFast(
   );
   if (!eslint) {
     logWarning(
-      `ESLint not found in project. Install it in ${pc.dim(projectCwd)} to enable server-side linting.`
+      `ESLint not found in project. Install it in ${pc.dim(
+        projectCwd
+      )} to enable server-side linting.`
     );
     onProgress("ESLint not available (install eslint in this project)");
     return [];
@@ -1207,12 +1229,20 @@ async function lintFileFast(
         ? results[0].messages || []
         : [];
 
-    const issues = processLintResults(absolutePath, projectCwd, messages, onProgress);
+    const issues = processLintResults(
+      absolutePath,
+      projectCwd,
+      messages,
+      onProgress
+    );
 
     fastCache.set(absolutePath, { issues, mtimeMs, timestamp: Date.now() });
     return issues;
   } catch (error) {
-    logServerError("ESLint fast pass failed", error instanceof Error ? error.message : String(error));
+    logServerError(
+      "ESLint fast pass failed",
+      error instanceof Error ? error.message : String(error)
+    );
     return [];
   }
 }
@@ -1231,7 +1261,11 @@ async function lintFileSemantic(
   if (!existsSync(absolutePath)) return [];
 
   const mtimeMs = (() => {
-    try { return statSync(absolutePath).mtimeMs; } catch { return 0; }
+    try {
+      return statSync(absolutePath).mtimeMs;
+    } catch {
+      return 0;
+    }
   })();
 
   // Check semantic-pass cache
@@ -1263,12 +1297,20 @@ async function lintFileSemantic(
 
     if (semanticMessages.length === 0) return [];
 
-    const issues = processLintResults(absolutePath, projectCwd, semanticMessages, onProgress);
+    const issues = processLintResults(
+      absolutePath,
+      projectCwd,
+      semanticMessages,
+      onProgress
+    );
 
     semanticCache.set(absolutePath, { issues, mtimeMs, timestamp: Date.now() });
     return issues;
   } catch (error) {
-    logServerError("Semantic pass failed", error instanceof Error ? error.message : String(error));
+    logServerError(
+      "Semantic pass failed",
+      error instanceof Error ? error.message : String(error)
+    );
     return [];
   }
 }
@@ -1297,14 +1339,23 @@ async function runSemanticAnalysisAsync(
   const eslintConfigPath = findEslintConfigFile(serverAppRootForVision);
   const ruleConfigs = eslintConfigPath
     ? readRuleConfigsFromConfig(eslintConfigPath)
-    : new Map<string, { severity: "error" | "warn" | "off"; options?: Record<string, unknown> }>();
+    : new Map<
+        string,
+        {
+          severity: "error" | "warn" | "off";
+          options?: Record<string, unknown>;
+        }
+      >();
   const semanticConfig = ruleConfigs.get("semantic");
-  const model = (semanticConfig?.options?.model as string) || "qwen3-vl:8b-instruct";
-  const styleguidePath = (semanticConfig?.options?.styleguidePath as string) || undefined;
+  const model =
+    (semanticConfig?.options?.model as string) || "qwen3-vl:8b-instruct";
+  const styleguidePath =
+    (semanticConfig?.options?.styleguidePath as string) || undefined;
   setPluginModel("semantic", model);
 
   // Load styleguide
-  const { getStyleguide, hashContentSync, setCacheEntry, getCacheEntry } = await import("uilint-eslint");
+  const { getStyleguide, hashContentSync, setCacheEntry, getCacheEntry } =
+    await import("uilint-eslint");
   const fileDir = dirname(absolutePath);
   const { content: styleguide } = getStyleguide(fileDir, styleguidePath);
   if (!styleguide) {
@@ -1329,7 +1380,12 @@ async function runSemanticAnalysisAsync(
   const relativeFilePath = relative(projectRoot, absolutePath);
 
   // Check if cache is already fresh
-  const cached = getCacheEntry(projectRoot, relativeFilePath, fileHash, styleguideHash);
+  const cached = getCacheEntry(
+    projectRoot,
+    relativeFilePath,
+    fileHash,
+    styleguideHash
+  );
   if (cached) {
     logSemanticSkipped(filePath, "cache fresh");
     return;
@@ -1353,7 +1409,11 @@ async function runSemanticAnalysisAsync(
     phase: "Running semantic analysis (async)...",
   });
 
-  startBackgroundTask("semantic-analysis", "Semantic Analysis", `Analyzing ${filePath}...`);
+  startBackgroundTask(
+    "semantic-analysis",
+    "Semantic Analysis",
+    `Analyzing ${filePath}...`
+  );
   broadcast({
     type: "plugin:operation:start",
     pluginId: "semantic",
@@ -1365,14 +1425,26 @@ async function runSemanticAnalysisAsync(
   const release = await acquireOllamaMutex("semantic");
 
   try {
-    const { OllamaClient, buildSourceScanPrompt } = await import("uilint-core/node");
+    const { OllamaClient, buildSourceScanPrompt } = await import(
+      "uilint-core/node"
+    );
     const client = new OllamaClient({ model });
 
     const ok = await client.isAvailable();
     if (!ok) {
       logServerWarning("Semantic analysis: Ollama not available");
-      updateBackgroundTaskProgress("semantic-analysis", 0, 0, 0, "Ollama not available");
-      completeBackgroundTask("semantic-analysis", undefined, "Ollama not available");
+      updateBackgroundTaskProgress(
+        "semantic-analysis",
+        0,
+        0,
+        0,
+        "Ollama not available"
+      );
+      completeBackgroundTask(
+        "semantic-analysis",
+        undefined,
+        "Ollama not available"
+      );
       broadcast({
         type: "plugin:operation:error",
         pluginId: "semantic",
@@ -1383,7 +1455,13 @@ async function runSemanticAnalysisAsync(
       return;
     }
 
-    updateBackgroundTaskProgress("semantic-analysis", 50, 0, 0, "Waiting for LLM response...");
+    updateBackgroundTaskProgress(
+      "semantic-analysis",
+      50,
+      0,
+      0,
+      "Waiting for LLM response..."
+    );
     updateSemanticBatchProgress(
       `Analyzing ${relative(serverAppRootForVision, absolutePath)}...`
     );
@@ -1484,10 +1562,15 @@ async function runVisionAnalysisInBackground(
   ws: WebSocket,
   message: VisionAnalyzeMessage
 ): Promise<void> {
-  const { route, timestamp, screenshot, screenshotFile, manifest, requestId } = message;
+  const { route, timestamp, screenshot, screenshotFile, manifest, requestId } =
+    message;
 
   setPluginStatus("vision", "processing", `Analyzing ${route}...`);
-  startBackgroundTask("vision-analysis", "Vision Analysis", `Analyzing ${route}...`);
+  startBackgroundTask(
+    "vision-analysis",
+    "Vision Analysis",
+    `Analyzing ${route}...`
+  );
   broadcast({
     type: "plugin:operation:start",
     pluginId: "vision",
@@ -1505,7 +1588,11 @@ async function runVisionAnalysisInBackground(
       error: "uilint-vision is not installed",
       requestId,
     });
-    completeBackgroundTask("vision-analysis", undefined, "uilint-vision not installed");
+    completeBackgroundTask(
+      "vision-analysis",
+      undefined,
+      "uilint-vision not installed"
+    );
     setPluginStatus("vision", "error", "uilint-vision not installed");
     setTimeout(() => setPluginStatus("vision", "idle"), 3000);
     broadcast({
@@ -1527,7 +1614,13 @@ async function runVisionAnalysisInBackground(
   const startedAt = Date.now();
   const analyzer = await getVisionAnalyzerInstance();
 
-  updateBackgroundTaskProgress("vision-analysis", 10, 0, 0, "Waiting for Ollama...");
+  updateBackgroundTaskProgress(
+    "vision-analysis",
+    10,
+    0,
+    0,
+    "Waiting for Ollama..."
+  );
 
   // Acquire exclusive access to Ollama to avoid model contention
   const releaseOllama = await acquireOllamaMutex("vision");
@@ -1535,9 +1628,13 @@ async function runVisionAnalysisInBackground(
   try {
     const analyzerObj = analyzer as Record<string, unknown> | null;
     const analyzerModel =
-      typeof analyzerObj?.getModel === "function" ? (analyzerObj.getModel as () => string)() : undefined;
+      typeof analyzerObj?.getModel === "function"
+        ? (analyzerObj.getModel as () => string)()
+        : undefined;
     const analyzerBaseUrl =
-      typeof analyzerObj?.getBaseUrl === "function" ? (analyzerObj.getBaseUrl as () => string)() : undefined;
+      typeof analyzerObj?.getBaseUrl === "function"
+        ? (analyzerObj.getBaseUrl as () => string)()
+        : undefined;
 
     if (analyzerModel) {
       setPluginModel("vision", analyzerModel);
@@ -1552,7 +1649,11 @@ async function runVisionAnalysisInBackground(
         error: "No screenshot provided for vision analysis",
         requestId,
       });
-      completeBackgroundTask("vision-analysis", undefined, "No screenshot provided");
+      completeBackgroundTask(
+        "vision-analysis",
+        undefined,
+        "No screenshot provided"
+      );
       setPluginStatus("vision", "error", "No screenshot provided");
       setTimeout(() => setPluginStatus("vision", "idle"), 3000);
       broadcast({
@@ -1564,7 +1665,13 @@ async function runVisionAnalysisInBackground(
       return;
     }
 
-    updateBackgroundTaskProgress("vision-analysis", 30, 0, 0, "Running vision analysis...");
+    updateBackgroundTaskProgress(
+      "vision-analysis",
+      30,
+      0,
+      0,
+      "Running vision analysis..."
+    );
     broadcast({
       type: "plugin:operation:progress",
       pluginId: "vision",
@@ -1572,7 +1679,12 @@ async function runVisionAnalysisInBackground(
       message: "Running vision analysis...",
     });
 
-    const result = await (visionMod as Record<string, (...args: unknown[]) => Promise<Record<string, unknown>>>).runVisionAnalysis({
+    const result = (await (
+      visionMod as Record<
+        string,
+        (...args: unknown[]) => Promise<Record<string, unknown>>
+      >
+    ).runVisionAnalysis({
       imageBase64: screenshot,
       manifest,
       projectPath: serverAppRootForVision,
@@ -1589,16 +1701,25 @@ async function runVisionAnalysisInBackground(
         updateBackgroundTaskProgress("vision-analysis", 50, 0, 0, phase);
       },
       pathResolver: resolvePathSpecifier,
-    }) as Record<string, unknown>;
+    })) as Record<string, unknown>;
 
     // Write markdown report (best-effort)
     if (typeof screenshotFile === "string" && screenshotFile.length > 0) {
       if (isValidScreenshotFilename(screenshotFile)) {
-        const screenshotsDir = join(serverAppRootForVision, ".uilint", "screenshots");
+        const screenshotsDir = join(
+          serverAppRootForVision,
+          ".uilint",
+          "screenshots"
+        );
         const imagePath = join(screenshotsDir, screenshotFile);
         try {
           if (existsSync(imagePath)) {
-            const report = (visionMod as Record<string, (...args: unknown[]) => Record<string, unknown>>).writeVisionMarkdownReport({
+            const report = (
+              visionMod as Record<
+                string,
+                (...args: unknown[]) => Record<string, unknown>
+              >
+            ).writeVisionMarkdownReport({
               imagePath,
               route,
               timestamp,
@@ -1637,7 +1758,9 @@ async function runVisionAnalysisInBackground(
       requestId,
     });
 
-    const msg = `${resultIssues.length} issue(s) in ${(elapsed / 1000).toFixed(1)}s`;
+    const msg = `${resultIssues.length} issue(s) in ${(elapsed / 1000).toFixed(
+      1
+    )}s`;
     completeBackgroundTask("vision-analysis", msg);
     setPluginStatus("vision", "complete", msg);
     setTimeout(() => setPluginStatus("vision", "idle"), 3000);
@@ -1886,7 +2009,12 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       updateCacheCount(fastCache.size + semanticCache.size);
 
       // Send fast results immediately
-      sendMessage(ws, { type: "lint:result", filePath, requestId, issues: fastClientIssues });
+      sendMessage(ws, {
+        type: "lint:result",
+        filePath,
+        requestId,
+        issues: fastClientIssues,
+      });
 
       // Send Done for fast pass immediately
       sendMessage(ws, {
@@ -1899,7 +2027,10 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       // === PASS 2: Semantic analysis (async, non-blocking) ===
       if (isSemanticRuleEnabled()) {
         runSemanticAnalysisAsync(filePath, ws, requestId).catch((err) => {
-          logServerError("Async semantic analysis failed", err instanceof Error ? err.message : String(err));
+          logServerError(
+            "Async semantic analysis failed",
+            err instanceof Error ? err.message : String(err)
+          );
         });
       } else {
         logSemanticSkipped(filePath, "rule not enabled");
@@ -1933,7 +2064,12 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         .filter((issue) => issue.dataLoc === dataLoc);
 
       // Send fast results immediately
-      sendMessage(ws, { type: "lint:result", filePath, requestId, issues: fastFiltered });
+      sendMessage(ws, {
+        type: "lint:result",
+        filePath,
+        requestId,
+        issues: fastFiltered,
+      });
 
       // Send Done for fast pass immediately
       {
@@ -1949,7 +2085,10 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       // === PASS 2: Semantic analysis (async, non-blocking) ===
       if (isSemanticRuleEnabled()) {
         runSemanticAnalysisAsync(filePath, ws, requestId).catch((err) => {
-          logServerError("Async semantic analysis failed", err instanceof Error ? err.message : String(err));
+          logServerError(
+            "Async semantic analysis failed",
+            err instanceof Error ? err.message : String(err)
+          );
         });
       } else {
         logSemanticSkipped(filePath, "rule not enabled");
@@ -2002,7 +2141,10 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
 
       // Fire-and-forget: run vision analysis in background
       runVisionAnalysisInBackground(ws, visionMsg).catch((err) => {
-        logServerError("Vision analysis failed", err instanceof Error ? err.message : String(err));
+        logServerError(
+          "Vision analysis failed",
+          err instanceof Error ? err.message : String(err)
+        );
       });
       break;
     }
@@ -2014,12 +2156,24 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       try {
         const analyzer = await getVisionAnalyzerInstance();
         if (!analyzer) {
-          sendMessage(ws, { type: "vision:status", available: false, requestId });
+          sendMessage(ws, {
+            type: "vision:status",
+            available: false,
+            requestId,
+          });
           break;
         }
         const analyzerObj = analyzer as Record<string, unknown>;
-        const model = typeof analyzerObj.getModel === "function" ? (analyzerObj.getModel as () => string)() : undefined;
-        sendMessage(ws, { type: "vision:status", available: true, model, requestId });
+        const model =
+          typeof analyzerObj.getModel === "function"
+            ? (analyzerObj.getModel as () => string)()
+            : undefined;
+        sendMessage(ws, {
+          type: "vision:status",
+          available: true,
+          model,
+          requestId,
+        });
       } catch {
         sendMessage(ws, { type: "vision:status", available: false, requestId });
       }
@@ -2666,7 +2820,7 @@ export async function serve(options: ServeOptions): Promise<void> {
     // Register all Ollama-consuming plugins with the dashboard.
     // Model names are defaults; corrected lazily via setPluginModel() when each plugin runs.
     registerPlugin("semantic", "Semantic", "qwen3-vl:8b-instruct");
-    registerPlugin("vision", "Vision", "gemma3:4b");
+    registerPlugin("vision", "Vision", "qwen3-vl:8b-instruct");
     registerPlugin("duplicates", "Duplicates", "nomic-embed-text");
   } else {
     disableDashboard();
@@ -2719,49 +2873,51 @@ export async function serve(options: ServeOptions): Promise<void> {
   }
 
   // Create HTTP server with discovery endpoint and WebSocket upgrade
-  const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
-    // CORS preflight
-    if (req.method === "OPTIONS") {
-      res.writeHead(204, {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-      });
-      res.end();
-      return;
-    }
-
-    const parsedUrl = new URL(req.url ?? "/", `http://localhost:${port}`);
-
-    if (parsedUrl.pathname === "/_uilint/info") {
-      const probePath = parsedUrl.searchParams.get("probe");
-      let probeExists: boolean | undefined;
-      if (probePath) {
-        // Check if the probed file exists relative to appRoot
-        const absolute = join(appRoot, probePath);
-        probeExists = existsSync(absolute);
+  const httpServer = createServer(
+    (req: IncomingMessage, res: ServerResponse) => {
+      // CORS preflight
+      if (req.method === "OPTIONS") {
+        res.writeHead(204, {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        });
+        res.end();
+        return;
       }
 
-      res.writeHead(200, {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      });
-      res.end(
-        JSON.stringify({
-          appRoot,
-          workspaceRoot: wsRoot,
-          serverCwd: cwd,
-          port,
-          pid: process.pid,
-          ...(probeExists !== undefined && { probeExists }),
-        })
-      );
-      return;
-    }
+      const parsedUrl = new URL(req.url ?? "/", `http://localhost:${port}`);
 
-    res.writeHead(404);
-    res.end();
-  });
+      if (parsedUrl.pathname === "/_uilint/info") {
+        const probePath = parsedUrl.searchParams.get("probe");
+        let probeExists: boolean | undefined;
+        if (probePath) {
+          // Check if the probed file exists relative to appRoot
+          const absolute = join(appRoot, probePath);
+          probeExists = existsSync(absolute);
+        }
+
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(
+          JSON.stringify({
+            appRoot,
+            workspaceRoot: wsRoot,
+            serverCwd: cwd,
+            port,
+            pid: process.pid,
+            ...(probeExists !== undefined && { probeExists }),
+          })
+        );
+        return;
+      }
+
+      res.writeHead(404);
+      res.end();
+    }
+  );
 
   // Create WebSocket server in noServer mode (HTTP server handles upgrade)
   const wss = new WebSocketServer({ noServer: true });

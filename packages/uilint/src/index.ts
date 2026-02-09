@@ -28,7 +28,7 @@ function assertNodeVersion(minMajor: number, minMinor: number): void {
 
   if (!meetsRequirement) {
     // Keep this dependency-free and stdout/stderr friendly.
-     
+
     console.error(
       `uilint requires Node.js >= ${minMajor}.${minMinor}.0. You are running Node.js ${ver}.`
     );
@@ -178,7 +178,12 @@ const initCommand = program
   .option("--react", "Install React DevTool (non-interactive)")
   .option("--eslint", "Install ESLint rules (non-interactive)")
   .option("--genstyleguide", "Generate styleguide (non-interactive)")
-  .option("--skill", "Install Claude skill (non-interactive)");
+  .option("--skill", "Install Claude skill (non-interactive)")
+  // Known plugin flags are registered statically so they work even when
+  // the plugin packages are not yet installed (the whole point of `init`).
+  .option("--vision", "Install Vision Analysis plugin")
+  .option("--semantic", "Install Semantic Analysis plugin")
+  .option("--duplicates", "Install Duplicates Detection plugin");
 
 // Remove command
 program
@@ -207,7 +212,9 @@ program
 // Vision command
 program
   .command("vision")
-  .description("Analyze a screenshot with Ollama vision models (requires a manifest)")
+  .description(
+    "Analyze a screenshot with Ollama vision models (requires a manifest)"
+  )
   .option("--list", "List available .uilint/screenshots sidecars and exit")
   .option(
     "--screenshots-dir <path>",
@@ -227,7 +234,10 @@ program
   )
   .option("-o, --output <format>", "Output format: text or json", "text")
   .option("--model <name>", "Ollama vision model override", undefined)
-  .option("--base-url <url>", "Ollama base URL (default: http://localhost:11434)")
+  .option(
+    "--base-url <url>",
+    "Ollama base URL (default: http://localhost:11434)"
+  )
   .option("--stream", "Stream model output/progress to stderr (text mode only)")
   .option("--debug", "Enable debug logging (stderr)")
   .option(
@@ -307,17 +317,25 @@ async function main() {
   const { discoverPlugins } = await import("./utils/plugin-loader.js");
   const pluginManifests = await discoverPlugins();
 
-  // Add a --<flag> option for each discovered plugin
+  // Known plugin flags that are statically registered on initCommand.
+  // These ensure `init --vision` etc. work even before plugins are installed.
+  const KNOWN_PLUGIN_FLAGS = ["vision", "semantic", "duplicates"];
+
+  // Add a --<flag> option for each discovered plugin (skips already-registered ones)
   for (const manifest of pluginManifests) {
-    initCommand.option(`--${manifest.cliFlag}`, manifest.cliDescription);
+    if (!KNOWN_PLUGIN_FLAGS.includes(manifest.cliFlag)) {
+      initCommand.option(`--${manifest.cliFlag}`, manifest.cliDescription);
+    }
   }
 
   // Wire up the init action handler (after plugin options are registered)
   initCommand.action(async (options) => {
-    // Collect plugin flags into a string array
-    const plugins = pluginManifests
-      .filter((m) => options[m.cliFlag])
-      .map((m) => m.cliFlag);
+    // Collect plugin flags: merge statically-known flags with dynamically-discovered ones
+    const allFlags = new Set([
+      ...KNOWN_PLUGIN_FLAGS,
+      ...pluginManifests.map((m) => m.cliFlag),
+    ]);
+    const plugins = [...allFlags].filter((flag) => options[flag]);
 
     const { initUI } = await import("./commands/init-ui.js");
     await initUI({
