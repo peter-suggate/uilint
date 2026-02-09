@@ -6,7 +6,8 @@
  */
 
 import type { ActionHandlers, PluginContext } from "uilint-core";
-import type { StyleguideState } from "./state.js";
+import { createOperationActions } from "uilint-core";
+import type { StyleguideState, AnalysisStats } from "./state.js";
 
 // Helper type for cleaner action handler definitions
 type Handler<TPayload = void> = (
@@ -19,9 +20,26 @@ const h = <TPayload = void>(fn: Handler<TPayload>): Handler<unknown> =>
   fn as Handler<unknown>;
 
 /**
+ * Generated lifecycle action handlers for the analysis operation.
+ *
+ * Provides: handle-analysis-start, handle-analysis-progress,
+ *           handle-analysis-complete, handle-analysis-error
+ */
+const analysisActions = createOperationActions<StyleguideState, AnalysisStats>(
+  "analysis",
+  {
+    getOp: (s) => s.analysis,
+    setOp: (op) => ({ analysis: op }),
+  }
+);
+
+/**
  * Action handlers for the styleguide plugin
  */
 export const styleguideActionHandlers: ActionHandlers<StyleguideState> = {
+  // Spread in generated lifecycle handlers
+  ...analysisActions,
+
   /**
    * Check styleguide and model status
    */
@@ -43,47 +61,6 @@ export const styleguideActionHandlers: ActionHandlers<StyleguideState> = {
       styleguidePath: payload.styleguidePath,
       modelAvailable: payload.modelAvailable,
       modelName: payload.modelName,
-    });
-  }),
-
-  /**
-   * Handle analysis progress
-   */
-  "handle-analysis-progress": h<{
-    filePath: string;
-    current: number;
-    total: number;
-  }>((ctx, payload) => {
-    ctx.setState({
-      analysisStatus: "analyzing",
-      analysisProgress: payload,
-    });
-  }),
-
-  /**
-   * Handle analysis complete
-   */
-  "handle-analysis-complete": h<{
-    analyzedFileCount: number;
-    issueCount: number;
-  }>((ctx, payload) => {
-    ctx.setState({
-      analysisStatus: "complete",
-      analysisProgress: null,
-      analyzedFileCount: payload.analyzedFileCount,
-      issueCount: payload.issueCount,
-      lastAnalysisError: null,
-    });
-  }),
-
-  /**
-   * Handle analysis error
-   */
-  "handle-analysis-error": h<{ error: string }>((ctx, payload) => {
-    ctx.setState({
-      analysisStatus: "error",
-      analysisProgress: null,
-      lastAnalysisError: payload.error,
     });
   }),
 

@@ -6,6 +6,7 @@
  */
 
 import type { ActionHandlers, PluginContext } from "uilint-core";
+import { createOperationActions } from "uilint-core";
 import type { DuplicatesState, IndexStats } from "./state.js";
 
 // Helper type for cleaner action handler definitions
@@ -19,69 +20,32 @@ const h = <TPayload = void>(fn: Handler<TPayload>): Handler<unknown> =>
   fn as Handler<unknown>;
 
 /**
+ * Generated lifecycle action handlers for the indexing operation.
+ *
+ * Provides: handle-indexing-start, handle-indexing-progress,
+ *           handle-indexing-complete, handle-indexing-error
+ */
+const indexingActions = createOperationActions<DuplicatesState, IndexStats>(
+  "indexing",
+  {
+    getOp: (s) => s.indexing,
+    setOp: (op) => ({ indexing: op }),
+  }
+);
+
+/**
  * Action handlers for the duplicates plugin
  */
 export const duplicatesActionHandlers: ActionHandlers<DuplicatesState> = {
+  // Spread in generated lifecycle handlers
+  ...indexingActions,
+
   /**
    * Start indexing
    */
   "start-indexing": h((ctx) => {
-    ctx.setState({
-      indexStatus: "indexing",
-      indexProgress: { current: 0, total: 0 },
-      lastIndexError: null,
-    });
-
+    ctx.dispatch("handle-indexing-start");
     ctx.websocket.send({ type: "duplicates:index" });
-  }),
-
-  /**
-   * Handle indexing started
-   */
-  "handle-indexing-start": h((ctx) => {
-    ctx.setState({
-      indexStatus: "indexing",
-      indexProgress: { current: 0, total: 0, message: "Starting..." },
-      lastIndexError: null,
-    });
-  }),
-
-  /**
-   * Handle indexing progress
-   */
-  "handle-indexing-progress": h<{ message: string; current?: number; total?: number }>(
-    (ctx, payload) => {
-      ctx.setState({
-        indexProgress: {
-          current: payload.current ?? 0,
-          total: payload.total ?? 0,
-          message: payload.message,
-        },
-      });
-    }
-  ),
-
-  /**
-   * Handle indexing complete
-   */
-  "handle-indexing-complete": h<IndexStats>((ctx, payload) => {
-    ctx.setState({
-      indexStatus: "ready",
-      indexProgress: null,
-      indexStats: payload,
-      lastIndexError: null,
-    });
-  }),
-
-  /**
-   * Handle indexing error
-   */
-  "handle-indexing-error": h<{ error: string }>((ctx, payload) => {
-    ctx.setState({
-      indexStatus: "error",
-      indexProgress: null,
-      lastIndexError: payload.error,
-    });
   }),
 
   /**
