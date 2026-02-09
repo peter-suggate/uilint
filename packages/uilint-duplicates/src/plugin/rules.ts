@@ -20,6 +20,7 @@ export const noDuplicatesRuleDefinition: RuleDefinition = {
   defaultEnabled: false,
   heatmapColor: "#f59e0b", // Amber
   customInspectorPanel: "duplicates",
+  contentRenderer: "duplicate-comparison",
   requirements: [
     {
       type: "semantic-index",

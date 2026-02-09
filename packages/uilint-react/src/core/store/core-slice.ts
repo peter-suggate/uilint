@@ -310,6 +310,18 @@ export interface CoreSlice {
   /** Show the issue summary view (hide full source) */
   showIssueSummaryView: () => void;
 
+  // ============ Issue Ignore System ============
+  /** Set of issue IDs that are currently ignored */
+  ignoredIssueIds: Set<string>;
+  /** Whether to show ignored issues (dimmed) in the list */
+  showIgnoredIssues: boolean;
+  /** Add an issue to the ignored set */
+  addIgnoredIssue: (issueId: string) => void;
+  /** Remove an issue from the ignored set */
+  removeIgnoredIssue: (issueId: string) => void;
+  /** Toggle show/hide of ignored issues */
+  toggleShowIgnoredIssues: () => void;
+
   // ============ Connection (delegated from websocket service) ============
   /** Whether connected to the WebSocket server */
   wsConnected: boolean;
@@ -941,6 +953,28 @@ export const createCoreSlice = (
         showFullSource: false,
       },
     });
+  },
+
+  // ============ Issue Ignore System ============
+  ignoredIssueIds: new Set<string>(),
+  showIgnoredIssues: false,
+
+  addIgnoredIssue: (issueId) => {
+    const current = get().ignoredIssueIds;
+    const next = new Set(current);
+    next.add(issueId);
+    set({ ignoredIssueIds: next });
+  },
+
+  removeIgnoredIssue: (issueId) => {
+    const current = get().ignoredIssueIds;
+    const next = new Set(current);
+    next.delete(issueId);
+    set({ ignoredIssueIds: next });
+  },
+
+  toggleShowIgnoredIssues: () => {
+    set({ showIgnoredIssues: !get().showIgnoredIssues });
   },
 
   // ============ Connection (delegated from websocket service) ============

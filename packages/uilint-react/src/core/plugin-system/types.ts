@@ -363,6 +363,13 @@ export interface RuleUIContribution {
   ruleId: string;
   /** Custom inspector panel for this rule's issues */
   inspectorPanel?: ComponentType<InspectorPanelProps>;
+  /**
+   * Key identifying a custom content renderer for the IssuesList view.
+   * When set, IssuesList renders this rule's issues with a specialized
+   * component instead of the default IssueSummaryView/FileSourceView.
+   * Currently supported: "duplicate-comparison"
+   */
+  contentRenderer?: string;
   /** Custom icon for this rule */
   icon?: ReactNode;
   /** Additional commands specific to this rule */

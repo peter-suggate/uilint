@@ -61,6 +61,14 @@ export interface RuleHeaderProps {
   onResetOptions?: () => void;
   /** Whether an update is in progress */
   isUpdating?: boolean;
+
+  // Ignore system props
+  /** Number of ignored issues for this rule */
+  ignoredCount?: number;
+  /** Whether ignored issues are currently shown */
+  showIgnored?: boolean;
+  /** Toggle show/hide of ignored issues */
+  onToggleShowIgnored?: () => void;
 }
 
 // ============================================================================
@@ -86,6 +94,10 @@ export function RuleHeader({
   onOptionChange,
   onResetOptions,
   isUpdating,
+  // Ignore system props
+  ignoredCount = 0,
+  showIgnored = false,
+  onToggleShowIgnored,
 }: RuleHeaderProps) {
   const [showDescription, setShowDescription] = useState(false);
   const [configPopoverOpen, setConfigPopoverOpen] = useState(false);
@@ -146,6 +158,23 @@ export function RuleHeader({
                 </span>
               )}
             </div>
+          )}
+
+          {/* Ignored count toggle */}
+          {ignoredCount > 0 && onToggleShowIgnored && (
+            <button
+              type="button"
+              onClick={onToggleShowIgnored}
+              className={cn(
+                "text-[11px] tabular-nums px-1.5 py-0.5 rounded",
+                "transition-colors duration-100",
+                showIgnored
+                  ? "text-muted-foreground bg-foreground/[0.06]"
+                  : "text-muted-foreground/50 hover:text-muted-foreground"
+              )}
+            >
+              {ignoredCount} ignored
+            </button>
           )}
 
           {/* Category badge */}
