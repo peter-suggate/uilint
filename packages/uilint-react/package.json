@@ -53,6 +53,7 @@
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
     "diff": "^7.0.0",
+    "fuse.js": "^7.0.0",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-slot": "^1.2.4",
     "class-variance-authority": "^0.7.1",

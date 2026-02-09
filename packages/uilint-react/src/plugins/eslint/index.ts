@@ -35,6 +35,10 @@ import {
   getChildItems,
   canExpand,
 } from "./tile-provider";
+import {
+  getSearchItems as eslintGetSearchItems,
+  getPreviewPanel as eslintGetPreviewPanel,
+} from "./search-provider";
 
 /** WebSocket message types handled by ESLint plugin */
 const ESLINT_WS_MESSAGE_TYPES = [
@@ -122,6 +126,16 @@ export const eslintPlugin: Plugin = {
     getChildItems,
     canExpand,
   },
+
+  /**
+   * Search items for the two-panel command palette
+   */
+  getSearchItems: eslintGetSearchItems,
+
+  /**
+   * Preview panel for search items in the command palette
+   */
+  getPreviewPanel: eslintGetPreviewPanel,
 
   /**
    * Determine which rules this plugin handles

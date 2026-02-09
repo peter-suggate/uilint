@@ -5,7 +5,7 @@
  * Plugins can contribute commands, inspector panels, analyzers, and custom rule UI.
  */
 
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType, ReactElement, ReactNode } from "react";
 
 // ============================================================================
 // Plugin Metadata
@@ -84,6 +84,58 @@ export interface PaletteItem {
   /** Additional metadata for inspector, etc. */
   metadata?: Record<string, unknown>;
 }
+
+// ============================================================================
+// Search Item Types (Two-Panel Command Palette)
+// ============================================================================
+
+/**
+ * A search item contributed by a plugin for the two-panel command palette.
+ * Unlike TileItem (which is visual/count-based), SearchItem is optimized
+ * for text search with fuzzy matching and preview rendering.
+ */
+export interface SearchItem {
+  /** Unique identifier (e.g., "eslint:rule:no-unused-vars") */
+  id: string;
+  /** Section this item belongs to (drives grouping in result list) */
+  section: "rules" | "files" | "commands" | string;
+  /** Primary label displayed in the result list row */
+  label: string;
+  /** Secondary text (description, path) */
+  subtitle?: string;
+  /** Icon (React component or emoji) */
+  icon?: ReactNode;
+  /** Severity counts for badge display */
+  severityCounts?: TileSeverityCounts;
+  /** Total issue count */
+  count?: number;
+  /** File count (for rule items) */
+  fileCount?: number;
+  /**
+   * Searchable text fields for fuzzy matching.
+   * Fuse.js indexes these keys with configurable weights.
+   */
+  searchFields: {
+    label: string;
+    subtitle?: string;
+    keywords?: string[];
+    /** Additional text to search (e.g., issue messages) */
+    extra?: string[];
+  };
+  /** Execute action when item is confirmed (Enter or double-click) */
+  execute?: (services: PluginServices) => void | Promise<void>;
+  /** Opaque metadata for preview panel rendering */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Preview panel content returned by a plugin for a selected SearchItem.
+ * The plugin creates a ReactElement via createElement (no JSX).
+ */
+export type PreviewPanelResult = {
+  /** React element to render in the preview pane */
+  element: ReactElement;
+} | null;
 
 /**
  * A tile provider that contributes tiles to the command palette.
@@ -443,6 +495,23 @@ export interface Plugin<TSlice = unknown> {
    * @returns Array of palette items (can be async)
    */
   getPaletteItems?: (services: PluginServices) => PaletteItem[] | Promise<PaletteItem[]>;
+
+  /**
+   * Get searchable items for the two-panel command palette.
+   * Called when the palette opens and re-called when issues change.
+   * Items are indexed by the fuzzy search engine.
+   */
+  getSearchItems?: (services: PluginServices) => SearchItem[];
+
+  /**
+   * Get a preview panel element for a selected search item.
+   * Called when the user highlights an item in the result list.
+   * Return null for no preview (shows empty state).
+   */
+  getPreviewPanel?: (
+    item: SearchItem,
+    services: PluginServices
+  ) => PreviewPanelResult;
 
   /** Inspector panels contributed by this plugin */
   inspectorPanels?: InspectorPanel[];
