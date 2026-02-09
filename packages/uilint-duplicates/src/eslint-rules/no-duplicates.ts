@@ -1,5 +1,5 @@
 /**
- * Rule: no-semantic-duplicates
+ * Rule: no-duplicates
  *
  * Warns when code is semantically similar to existing indexed code.
  * This rule queries a pre-built semantic index (from uilint duplicates index)
@@ -15,7 +15,7 @@ import type { TSESTree } from "@typescript-eslint/utils";
 import { existsSync, readFileSync, appendFileSync, writeFileSync } from "fs";
 import { dirname, join, relative } from "path";
 
-// Debug logging - writes to .uilint/no-semantic-duplicates.log in the project root
+// Debug logging - writes to .uilint/no-duplicates.log in the project root
 let logFile: string | null = null;
 let logInitialized = false;
 
@@ -23,7 +23,7 @@ function initLog(projectRoot: string): void {
   if (logFile) return;
   const uilintDir = join(projectRoot, ".uilint");
   if (existsSync(uilintDir)) {
-    logFile = join(uilintDir, "no-semantic-duplicates.log");
+    logFile = join(uilintDir, "no-duplicates.log");
   }
 }
 
@@ -67,17 +67,17 @@ type Options = [
  * Rule metadata
  */
 export const meta = defineRuleMeta({
-  id: "no-semantic-duplicates",
+  id: "no-duplicates",
   version: "1.0.0",
-  name: "No Semantic Duplicates",
+  name: "No Duplicates",
   description: "Warn when code is semantically similar to existing code",
   defaultSeverity: "warn",
-  category: "semantic",
+  category: "duplicates",
   icon: "🔍",
   hint: "Finds similar code via embeddings",
   defaultEnabled: false,
-  plugin: "semantic",
-  eslintImport: "uilint-semantic/eslint-rules/no-semantic-duplicates",
+  plugin: "duplicates",
+  eslintImport: "uilint-duplicates/eslint-rules/no-duplicates",
   customInspector: "duplicates",
   requirements: [
     {
@@ -226,7 +226,7 @@ export function ProfileCard({ profile }) {
 
 \`\`\`js
 // eslint.config.js
-"uilint/no-semantic-duplicates": ["warn", {
+"uilint/no-duplicates": ["warn", {
   // Core detection settings
   threshold: 0.75,              // Similarity threshold (0-1). Lower = more matches.
   confidenceLevel: "medium",    // "high" (≥90%), "medium" (≥75%), "low" (≥60%)
@@ -553,7 +553,7 @@ function findSimilarChunks(
 }
 
 export default createRule<Options, MessageIds>({
-  name: "no-semantic-duplicates",
+  name: "no-duplicates",
   meta: {
     type: "suggestion",
     docs: {

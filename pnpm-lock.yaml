@@ -280,6 +280,9 @@ importers:
       uilint-core:
         specifier: workspace:*
         version: link:../uilint-core
+      uilint-eslint:
+        specifier: workspace:*
+        version: link:../uilint-eslint
       xxhash-wasm:
         specifier: ^1.1.0
         version: 1.1.0
@@ -372,6 +375,9 @@ importers:
       uilint-core:
         specifier: workspace:*
         version: link:../uilint-core
+      uilint-duplicates:
+        specifier: workspace:*
+        version: link:../uilint-duplicates
       uilint-eslint:
         specifier: workspace:*
         version: link:../uilint-eslint

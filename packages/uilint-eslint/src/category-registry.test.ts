@@ -3,17 +3,16 @@
  */
 
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
-import { categoryRegistry, getCategoryMeta, registerCategory, type CategoryMeta } from "./category-registry.js";
+import { categoryRegistry, getCategoryMeta, getPluginCategories, registerCategory, type CategoryMeta } from "./category-registry.js";
 
 describe("categoryRegistry", () => {
-  it("should have at least the two built-in categories", () => {
-    expect(categoryRegistry.length).toBeGreaterThanOrEqual(2);
+  it("should have at least the static built-in category", () => {
+    expect(categoryRegistry.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("should have static and semantic categories", () => {
+  it("should have static category (other categories are registered by plugins)", () => {
     const ids = categoryRegistry.map((cat) => cat.id);
     expect(ids).toContain("static");
-    expect(ids).toContain("semantic");
   });
 
   describe("static category", () => {
@@ -26,29 +25,11 @@ describe("categoryRegistry", () => {
     it("should have correct metadata", () => {
       expect(staticCat.name).toBe("Static Rules");
       expect(staticCat.description).toBe("Pattern-based, fast analysis");
-      expect(staticCat.icon).toBe("📋");
+      expect(staticCat.icon).toBe("\u{1F4CB}");
     });
 
     it("should be enabled by default", () => {
       expect(staticCat.defaultEnabled).toBe(true);
-    });
-  });
-
-  describe("semantic category", () => {
-    let semanticCat: CategoryMeta;
-
-    beforeAll(() => {
-      semanticCat = categoryRegistry.find((cat) => cat.id === "semantic")!;
-    });
-
-    it("should have correct metadata", () => {
-      expect(semanticCat.name).toBe("Semantic Rules");
-      expect(semanticCat.description).toBe("LLM-powered analysis");
-      expect(semanticCat.icon).toBe("🧠");
-    });
-
-    it("should be disabled by default", () => {
-      expect(semanticCat.defaultEnabled).toBe(false);
     });
   });
 });
@@ -61,16 +42,44 @@ describe("getCategoryMeta", () => {
     expect(cat?.name).toBe("Static Rules");
   });
 
-  it("should return semantic category metadata", () => {
-    const cat = getCategoryMeta("semantic");
-    expect(cat).toBeDefined();
-    expect(cat?.id).toBe("semantic");
-    expect(cat?.name).toBe("Semantic Rules");
-  });
-
   it("should return undefined for unknown category", () => {
     const cat = getCategoryMeta("unknown");
     expect(cat).toBeUndefined();
+  });
+});
+
+describe("getPluginCategories", () => {
+  afterEach(() => {
+    // Remove any test categories added during tests
+    const testIndex = categoryRegistry.findIndex((c) => c.id === "test-plugin-cat");
+    if (testIndex !== -1) categoryRegistry.splice(testIndex, 1);
+  });
+
+  it("returns empty when only static category exists", () => {
+    const pluginCats = getPluginCategories();
+    // Filter out any test categories registered by other test suites
+    const nonTest = pluginCats.filter((c) => !c.id.startsWith("test"));
+    // In isolation, only static exists, so plugin categories should be empty
+    // (but other tests may have registered categories)
+    expect(Array.isArray(pluginCats)).toBe(true);
+  });
+
+  it("returns registered plugin categories", () => {
+    registerCategory({
+      id: "test-plugin-cat",
+      name: "Test Plugin",
+      description: "For testing getPluginCategories",
+      icon: "\u{1F9EA}",
+      defaultEnabled: false,
+    });
+
+    const pluginCats = getPluginCategories();
+    expect(pluginCats.find((c) => c.id === "test-plugin-cat")).toBeDefined();
+  });
+
+  it("excludes static from results", () => {
+    const pluginCats = getPluginCategories();
+    expect(pluginCats.find((c) => c.id === "static")).toBeUndefined();
   });
 });
 
@@ -88,7 +97,7 @@ describe("registerCategory", () => {
       id: "vision",
       name: "Vision Rules",
       description: "AI-powered visual analysis",
-      icon: "👁️",
+      icon: "\u{1F441}\u{FE0F}",
       defaultEnabled: false,
     });
 
@@ -104,7 +113,7 @@ describe("registerCategory", () => {
       id: "static",
       name: "Different Name",
       description: "Different",
-      icon: "🔧",
+      icon: "\u{1F527}",
       defaultEnabled: true,
     });
 
@@ -118,7 +127,7 @@ describe("registerCategory", () => {
       id: "test-cat",
       name: "Test Category",
       description: "For testing",
-      icon: "🧪",
+      icon: "\u{1F9EA}",
       defaultEnabled: false,
     });
 

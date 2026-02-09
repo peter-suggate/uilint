@@ -41,7 +41,7 @@ apps/test-app/
 
 # UILint cache
 .uilint/.cache
-.uilint/no-semantic-duplicates.log
+.uilint/no-duplicates.log
 
 # Vercel preview deployment artifacts
 .preview-packages/

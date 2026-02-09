@@ -133,7 +133,7 @@ describe("RulePanel", () => {
       id: "single-issue-rule",
       name: "Single Issue Rule",
       description: "A rule with one issue",
-      category: "semantic",
+      category: "styleguide",
       currentSeverity: "error",
     };
 
@@ -185,13 +185,13 @@ describe("RulePanel", () => {
     expect(screen.getByText("Off")).toBeDefined();
   });
 
-  it("shows category with semantic styling for semantic rules", () => {
+  it("shows category with accent styling for plugin rules", () => {
     const store = createComposedStore();
     const testRule: AvailableRule = {
-      id: "semantic-rule",
-      name: "Semantic Rule",
-      description: "A semantic analysis rule",
-      category: "semantic",
+      id: "styleguide-rule",
+      name: "Styleguide Rule",
+      description: "A styleguide checking rule",
+      category: "styleguide",
       currentSeverity: "warning",
     };
 
@@ -205,9 +205,9 @@ describe("RulePanel", () => {
       })
     );
 
-    render(<RulePanel data={{ ruleId: "semantic-rule" }} />);
+    render(<RulePanel data={{ ruleId: "styleguide-rule" }} />);
 
-    expect(screen.getByText("semantic")).toBeDefined();
+    expect(screen.getByText("styleguide")).toBeDefined();
   });
 
   it("shows 'Updating...' indicator when rule config is being updated", () => {
@@ -390,7 +390,7 @@ describe("RulePanel - theming with CSS variables", () => {
       id: "bg-rule",
       name: "Background Test Rule",
       description: "A rule for testing backgrounds",
-      category: "semantic",
+      category: "styleguide",
       currentSeverity: "warning",
     };
 

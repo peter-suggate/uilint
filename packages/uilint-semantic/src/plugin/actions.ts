@@ -1,125 +1,97 @@
 /**
- * Semantic Plugin Action Handlers
+ * Styleguide Plugin Action Handlers
  *
  * Plain functions that handle plugin actions.
  * No React - uses PluginContext for state management.
  */
 
 import type { ActionHandlers, PluginContext } from "uilint-core";
-import type { SemanticState } from "./state.js";
-import type { IndexStats } from "../types.js";
+import type { StyleguideState } from "./state.js";
 
 // Helper type for cleaner action handler definitions
 type Handler<TPayload = void> = (
-  ctx: PluginContext<SemanticState>,
+  ctx: PluginContext<StyleguideState>,
   payload: TPayload
 ) => void | Promise<void>;
 
-// Cast helper for proper typing - wraps typed handlers to satisfy ActionHandlers
+// Cast helper for proper typing
 const h = <TPayload = void>(fn: Handler<TPayload>): Handler<unknown> =>
   fn as Handler<unknown>;
 
 /**
- * Action handlers for the semantic plugin
+ * Action handlers for the styleguide plugin
  */
-export const semanticActionHandlers: ActionHandlers<SemanticState> = {
+export const styleguideActionHandlers: ActionHandlers<StyleguideState> = {
   /**
-   * Start indexing
+   * Check styleguide and model status
    */
-  "start-indexing": h((ctx) => {
-    ctx.setState({
-      indexStatus: "indexing",
-      indexProgress: { current: 0, total: 0 },
-      lastIndexError: null,
-    });
-
-    // Request server to start indexing
-    ctx.websocket.send({ type: "duplicates:index" });
+  "check-styleguide-status": h((ctx) => {
+    ctx.websocket.send({ type: "styleguide:check" });
   }),
 
   /**
-   * Handle indexing started
+   * Handle styleguide status response from server
    */
-  "handle-indexing-start": h((ctx) => {
+  "handle-styleguide-status": h<{
+    styleguideLoaded: boolean;
+    styleguidePath: string | null;
+    modelAvailable: boolean;
+    modelName: string;
+  }>((ctx, payload) => {
     ctx.setState({
-      indexStatus: "indexing",
-      indexProgress: { current: 0, total: 0, message: "Starting..." },
-      lastIndexError: null,
-    });
-  }),
-
-  /**
-   * Handle indexing progress
-   */
-  "handle-indexing-progress": h<{ message: string; current?: number; total?: number }>(
-    (ctx, payload) => {
-      ctx.setState({
-        indexProgress: {
-          current: payload.current ?? 0,
-          total: payload.total ?? 0,
-          message: payload.message,
-        },
-      });
-    }
-  ),
-
-  /**
-   * Handle indexing complete
-   */
-  "handle-indexing-complete": h<IndexStats>((ctx, payload) => {
-    ctx.setState({
-      indexStatus: "ready",
-      indexProgress: null,
-      indexStats: payload,
-      lastIndexError: null,
+      styleguideLoaded: payload.styleguideLoaded,
+      styleguidePath: payload.styleguidePath,
+      modelAvailable: payload.modelAvailable,
+      modelName: payload.modelName,
     });
   }),
 
   /**
-   * Handle indexing error
+   * Handle analysis progress
    */
-  "handle-indexing-error": h<{ error: string }>((ctx, payload) => {
+  "handle-analysis-progress": h<{
+    filePath: string;
+    current: number;
+    total: number;
+  }>((ctx, payload) => {
     ctx.setState({
-      indexStatus: "error",
-      indexProgress: null,
-      lastIndexError: payload.error,
+      analysisStatus: "analyzing",
+      analysisProgress: payload,
     });
   }),
 
   /**
-   * Select a duplicate for viewing in inspector
+   * Handle analysis complete
    */
-  "select-duplicate": h<{ sourceDataLoc: string; targetDataLoc: string; similarity: number }>(
-    (ctx, payload) => {
-      ctx.setState({ selectedDuplicate: payload });
-      ctx.openInspector("duplicates", payload);
-    }
-  ),
-
-  /**
-   * Clear selected duplicate
-   */
-  "clear-selected-duplicate": h((ctx) => {
-    ctx.setState({ selectedDuplicate: null });
+  "handle-analysis-complete": h<{
+    analyzedFileCount: number;
+    issueCount: number;
+  }>((ctx, payload) => {
+    ctx.setState({
+      analysisStatus: "complete",
+      analysisProgress: null,
+      analyzedFileCount: payload.analyzedFileCount,
+      issueCount: payload.issueCount,
+      lastAnalysisError: null,
+    });
   }),
 
   /**
-   * Toggle heatmap filter for duplicates
+   * Handle analysis error
    */
-  "toggle-heatmap-filter": h<{ sourceDataLoc: string; targetDataLoc: string }>(
-    (ctx, payload) => {
-      ctx.setHeatmapFilter(
-        [payload.sourceDataLoc, payload.targetDataLoc],
-        "Duplicate Code"
-      );
-    }
-  ),
+  "handle-analysis-error": h<{ error: string }>((ctx, payload) => {
+    ctx.setState({
+      analysisStatus: "error",
+      analysisProgress: null,
+      lastAnalysisError: payload.error,
+    });
+  }),
 
   /**
-   * Clear heatmap filter
+   * Reload styleguide file from disk
    */
-  "clear-heatmap-filter": h((ctx) => {
-    ctx.clearHeatmapFilter();
+  "reload-styleguide": h((ctx) => {
+    ctx.websocket.send({ type: "styleguide:reload" });
   }),
 
   /**

@@ -1,134 +1,90 @@
 /**
- * Semantic Plugin Rules
+ * Styleguide Plugin Rules
  *
- * Rule definitions for the semantic plugin.
+ * Rule definitions for the styleguide plugin.
  * Declarative - no React.
  */
 
 import type { RuleDefinition } from "uilint-core";
 
 /**
- * no-semantic-duplicates rule definition
+ * semantic rule definition (styleguide checking via LLM)
  */
-export const noSemanticDuplicatesRuleDefinition: RuleDefinition = {
-  id: "no-semantic-duplicates",
-  name: "No Semantic Duplicates",
-  description: "Warns when code is semantically similar to existing code",
-  category: "semantic",
-  icon: "search",
+export const semanticRuleDefinition: RuleDefinition = {
+  id: "semantic",
+  name: "Semantic Analysis",
+  description: "LLM-powered semantic UI analysis using your styleguide",
+  category: "styleguide",
+  icon: "brain",
   defaultSeverity: "warn",
   defaultEnabled: false,
-  heatmapColor: "#f59e0b", // Amber
-  customInspectorPanel: "duplicates",
+  heatmapColor: "#8b5cf6", // Purple
+  customInspectorPanel: "semantic-issue",
   requirements: [
     {
-      type: "semantic-index",
-      description: "Requires semantic index for duplicate detection",
-      setupHint: "Run: uilint duplicates index",
+      type: "ollama",
+      description: "Requires Ollama running locally",
+      setupHint: "Run: ollama serve && ollama pull qwen3-vl:8b-instruct",
+    },
+    {
+      type: "styleguide",
+      description: "Requires a styleguide file",
+      setupHint: "Run: uilint genstyleguide",
     },
   ],
   defaultOptions: [
     {
-      threshold: 0.75,
-      indexPath: ".uilint/.duplicates-index",
-      minLines: 3,
-      confidenceLevel: "low",
-      useStructuralBoost: true,
-      includeSameFile: false,
-      kind: "all",
+      model: "qwen3-vl:8b-instruct",
+      styleguidePath: ".uilint/styleguide.md",
     },
   ],
   optionSchema: {
     fields: [
       {
-        key: "threshold",
-        label: "Similarity Threshold",
-        type: "number",
-        defaultValue: 0.75,
-        description: "Minimum similarity score (0-1) to report as duplicate.",
+        key: "model",
+        label: "Ollama Model",
+        type: "text",
+        defaultValue: "qwen3-vl:8b-instruct",
+        description: "The Ollama model name for semantic analysis.",
       },
       {
-        key: "confidenceLevel",
-        label: "Minimum Confidence",
-        type: "select",
-        defaultValue: "low",
-        options: [
-          { value: "high", label: "High (>90%) - Likely copy-paste" },
-          { value: "medium", label: "Medium (>75%) - Semantically similar" },
-          { value: "low", label: "Low (>60%) - Possibly related" },
-        ],
-        description: "Minimum confidence level for reported duplicates.",
-      },
-      {
-        key: "kind",
-        label: "Chunk Type",
-        type: "select",
-        defaultValue: "all",
-        options: [
-          { value: "all", label: "All" },
-          { value: "component", label: "Components" },
-          { value: "hook", label: "Hooks" },
-          { value: "function", label: "Functions" },
-        ],
-        description: "Filter duplicates by code type.",
-      },
-      {
-        key: "useStructuralBoost",
-        label: "Use Structural Analysis",
-        type: "boolean",
-        defaultValue: true,
-        description: "Include structural similarity (props, JSX, hooks) in scoring.",
-      },
-      {
-        key: "includeSameFile",
-        label: "Include Same-File Duplicates",
-        type: "boolean",
-        defaultValue: false,
-        description: "Report duplicates within the same file.",
-      },
-      {
-        key: "minLines",
-        label: "Minimum Lines",
-        type: "number",
-        defaultValue: 3,
-        description: "Minimum number of lines for a code chunk.",
+        key: "styleguidePath",
+        label: "Styleguide Path",
+        type: "text",
+        defaultValue: ".uilint/styleguide.md",
+        description: "Relative path to the styleguide markdown file.",
       },
     ],
   },
   docs: `
-## No Semantic Duplicates Rule
+## Semantic Analysis Rule
 
-This rule detects code that is semantically similar to existing code in your codebase.
+Uses a local LLM (via Ollama) to analyze your React components against your project's
+styleguide. It catches semantic issues that pattern-based rules can't detect.
 
 ### How it Works
 
-1. The codebase is indexed to extract "chunks" (components, hooks, functions)
-2. Each chunk is embedded using an AI model to capture semantic meaning
-3. During linting, chunks are compared against the index
-4. Similar chunks above the threshold are reported
+1. Your styleguide at \`.uilint/styleguide.md\` defines your conventions
+2. The LLM analyzes each component against those conventions
+3. Issues like incorrect spacing, inconsistent styles, and missing patterns are reported
 
-### Confidence Levels
+### Prerequisites
 
-- **High (>90%)**: Very likely copy-paste or near-identical code
-- **Medium (>75%)**: Semantically similar, possibly refactorable
-- **Low (>60%)**: Possibly related, worth reviewing
-
-### Setup
-
-1. Run \`uilint duplicates index\` to build the semantic index
-2. Enable this rule in your ESLint config
-3. The rule will report duplicates during linting
+1. **Ollama installed**: \`brew install ollama\` or from ollama.ai
+2. **Model pulled**: \`ollama pull qwen3-vl:8b-instruct\`
+3. **Styleguide created**: Create \`.uilint/styleguide.md\` describing your conventions
 
 ### Performance
 
-The rule uses a pre-built index, so it's fast during linting.
-Re-index periodically to keep the index up to date.
+- Results are cached based on file content and styleguide hash
+- First run may be slow as the model loads; subsequent runs use cache
+- Set to "off" in CI to avoid slow builds
   `.trim(),
 };
 
 /**
- * All semantic rule definitions
+ * All styleguide rule definitions
  */
-export const semanticRuleDefinitions: RuleDefinition[] = [
-  noSemanticDuplicatesRuleDefinition,
+export const styleguideRuleDefinitions: RuleDefinition[] = [
+  semanticRuleDefinition,
 ];

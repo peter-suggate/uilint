@@ -33,6 +33,9 @@ import {
   GitBranch,
   Copy,
   Clipboard,
+  Book,
+  BookOpen,
+  Bookmark,
   Play,
   Pause,
   RefreshCw,
@@ -49,9 +52,10 @@ import {
 } from "lucide-react";
 
 /**
- * Maps IconName to Lucide icon component
+ * Maps IconName to Lucide icon component.
+ * Uses Partial since IconName accepts any string for forward compatibility.
  */
-const iconMap: Record<IconName, LucideIcon> = {
+const iconMap: Partial<Record<IconName, LucideIcon>> = {
   // UI Navigation
   target: Target,
   link: Link,
@@ -82,6 +86,10 @@ const iconMap: Record<IconName, LucideIcon> = {
   "git-branch": GitBranch,
   copy: Copy,
   clipboard: Clipboard,
+  // Content
+  book: Book,
+  "book-open": BookOpen,
+  bookmark: Bookmark,
   // Actions
   play: Play,
   pause: Pause,
@@ -102,7 +110,7 @@ const iconMap: Record<IconName, LucideIcon> = {
  * Gets the Lucide icon component for an IconName
  */
 export function getIcon(name: IconName): LucideIcon {
-  return iconMap[name] || Info;
+  return iconMap[name as keyof typeof iconMap] ?? Info;
 }
 
 /**

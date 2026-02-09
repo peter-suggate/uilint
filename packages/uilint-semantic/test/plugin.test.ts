@@ -1,163 +1,196 @@
 /**
- * Semantic Plugin Tests
+ * Styleguide Plugin Tests
  *
- * Behavioral tests for the semantic plugin - no mocking implementation details.
+ * Behavioral tests for the styleguide plugin - no mocking implementation details.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { PluginRegistry } from "uilint-core";
-import { semanticPlugin } from "../src/plugin/index.js";
-import { semanticInitialState, type SemanticState } from "../src/plugin/state.js";
+import { styleguidePlugin } from "../src/plugin/index.js";
+import { styleguideInitialState, type StyleguideState } from "../src/plugin/state.js";
 
-describe("Semantic Plugin", () => {
+describe("Styleguide Plugin", () => {
   describe("registration", () => {
     it("has required plugin metadata", () => {
-      expect(semanticPlugin.id).toBe("semantic");
-      expect(semanticPlugin.name).toBe("Semantic Analysis");
-      expect(semanticPlugin.version).toBe("1.0.0");
+      expect(styleguidePlugin.id).toBe("styleguide");
+      expect(styleguidePlugin.name).toBe("Styleguide Checking");
+      expect(styleguidePlugin.version).toBe("1.0.0");
     });
 
     it("can be registered with PluginRegistry", () => {
       const registry = new PluginRegistry();
 
-      // Should not throw
-      expect(() => registry.register(semanticPlugin)).not.toThrow();
-      expect(registry.has("semantic")).toBe(true);
+      expect(() => registry.register(styleguidePlugin)).not.toThrow();
+      expect(registry.has("styleguide")).toBe(true);
     });
 
     it("auto-registers on import", async () => {
-      // The plugin auto-registers when imported
       const { pluginRegistry } = await import("uilint-core");
-      expect(pluginRegistry.has("semantic")).toBe(true);
+      expect(pluginRegistry.has("styleguide")).toBe(true);
+    });
+
+    it("can unregister and re-register", () => {
+      const registry = new PluginRegistry();
+
+      registry.register(styleguidePlugin);
+      expect(registry.has("styleguide")).toBe(true);
+
+      registry.unregister("styleguide");
+      expect(registry.has("styleguide")).toBe(false);
+
+      registry.register(styleguidePlugin);
+      expect(registry.has("styleguide")).toBe(true);
     });
   });
 
   describe("state definition", () => {
     it("provides valid initial state", () => {
-      expect(semanticPlugin.state.initialState).toEqual(semanticInitialState);
+      expect(styleguidePlugin.state.initialState).toEqual(styleguideInitialState);
     });
 
-    it("initializes with indexStatus: idle", () => {
-      const state = semanticPlugin.state.initialState;
-      expect(state.indexStatus).toBe("idle");
+    it("initializes with styleguideLoaded: false", () => {
+      const state = styleguidePlugin.state.initialState;
+      expect(state.styleguideLoaded).toBe(false);
     });
 
-    it("initializes with null indexProgress", () => {
-      const state = semanticPlugin.state.initialState;
-      expect(state.indexProgress).toBeNull();
+    it("initializes with null styleguidePath", () => {
+      const state = styleguidePlugin.state.initialState;
+      expect(state.styleguidePath).toBeNull();
     });
 
-    it("initializes with null indexStats", () => {
-      const state = semanticPlugin.state.initialState;
-      expect(state.indexStats).toBeNull();
+    it("initializes with modelAvailable: false", () => {
+      const state = styleguidePlugin.state.initialState;
+      expect(state.modelAvailable).toBe(false);
     });
 
-    it("initializes with null lastIndexError", () => {
-      const state = semanticPlugin.state.initialState;
-      expect(state.lastIndexError).toBeNull();
+    it("initializes with default modelName", () => {
+      const state = styleguidePlugin.state.initialState;
+      expect(state.modelName).toBe("qwen3-vl:8b-instruct");
     });
 
-    it("initializes with null selectedDuplicate", () => {
-      const state = semanticPlugin.state.initialState;
-      expect(state.selectedDuplicate).toBeNull();
+    it("initializes with analysisStatus: idle", () => {
+      const state = styleguidePlugin.state.initialState;
+      expect(state.analysisStatus).toBe("idle");
+    });
+
+    it("initializes with null analysisProgress", () => {
+      const state = styleguidePlugin.state.initialState;
+      expect(state.analysisProgress).toBeNull();
+    });
+
+    it("initializes with null lastAnalysisError", () => {
+      const state = styleguidePlugin.state.initialState;
+      expect(state.lastAnalysisError).toBeNull();
+    });
+
+    it("initializes with zero counts", () => {
+      const state = styleguidePlugin.state.initialState;
+      expect(state.analyzedFileCount).toBe(0);
+      expect(state.issueCount).toBe(0);
     });
 
     it("provides computed values", () => {
-      expect(semanticPlugin.state.computed).toBeDefined();
-      expect(semanticPlugin.state.computed!.isIndexReady).toBeDefined();
-      expect(semanticPlugin.state.computed!.isIndexing).toBeDefined();
-      expect(semanticPlugin.state.computed!.hasError).toBeDefined();
-      expect(semanticPlugin.state.computed!.progressPercent).toBeDefined();
+      expect(styleguidePlugin.state.computed).toBeDefined();
+      expect(styleguidePlugin.state.computed!.isReady).toBeDefined();
+      expect(styleguidePlugin.state.computed!.isAnalyzing).toBeDefined();
+      expect(styleguidePlugin.state.computed!.hasError).toBeDefined();
+      expect(styleguidePlugin.state.computed!.progressPercent).toBeDefined();
     });
 
-    it("computed isIndexReady returns true when status is ready", () => {
-      const state: SemanticState = {
-        ...semanticPlugin.state.initialState,
-        indexStatus: "ready",
+    it("computed isReady returns true when styleguide loaded and model available", () => {
+      const state: StyleguideState = {
+        ...styleguidePlugin.state.initialState,
+        styleguideLoaded: true,
+        modelAvailable: true,
       };
-      const isReady = semanticPlugin.state.computed!.isIndexReady(state);
-      expect(isReady).toBe(true);
+      expect(styleguidePlugin.state.computed!.isReady(state)).toBe(true);
     });
 
-    it("computed isIndexReady returns false for other statuses", () => {
-      const idleState = semanticPlugin.state.initialState;
-      expect(semanticPlugin.state.computed!.isIndexReady(idleState)).toBe(false);
-
-      const indexingState: SemanticState = {
-        ...semanticPlugin.state.initialState,
-        indexStatus: "indexing",
+    it("computed isReady returns false when styleguide not loaded", () => {
+      const state: StyleguideState = {
+        ...styleguidePlugin.state.initialState,
+        styleguideLoaded: false,
+        modelAvailable: true,
       };
-      expect(semanticPlugin.state.computed!.isIndexReady(indexingState)).toBe(false);
+      expect(styleguidePlugin.state.computed!.isReady(state)).toBe(false);
     });
 
-    it("computed isIndexing returns true when status is indexing", () => {
-      const state: SemanticState = {
-        ...semanticPlugin.state.initialState,
-        indexStatus: "indexing",
+    it("computed isReady returns false when model not available", () => {
+      const state: StyleguideState = {
+        ...styleguidePlugin.state.initialState,
+        styleguideLoaded: true,
+        modelAvailable: false,
       };
-      const isIndexing = semanticPlugin.state.computed!.isIndexing(state);
-      expect(isIndexing).toBe(true);
+      expect(styleguidePlugin.state.computed!.isReady(state)).toBe(false);
+    });
+
+    it("computed isAnalyzing returns true when status is analyzing", () => {
+      const state: StyleguideState = {
+        ...styleguidePlugin.state.initialState,
+        analysisStatus: "analyzing",
+      };
+      expect(styleguidePlugin.state.computed!.isAnalyzing(state)).toBe(true);
     });
 
     it("computed hasError returns true when status is error", () => {
-      const state: SemanticState = {
-        ...semanticPlugin.state.initialState,
-        indexStatus: "error",
+      const state: StyleguideState = {
+        ...styleguidePlugin.state.initialState,
+        analysisStatus: "error",
       };
-      expect(semanticPlugin.state.computed!.hasError(state)).toBe(true);
+      expect(styleguidePlugin.state.computed!.hasError(state)).toBe(true);
     });
 
-    it("computed hasError returns true when lastIndexError is set", () => {
-      const state: SemanticState = {
-        ...semanticPlugin.state.initialState,
-        lastIndexError: "Something went wrong",
+    it("computed hasError returns true when lastAnalysisError is set", () => {
+      const state: StyleguideState = {
+        ...styleguidePlugin.state.initialState,
+        lastAnalysisError: "Model not available",
       };
-      expect(semanticPlugin.state.computed!.hasError(state)).toBe(true);
+      expect(styleguidePlugin.state.computed!.hasError(state)).toBe(true);
     });
 
     it("computed progressPercent returns correct percentage", () => {
-      const state: SemanticState = {
-        ...semanticPlugin.state.initialState,
-        indexProgress: { current: 50, total: 100 },
+      const state: StyleguideState = {
+        ...styleguidePlugin.state.initialState,
+        analysisProgress: { filePath: "test.tsx", current: 3, total: 10 },
       };
-      expect(semanticPlugin.state.computed!.progressPercent(state)).toBe(50);
+      expect(styleguidePlugin.state.computed!.progressPercent(state)).toBe(30);
     });
 
     it("computed progressPercent returns 0 when no progress", () => {
-      const state = semanticPlugin.state.initialState;
-      expect(semanticPlugin.state.computed!.progressPercent(state)).toBe(0);
+      const state = styleguidePlugin.state.initialState;
+      expect(styleguidePlugin.state.computed!.progressPercent(state)).toBe(0);
     });
 
     it("computed progressPercent returns 0 when total is 0", () => {
-      const state: SemanticState = {
-        ...semanticPlugin.state.initialState,
-        indexProgress: { current: 0, total: 0 },
+      const state: StyleguideState = {
+        ...styleguidePlugin.state.initialState,
+        analysisProgress: { filePath: "test.tsx", current: 0, total: 0 },
       };
-      expect(semanticPlugin.state.computed!.progressPercent(state)).toBe(0);
+      expect(styleguidePlugin.state.computed!.progressPercent(state)).toBe(0);
     });
   });
 
   describe("commands", () => {
-    it("provides rebuild index command", () => {
-      const cmd = semanticPlugin.commands?.find((c) => c.id === "semantic:rebuild-index");
+    it("provides check status command", () => {
+      const cmd = styleguidePlugin.commands?.find((c) => c.id === "styleguide:check-status");
       expect(cmd).toBeDefined();
-      expect(cmd!.title).toBe("Rebuild Duplicates Index");
-      expect(cmd!.action.type).toBe("start-indexing");
+      expect(cmd!.title).toBe("Check Styleguide Status");
+      expect(cmd!.action.type).toBe("check-styleguide-status");
     });
 
-    it("provides clear filter command", () => {
-      const cmd = semanticPlugin.commands?.find((c) => c.id === "semantic:clear-filter");
+    it("provides reload command", () => {
+      const cmd = styleguidePlugin.commands?.find((c) => c.id === "styleguide:reload");
       expect(cmd).toBeDefined();
-      expect(cmd!.title).toBe("Clear Duplicate Filter");
-      expect(cmd!.action.type).toBe("clear-heatmap-filter");
+      expect(cmd!.title).toBe("Reload Styleguide");
+      expect(cmd!.action.type).toBe("reload-styleguide");
     });
 
     it("all commands have required fields", () => {
-      for (const cmd of semanticPlugin.commands || []) {
+      for (const cmd of styleguidePlugin.commands || []) {
         expect(cmd.id).toBeTruthy();
         expect(cmd.title).toBeTruthy();
         expect(cmd.keywords).toBeInstanceOf(Array);
-        expect(cmd.category).toBe("Semantic");
+        expect(cmd.category).toBe("Styleguide");
         expect(cmd.action).toBeDefined();
         expect(cmd.action.type).toBeTruthy();
       }
@@ -165,121 +198,105 @@ describe("Semantic Plugin", () => {
   });
 
   describe("panels", () => {
-    it("provides duplicates panel", () => {
-      const panel = semanticPlugin.panels?.find((p) => p.id === "duplicates");
+    it("provides styleguide status panel", () => {
+      const panel = styleguidePlugin.panels?.find((p) => p.id === "styleguide-status");
       expect(panel).toBeDefined();
-      expect(panel!.title).toBe("Duplicate Code");
-      expect(panel!.layout).toBeInstanceOf(Array);
-      expect(panel!.layout.length).toBeGreaterThan(0);
+      expect(panel!.title).toBe("Styleguide Status");
     });
 
-    it("provides index status panel", () => {
-      const panel = semanticPlugin.panels?.find((p) => p.id === "semantic-index-status");
-      expect(panel).toBeDefined();
-      expect(panel!.title).toBe("Index Status");
-    });
-
-    it("duplicates panel has empty state configuration", () => {
-      const panel = semanticPlugin.panels?.find((p) => p.id === "duplicates");
-      expect(panel!.empty).toBeDefined();
-      expect(panel!.empty!.message).toBeTruthy();
-    });
-
-    it("duplicates panel has loading configuration", () => {
-      const panel = semanticPlugin.panels?.find((p) => p.id === "duplicates");
-      expect(panel!.loading).toBeDefined();
-      expect(panel!.loading!.message).toBeTruthy();
-    });
-
-    it("duplicates panel has code viewer sections", () => {
-      const panel = semanticPlugin.panels?.find((p) => p.id === "duplicates");
-      const codeViewers = panel!.layout.filter((s: any) => s.type === "code-viewer");
-      expect(codeViewers.length).toBe(2);
-    });
-
-    it("index status panel has progress section", () => {
-      const panel = semanticPlugin.panels?.find((p) => p.id === "semantic-index-status");
+    it("status panel has conditional sections", () => {
+      const panel = styleguidePlugin.panels?.find((p) => p.id === "styleguide-status");
       const conditionals = panel!.layout.filter((s: any) => s.type === "conditional");
       expect(conditionals.length).toBeGreaterThan(0);
+    });
+
+    it("status panel has action buttons", () => {
+      const panel = styleguidePlugin.panels?.find((p) => p.id === "styleguide-status");
+      const actions = panel!.layout.filter((s: any) => s.type === "actions");
+      expect(actions.length).toBeGreaterThan(0);
     });
   });
 
   describe("rules", () => {
-    it("provides no-semantic-duplicates rule", () => {
-      const rule = semanticPlugin.rules?.find((r) => r.id === "no-semantic-duplicates");
+    it("provides semantic rule", () => {
+      const rule = styleguidePlugin.rules?.find((r) => r.id === "semantic");
       expect(rule).toBeDefined();
-      expect(rule!.name).toBe("No Semantic Duplicates");
-      expect(rule!.category).toBe("semantic");
+      expect(rule!.name).toBe("Semantic Analysis");
+      expect(rule!.category).toBe("styleguide");
     });
 
     it("rule has requirements defined", () => {
-      const rule = semanticPlugin.rules?.find((r) => r.id === "no-semantic-duplicates");
-      expect(rule!.requirements).toHaveLength(1);
-      expect(rule!.requirements![0].type).toBe("semantic-index");
+      const rule = styleguidePlugin.rules?.find((r) => r.id === "semantic");
+      expect(rule!.requirements).toHaveLength(2);
+      expect(rule!.requirements![0].type).toBe("ollama");
+      expect(rule!.requirements![1].type).toBe("styleguide");
     });
 
     it("rule has custom inspector panel", () => {
-      const rule = semanticPlugin.rules?.find((r) => r.id === "no-semantic-duplicates");
-      expect(rule!.customInspectorPanel).toBe("duplicates");
+      const rule = styleguidePlugin.rules?.find((r) => r.id === "semantic");
+      expect(rule!.customInspectorPanel).toBe("semantic-issue");
     });
 
     it("rule has option schema", () => {
-      const rule = semanticPlugin.rules?.find((r) => r.id === "no-semantic-duplicates");
+      const rule = styleguidePlugin.rules?.find((r) => r.id === "semantic");
       expect(rule!.optionSchema).toBeDefined();
       expect(rule!.optionSchema!.fields.length).toBeGreaterThan(0);
     });
 
     it("rule has default options", () => {
-      const rule = semanticPlugin.rules?.find((r) => r.id === "no-semantic-duplicates");
+      const rule = styleguidePlugin.rules?.find((r) => r.id === "semantic");
       expect(rule!.defaultOptions).toBeDefined();
-      expect(rule!.defaultOptions![0].threshold).toBe(0.75);
+      expect(rule!.defaultOptions![0].model).toBe("qwen3-vl:8b-instruct");
     });
   });
 
   describe("rule categories", () => {
-    it("handles semantic rule category", () => {
-      expect(semanticPlugin.handlesRuleCategories).toContain("semantic");
+    it("handles styleguide rule category", () => {
+      expect(styleguidePlugin.handlesRuleCategories).toContain("styleguide");
     });
   });
 
   describe("issue aggregation", () => {
-    it("returns empty issues (semantic issues come from ESLint)", () => {
-      const state = semanticPlugin.state.initialState;
-      const contribution = semanticPlugin.getIssues!(state);
-      expect(contribution.pluginId).toBe("semantic");
+    it("returns empty issues (styleguide issues come from ESLint)", () => {
+      const state = styleguidePlugin.state.initialState;
+      const contribution = styleguidePlugin.getIssues!(state);
+      expect(contribution.pluginId).toBe("styleguide");
       expect(contribution.issues.size).toBe(0);
     });
   });
 
   describe("actions", () => {
     it("provides action handlers", () => {
-      expect(semanticPlugin.actions).toBeDefined();
-      expect(semanticPlugin.actions!["start-indexing"]).toBeDefined();
-      expect(semanticPlugin.actions!["handle-indexing-start"]).toBeDefined();
-      expect(semanticPlugin.actions!["handle-indexing-progress"]).toBeDefined();
-      expect(semanticPlugin.actions!["handle-indexing-complete"]).toBeDefined();
-      expect(semanticPlugin.actions!["handle-indexing-error"]).toBeDefined();
-      expect(semanticPlugin.actions!["select-duplicate"]).toBeDefined();
-      expect(semanticPlugin.actions!["clear-selected-duplicate"]).toBeDefined();
-      expect(semanticPlugin.actions!["toggle-heatmap-filter"]).toBeDefined();
-      expect(semanticPlugin.actions!["clear-heatmap-filter"]).toBeDefined();
-      expect(semanticPlugin.actions!["open-editor"]).toBeDefined();
+      expect(styleguidePlugin.actions).toBeDefined();
+      expect(styleguidePlugin.actions!["check-styleguide-status"]).toBeDefined();
+      expect(styleguidePlugin.actions!["handle-styleguide-status"]).toBeDefined();
+      expect(styleguidePlugin.actions!["handle-analysis-progress"]).toBeDefined();
+      expect(styleguidePlugin.actions!["handle-analysis-complete"]).toBeDefined();
+      expect(styleguidePlugin.actions!["handle-analysis-error"]).toBeDefined();
+      expect(styleguidePlugin.actions!["reload-styleguide"]).toBeDefined();
+      expect(styleguidePlugin.actions!["open-editor"]).toBeDefined();
     });
   });
 
   describe("message handlers", () => {
     it("provides WebSocket message handlers", () => {
-      expect(semanticPlugin.messageHandlers).toBeDefined();
-      expect(semanticPlugin.messageHandlers!["duplicates:indexing:start"]).toBeDefined();
-      expect(semanticPlugin.messageHandlers!["duplicates:indexing:progress"]).toBeDefined();
-      expect(semanticPlugin.messageHandlers!["duplicates:indexing:complete"]).toBeDefined();
-      expect(semanticPlugin.messageHandlers!["duplicates:indexing:error"]).toBeDefined();
+      expect(styleguidePlugin.messageHandlers).toBeDefined();
+      expect(styleguidePlugin.messageHandlers!["styleguide:status"]).toBeDefined();
+      expect(styleguidePlugin.messageHandlers!["styleguide:analysis:progress"]).toBeDefined();
+      expect(styleguidePlugin.messageHandlers!["styleguide:analysis:complete"]).toBeDefined();
+      expect(styleguidePlugin.messageHandlers!["styleguide:analysis:error"]).toBeDefined();
     });
   });
 
   describe("browser actions", () => {
-    it("declares no browser actions (semantic runs on server)", () => {
-      expect(semanticPlugin.browserActions).toEqual([]);
+    it("declares no browser actions (styleguide runs on server)", () => {
+      expect(styleguidePlugin.browserActions).toEqual([]);
+    });
+  });
+
+  describe("lifecycle", () => {
+    it("has onLoad hook", () => {
+      expect(styleguidePlugin.onLoad).toBeDefined();
     });
   });
 });

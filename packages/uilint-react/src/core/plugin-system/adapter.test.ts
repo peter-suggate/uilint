@@ -178,14 +178,14 @@ describe("adapter", () => {
         state: {
           initialState: {},
         },
-        handlesRuleCategories: ["vision", "semantic"],
+        handlesRuleCategories: ["vision", "styleguide"],
       };
 
       const adapted = adaptPlugin(source);
 
       expect(adapted.handlesRules).toBeDefined();
       expect(adapted.handlesRules!({ id: "test", category: "vision" })).toBe(true);
-      expect(adapted.handlesRules!({ id: "test", category: "semantic" })).toBe(true);
+      expect(adapted.handlesRules!({ id: "test", category: "styleguide" })).toBe(true);
       expect(adapted.handlesRules!({ id: "test", category: "static" })).toBe(false);
     });
 

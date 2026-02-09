@@ -68,13 +68,17 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "uilint-vision": "workspace:*",
-    "uilint-semantic": "workspace:*"
+    "uilint-semantic": "workspace:*",
+    "uilint-duplicates": "workspace:*"
   },
   "peerDependenciesMeta": {
     "uilint-vision": {
       "optional": true
     },
     "uilint-semantic": {
+      "optional": true
+    },
+    "uilint-duplicates": {
       "optional": true
     }
   },

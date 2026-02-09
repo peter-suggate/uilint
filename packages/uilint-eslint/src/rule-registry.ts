@@ -25,6 +25,7 @@ export type { RuleMeta as RuleMetadata } from "./utils/create-rule.js";
 export {
   categoryRegistry,
   getCategoryMeta,
+  getPluginCategories,
   registerCategory,
   type CategoryMeta,
 } from "./category-registry.js";
