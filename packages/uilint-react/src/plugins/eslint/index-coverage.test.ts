@@ -904,6 +904,40 @@ describe("handleWebSocketMessage - rule:config:result", () => {
     expect((state.scannedDataLocs as Set<string>).size).toBe(0);
   });
 
+  it("re-requests linting for previously tracked files on success", () => {
+    const updating = new Map<string, boolean>();
+    updating.set("no-console", true);
+    const configs = new Map<string, RuleConfig>();
+    configs.set("no-console", { severity: "warn" });
+
+    const { services, state } = createMockServices({
+      ruleConfigUpdating: updating,
+      ruleConfigs: configs,
+      requestedFiles: new Set(["app.tsx", "layout.tsx"]),
+    });
+
+    handleWebSocketMessage(services, {
+      type: "rule:config:result",
+      ruleId: "no-console",
+      severity: "error",
+      success: true,
+    } as never);
+
+    // requestedFiles should be repopulated with previously tracked files
+    const reqFiles = state.requestedFiles as Set<string>;
+    expect(reqFiles.size).toBe(2);
+    expect(reqFiles.has("app.tsx")).toBe(true);
+    expect(reqFiles.has("layout.tsx")).toBe(true);
+
+    // Lint requests should have been sent for each file
+    expect(services.websocket.send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "lint:file", filePath: "app.tsx" })
+    );
+    expect(services.websocket.send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "lint:file", filePath: "layout.tsx" })
+    );
+  });
+
   it("clears updating state but does not update config on failure", () => {
     const updating = new Map<string, boolean>();
     updating.set("no-console", true);
@@ -965,10 +999,18 @@ describe("handleWebSocketMessage - rule:config:changed", () => {
       options: { allow: ["error"] },
     });
 
-    // Issues, requestedFiles, scannedDataLocs should all be cleared
+    // Issues and scannedDataLocs should be cleared
     expect((state.issues as Map<string, unknown>).size).toBe(0);
-    expect((state.requestedFiles as Set<string>).size).toBe(0);
     expect((state.scannedDataLocs as Set<string>).size).toBe(0);
+
+    // requestedFiles should be repopulated (re-linting triggered for previously tracked files)
+    expect((state.requestedFiles as Set<string>).size).toBe(1);
+    expect((state.requestedFiles as Set<string>).has("test.tsx")).toBe(true);
+
+    // Lint request should have been re-sent via websocket
+    expect(services.websocket.send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "lint:file", filePath: "test.tsx" })
+    );
   });
 });
 
