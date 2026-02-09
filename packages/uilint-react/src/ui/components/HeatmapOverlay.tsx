@@ -23,6 +23,8 @@ import {
   selectIssuesMap,
   selectSelectedDataLocs,
   selectHasActiveSelection,
+  selectPreviewedDataLocs,
+  selectHasActivePreview,
 } from "../../core/store";
 import { useElementRects } from "../hooks/useElementRects";
 import { severityToColor } from "../types";
@@ -35,12 +37,14 @@ interface OverlayItemProps {
   isHovered: boolean;
   isSelected: boolean;
   isEmphasized: boolean;
+  isPreviewed: boolean;
+  previewStaggerIndex: number;
   showDetails: boolean;
   onBadgeClick: () => void;
   onBadgeHover: (hovered: boolean) => void;
 }
 
-function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, showDetails, onBadgeClick, onBadgeHover }: OverlayItemProps) {
+function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, isPreviewed, previewStaggerIndex, showDetails, onBadgeClick, onBadgeHover }: OverlayItemProps) {
   // Get highest severity for border color
   const severity = useMemo(() => {
     if (issues.some(i => i.severity === "error")) return "error";
@@ -54,9 +58,17 @@ function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, showDe
   // Calculate opacity based on emphasis state
   // - isEmphasized true: full opacity (1.0)
   // - isEmphasized false: dimmed (0.3)
+  // - isPreviewed: boosted to 0.6 (softer than full selection)
   // - hover/selected always boosts visibility
-  const baseOpacity = isEmphasized ? 1 : 0.3;
+  const baseOpacity = isEmphasized ? 1 : isPreviewed ? 0.6 : 0.3;
   const finalOpacity = isHovered || isSelected ? Math.max(baseOpacity, 0.8) : baseOpacity;
+
+  // Preview glow — subtle pulse via box-shadow
+  // Stagger delay per element for a ripple effect (capped at 0.3s)
+  const previewDelay = Math.min(previewStaggerIndex * 0.03, 0.3);
+  const previewBoxShadow = isPreviewed && !isSelected
+    ? `0 0 4px 1px ${color}50`
+    : undefined;
 
   return (
     <div
@@ -70,9 +82,11 @@ function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, showDe
         borderRadius: 4,
         pointerEvents: "none", // Click-through - allows underlying app interaction
         opacity: finalOpacity,
-        transition: "opacity 0.15s, border-width 0.15s",
+        transition: `opacity 0.15s ease ${isPreviewed ? `${previewDelay}s` : "0s"}, border-width 0.15s, box-shadow 0.3s ease ${isPreviewed ? `${previewDelay}s` : "0s"}`,
         zIndex: isSelected ? 99991 : 99990,
-        boxShadow: isSelected ? `0 0 0 2px ${color}40, 0 0 12px ${color}60` : undefined,
+        boxShadow: isSelected
+          ? `0 0 0 2px ${color}40, 0 0 12px ${color}60`
+          : previewBoxShadow,
       }}
     >
       {/* Clickable indicator - inset square */}
@@ -159,6 +173,10 @@ export function HeatmapOverlay() {
   const selectedDataLocs = useComposedStore(selectSelectedDataLocs);
   const hasActiveSelection = useComposedStore(selectHasActiveSelection);
 
+  // Preview state (command palette hover/keyboard)
+  const previewedDataLocs = useComposedStore(selectPreviewedDataLocs);
+  const hasActivePreview = useComposedStore(selectHasActivePreview);
+
   // Track element positions
   const elementRects = useElementRects(issues);
 
@@ -223,12 +241,15 @@ export function HeatmapOverlay() {
         zIndex: 99990,
       }}
     >
-      {allEntries.map(([dataLoc, { rect }]) => {
+      {allEntries.map(([dataLoc, { rect }], index) => {
         const elementIssues = issues.get(dataLoc) || [];
         if (elementIssues.length === 0) return null;
 
         // Emphasis: full opacity if no selection, or if this loc is in selection
         const isEmphasized = !hasActiveSelection || selectedDataLocs.has(dataLoc);
+        // Preview: element matches command palette hover/keyboard item
+        const isPreviewed = hasActivePreview && previewedDataLocs.has(dataLoc)
+          && !isEmphasized; // Don't preview if already emphasized by full selection
 
         return (
           <OverlayItem
@@ -239,6 +260,8 @@ export function HeatmapOverlay() {
             isHovered={hoveredElementId === dataLoc}
             isSelected={getSelectedDataLoc === dataLoc}
             isEmphasized={isEmphasized}
+            isPreviewed={isPreviewed}
+            previewStaggerIndex={index}
             showDetails={altKeyHeld}
             onBadgeClick={() => handleBadgeClick(dataLoc)}
             onBadgeHover={(hovered) => handleBadgeHover(dataLoc, hovered)}

@@ -203,3 +203,86 @@ export function selectSelectedDataLocs(state: ComposedState): Set<string> {
 export function selectHasActiveSelection(state: ComposedState): boolean {
   return state.inspector.expandedRuleId !== null;
 }
+
+
+// ============================================================================
+// Heatmap Preview (Command Palette hover/keyboard)
+// ============================================================================
+
+// Cache for selectPreviewedDataLocs
+let cachedPreviewedRuleId: string | null = null;
+let cachedPreviewedFilePath: string | null = null;
+let cachedIssuesMapForPreview: Map<string, Issue[]> | null = null;
+let cachedPreviewedDataLocs: Set<string> = EMPTY_SET;
+
+/**
+ * Clear the previewed data locs cache. Call this when the store is reset.
+ */
+export function clearPreviewedDataLocsCache(): void {
+  cachedPreviewedRuleId = null;
+  cachedPreviewedFilePath = null;
+  cachedIssuesMapForPreview = null;
+  cachedPreviewedDataLocs = EMPTY_SET;
+}
+
+/**
+ * Select dataLocs that match the current preview (command palette hover/keyboard).
+ * Similar to selectSelectedDataLocs but reads preview state instead of inspector expansion.
+ *
+ * Returns empty Set when nothing is previewed.
+ *
+ * @param state - The composed store state
+ * @returns Set of dataLoc strings that should show preview animation
+ */
+export function selectPreviewedDataLocs(state: ComposedState): Set<string> {
+  const previewedRuleId = state.previewedRuleId;
+  const previewedFilePath = state.previewedFilePath;
+  const issuesMap = state.plugins?.eslint?.issues;
+
+  // Return cached result if inputs haven't changed
+  if (
+    previewedRuleId === cachedPreviewedRuleId &&
+    previewedFilePath === cachedPreviewedFilePath &&
+    issuesMap === cachedIssuesMapForPreview
+  ) {
+    return cachedPreviewedDataLocs;
+  }
+
+  // Update cache references
+  cachedPreviewedRuleId = previewedRuleId;
+  cachedPreviewedFilePath = previewedFilePath;
+  cachedIssuesMapForPreview = issuesMap ?? null;
+
+  // No preview or no issues = empty set
+  if (!previewedRuleId || !issuesMap || issuesMap.size === 0) {
+    cachedPreviewedDataLocs = EMPTY_SET;
+    return cachedPreviewedDataLocs;
+  }
+
+  // Build set of dataLocs that match the preview
+  const previewed = new Set<string>();
+
+  for (const [dataLoc, issues] of issuesMap) {
+    for (const issue of issues) {
+      if (issue.ruleId === previewedRuleId) {
+        if (!previewedFilePath || issue.filePath === previewedFilePath) {
+          previewed.add(dataLoc);
+          break;
+        }
+      }
+    }
+  }
+
+  cachedPreviewedDataLocs = previewed.size > 0 ? previewed : EMPTY_SET;
+  return cachedPreviewedDataLocs;
+}
+
+/**
+ * Check if there's an active heatmap preview.
+ *
+ * @param state - The composed store state
+ * @returns true if a rule is currently being previewed
+ */
+export function selectHasActivePreview(state: ComposedState): boolean {
+  return state.previewedRuleId !== null;
+}
