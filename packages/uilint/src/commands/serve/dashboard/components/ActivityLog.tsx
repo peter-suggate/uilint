@@ -65,6 +65,7 @@ function getTypeDisplay(type: ActivityType): { label: string; color: InkColor } 
     "semantic:analyze": { label: "semant", color: "blue" },
     "semantic:done": { label: "semant", color: "green" },
     "semantic:error": { label: "semant", color: "red" },
+    "semantic:skip": { label: "semant", color: "yellow" },
     "config:set": { label: "config", color: "yellow" },
     "rule:config:set": { label: "rule", color: "yellow" },
     "screenshot:save": { label: "screen", color: "cyan" },

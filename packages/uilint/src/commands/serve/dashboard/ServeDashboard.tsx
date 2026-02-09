@@ -8,7 +8,7 @@ import {
   ServerHeader,
   WorkspaceInfo,
   StatsBar,
-  BackgroundTasks,
+  PluginStatusPanel,
   ActivityLog,
   HelpBar,
 } from "./components/index.js";
@@ -137,7 +137,7 @@ export function ServeDashboard({
         ollamaModel={state.ollamaStatus.model}
       />
 
-      <BackgroundTasks tasks={state.backgroundTasks} />
+      <PluginStatusPanel plugins={state.pluginStates} />
 
       <ActivityLog
         activities={state.activities}

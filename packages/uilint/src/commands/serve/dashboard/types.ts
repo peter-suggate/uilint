@@ -56,6 +56,52 @@ export interface BackgroundTask {
   error?: string;
 }
 
+// ============================================================================
+// Plugin Status (Ollama-consuming plugins)
+// ============================================================================
+
+/** Known plugin identifiers that use the Ollama mutex. */
+export type PluginId = "semantic" | "vision" | "duplicates";
+
+/**
+ * Lifecycle states for an Ollama-consuming plugin.
+ *
+ * idle              → Not doing anything (default resting state)
+ * waiting-for-ollama → Called acquireOllamaMutex(), queued behind another plugin
+ * using-ollama      → Holds the mutex, actively calling Ollama
+ * processing        → Released the mutex, doing post-processing (writing cache, etc.)
+ * complete          → Finished successfully (transient — auto-resets to idle)
+ * error             → Finished with error (transient — auto-resets to idle)
+ */
+export type PluginLifecycle =
+  | "idle"
+  | "waiting-for-ollama"
+  | "using-ollama"
+  | "processing"
+  | "complete"
+  | "error";
+
+/** Persistent state for a single plugin shown in the dashboard. */
+export interface PluginState {
+  id: PluginId;
+  /** Human-readable short name (e.g. "Semantic") */
+  name: string;
+  /** Ollama model this plugin uses (e.g. "qwen3-vl:8b-instruct") */
+  model: string;
+  /** Current lifecycle status */
+  status: PluginLifecycle;
+  /** Short description of current activity */
+  message?: string;
+  /** Progress 0-100 */
+  progress?: number;
+  /** Numerator for progress display */
+  current?: number;
+  /** Denominator for progress display */
+  total?: number;
+  /** Error message when status is "error" */
+  error?: string;
+}
+
 export interface ServerStats {
   connectedClients: number;
   subscriptions: number;
@@ -91,6 +137,9 @@ export interface DashboardState {
 
   // Background tasks
   backgroundTasks: Map<string, BackgroundTask>;
+
+  // Plugin states (Ollama-consuming plugins)
+  pluginStates: Map<PluginId, PluginState>;
 
   // Activity log (most recent first)
   activities: ActivityEntry[];
@@ -140,6 +189,10 @@ export interface DashboardActions {
 
   // Ollama status
   setOllamaStatus: (status: OllamaStatus) => void;
+
+  // Plugin states
+  registerPlugin: (id: PluginId, name: string, model: string) => void;
+  setPluginState: (id: PluginId, update: Partial<PluginState>) => void;
 }
 
 export type DashboardStore = DashboardState & DashboardActions;

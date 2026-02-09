@@ -6,7 +6,7 @@
  */
 
 import { getDashboardStore } from "./store.js";
-import type { ActivityType, ActivityCategory } from "./types.js";
+import type { ActivityType, ActivityCategory, PluginId, PluginLifecycle } from "./types.js";
 import pc from "picocolors";
 
 /**
@@ -155,6 +155,38 @@ export function logVisionDone(
  */
 export function logVisionCheck(requestId?: string): void {
   logActivity("vision:check", requestId ? `(req ${requestId})` : "");
+}
+
+/**
+ * Log a semantic analysis start
+ */
+export function logSemanticAnalyze(
+  filePath: string,
+  requestId?: string
+): void {
+  const msg = filePath + (requestId ? ` (req ${requestId})` : "");
+  logActivity("semantic:analyze", msg);
+}
+
+/**
+ * Log a semantic analysis completion
+ */
+export function logSemanticDone(
+  filePath: string,
+  issueCount: number,
+  elapsedMs: number
+): void {
+  logActivity(
+    "semantic:done",
+    `${filePath} \u2192 ${issueCount} issue(s) (${elapsedMs}ms)`
+  );
+}
+
+/**
+ * Log a semantic analysis skip (cache hit, rule disabled, missing styleguide, etc.)
+ */
+export function logSemanticSkipped(filePath: string, reason: string): void {
+  logActivity("semantic:skip", `${filePath} \u2014 ${reason}`);
 }
 
 /**
@@ -392,4 +424,74 @@ export function logRuleInternalError(
   detail: string
 ): void {
   logActivity("error", `Rule error [${ruleId}] ${filePath}`, detail, true);
+}
+
+// ============================================================================
+// Plugin status (Ollama-consuming plugins)
+// ============================================================================
+
+/**
+ * Register a plugin with the dashboard. Call once during server startup.
+ */
+export function registerPlugin(
+  id: PluginId,
+  name: string,
+  model: string
+): void {
+  if (useDashboard) {
+    const store = getDashboardStore();
+    store.registerPlugin(id, name, model);
+  } else {
+    consoleInfo(`Plugin registered: ${name} (${model})`);
+  }
+}
+
+/**
+ * Update a plugin's lifecycle status in the dashboard.
+ */
+export function setPluginStatus(
+  id: PluginId,
+  status: PluginLifecycle,
+  message?: string
+): void {
+  if (useDashboard) {
+    const store = getDashboardStore();
+    store.setPluginState(id, {
+      status,
+      message,
+      error: status === "error" ? message : undefined,
+      // Clear progress on terminal states
+      ...(status === "idle" || status === "complete" || status === "error"
+        ? { progress: undefined, current: undefined, total: undefined }
+        : {}),
+    });
+  } else if (status === "error") {
+    consoleError(`Plugin ${id}: ${message}`);
+  }
+}
+
+/**
+ * Update a plugin's progress during an operation.
+ */
+export function updatePluginProgress(
+  id: PluginId,
+  progress: number,
+  current?: number,
+  total?: number,
+  message?: string
+): void {
+  if (useDashboard) {
+    const store = getDashboardStore();
+    store.setPluginState(id, { progress, current, total, message });
+  }
+}
+
+/**
+ * Update a plugin's model name (useful when determined lazily at runtime).
+ */
+export function setPluginModel(id: PluginId, model: string): void {
+  if (useDashboard) {
+    const store = getDashboardStore();
+    store.setPluginState(id, { model });
+  }
 }

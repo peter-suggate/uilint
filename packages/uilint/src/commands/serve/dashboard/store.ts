@@ -11,6 +11,8 @@ import type {
   WorkspaceInfo,
   ServerStats,
   OllamaStatus,
+  PluginId,
+  PluginState,
 } from "./types.js";
 
 type Listener = () => void;
@@ -32,6 +34,7 @@ function createInitialState(): DashboardState {
       status: "checking",
     },
     backgroundTasks: new Map(),
+    pluginStates: new Map(),
     activities: [],
     maxActivities: 50,
     verbose: false,
@@ -86,6 +89,9 @@ export function createDashboardStore(): DashboardStore & {
     },
     get ollamaStatus() {
       return state.ollamaStatus;
+    },
+    get pluginStates() {
+      return state.pluginStates;
     },
     get activeFilter() {
       return state.activeFilter;
@@ -248,6 +254,23 @@ export function createDashboardStore(): DashboardStore & {
       const currentIndex = order.indexOf(state.activeFilter);
       const nextIndex = (currentIndex + 1) % order.length;
       state = { ...state, activeFilter: order[nextIndex]! };
+      notify();
+    },
+
+    // Plugin states
+    registerPlugin(id: PluginId, name: string, model: string) {
+      const newMap = new Map(state.pluginStates);
+      newMap.set(id, { id, name, model, status: "idle" });
+      state = { ...state, pluginStates: newMap };
+      notify();
+    },
+
+    setPluginState(id: PluginId, update: Partial<PluginState>) {
+      const existing = state.pluginStates.get(id);
+      if (!existing) return;
+      const newMap = new Map(state.pluginStates);
+      newMap.set(id, { ...existing, ...update });
+      state = { ...state, pluginStates: newMap };
       notify();
     },
 

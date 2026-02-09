@@ -74,6 +74,9 @@ import {
   logVisionAnalyze,
   logVisionDone,
   logVisionCheck,
+  logSemanticAnalyze,
+  logSemanticDone,
+  logSemanticSkipped,
   logConfigSet,
   logRuleConfigSet,
   logScreenshotSave,
@@ -92,7 +95,12 @@ import {
   startBackgroundTask,
   updateBackgroundTaskProgress,
   completeBackgroundTask,
+  registerPlugin,
+  setPluginStatus,
+  updatePluginProgress,
+  setPluginModel,
 } from "./serve/dashboard/logger.js";
+import type { PluginId } from "./serve/dashboard/types.js";
 import { ruleRegistry, type RuleOptionSchema } from "uilint-eslint";
 import {
   findEslintConfigFile,
@@ -671,27 +679,101 @@ async function getVisionAnalyzerInstance(): Promise<unknown> {
 }
 
 // =============================================================================
-// Ollama Mutex
+// Ollama Mutex (tracked)
 // =============================================================================
-// Prevents concurrent Ollama model usage between vision (qwen3-vl) and
-// duplicates indexing (nomic-embed-text). Ollama needs to swap models in/out
-// of VRAM, and concurrent requests cause contention and slowdowns.
+// Prevents concurrent Ollama model usage between plugins. Ollama needs to swap
+// models in/out of VRAM, and concurrent requests cause contention and slowdowns.
+// Tracks current holder and queue for dashboard display.
 
 let ollamaMutexPromise: Promise<void> = Promise.resolve();
+let ollamaMutexHolder: PluginId | null = null;
+const ollamaMutexQueue: PluginId[] = [];
 
 /**
  * Acquire exclusive access to Ollama. Returns a release function.
+ * Tracks the requester for dashboard display.
+ *
  * Usage:
- *   const release = await acquireOllamaMutex();
+ *   const release = await acquireOllamaMutex("semantic");
  *   try { ... } finally { release(); }
  */
-function acquireOllamaMutex(): Promise<() => void> {
+function acquireOllamaMutex(pluginId: PluginId): Promise<() => void> {
   let release: () => void;
   const prev = ollamaMutexPromise;
   ollamaMutexPromise = new Promise<void>((resolve) => {
     release = resolve;
   });
-  return prev.then(() => release!);
+
+  // Mark this plugin as waiting in the queue
+  ollamaMutexQueue.push(pluginId);
+  setPluginStatus(pluginId, "waiting-for-ollama", "Queued for Ollama...");
+
+  return prev.then(() => {
+    // Granted: remove from queue, mark as holder
+    const idx = ollamaMutexQueue.indexOf(pluginId);
+    if (idx !== -1) ollamaMutexQueue.splice(idx, 1);
+    ollamaMutexHolder = pluginId;
+    setPluginStatus(pluginId, "using-ollama", "Using Ollama...");
+
+    return () => {
+      // Release: clear holder tracking
+      if (ollamaMutexHolder === pluginId) {
+        ollamaMutexHolder = null;
+      }
+      release!();
+    };
+  });
+}
+
+// Semantic analysis batch progress tracking.
+// Counts files that pass validation and commit to LLM analysis.
+let semanticFilesRequested = 0;
+let semanticFilesCompleted = 0;
+let semanticIdleResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Push current batch progress to the dashboard. */
+function updateSemanticBatchProgress(message: string): void {
+  const progress =
+    semanticFilesRequested > 0
+      ? Math.round((semanticFilesCompleted / semanticFilesRequested) * 100)
+      : 0;
+  updatePluginProgress(
+    "semantic",
+    progress,
+    semanticFilesCompleted,
+    semanticFilesRequested,
+    message
+  );
+}
+
+/**
+ * Mark one semantic file as done (success or error).
+ * If all queued files are finished, show terminal status and schedule idle reset.
+ * Otherwise, update batch progress and stay active.
+ */
+function completeSemanticFile(
+  terminalStatus: "complete" | "error",
+  message: string
+): void {
+  semanticFilesCompleted++;
+
+  if (semanticFilesCompleted >= semanticFilesRequested) {
+    const summary =
+      terminalStatus === "complete"
+        ? `Done: ${semanticFilesCompleted} file(s) analyzed`
+        : message;
+    setPluginStatus("semantic", terminalStatus, summary);
+    semanticIdleResetTimer = setTimeout(() => {
+      setPluginStatus("semantic", "idle");
+      semanticFilesRequested = 0;
+      semanticFilesCompleted = 0;
+      semanticIdleResetTimer = null;
+    }, 3000);
+  } else {
+    updateSemanticBatchProgress(
+      `${semanticFilesCompleted}/${semanticFilesRequested} files analyzed`
+    );
+  }
 }
 
 // Default styleguide search root for vision analysis (set when `serve()` starts)
@@ -1202,8 +1284,14 @@ async function runSemanticAnalysisAsync(
   ws: WebSocket,
   requestId?: string
 ): Promise<void> {
+  const startTime = Date.now();
+  logSemanticAnalyze(filePath, requestId);
+
   const absolutePath = resolveRequestedFilePath(filePath);
-  if (!existsSync(absolutePath)) return;
+  if (!existsSync(absolutePath)) {
+    logSemanticSkipped(filePath, "file not found");
+    return;
+  }
 
   // Read the semantic rule's config to get the model
   const eslintConfigPath = findEslintConfigFile(serverAppRootForVision);
@@ -1213,18 +1301,23 @@ async function runSemanticAnalysisAsync(
   const semanticConfig = ruleConfigs.get("semantic");
   const model = (semanticConfig?.options?.model as string) || "qwen3-vl:8b-instruct";
   const styleguidePath = (semanticConfig?.options?.styleguidePath as string) || undefined;
+  setPluginModel("semantic", model);
 
   // Load styleguide
   const { getStyleguide, hashContentSync, setCacheEntry, getCacheEntry } = await import("uilint-eslint");
   const fileDir = dirname(absolutePath);
   const { content: styleguide } = getStyleguide(fileDir, styleguidePath);
-  if (!styleguide) return;
+  if (!styleguide) {
+    logSemanticSkipped(filePath, "no styleguide found");
+    return;
+  }
 
   // Read and hash file contents
   let fileContent: string;
   try {
     fileContent = readFileSync(absolutePath, "utf-8");
   } catch {
+    logSemanticSkipped(filePath, "file read error");
     return;
   }
 
@@ -1237,7 +1330,20 @@ async function runSemanticAnalysisAsync(
 
   // Check if cache is already fresh
   const cached = getCacheEntry(projectRoot, relativeFilePath, fileHash, styleguideHash);
-  if (cached) return; // Cache is fresh, nothing to do
+  if (cached) {
+    logSemanticSkipped(filePath, "cache fresh");
+    return;
+  }
+
+  // Track this file in the semantic batch progress
+  if (semanticIdleResetTimer) {
+    clearTimeout(semanticIdleResetTimer);
+    semanticIdleResetTimer = null;
+  }
+  semanticFilesRequested++;
+  updateSemanticBatchProgress(
+    `Queued ${relative(serverAppRootForVision, absolutePath)}...`
+  );
 
   // Report progress
   sendMessage(ws, {
@@ -1256,7 +1362,7 @@ async function runSemanticAnalysisAsync(
   });
 
   // Acquire mutex to avoid Ollama model contention
-  const release = await acquireOllamaMutex();
+  const release = await acquireOllamaMutex("semantic");
 
   try {
     const { OllamaClient, buildSourceScanPrompt } = await import("uilint-core/node");
@@ -1264,6 +1370,7 @@ async function runSemanticAnalysisAsync(
 
     const ok = await client.isAvailable();
     if (!ok) {
+      logServerWarning("Semantic analysis: Ollama not available");
       updateBackgroundTaskProgress("semantic-analysis", 0, 0, 0, "Ollama not available");
       completeBackgroundTask("semantic-analysis", undefined, "Ollama not available");
       broadcast({
@@ -1272,10 +1379,14 @@ async function runSemanticAnalysisAsync(
         operationName: "analysis",
         error: "Ollama not available",
       });
+      completeSemanticFile("error", "Ollama not available");
       return;
     }
 
     updateBackgroundTaskProgress("semantic-analysis", 50, 0, 0, "Waiting for LLM response...");
+    updateSemanticBatchProgress(
+      `Analyzing ${relative(serverAppRootForVision, absolutePath)}...`
+    );
     broadcast({
       type: "plugin:operation:progress",
       pluginId: "semantic",
@@ -1323,17 +1434,19 @@ async function runSemanticAnalysisAsync(
       dataLoc: `${dataLocFile}:${issue.line}:${issue.column || 0}`,
     }));
 
-    if (lintIssues.length > 0) {
-      sendMessage(ws, {
-        type: "lint:result",
-        filePath,
-        requestId,
-        issues: lintIssues,
-      });
-    }
+    // Always send results (even if empty) so client knows analysis finished
+    sendMessage(ws, {
+      type: "lint:result",
+      filePath,
+      requestId,
+      issues: lintIssues,
+    });
 
+    const elapsed = Date.now() - startTime;
     const msg = `${issues.length} issue(s) found`;
+    logSemanticDone(filePath, issues.length, elapsed);
     completeBackgroundTask("semantic-analysis", msg);
+    completeSemanticFile("complete", msg);
     broadcast({
       type: "plugin:operation:complete",
       pluginId: "semantic",
@@ -1351,6 +1464,7 @@ async function runSemanticAnalysisAsync(
     const errorMessage = error instanceof Error ? error.message : String(error);
     logServerError("Async semantic analysis failed", errorMessage);
     completeBackgroundTask("semantic-analysis", undefined, errorMessage);
+    completeSemanticFile("error", errorMessage);
     broadcast({
       type: "plugin:operation:error",
       pluginId: "semantic",
@@ -1372,6 +1486,7 @@ async function runVisionAnalysisInBackground(
 ): Promise<void> {
   const { route, timestamp, screenshot, screenshotFile, manifest, requestId } = message;
 
+  setPluginStatus("vision", "processing", `Analyzing ${route}...`);
   startBackgroundTask("vision-analysis", "Vision Analysis", `Analyzing ${route}...`);
   broadcast({
     type: "plugin:operation:start",
@@ -1391,6 +1506,8 @@ async function runVisionAnalysisInBackground(
       requestId,
     });
     completeBackgroundTask("vision-analysis", undefined, "uilint-vision not installed");
+    setPluginStatus("vision", "error", "uilint-vision not installed");
+    setTimeout(() => setPluginStatus("vision", "idle"), 3000);
     broadcast({
       type: "plugin:operation:error",
       pluginId: "vision",
@@ -1413,7 +1530,7 @@ async function runVisionAnalysisInBackground(
   updateBackgroundTaskProgress("vision-analysis", 10, 0, 0, "Waiting for Ollama...");
 
   // Acquire exclusive access to Ollama to avoid model contention
-  const releaseOllama = await acquireOllamaMutex();
+  const releaseOllama = await acquireOllamaMutex("vision");
 
   try {
     const analyzerObj = analyzer as Record<string, unknown> | null;
@@ -1421,6 +1538,10 @@ async function runVisionAnalysisInBackground(
       typeof analyzerObj?.getModel === "function" ? (analyzerObj.getModel as () => string)() : undefined;
     const analyzerBaseUrl =
       typeof analyzerObj?.getBaseUrl === "function" ? (analyzerObj.getBaseUrl as () => string)() : undefined;
+
+    if (analyzerModel) {
+      setPluginModel("vision", analyzerModel);
+    }
 
     if (!screenshot) {
       sendMessage(ws, {
@@ -1432,6 +1553,8 @@ async function runVisionAnalysisInBackground(
         requestId,
       });
       completeBackgroundTask("vision-analysis", undefined, "No screenshot provided");
+      setPluginStatus("vision", "error", "No screenshot provided");
+      setTimeout(() => setPluginStatus("vision", "idle"), 3000);
       broadcast({
         type: "plugin:operation:error",
         pluginId: "vision",
@@ -1516,6 +1639,8 @@ async function runVisionAnalysisInBackground(
 
     const msg = `${resultIssues.length} issue(s) in ${(elapsed / 1000).toFixed(1)}s`;
     completeBackgroundTask("vision-analysis", msg);
+    setPluginStatus("vision", "complete", msg);
+    setTimeout(() => setPluginStatus("vision", "idle"), 3000);
     broadcast({
       type: "plugin:operation:complete",
       pluginId: "vision",
@@ -1536,6 +1661,8 @@ async function runVisionAnalysisInBackground(
       requestId,
     });
     completeBackgroundTask("vision-analysis", undefined, errorMessage);
+    setPluginStatus("vision", "error", errorMessage);
+    setTimeout(() => setPluginStatus("vision", "idle"), 3000);
     broadcast({
       type: "plugin:operation:error",
       pluginId: "vision",
@@ -1774,6 +1901,8 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         runSemanticAnalysisAsync(filePath, ws, requestId).catch((err) => {
           logServerError("Async semantic analysis failed", err instanceof Error ? err.message : String(err));
         });
+      } else {
+        logSemanticSkipped(filePath, "rule not enabled");
       }
       break;
     }
@@ -1822,6 +1951,8 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         runSemanticAnalysisAsync(filePath, ws, requestId).catch((err) => {
           logServerError("Async semantic analysis failed", err instanceof Error ? err.message : String(err));
         });
+      } else {
+        logSemanticSkipped(filePath, "rule not enabled");
       }
       break;
     }
@@ -2221,6 +2352,7 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
   }
 
   isIndexing = true;
+  setPluginStatus("duplicates", "processing", "Preparing index...");
   startBackgroundTask(
     "duplicates-index",
     "Duplicates Index",
@@ -2228,7 +2360,7 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
   );
 
   // Acquire exclusive access to Ollama to avoid model contention
-  const release = await acquireOllamaMutex();
+  const release = await acquireOllamaMutex("duplicates");
 
   broadcast({ type: "duplicates:indexing:start" });
   broadcast({
@@ -2252,6 +2384,7 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
           total,
           message
         );
+        updatePluginProgress("duplicates", progress, current, total, message);
         // Broadcast to connected clients
         broadcast({
           type: "duplicates:indexing:progress",
@@ -2276,6 +2409,8 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
       result.duration / 1000
     ).toFixed(1)}s`;
     completeBackgroundTask("duplicates-index", `Index complete: ${successMsg}`);
+    setPluginStatus("duplicates", "complete", successMsg);
+    setTimeout(() => setPluginStatus("duplicates", "idle"), 3000);
     broadcast({
       type: "duplicates:indexing:complete",
       added: result.added,
@@ -2293,6 +2428,8 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     completeBackgroundTask("duplicates-index", undefined, msg);
+    setPluginStatus("duplicates", "error", msg);
+    setTimeout(() => setPluginStatus("duplicates", "idle"), 3000);
     broadcast({ type: "duplicates:indexing:error", error: msg });
     broadcast({
       type: "plugin:operation:error",
@@ -2526,6 +2663,11 @@ export async function serve(options: ServeOptions): Promise<void> {
 
   if (useDashboardUI) {
     enableDashboard();
+    // Register all Ollama-consuming plugins with the dashboard.
+    // Model names are defaults; corrected lazily via setPluginModel() when each plugin runs.
+    registerPlugin("semantic", "Semantic", "qwen3-vl:8b-instruct");
+    registerPlugin("vision", "Vision", "gemma3:4b");
+    registerPlugin("duplicates", "Duplicates", "nomic-embed-text");
   } else {
     disableDashboard();
   }
