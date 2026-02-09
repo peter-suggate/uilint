@@ -21,6 +21,7 @@ import type { AvailableRule } from "../../../plugins/eslint/types";
 import { RuleHeader } from "./RuleHeader";
 import { FileSourceView } from "./FileSourceView";
 import { IssueSummaryView } from "./IssueSummaryView";
+import { DuplicateIssueList } from "./DuplicateIssueList";
 import { Breadcrumbs } from "./Breadcrumbs";
 import {
   ExpandableTileGrid,
@@ -330,6 +331,46 @@ export function IssuesList({ className }: IssuesListProps) {
       : (ruleMetadata.defaultOptions as Record<string, unknown>) ?? {};
   }, [ruleMetadata?.defaultOptions]);
 
+  // Check if the expanded rule has a custom content renderer
+  const ruleContentRenderer = useMemo(() => {
+    if (!expandedRuleId) return null;
+    const contribution = pluginRegistry.getRuleContribution(expandedRuleId);
+    return contribution?.contentRenderer ?? null;
+  }, [expandedRuleId]);
+
+  // Ignore system state
+  const ignoredIssueIds = useComposedStore((s) => s.ignoredIssueIds);
+  const showIgnored = useComposedStore((s) => s.showIgnoredIssues);
+  const addIgnore = useComposedStore((s) => s.addIgnoredIssue);
+  const removeIgnore = useComposedStore((s) => s.removeIgnoredIssue);
+  const toggleShowIgnored = useComposedStore((s) => s.toggleShowIgnoredIssues);
+
+  const handleIgnoreIssue = useCallback(
+    (issueId: string) => {
+      if (ignoredIssueIds.has(issueId)) {
+        removeIgnore(issueId);
+      } else {
+        addIgnore(issueId);
+      }
+    },
+    [ignoredIssueIds, addIgnore, removeIgnore]
+  );
+
+  // Count ignored issues for the expanded rule
+  const ruleIgnoredCount = useMemo(() => {
+    if (!expandedRuleId || ignoredIssueIds.size === 0) return 0;
+    // Count how many issues in all files of this rule are ignored
+    const rule = ruleNodes.find((r) => r.id === expandedRuleId);
+    if (!rule) return 0;
+    let count = 0;
+    for (const file of rule.data.files) {
+      for (const issue of file.issues) {
+        if (ignoredIssueIds.has(issue.id)) count++;
+      }
+    }
+    return count;
+  }, [expandedRuleId, ruleNodes, ignoredIssueIds]);
+
   // Extra height for expanded tile
   // When showing file content inline, we need more height
   const extraExpandedHeight = expandedFilePath
@@ -395,6 +436,10 @@ export function IssuesList({ className }: IssuesListProps) {
               onOptionChange={handleOptionChange}
               onResetOptions={handleResetOptions}
               isUpdating={isRuleUpdating}
+              // Ignore system
+              ignoredCount={ruleIgnoredCount}
+              showIgnored={showIgnored}
+              onToggleShowIgnored={toggleShowIgnored}
             />
 
             {/* Content: either file tiles or file content */}
@@ -412,6 +457,20 @@ export function IssuesList({ className }: IssuesListProps) {
                   selectedIndex={-1}
                   availableWidth={tileAvailableWidth - 24} // Account for padding
                   padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
+                />
+              </div>
+            ) : ruleContentRenderer === "duplicate-comparison" ? (
+              /* Custom duplicate comparison view */
+              <div className="flex-1 overflow-auto">
+                <DuplicateIssueList
+                  issues={expandedFileIssues}
+                  selectedIssueId={selectedIssueId}
+                  onIssueClick={(issue) => {
+                    selectIssue(issue.id);
+                  }}
+                  ignoredIssueIds={ignoredIssueIds}
+                  onIgnore={handleIgnoreIssue}
+                  showIgnored={showIgnored}
                 />
               </div>
             ) : !showFullSource ? (
@@ -465,6 +524,12 @@ export function IssuesList({ className }: IssuesListProps) {
       showFullSourceView,
       handleIssueSelect,
       expandedRule,
+      ruleContentRenderer,
+      ignoredIssueIds,
+      showIgnored,
+      handleIgnoreIssue,
+      ruleIgnoredCount,
+      toggleShowIgnored,
     ]
   );
 

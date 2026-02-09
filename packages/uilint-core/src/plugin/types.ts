@@ -594,6 +594,12 @@ export interface RuleDefinition {
   heatmapColor?: string;
   /** Custom inspector panel ID to open for this rule's issues */
   customInspectorPanel?: string;
+  /**
+   * Key identifying a custom content renderer for the IssuesList view.
+   * When set, the IssuesList renders this rule's issues with a specialized
+   * component instead of the default views.
+   */
+  contentRenderer?: string;
   /** Requirements for the rule to work */
   requirements?: RuleRequirement[];
   /** Default options */

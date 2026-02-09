@@ -466,6 +466,15 @@ export function adaptPlugin<TState>(
       ),
     })),
 
+    // Rule contributions (from declarative rule definitions)
+    ruleContributions: source.rules
+      ?.filter((rule) => rule.contentRenderer || rule.heatmapColor)
+      .map((rule) => ({
+        ruleId: rule.id,
+        contentRenderer: rule.contentRenderer,
+        heatmapColor: rule.heatmapColor,
+      })),
+
     // Rule handling
     handlesRules: source.handlesRuleCategories
       ? (ruleMeta) =>
