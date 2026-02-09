@@ -14,7 +14,7 @@
  * - Slick motion animations throughout
  */
 
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft } from "lucide-react";
@@ -70,6 +70,8 @@ export function CommandPalette() {
   const expandFileInRule = useComposedStore((s) => s.expandFileInRule);
 
   const isMobile = useComposedStore((s) => s.mobile.isMobile);
+  const setHeatmapPreview = useComposedStore((s) => s.setHeatmapPreview);
+  const clearHeatmapPreview = useComposedStore((s) => s.clearHeatmapPreview);
 
   // Connection status for onboarding
   const wsConnected = useComposedStore((s) => s.wsConnected);
@@ -102,6 +104,28 @@ export function CommandPalette() {
     return flatItems.find((i) => i.id === selectedItemId) ?? flatItems[0] ?? null;
   }, [selectedItemId, flatItems]);
 
+  // Sync heatmap preview with the currently highlighted item.
+  // This covers: palette open (default first item), query changes (reset to first match),
+  // and palette close (clear preview).
+  useEffect(() => {
+    if (!isOpen || isMobile) {
+      clearHeatmapPreview();
+      return;
+    }
+    // Set preview for whichever item is currently highlighted
+    if (selectedItem) {
+      const ruleId = (selectedItem.metadata?.ruleId as string) ?? null;
+      if (ruleId) {
+        const filePath = (selectedItem.metadata?.filePath as string) ?? null;
+        setHeatmapPreview(ruleId, filePath);
+      } else {
+        clearHeatmapPreview();
+      }
+    } else {
+      clearHeatmapPreview();
+    }
+  }, [isOpen, isMobile, selectedItem, setHeatmapPreview, clearHeatmapPreview]);
+
   // --- Callbacks ---
   const handleItemSelect = useCallback(
     (item: SearchItem, index: number) => {
@@ -110,12 +134,16 @@ export function CommandPalette() {
       if (isMobile) {
         pushToPreview();
       }
+      // Heatmap preview is synced via the selectedItem effect
     },
     [setSelectedItem, isMobile, pushToPreview]
   );
 
   const handleItemConfirm = useCallback(
     async (item: SearchItem) => {
+      // Clear preview before committing to full selection
+      clearHeatmapPreview();
+
       const services = getPluginServices();
       if (!services) {
         devError("[CommandPalette] Plugin services not available");
@@ -156,7 +184,7 @@ export function CommandPalette() {
       openInspectorPanel();
       closeCommandPalette();
     },
-    [closeCommandPalette, openInspectorPanel, expandRule, expandFileInRule]
+    [closeCommandPalette, openInspectorPanel, expandRule, expandFileInRule, clearHeatmapPreview]
   );
 
   // --- Keyboard navigation ---

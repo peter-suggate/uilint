@@ -31,6 +31,10 @@ export {
   selectSelectedDataLocs,
   selectHasActiveSelection,
   clearSelectedDataLocsCache,
+  // Preview (command palette hover/keyboard)
+  selectPreviewedDataLocs,
+  selectHasActivePreview,
+  clearPreviewedDataLocsCache,
 } from "./heatmap-selectors";
 
 // File groups selector

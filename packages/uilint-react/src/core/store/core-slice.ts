@@ -304,6 +304,16 @@ export interface CoreSlice {
   /** Retry the connection (websocket mode only) */
   retryConnection: () => void;
 
+  // ============ Heatmap Preview (Command Palette hover/keyboard) ============
+  /** Rule ID being previewed via command palette hover or keyboard navigation */
+  previewedRuleId: string | null;
+  /** File path being previewed via command palette hover or keyboard navigation */
+  previewedFilePath: string | null;
+  /** Set heatmap preview from command palette item metadata */
+  setHeatmapPreview: (ruleId: string | null, filePath: string | null) => void;
+  /** Clear heatmap preview */
+  clearHeatmapPreview: () => void;
+
   // ============ Heatmap Filtering ============
   /** Heat map filter state for focusing on related elements */
   heatmapFilter: HeatmapFilterState;
@@ -937,6 +947,18 @@ export const createCoreSlice = (
       // Trigger websocket reconnection
       services.websocket.connect();
     }
+  },
+
+  // ============ Heatmap Preview ============
+  previewedRuleId: null,
+  previewedFilePath: null,
+
+  setHeatmapPreview: (ruleId, filePath) => {
+    set({ previewedRuleId: ruleId, previewedFilePath: filePath });
+  },
+
+  clearHeatmapPreview: () => {
+    set({ previewedRuleId: null, previewedFilePath: null });
   },
 
   // ============ Heatmap Filtering ============
