@@ -5,7 +5,8 @@
  * Plain functions - no React.
  */
 
-import type { MessageHandlers, PluginContext } from "uilint-core";
+import type { MessageHandlers } from "uilint-core";
+import { createOperationMessageHandlers } from "uilint-core";
 import type { DuplicatesState } from "./state.js";
 
 /**
@@ -43,56 +44,35 @@ export type DuplicatesMessage =
   | DuplicatesIndexingErrorMessage;
 
 /**
- * Message handlers for the duplicates plugin
+ * Message handlers for the duplicates plugin.
+ *
+ * Uses the operation lifecycle framework for the standard
+ * start -> progress -> complete/error message flow.
  */
 export const duplicatesMessageHandlers: MessageHandlers<DuplicatesState> = {
-  /**
-   * Handle indexing started
-   */
-  "duplicates:indexing:start": (ctx: PluginContext<DuplicatesState>) => {
-    ctx.dispatch("handle-indexing-start");
-  },
-
-  /**
-   * Handle indexing progress
-   */
-  "duplicates:indexing:progress": (
-    ctx: PluginContext<DuplicatesState>,
-    message: unknown
-  ) => {
-    const msg = message as DuplicatesIndexingProgressMessage;
-    ctx.dispatch("handle-indexing-progress", {
-      message: msg.message,
-      current: msg.current,
-      total: msg.total,
-    });
-  },
-
-  /**
-   * Handle indexing complete
-   */
-  "duplicates:indexing:complete": (
-    ctx: PluginContext<DuplicatesState>,
-    message: unknown
-  ) => {
-    const msg = message as DuplicatesIndexingCompleteMessage;
-    ctx.dispatch("handle-indexing-complete", {
-      added: msg.added,
-      modified: msg.modified,
-      deleted: msg.deleted,
-      totalChunks: msg.totalChunks,
-      duration: msg.duration,
-    });
-  },
-
-  /**
-   * Handle indexing error
-   */
-  "duplicates:indexing:error": (
-    ctx: PluginContext<DuplicatesState>,
-    message: unknown
-  ) => {
-    const msg = message as DuplicatesIndexingErrorMessage;
-    ctx.dispatch("handle-indexing-error", { error: msg.error });
-  },
+  ...createOperationMessageHandlers<DuplicatesState>({
+    actionPrefix: "indexing",
+    startMessage: "duplicates:indexing:start",
+    progressMessage: "duplicates:indexing:progress",
+    completeMessage: "duplicates:indexing:complete",
+    errorMessage: "duplicates:indexing:error",
+    extractProgress: (msg) => {
+      const m = msg as DuplicatesIndexingProgressMessage;
+      return {
+        current: m.current ?? 0,
+        total: m.total ?? 0,
+        message: m.message,
+      };
+    },
+    extractStats: (msg) => {
+      const m = msg as DuplicatesIndexingCompleteMessage;
+      return {
+        added: m.added,
+        modified: m.modified,
+        deleted: m.deleted,
+        totalChunks: m.totalChunks,
+        duration: m.duration,
+      };
+    },
+  }),
 };

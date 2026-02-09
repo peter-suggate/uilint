@@ -127,31 +127,31 @@ export const indexStatusPanelDefinition: PanelDefinition = {
     {
       type: "badge",
       variant: "status",
-      value: { binding: "indexStatus" },
+      value: { binding: "indexing.status" },
       centered: true,
     },
 
     // Progress (when indexing)
     {
       type: "conditional",
-      condition: { expression: "indexStatus === 'indexing'" },
+      condition: { expression: "indexing.status === 'active'" },
       then: [
         {
           type: "progress",
           value: { binding: "progressPercent" },
-          label: { binding: "indexProgress.message" },
+          label: { binding: "indexing.progress.message" },
         },
       ],
     },
 
-    // Stats (when ready)
+    // Stats (when complete)
     {
       type: "conditional",
-      condition: { expression: "indexStatus === 'ready' && indexStats" },
+      condition: { expression: "indexing.status === 'complete'" },
       then: [
         {
           type: "text",
-          content: { binding: "indexStats.totalChunks" },
+          content: { binding: "indexing.stats.totalChunks" },
           variant: "body",
         },
       ],
@@ -160,11 +160,11 @@ export const indexStatusPanelDefinition: PanelDefinition = {
     // Error (when error)
     {
       type: "conditional",
-      condition: { expression: "indexStatus === 'error'" },
+      condition: { expression: "indexing.status === 'error'" },
       then: [
         {
           type: "text",
-          content: { binding: "lastIndexError" },
+          content: { binding: "indexing.lastError" },
           variant: "error",
         },
       ],

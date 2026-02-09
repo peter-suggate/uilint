@@ -72,12 +72,12 @@ export const styleguideStatusPanelDefinition: PanelDefinition = {
     // Analysis progress (when analyzing)
     {
       type: "conditional",
-      condition: { expression: "analysisStatus === 'analyzing'" },
+      condition: { expression: "analysis.status === 'active'" },
       then: [
         {
           type: "progress",
           value: { binding: "progressPercent" },
-          label: { binding: "analysisProgress.filePath" },
+          label: { binding: "analysis.progress.message" },
         },
       ],
     },
@@ -85,11 +85,11 @@ export const styleguideStatusPanelDefinition: PanelDefinition = {
     // Error (when error)
     {
       type: "conditional",
-      condition: { expression: "analysisStatus === 'error'" },
+      condition: { expression: "analysis.status === 'error'" },
       then: [
         {
           type: "text",
-          content: { binding: "lastAnalysisError" },
+          content: { binding: "analysis.lastError" },
           variant: "error",
         },
       ],
@@ -98,11 +98,11 @@ export const styleguideStatusPanelDefinition: PanelDefinition = {
     // Stats (when analysis complete)
     {
       type: "conditional",
-      condition: { expression: "analysisStatus === 'complete'" },
+      condition: { expression: "analysis.status === 'complete'" },
       then: [
         {
           type: "text",
-          content: { binding: "analyzedFileCount" },
+          content: { binding: "analysis.stats.analyzedFileCount" },
           variant: "body",
         },
       ],

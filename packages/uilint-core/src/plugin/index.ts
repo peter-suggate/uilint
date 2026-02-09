@@ -93,3 +93,19 @@ export {
   isExpressionBinding,
   isConditionalValue,
 } from "./types.js";
+
+// === Operation Lifecycle ===
+export {
+  createOperationInitialState,
+  createOperationComputed,
+  createOperationActions,
+  createOperationMessageHandlers,
+} from "./operation.js";
+
+export type {
+  OperationStatus,
+  OperationProgress,
+  OperationState,
+  OperationActionConfig,
+  OperationMessageConfig,
+} from "./operation.js";

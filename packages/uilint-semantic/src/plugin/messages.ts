@@ -5,7 +5,8 @@
  * Plain functions - no React.
  */
 
-import type { MessageHandlers, PluginContext } from "uilint-core";
+import type { MessageHandlers } from "uilint-core";
+import { createOperationMessageHandlers } from "uilint-core";
 import type { StyleguideState } from "./state.js";
 
 /**
@@ -44,16 +45,41 @@ export type StyleguideMessage =
   | StyleguideAnalysisErrorMessage;
 
 /**
- * Message handlers for the styleguide plugin
+ * Message handlers for the styleguide plugin.
+ *
+ * Uses the operation lifecycle framework for the standard
+ * progress -> complete/error message flow.
+ *
+ * The styleguide:status message is handled separately via the
+ * "handle-styleguide-status" action (plugin-specific, not operation lifecycle).
  */
 export const styleguideMessageHandlers: MessageHandlers<StyleguideState> = {
+  ...createOperationMessageHandlers<StyleguideState>({
+    actionPrefix: "analysis",
+    progressMessage: "styleguide:analysis:progress",
+    completeMessage: "styleguide:analysis:complete",
+    errorMessage: "styleguide:analysis:error",
+    extractProgress: (msg) => {
+      const m = msg as StyleguideAnalysisProgressMessage;
+      return {
+        current: m.current,
+        total: m.total,
+        message: m.filePath,
+      };
+    },
+    extractStats: (msg) => {
+      const m = msg as StyleguideAnalysisCompleteMessage;
+      return {
+        analyzedFileCount: m.analyzedFileCount,
+        issueCount: m.issueCount,
+      };
+    },
+  }),
+
   /**
-   * Handle styleguide status response
+   * Handle styleguide status response (plugin-specific, not operation lifecycle)
    */
-  "styleguide:status": (
-    ctx: PluginContext<StyleguideState>,
-    message: unknown
-  ) => {
+  "styleguide:status": (ctx, message) => {
     const msg = message as StyleguideStatusMessage;
     ctx.dispatch("handle-styleguide-status", {
       styleguideLoaded: msg.styleguideLoaded,
@@ -61,45 +87,5 @@ export const styleguideMessageHandlers: MessageHandlers<StyleguideState> = {
       modelAvailable: msg.modelAvailable,
       modelName: msg.modelName,
     });
-  },
-
-  /**
-   * Handle analysis progress
-   */
-  "styleguide:analysis:progress": (
-    ctx: PluginContext<StyleguideState>,
-    message: unknown
-  ) => {
-    const msg = message as StyleguideAnalysisProgressMessage;
-    ctx.dispatch("handle-analysis-progress", {
-      filePath: msg.filePath,
-      current: msg.current,
-      total: msg.total,
-    });
-  },
-
-  /**
-   * Handle analysis complete
-   */
-  "styleguide:analysis:complete": (
-    ctx: PluginContext<StyleguideState>,
-    message: unknown
-  ) => {
-    const msg = message as StyleguideAnalysisCompleteMessage;
-    ctx.dispatch("handle-analysis-complete", {
-      analyzedFileCount: msg.analyzedFileCount,
-      issueCount: msg.issueCount,
-    });
-  },
-
-  /**
-   * Handle analysis error
-   */
-  "styleguide:analysis:error": (
-    ctx: PluginContext<StyleguideState>,
-    message: unknown
-  ) => {
-    const msg = message as StyleguideAnalysisErrorMessage;
-    ctx.dispatch("handle-analysis-error", { error: msg.error });
   },
 };
