@@ -151,6 +151,24 @@ export interface HeatmapFilterState {
 }
 
 // ============================================================================
+// Plugin Operations (long-running background tasks)
+// ============================================================================
+
+/**
+ * Tracks the state of a long-running plugin operation (e.g., semantic analysis, vision capture).
+ * Used to show progress indicators in the toolbar.
+ */
+export interface PluginOperation {
+  pluginId: string;
+  operationName: string;
+  status: "active" | "complete" | "error";
+  current?: number;
+  total?: number;
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
 // Overlay Interaction
 // ============================================================================
 
@@ -331,6 +349,14 @@ export interface CoreSlice {
   mobile: MobileState;
   /** Update mobile state (called by subscriptions) */
   setMobileState: (state: MobileState) => void;
+
+  // ============ Plugin Operations ============
+  /** Active plugin operations (key: "${pluginId}:${operationName}") */
+  activePluginOperations: Record<string, PluginOperation>;
+  /** Update or add a plugin operation */
+  setPluginOperation: (key: string, operation: PluginOperation) => void;
+  /** Remove a plugin operation */
+  removePluginOperation: (key: string) => void;
 
   // ============ Overlay Interactions ============
   /**
@@ -985,6 +1011,25 @@ export const createCoreSlice = (
 
   setMobileState: (mobileState) => {
     set({ mobile: mobileState });
+  },
+
+  // ============ Plugin Operations ============
+  activePluginOperations: {},
+
+  setPluginOperation: (key, operation) => {
+    set((state) => ({
+      activePluginOperations: {
+        ...state.activePluginOperations,
+        [key]: operation,
+      },
+    }));
+  },
+
+  removePluginOperation: (key) => {
+    set((state) => {
+      const { [key]: _removed, ...rest } = state.activePluginOperations;
+      return { activePluginOperations: rest };
+    });
   },
 
   // ============ Overlay Interactions ============

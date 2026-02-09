@@ -493,6 +493,37 @@ interface ScreenshotErrorMessage {
   requestId?: string;
 }
 
+// Generic plugin operation progress messages
+interface PluginOperationStartMessage {
+  type: "plugin:operation:start";
+  pluginId: string;
+  operationName: string;
+  message?: string;
+}
+
+interface PluginOperationProgressMessage {
+  type: "plugin:operation:progress";
+  pluginId: string;
+  operationName: string;
+  current?: number;
+  total?: number;
+  message?: string;
+}
+
+interface PluginOperationCompleteMessage {
+  type: "plugin:operation:complete";
+  pluginId: string;
+  operationName: string;
+  message?: string;
+}
+
+interface PluginOperationErrorMessage {
+  type: "plugin:operation:error";
+  pluginId: string;
+  operationName: string;
+  error: string;
+}
+
 type ServerMessage =
   | LintResultMessage
   | LintProgressMessage
@@ -519,7 +550,11 @@ type ServerMessage =
   | SourceResultMessage
   | SourceErrorMessage
   | ScreenshotSavedMessage
-  | ScreenshotErrorMessage;
+  | ScreenshotErrorMessage
+  | PluginOperationStartMessage
+  | PluginOperationProgressMessage
+  | PluginOperationCompleteMessage
+  | PluginOperationErrorMessage;
 
 function pickAppRoot(params: { cwd: string; workspaceRoot: string }): string {
   const { cwd, workspaceRoot } = params;
@@ -1157,6 +1192,362 @@ async function lintFileSemantic(
 }
 
 /**
+ * Run semantic analysis asynchronously using OllamaClient.
+ * Unlike lintFileSemantic (which runs ESLint + spawnSync), this calls Ollama
+ * directly via its HTTP API, writes results to the ESLint rule's disk cache,
+ * and sends lint:result to the client. Completely non-blocking.
+ */
+async function runSemanticAnalysisAsync(
+  filePath: string,
+  ws: WebSocket,
+  requestId?: string
+): Promise<void> {
+  const absolutePath = resolveRequestedFilePath(filePath);
+  if (!existsSync(absolutePath)) return;
+
+  // Read the semantic rule's config to get the model
+  const eslintConfigPath = findEslintConfigFile(serverAppRootForVision);
+  const ruleConfigs = eslintConfigPath
+    ? readRuleConfigsFromConfig(eslintConfigPath)
+    : new Map<string, { severity: "error" | "warn" | "off"; options?: Record<string, unknown> }>();
+  const semanticConfig = ruleConfigs.get("semantic");
+  const model = (semanticConfig?.options?.model as string) || "qwen3-vl:8b-instruct";
+  const styleguidePath = (semanticConfig?.options?.styleguidePath as string) || undefined;
+
+  // Load styleguide
+  const { getStyleguide, hashContentSync, setCacheEntry, getCacheEntry } = await import("uilint-eslint");
+  const fileDir = dirname(absolutePath);
+  const { content: styleguide } = getStyleguide(fileDir, styleguidePath);
+  if (!styleguide) return;
+
+  // Read and hash file contents
+  let fileContent: string;
+  try {
+    fileContent = readFileSync(absolutePath, "utf-8");
+  } catch {
+    return;
+  }
+
+  const fileHash = hashContentSync(fileContent);
+  const styleguideHash = hashContentSync(styleguide);
+
+  // Find project root for cache
+  const projectRoot = findWorkspaceRoot(fileDir) || fileDir;
+  const relativeFilePath = relative(projectRoot, absolutePath);
+
+  // Check if cache is already fresh
+  const cached = getCacheEntry(projectRoot, relativeFilePath, fileHash, styleguideHash);
+  if (cached) return; // Cache is fresh, nothing to do
+
+  // Report progress
+  sendMessage(ws, {
+    type: "lint:progress",
+    filePath,
+    requestId,
+    phase: "Running semantic analysis (async)...",
+  });
+
+  startBackgroundTask("semantic-analysis", "Semantic Analysis", `Analyzing ${filePath}...`);
+  broadcast({
+    type: "plugin:operation:start",
+    pluginId: "semantic",
+    operationName: "analysis",
+    message: `Analyzing ${relative(serverAppRootForVision, absolutePath)}...`,
+  });
+
+  // Acquire mutex to avoid Ollama model contention
+  const release = await acquireOllamaMutex();
+
+  try {
+    const { OllamaClient, buildSourceScanPrompt } = await import("uilint-core/node");
+    const client = new OllamaClient({ model });
+
+    const ok = await client.isAvailable();
+    if (!ok) {
+      updateBackgroundTaskProgress("semantic-analysis", 0, 0, 0, "Ollama not available");
+      completeBackgroundTask("semantic-analysis", undefined, "Ollama not available");
+      broadcast({
+        type: "plugin:operation:error",
+        pluginId: "semantic",
+        operationName: "analysis",
+        error: "Ollama not available",
+      });
+      return;
+    }
+
+    updateBackgroundTaskProgress("semantic-analysis", 50, 0, 0, "Waiting for LLM response...");
+    broadcast({
+      type: "plugin:operation:progress",
+      pluginId: "semantic",
+      operationName: "analysis",
+      message: "Waiting for LLM response...",
+    });
+
+    const prompt = buildSourceScanPrompt(fileContent, styleguide, {
+      filePath: relative(serverAppRootForVision, absolutePath),
+    });
+
+    const responseText = await client.complete(prompt, { json: true });
+    const parsed = JSON.parse(responseText) as {
+      issues?: Array<{ line?: number; column?: number; message?: string }>;
+    };
+
+    const issues = (parsed.issues || []).map((issue) => ({
+      line: issue.line || 1,
+      column: issue.column,
+      message: issue.message || "Semantic issue detected",
+      ruleId: "uilint/semantic",
+      severity: 1 as const,
+    }));
+
+    // Write to the ESLint rule's disk cache
+    setCacheEntry(projectRoot, relativeFilePath, {
+      fileHash,
+      styleguideHash,
+      issues,
+      timestamp: Date.now(),
+    });
+
+    // Convert to LintIssue format for the WS result
+    const fileDir2 = dirname(absolutePath);
+    const projectCwd = findESLintCwd(fileDir2);
+    const dataLocFile = normalizeDataLocFilePath(absolutePath, projectCwd);
+    const lintIssues: LintIssue[] = issues.map((issue) => ({
+      ruleId: "uilint/semantic",
+      severity: issue.severity,
+      message: issue.message,
+      line: issue.line,
+      column: issue.column || 0,
+      nodeType: null,
+      source: null,
+      dataLoc: `${dataLocFile}:${issue.line}:${issue.column || 0}`,
+    }));
+
+    if (lintIssues.length > 0) {
+      sendMessage(ws, {
+        type: "lint:result",
+        filePath,
+        requestId,
+        issues: lintIssues,
+      });
+    }
+
+    const msg = `${issues.length} issue(s) found`;
+    completeBackgroundTask("semantic-analysis", msg);
+    broadcast({
+      type: "plugin:operation:complete",
+      pluginId: "semantic",
+      operationName: "analysis",
+      message: msg,
+    });
+
+    sendMessage(ws, {
+      type: "lint:progress",
+      filePath,
+      requestId,
+      phase: `Done (semantic: ${issues.length} issues)`,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logServerError("Async semantic analysis failed", errorMessage);
+    completeBackgroundTask("semantic-analysis", undefined, errorMessage);
+    broadcast({
+      type: "plugin:operation:error",
+      pluginId: "semantic",
+      operationName: "analysis",
+      error: errorMessage,
+    });
+  } finally {
+    release();
+  }
+}
+
+/**
+ * Run vision analysis in the background (fire-and-forget).
+ * Extracted from the vision:analyze handler to avoid blocking handleMessage.
+ */
+async function runVisionAnalysisInBackground(
+  ws: WebSocket,
+  message: VisionAnalyzeMessage
+): Promise<void> {
+  const { route, timestamp, screenshot, screenshotFile, manifest, requestId } = message;
+
+  startBackgroundTask("vision-analysis", "Vision Analysis", `Analyzing ${route}...`);
+  broadcast({
+    type: "plugin:operation:start",
+    pluginId: "vision",
+    operationName: "analysis",
+    message: `Analyzing ${route}...`,
+  });
+
+  const visionMod = await getVisionModule();
+  if (!visionMod) {
+    sendMessage(ws, {
+      type: "vision:result",
+      route,
+      issues: [],
+      analysisTime: 0,
+      error: "uilint-vision is not installed",
+      requestId,
+    });
+    completeBackgroundTask("vision-analysis", undefined, "uilint-vision not installed");
+    broadcast({
+      type: "plugin:operation:error",
+      pluginId: "vision",
+      operationName: "analysis",
+      error: "uilint-vision not installed",
+    });
+    return;
+  }
+
+  sendMessage(ws, {
+    type: "vision:progress",
+    route,
+    requestId,
+    phase: "Starting vision analysis...",
+  });
+
+  const startedAt = Date.now();
+  const analyzer = await getVisionAnalyzerInstance();
+
+  updateBackgroundTaskProgress("vision-analysis", 10, 0, 0, "Waiting for Ollama...");
+
+  // Acquire exclusive access to Ollama to avoid model contention
+  const releaseOllama = await acquireOllamaMutex();
+
+  try {
+    const analyzerObj = analyzer as Record<string, unknown> | null;
+    const analyzerModel =
+      typeof analyzerObj?.getModel === "function" ? (analyzerObj.getModel as () => string)() : undefined;
+    const analyzerBaseUrl =
+      typeof analyzerObj?.getBaseUrl === "function" ? (analyzerObj.getBaseUrl as () => string)() : undefined;
+
+    if (!screenshot) {
+      sendMessage(ws, {
+        type: "vision:result",
+        route,
+        issues: [],
+        analysisTime: Date.now() - startedAt,
+        error: "No screenshot provided for vision analysis",
+        requestId,
+      });
+      completeBackgroundTask("vision-analysis", undefined, "No screenshot provided");
+      broadcast({
+        type: "plugin:operation:error",
+        pluginId: "vision",
+        operationName: "analysis",
+        error: "No screenshot provided",
+      });
+      return;
+    }
+
+    updateBackgroundTaskProgress("vision-analysis", 30, 0, 0, "Running vision analysis...");
+    broadcast({
+      type: "plugin:operation:progress",
+      pluginId: "vision",
+      operationName: "analysis",
+      message: "Running vision analysis...",
+    });
+
+    const result = await (visionMod as Record<string, (...args: unknown[]) => Promise<Record<string, unknown>>>).runVisionAnalysis({
+      imageBase64: screenshot,
+      manifest,
+      projectPath: serverAppRootForVision,
+      baseUrl: analyzerBaseUrl,
+      model: analyzerModel,
+      analyzer,
+      onPhase: (phase: string) => {
+        sendMessage(ws, {
+          type: "vision:progress",
+          route,
+          requestId,
+          phase,
+        });
+        updateBackgroundTaskProgress("vision-analysis", 50, 0, 0, phase);
+      },
+      pathResolver: resolvePathSpecifier,
+    }) as Record<string, unknown>;
+
+    // Write markdown report (best-effort)
+    if (typeof screenshotFile === "string" && screenshotFile.length > 0) {
+      if (isValidScreenshotFilename(screenshotFile)) {
+        const screenshotsDir = join(serverAppRootForVision, ".uilint", "screenshots");
+        const imagePath = join(screenshotsDir, screenshotFile);
+        try {
+          if (existsSync(imagePath)) {
+            const report = (visionMod as Record<string, (...args: unknown[]) => Record<string, unknown>>).writeVisionMarkdownReport({
+              imagePath,
+              route,
+              timestamp,
+              visionModel: result.visionModel,
+              baseUrl: result.baseUrl,
+              analysisTimeMs: result.analysisTime,
+              prompt: result.prompt ?? null,
+              rawResponse: result.rawResponse ?? null,
+              metadata: {
+                screenshotFile: parse(imagePath).base,
+                appRoot: serverAppRootForVision,
+                manifestElements: manifest.length,
+                requestId: requestId ?? null,
+              },
+            });
+            logServerInfo(`Wrote vision report`, report.outPath as string);
+          }
+        } catch (e) {
+          logServerWarning(
+            `Failed to write vision report for ${screenshotFile}`,
+            e instanceof Error ? e.message : String(e)
+          );
+        }
+      }
+    }
+
+    const elapsed = Date.now() - startedAt;
+    const resultIssues = result.issues as Record<string, unknown>[];
+    logVisionDone(route, resultIssues.length, elapsed);
+
+    sendMessage(ws, {
+      type: "vision:result",
+      route,
+      issues: resultIssues,
+      analysisTime: result.analysisTime as number,
+      requestId,
+    });
+
+    const msg = `${resultIssues.length} issue(s) in ${(elapsed / 1000).toFixed(1)}s`;
+    completeBackgroundTask("vision-analysis", msg);
+    broadcast({
+      type: "plugin:operation:complete",
+      pluginId: "vision",
+      operationName: "analysis",
+      message: msg,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const elapsed = Date.now() - startedAt;
+    logServerError(`Vision analysis failed for ${route}`, errorMessage);
+
+    sendMessage(ws, {
+      type: "vision:result",
+      route,
+      issues: [],
+      analysisTime: elapsed,
+      error: errorMessage,
+      requestId,
+    });
+    completeBackgroundTask("vision-analysis", undefined, errorMessage);
+    broadcast({
+      type: "plugin:operation:error",
+      pluginId: "vision",
+      operationName: "analysis",
+      error: errorMessage,
+    });
+  } finally {
+    releaseOllama();
+  }
+}
+
+/**
  * Lint a file and return issues (legacy single-pass, used for backwards compat)
  */
 async function _lintFile(
@@ -1370,60 +1761,18 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       // Send fast results immediately
       sendMessage(ws, { type: "lint:result", filePath, requestId, issues: fastClientIssues });
 
-      // === PASS 2: Semantic analysis (deferred to unblock event loop) ===
+      // Send Done for fast pass immediately
+      sendMessage(ws, {
+        type: "lint:progress",
+        filePath,
+        requestId,
+        phase: `Done (${fastClientIssues.length} issues, ${fastElapsed}ms)`,
+      });
+
+      // === PASS 2: Semantic analysis (async, non-blocking) ===
       if (isSemanticRuleEnabled()) {
-        sendMessage(ws, {
-          type: "lint:progress",
-          filePath,
-          requestId,
-          phase: `Fast lint done (${fastClientIssues.length} issues, ${fastElapsed}ms). Running semantic...`,
-        });
-
-        // Defer so the event loop can process WebSocket pings/messages
-        setImmediate(async () => {
-          try {
-            const _semanticStart = Date.now();
-            const semanticIssues = await lintFileSemantic(filePath, (phase) => {
-              sendMessage(ws, { type: "lint:progress", filePath, requestId, phase });
-            });
-
-            // Filter sentinel issues from semantic results
-            const semanticSentinels = semanticIssues.filter(isSentinelIssue);
-            for (const se of semanticSentinels) {
-              logRuleInternalError(se.ruleId ?? "unknown", filePath, se.message);
-            }
-            const semanticClientIssues = semanticIssues.filter((i) => !isSentinelIssue(i));
-
-            const totalElapsed = Date.now() - startedAt;
-            const totalIssues = fastClientIssues.length + semanticClientIssues.length;
-
-            if (semanticClientIssues.length > 0) {
-              sendMessage(ws, { type: "lint:result", filePath, requestId, issues: semanticClientIssues });
-            }
-
-            sendMessage(ws, {
-              type: "lint:progress",
-              filePath,
-              requestId,
-              phase: `Done (${totalIssues} issues, ${totalElapsed}ms)`,
-            });
-          } catch (error) {
-            logServerError("Semantic pass failed", error instanceof Error ? error.message : String(error));
-            sendMessage(ws, {
-              type: "lint:progress",
-              filePath,
-              requestId,
-              phase: `Done (${fastClientIssues.length} issues, ${Date.now() - startedAt}ms)`,
-            });
-          }
-        });
-      } else {
-        // No semantic rule — send Done immediately
-        sendMessage(ws, {
-          type: "lint:progress",
-          filePath,
-          requestId,
-          phase: `Done (${fastClientIssues.length} issues, ${fastElapsed}ms)`,
+        runSemanticAnalysisAsync(filePath, ws, requestId).catch((err) => {
+          logServerError("Async semantic analysis failed", err instanceof Error ? err.message : String(err));
         });
       }
       break;
@@ -1457,53 +1806,21 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
       // Send fast results immediately
       sendMessage(ws, { type: "lint:result", filePath, requestId, issues: fastFiltered });
 
-      // === PASS 2: Semantic (deferred) ===
-      if (isSemanticRuleEnabled()) {
-        setImmediate(async () => {
-          try {
-            const semanticIssues = await lintFileSemantic(filePath, (phase) => {
-              sendMessage(ws, { type: "lint:progress", filePath, requestId, phase });
-            });
-
-            const semanticSentinels = semanticIssues.filter(isSentinelIssue);
-            for (const se of semanticSentinels) {
-              logRuleInternalError(se.ruleId ?? "unknown", filePath, se.message);
-            }
-
-            const semanticFiltered = semanticIssues
-              .filter((i) => !isSentinelIssue(i))
-              .filter((issue) => issue.dataLoc === dataLoc);
-
-            const totalFiltered = fastFiltered.length + semanticFiltered.length;
-            const elapsed = Date.now() - startedAt;
-
-            if (semanticFiltered.length > 0) {
-              sendMessage(ws, { type: "lint:result", filePath, requestId, issues: semanticFiltered });
-            }
-
-            sendMessage(ws, {
-              type: "lint:progress",
-              filePath,
-              requestId,
-              phase: `Done (${totalFiltered} issues, ${elapsed}ms)`,
-            });
-          } catch (error) {
-            logServerError("Semantic pass failed", error instanceof Error ? error.message : String(error));
-            sendMessage(ws, {
-              type: "lint:progress",
-              filePath,
-              requestId,
-              phase: `Done (${fastFiltered.length} issues, ${Date.now() - startedAt}ms)`,
-            });
-          }
-        });
-      } else {
+      // Send Done for fast pass immediately
+      {
         const elapsed = Date.now() - startedAt;
         sendMessage(ws, {
           type: "lint:progress",
           filePath,
           requestId,
           phase: `Done (${fastFiltered.length} issues, ${elapsed}ms)`,
+        });
+      }
+
+      // === PASS 2: Semantic analysis (async, non-blocking) ===
+      if (isSemanticRuleEnabled()) {
+        runSemanticAnalysisAsync(filePath, ws, requestId).catch((err) => {
+          logServerError("Async semantic analysis failed", err instanceof Error ? err.message : String(err));
         });
       }
       break;
@@ -1549,142 +1866,13 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
     }
 
     case "vision:analyze": {
-      // Vision analysis is handled by the uilint-vision plugin.
-      // The server dynamically imports the module if available.
-      const {
-        route,
-        timestamp,
-        screenshot,
-        screenshotFile,
-        manifest,
-        requestId,
-      } = message as VisionAnalyzeMessage;
-      logVisionAnalyze(route, requestId);
+      const visionMsg = message as VisionAnalyzeMessage;
+      logVisionAnalyze(visionMsg.route, visionMsg.requestId);
 
-      const visionMod = await getVisionModule();
-      if (!visionMod) {
-        sendMessage(ws, {
-          type: "vision:result",
-          route,
-          issues: [],
-          analysisTime: 0,
-          error: "uilint-vision is not installed",
-          requestId,
-        });
-        break;
-      }
-
-      sendMessage(ws, {
-        type: "vision:progress",
-        route,
-        requestId,
-        phase: "Starting vision analysis...",
+      // Fire-and-forget: run vision analysis in background
+      runVisionAnalysisInBackground(ws, visionMsg).catch((err) => {
+        logServerError("Vision analysis failed", err instanceof Error ? err.message : String(err));
       });
-
-      const startedAt = Date.now();
-      const analyzer = await getVisionAnalyzerInstance();
-
-      // Acquire exclusive access to Ollama to avoid model contention
-      const releaseOllama = await acquireOllamaMutex();
-
-      try {
-        const analyzerObj = analyzer as Record<string, unknown> | null;
-        const analyzerModel =
-          typeof analyzerObj?.getModel === "function" ? (analyzerObj.getModel as () => string)() : undefined;
-        const analyzerBaseUrl =
-          typeof analyzerObj?.getBaseUrl === "function" ? (analyzerObj.getBaseUrl as () => string)() : undefined;
-
-        if (!screenshot) {
-          sendMessage(ws, {
-            type: "vision:result",
-            route,
-            issues: [],
-            analysisTime: Date.now() - startedAt,
-            error: "No screenshot provided for vision analysis",
-            requestId,
-          });
-          break;
-        }
-
-        const result = await (visionMod as Record<string, (...args: unknown[]) => Promise<Record<string, unknown>>>).runVisionAnalysis({
-          imageBase64: screenshot,
-          manifest,
-          projectPath: serverAppRootForVision,
-          baseUrl: analyzerBaseUrl,
-          model: analyzerModel,
-          analyzer,
-          onPhase: (phase: string) => {
-            sendMessage(ws, {
-              type: "vision:progress",
-              route,
-              requestId,
-              phase,
-            });
-          },
-          pathResolver: resolvePathSpecifier,
-        }) as Record<string, unknown>;
-
-        // Write markdown report (best-effort)
-        if (typeof screenshotFile === "string" && screenshotFile.length > 0) {
-          if (isValidScreenshotFilename(screenshotFile)) {
-            const screenshotsDir = join(serverAppRootForVision, ".uilint", "screenshots");
-            const imagePath = join(screenshotsDir, screenshotFile);
-            try {
-              if (existsSync(imagePath)) {
-                const report = (visionMod as Record<string, (...args: unknown[]) => Record<string, unknown>>).writeVisionMarkdownReport({
-                  imagePath,
-                  route,
-                  timestamp,
-                  visionModel: result.visionModel,
-                  baseUrl: result.baseUrl,
-                  analysisTimeMs: result.analysisTime,
-                  prompt: result.prompt ?? null,
-                  rawResponse: result.rawResponse ?? null,
-                  metadata: {
-                    screenshotFile: parse(imagePath).base,
-                    appRoot: serverAppRootForVision,
-                    manifestElements: manifest.length,
-                    requestId: requestId ?? null,
-                  },
-                });
-                logServerInfo(`Wrote vision report`, report.outPath as string);
-              }
-            } catch (e) {
-              logServerWarning(
-                `Failed to write vision report for ${screenshotFile}`,
-                e instanceof Error ? e.message : String(e)
-              );
-            }
-          }
-        }
-
-        const elapsed = Date.now() - startedAt;
-        const resultIssues = result.issues as Record<string, unknown>[];
-        logVisionDone(route, resultIssues.length, elapsed);
-
-        sendMessage(ws, {
-          type: "vision:result",
-          route,
-          issues: resultIssues,
-          analysisTime: result.analysisTime as number,
-          requestId,
-        });
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        const elapsed = Date.now() - startedAt;
-        logServerError(`Vision analysis failed for ${route}`, errorMessage);
-
-        sendMessage(ws, {
-          type: "vision:result",
-          route,
-          issues: [],
-          analysisTime: elapsed,
-          error: errorMessage,
-          requestId,
-        });
-      } finally {
-        releaseOllama();
-      }
       break;
     }
 
@@ -2043,6 +2231,12 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
   const release = await acquireOllamaMutex();
 
   broadcast({ type: "duplicates:indexing:start" });
+  broadcast({
+    type: "plugin:operation:start",
+    pluginId: "duplicates",
+    operationName: "indexing",
+    message: "Building duplicates index...",
+  });
 
   try {
     const { indexDirectory } = await import("uilint-duplicates");
@@ -2065,6 +2259,14 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
           current,
           total,
         });
+        broadcast({
+          type: "plugin:operation:progress",
+          pluginId: "duplicates",
+          operationName: "indexing",
+          current,
+          total,
+          message,
+        });
       },
     });
 
@@ -2082,10 +2284,22 @@ async function buildDuplicatesIndex(appRoot: string): Promise<void> {
       totalChunks: result.totalChunks,
       duration: result.duration,
     });
+    broadcast({
+      type: "plugin:operation:complete",
+      pluginId: "duplicates",
+      operationName: "indexing",
+      message: successMsg,
+    });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     completeBackgroundTask("duplicates-index", undefined, msg);
     broadcast({ type: "duplicates:indexing:error", error: msg });
+    broadcast({
+      type: "plugin:operation:error",
+      pluginId: "duplicates",
+      operationName: "indexing",
+      error: msg,
+    });
   } finally {
     release();
     isIndexing = false;

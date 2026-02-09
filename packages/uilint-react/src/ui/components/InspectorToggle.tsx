@@ -12,6 +12,7 @@ import { useComposedStore } from "../../core/store";
 import { UILintInspectorIcon, SearchIcon } from "../icons";
 import { getGlassStyles } from "./primitives";
 import { PluginToolbar } from "./PluginToolbar";
+import { OperationProgressIndicator } from "./OperationProgressIndicator";
 
 /** Detect macOS for showing correct modifier key symbol */
 function isMac(): boolean {
@@ -62,6 +63,9 @@ export function InspectorToggle() {
       >
         {/* Plugin toolbar action groups (e.g., Vision Capture) */}
         <PluginToolbar />
+
+        {/* Progress indicator for active plugin operations */}
+        <OperationProgressIndicator />
 
         {/* Keyboard shortcut hint - shown on non-touch devices */}
         {showShortcutHint && (

@@ -215,6 +215,7 @@ const createDefaultDOMObserverService = (): DOMObserverService => ({
     devWarn("[ComposedStore] DOMObserver onElementsRemoved called but not implemented");
     return () => {};
   },
+  getElements: () => [],
 });
 
 // ============================================================================
@@ -269,6 +270,7 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
         stop: domObserver.stop.bind(domObserver),
         onElementsAdded: domObserver.onElementsAdded.bind(domObserver),
         onElementsRemoved: domObserver.onElementsRemoved.bind(domObserver),
+        getElements: domObserver.getElements.bind(domObserver),
       },
       getState: <T = unknown>() => {
         const state = get();
@@ -394,6 +396,61 @@ function createStoreInternal(options: ComposedStoreOptions = {}): StoreCreationR
   // Subscribe to websocket connection changes to update store state
   websocket.onConnectionChange((connected) => {
     store.setState({ wsConnected: connected, wsUrl: websocket.url });
+  });
+
+  // Subscribe to plugin operation progress messages
+  const AUTO_REMOVE_DELAY = 3000;
+
+  websocket.on("plugin:operation:start", (raw) => {
+    const msg = raw as Record<string, unknown>;
+    const key = `${msg.pluginId}:${msg.operationName}`;
+    store.getState().setPluginOperation(key, {
+      pluginId: msg.pluginId as string,
+      operationName: msg.operationName as string,
+      status: "active",
+      message: (msg.message as string) || undefined,
+    });
+  });
+
+  websocket.on("plugin:operation:progress", (raw) => {
+    const msg = raw as Record<string, unknown>;
+    const key = `${msg.pluginId}:${msg.operationName}`;
+    store.getState().setPluginOperation(key, {
+      pluginId: msg.pluginId as string,
+      operationName: msg.operationName as string,
+      status: "active",
+      current: msg.current as number | undefined,
+      total: msg.total as number | undefined,
+      message: (msg.message as string) || undefined,
+    });
+  });
+
+  websocket.on("plugin:operation:complete", (raw) => {
+    const msg = raw as Record<string, unknown>;
+    const key = `${msg.pluginId}:${msg.operationName}`;
+    store.getState().setPluginOperation(key, {
+      pluginId: msg.pluginId as string,
+      operationName: msg.operationName as string,
+      status: "complete",
+      message: (msg.message as string) || undefined,
+    });
+    setTimeout(() => {
+      store.getState().removePluginOperation(key);
+    }, AUTO_REMOVE_DELAY);
+  });
+
+  websocket.on("plugin:operation:error", (raw) => {
+    const msg = raw as Record<string, unknown>;
+    const key = `${msg.pluginId}:${msg.operationName}`;
+    store.getState().setPluginOperation(key, {
+      pluginId: msg.pluginId as string,
+      operationName: msg.operationName as string,
+      status: "error",
+      error: (msg.error as string) || undefined,
+    });
+    setTimeout(() => {
+      store.getState().removePluginOperation(key);
+    }, AUTO_REMOVE_DELAY);
   });
 
   // Initialize store subscriptions (keyboard shortcuts, mobile detection, etc.)

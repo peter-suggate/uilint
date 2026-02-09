@@ -913,6 +913,11 @@ export interface DOMObserverService {
    * @returns Unsubscribe function
    */
   onElementsRemoved: (handler: ElementsRemovedHandler) => () => void;
+
+  /**
+   * Get all currently tracked elements
+   */
+  getElements: () => ScannedElementInfo[];
 }
 
 // ============================================================================

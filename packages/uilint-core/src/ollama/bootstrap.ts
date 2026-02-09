@@ -7,7 +7,7 @@
  * - Ensure a given model is pulled (best effort: run `ollama pull <model>`).
  */
 
-import { spawn, spawnSync } from "child_process";
+import { spawn } from "child_process";
 import readline from "readline";
 import { OllamaClient } from "./client.js";
 import { UILINT_DEFAULT_OLLAMA_MODEL } from "./defaults.js";
@@ -36,26 +36,20 @@ async function promptYesNo(question: string): Promise<boolean> {
   });
 }
 
-export function isOllamaInstalled(): boolean {
-  const result = spawnSync("ollama", ["--version"], { stdio: "ignore" });
-  if (
-    result.error &&
-    (result.error as NodeJS.ErrnoException).code === "ENOENT"
-  ) {
-    return false;
-  }
-  return result.status === 0;
+export async function isOllamaInstalled(): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const child = spawn("ollama", ["--version"], { stdio: "ignore" });
+    child.on("error", () => resolve(false));
+    child.on("exit", (code) => resolve(code === 0));
+  });
 }
 
-function isBrewInstalled(): boolean {
-  const result = spawnSync("brew", ["--version"], { stdio: "ignore" });
-  if (
-    result.error &&
-    (result.error as NodeJS.ErrnoException).code === "ENOENT"
-  ) {
-    return false;
-  }
-  return result.status === 0;
+async function isBrewInstalled(): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const child = spawn("brew", ["--version"], { stdio: "ignore" });
+    child.on("error", () => resolve(false));
+    child.on("exit", (code) => resolve(code === 0));
+  });
 }
 
 function getInstallInstructions(): string[] {
@@ -80,7 +74,7 @@ async function maybeInstallOllamaWithBrew(): Promise<boolean> {
   if (process.platform !== "darwin") return false;
   if (!isInteractiveTTY()) return false;
 
-  if (!isBrewInstalled()) {
+  if (!(await isBrewInstalled())) {
     // We can't auto-install without brew; leave instructions to the caller.
     return false;
   }
@@ -99,17 +93,17 @@ async function maybeInstallOllamaWithBrew(): Promise<boolean> {
     });
   });
 
-  return isOllamaInstalled();
+  return await isOllamaInstalled();
 }
 
 export async function ensureOllamaInstalledOrExplain(): Promise<void> {
-  if (isOllamaInstalled()) return;
+  if (await isOllamaInstalled()) return;
 
   const installedViaBrew = await maybeInstallOllamaWithBrew();
   if (installedViaBrew) return;
 
   const extra: string[] = [];
-  if (process.platform === "darwin" && !isBrewInstalled()) {
+  if (process.platform === "darwin" && !(await isBrewInstalled())) {
     extra.push("");
     extra.push("Homebrew is not installed. Install it first, then run:");
     extra.push("  brew install ollama");

@@ -111,6 +111,7 @@ function createTestDOMObserverService(): DOMObserverService & {
         if (idx >= 0) elementRemovedCallbacks.splice(idx, 1);
       };
     },
+    getElements: () => [],
     elementAddedCallbacks,
     elementRemovedCallbacks,
     simulateElementsAdded: (elements) => {

@@ -59,6 +59,74 @@ vi.mock("../../../ui/components/Inspector/RuleConfig", () => ({
     ),
 }));
 
+// Mock Popover to render trigger and children inline (children always visible)
+vi.mock("../../../ui/components/primitives", () => ({
+  Popover: ({
+    trigger,
+    children,
+    open,
+  }: {
+    trigger: React.ReactNode;
+    children: React.ReactNode;
+    open: boolean;
+    onClose: () => void;
+  }) =>
+    React.createElement(
+      "div",
+      { "data-testid": "popover-wrapper" },
+      trigger,
+      open ? React.createElement("div", { "data-testid": "popover-content" }, children) : null
+    ),
+}));
+
+// Mock Breadcrumbs
+vi.mock("../../../ui/components/Inspector/Breadcrumbs", () => ({
+  Breadcrumbs: ({
+    expandedRuleName,
+    expandedFileName,
+    onCollapseToRoot,
+  }: {
+    expandedRuleName: string;
+    expandedFileName: string;
+    onCollapseToRoot: () => void;
+    onCollapseFile: () => void;
+  }) =>
+    React.createElement(
+      "div",
+      { "data-testid": "breadcrumbs" },
+      React.createElement(
+        "button",
+        { "data-testid": "breadcrumb-root", onClick: onCollapseToRoot },
+        expandedRuleName
+      ),
+      React.createElement("span", { "data-testid": "breadcrumb-file" }, expandedFileName)
+    ),
+}));
+
+// Mock FileSourceView
+vi.mock("../../../ui/components/Inspector/FileSourceView", () => ({
+  FileSourceView: ({
+    filePath,
+    issues,
+    selectedIssueId,
+  }: {
+    filePath: string;
+    issues: Issue[];
+    selectedIssueId: string | null;
+  }) =>
+    React.createElement(
+      "div",
+      { "data-testid": "file-source-view" },
+      `${filePath} (${issues.length} issues, selected: ${selectedIssueId ?? "none"})`
+    ),
+}));
+
+// Mock icons
+vi.mock("../../../ui/icons", () => ({
+  SettingsIcon: (props: { size?: number }) =>
+    React.createElement("span", { "data-testid": "settings-icon", ...props }),
+}));
+
 function createMockServices(
   issues: Issue[],
   rules: AvailableRule[] = []
@@ -186,7 +254,7 @@ describe("RulePreviewPanel", () => {
     expect(getByText("2 files")).toBeTruthy();
   });
 
-  it("renders RuleConfig with correct props", () => {
+  it("shows Configure button that opens RuleConfig in popover", () => {
     const rules: AvailableRule[] = [
       {
         id: "uilint/semantic",
@@ -199,13 +267,25 @@ describe("RulePreviewPanel", () => {
     const issues = [makeIssue()];
     const services = createMockServices(issues, rules);
 
-    const { getByTestId } = render(
+    const { getByText, queryByTestId } = render(
       <RulePreviewPanel ruleId="uilint/semantic" services={services} />
     );
 
-    expect(getByTestId("rule-config")).toBeTruthy();
-    expect(getByTestId("config-rule-id").textContent).toBe("uilint/semantic");
-    expect(getByTestId("config-severity").textContent).toBe("warn");
+    // Configure button should be visible
+    const configureBtn = getByText("Configure");
+    expect(configureBtn).toBeTruthy();
+
+    // Popover content should not be visible initially
+    expect(queryByTestId("popover-content")).toBeNull();
+
+    // Click Configure to open popover
+    fireEvent.click(configureBtn);
+
+    // RuleConfig should now be visible inside popover
+    expect(queryByTestId("popover-content")).toBeTruthy();
+    expect(queryByTestId("rule-config")).toBeTruthy();
+    expect(queryByTestId("config-rule-id")?.textContent).toBe("uilint/semantic");
+    expect(queryByTestId("config-severity")?.textContent).toBe("warn");
   });
 
   it("calls pluginRegistry.setRuleSeverity on severity change", async () => {
@@ -222,11 +302,151 @@ describe("RulePreviewPanel", () => {
     const issues = [makeIssue()];
     const services = createMockServices(issues, rules);
 
-    const { getByTestId } = render(
+    const { getByText, getByTestId } = render(
       <RulePreviewPanel ruleId="uilint/semantic" services={services} />
     );
 
+    // Open popover first
+    fireEvent.click(getByText("Configure"));
+
     fireEvent.click(getByTestId("change-severity"));
     expect(pluginRegistry.setRuleSeverity).toHaveBeenCalledWith("uilint/semantic", "error");
+  });
+
+  it("shows inline severity toggle with Off/Warn/Error buttons", () => {
+    const rules: AvailableRule[] = [
+      {
+        id: "uilint/semantic",
+        name: "Semantic consistency",
+        description: "Check consistency",
+        category: "semantic",
+        defaultSeverity: "warn",
+      },
+    ];
+    const issues = [makeIssue()];
+    const services = createMockServices(issues, rules);
+
+    const { getByText } = render(
+      <RulePreviewPanel ruleId="uilint/semantic" services={services} />
+    );
+
+    // All three severity buttons should be visible in the compact config row
+    expect(getByText("Off")).toBeTruthy();
+    expect(getByText("Warn")).toBeTruthy();
+    expect(getByText("Error")).toBeTruthy();
+  });
+
+  it("calls severity change when toggle button is clicked", async () => {
+    const { pluginRegistry } = await import("../../../core/plugin-system/registry");
+    const rules: AvailableRule[] = [
+      {
+        id: "uilint/semantic",
+        name: "Semantic consistency",
+        description: "Check consistency",
+        category: "semantic",
+        defaultSeverity: "warn",
+      },
+    ];
+    const issues = [makeIssue()];
+    const services = createMockServices(issues, rules);
+
+    const { getByText } = render(
+      <RulePreviewPanel ruleId="uilint/semantic" services={services} />
+    );
+
+    // Click "Error" in the inline toggle
+    fireEvent.click(getByText("Error"));
+    expect(pluginRegistry.setRuleSeverity).toHaveBeenCalledWith("uilint/semantic", "error");
+  });
+
+  it("shows config tags for category", () => {
+    const rules: AvailableRule[] = [
+      {
+        id: "uilint/semantic",
+        name: "Semantic consistency",
+        description: "Check consistency",
+        category: "accessibility",
+        defaultSeverity: "warn",
+      },
+    ];
+    const issues = [makeIssue()];
+    const services = createMockServices(issues, rules);
+
+    const { getByText } = render(
+      <RulePreviewPanel ruleId="uilint/semantic" services={services} />
+    );
+
+    // Category tag should be visible
+    expect(getByText("accessibility")).toBeTruthy();
+  });
+
+  it("drills down to FileSourceView when issue is clicked", () => {
+    const rules: AvailableRule[] = [
+      {
+        id: "uilint/semantic",
+        name: "Semantic consistency",
+        description: "Check consistency",
+        category: "semantic",
+        defaultSeverity: "warn",
+      },
+    ];
+    const issues = [
+      makeIssue({ id: "i1", filePath: "src/App.tsx", dataLoc: "src/App.tsx:10:5", message: "Issue one" }),
+    ];
+    const services = createMockServices(issues, rules);
+
+    const { getByText, getByTestId, queryByText } = render(
+      <RulePreviewPanel ruleId="uilint/semantic" services={services} />
+    );
+
+    // Click on the issue
+    fireEvent.click(getByText("Issue one"));
+
+    // Should show breadcrumbs
+    expect(getByTestId("breadcrumbs")).toBeTruthy();
+    expect(getByTestId("breadcrumb-root").textContent).toBe("Semantic consistency");
+    expect(getByTestId("breadcrumb-file").textContent).toBe("App.tsx");
+
+    // Should show FileSourceView
+    const sourceView = getByTestId("file-source-view");
+    expect(sourceView.textContent).toContain("src/App.tsx");
+    expect(sourceView.textContent).toContain("1 issues");
+    expect(sourceView.textContent).toContain("selected: i1");
+
+    // Header and file groups should be gone
+    expect(queryByText("Configure")).toBeNull();
+  });
+
+  it("navigates back from drill-down via breadcrumb click", () => {
+    const rules: AvailableRule[] = [
+      {
+        id: "uilint/semantic",
+        name: "Semantic consistency",
+        description: "Check consistency",
+        category: "semantic",
+        defaultSeverity: "warn",
+      },
+    ];
+    const issues = [
+      makeIssue({ id: "i1", filePath: "src/App.tsx", dataLoc: "src/App.tsx:10:5", message: "Issue one" }),
+    ];
+    const services = createMockServices(issues, rules);
+
+    const { getByText, getByTestId, queryByTestId } = render(
+      <RulePreviewPanel ruleId="uilint/semantic" services={services} />
+    );
+
+    // Drill down
+    fireEvent.click(getByText("Issue one"));
+    expect(getByTestId("file-source-view")).toBeTruthy();
+
+    // Click breadcrumb to go back
+    fireEvent.click(getByTestId("breadcrumb-root"));
+
+    // Should be back to rule view
+    expect(queryByTestId("file-source-view")).toBeNull();
+    expect(queryByTestId("breadcrumbs")).toBeNull();
+    expect(getByText("Configure")).toBeTruthy();
+    expect(getByText("Semantic consistency")).toBeTruthy();
   });
 });

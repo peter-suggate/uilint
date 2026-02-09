@@ -57,6 +57,29 @@ export function getSearchItems(services: PluginServices): SearchItem[] {
     });
   }
 
+  // --- Rules without issues (still discoverable for configuration) ---
+  for (const rule of availableRules) {
+    if (issuesByRule.has(rule.id)) continue;
+
+    const shortName = rule.id.includes("/") ? rule.id.split("/").pop()! : rule.id;
+
+    items.push({
+      id: `rule:${rule.id}`,
+      section: "rules",
+      label: rule.name || shortName,
+      subtitle: rule.description || rule.id,
+      severityCounts: { error: 0, warning: 0, info: 0 },
+      count: 0,
+      fileCount: 0,
+      searchFields: {
+        label: rule.name || shortName,
+        subtitle: rule.description,
+        keywords: [rule.id, shortName, rule.category || ""].filter(Boolean),
+      },
+      metadata: { ruleId: rule.id, tileType: "rule" },
+    });
+  }
+
   // --- File items ---
   const issuesByFile = new Map<string, Issue[]>();
   for (const issue of allIssues) {

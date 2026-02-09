@@ -48,6 +48,7 @@ const mockPluginServices: PluginServices = {
     stop: () => {},
     onElementsAdded: () => () => {},
     onElementsRemoved: () => () => {},
+    getElements: () => [],
   },
   getState: () => ({}),
   setState: () => {},

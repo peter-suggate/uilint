@@ -3,22 +3,23 @@
  *
  * LLM-powered semantic UI analysis using the project's styleguide.
  * This is the only rule that reads .uilint/styleguide.md.
+ *
+ * The rule itself is cache-only: it returns previously cached results
+ * instantly (or nothing on cache miss). The actual LLM analysis runs
+ * asynchronously in the WebSocket server and writes to the same cache,
+ * so subsequent lint passes pick up the results without blocking.
  */
 
 import { existsSync, readFileSync } from "fs";
-import { spawnSync } from "child_process";
 import { dirname, join, relative } from "path";
 import {
   createRule,
   defineRuleMeta,
   getCacheEntry,
   hashContentSync,
-  setCacheEntry,
-  type CachedIssue,
   getStyleguide,
 } from "uilint-eslint";
 import { UILINT_DEFAULT_OLLAMA_MODEL } from "uilint-core";
-import { buildSourceScanPrompt } from "uilint-core";
 
 type MessageIds = "semanticIssue" | "styleguideNotFound" | "analysisError";
 type Options = [
@@ -225,11 +226,10 @@ export default createRule<Options, MessageIds>({
       styleguideHash
     );
 
-    const ENABLE_CACHE = false;
-    if (ENABLE_CACHE && cached) {
-      console.error(`[uilint] Cache hit for ${filePath}`);
-
-      // Report cached issues
+    // Cache-only: return cached results instantly, or nothing on miss.
+    // The server runs the actual LLM analysis asynchronously and writes
+    // to the same cache, so the next lint pass picks up the results.
+    if (cached) {
       return {
         Program(node) {
           for (const issue of cached.issues) {
@@ -244,47 +244,9 @@ export default createRule<Options, MessageIds>({
       };
     }
 
-    // Cache miss: run sync analysis now (slow), cache, then report.
-    if (ENABLE_CACHE) {
-      console.error(
-        `[uilint] Cache miss for ${filePath}, running semantic analysis`
-      );
-    }
-
-    return {
-      Program(node) {
-        const issues = runSemanticAnalysisSync(
-          fileContent,
-          styleguide,
-          options.model || UILINT_DEFAULT_OLLAMA_MODEL,
-          filePath
-        );
-
-        setCacheEntry(projectRoot, relativeFilePath, {
-          fileHash,
-          styleguideHash,
-          issues,
-          timestamp: Date.now(),
-        });
-
-        for (const issue of issues) {
-          if (issue.message.startsWith("[SEMANTIC_ERROR] ")) {
-            context.report({
-              node,
-              messageId: "analysisError",
-              data: { error: issue.message.slice("[SEMANTIC_ERROR] ".length) },
-            });
-          } else {
-            context.report({
-              node,
-              loc: { line: issue.line, column: issue.column || 0 },
-              messageId: "semanticIssue",
-              data: { message: issue.message },
-            });
-          }
-        }
-      },
-    };
+    // Cache miss — return empty. The server will run async analysis
+    // and populate the cache for the next lint pass.
+    return {};
   },
 });
 
@@ -304,188 +266,3 @@ function findProjectRoot(startDir: string): string {
   return startDir;
 }
 
-/**
- * Run semantic analysis using Ollama (synchronously).
- *
- * Implementation detail:
- * - ESLint rules are synchronous.
- * - Blocking on a Promise (sleep-loop/Atomics) would also block Node's event loop,
- *   preventing the HTTP request to Ollama from ever completing.
- * - To keep this simple & debuggable, we run the async LLM call in a child Node
- *   process and synchronously wait for it to exit.
- */
-function runSemanticAnalysisSync(
-  sourceCode: string,
-  styleguide: string,
-  model: string,
-  _filePath?: string
-): CachedIssue[] {
-  const startTime = Date.now();
-
-  // Debug logging suppressed — errors flow through sentinel issues to the dashboard.
-
-  // Build prompt in-process (pure string building).
-  const prompt = buildSourceScanPrompt(sourceCode, styleguide, {});
-
-  // Resolve uilint-core/node for the child process.
-  // We use import.meta.resolve (Node 20+) to find the actual module through
-  // Node's resolution system, which works regardless of where this rule file
-  // is loaded from (e.g., .uilint/rules/ copies vs uilint-eslint/dist/).
-  // Fallback to relative path from import.meta.url for older Node versions.
-  let coreNodeUrl: string;
-  try {
-    coreNodeUrl = import.meta.resolve("uilint-core/node");
-  } catch {
-    // Fallback: relative resolution from this file's location
-    coreNodeUrl = new URL(
-      "../node_modules/uilint-core/dist/node.js",
-      import.meta.url
-    ).href;
-  }
-
-  const childScript = `
-    import * as coreNode from ${JSON.stringify(coreNodeUrl)};
-    const { OllamaClient, logInfo, logWarning } = coreNode;
-    const chunks = [];
-    for await (const c of process.stdin) chunks.push(c);
-    const input = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    const model = input.model;
-    const prompt = input.prompt;
-
-    const client = new OllamaClient({ model });
-    const ok = await client.isAvailable();
-    if (!ok) {
-      logWarning("Ollama not available, skipping semantic analysis");
-      process.stdout.write(JSON.stringify({ issues: [] }));
-      process.exit(0);
-    }
-
-    logInfo(\`Ollama connected (model: \${model})\`);
-    logInfo("Analyzing with LLM...");
-    try {
-      const response = await client.complete(prompt, { json: true });
-      logInfo("LLM complete");
-      process.stdout.write(response);
-    } catch (e) {
-      logWarning(\`LLM failed: \${e instanceof Error ? e.message : String(e)}\`);
-      process.exit(1);
-    }
-  `;
-
-  const child = spawnSync(
-    process.execPath,
-    ["--input-type=module", "-e", childScript],
-    {
-      input: JSON.stringify({ model, prompt }),
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "pipe"],
-      maxBuffer: 20 * 1024 * 1024,
-    }
-  );
-
-  const elapsed = Date.now() - startTime;
-
-  const childStderr = (child.stderr || "").trim();
-
-  if (child.error) {
-    const detail = [
-      child.error.message,
-      childStderr ? `stderr: ${childStderr}` : null,
-      `model: ${model}`,
-      `elapsed: ${elapsed}ms`,
-    ]
-      .filter(Boolean)
-      .join(" | ");
-    // Error detail flows through the sentinel issue to the dashboard.
-    return [
-      {
-        line: 1,
-        column: 0,
-        message: `[SEMANTIC_ERROR] ${detail}`,
-        ruleId: "uilint/semantic",
-        severity: 1 as const,
-      },
-    ];
-  }
-
-  if (typeof child.status === "number" && child.status !== 0) {
-    const detail = [
-      `child exited ${child.status}`,
-      childStderr ? `stderr: ${childStderr}` : null,
-      `model: ${model}`,
-      `elapsed: ${elapsed}ms`,
-    ]
-      .filter(Boolean)
-      .join(" | ");
-    // Error detail flows through the sentinel issue to the dashboard.
-    return [
-      {
-        line: 1,
-        column: 0,
-        message: `[SEMANTIC_ERROR] ${detail}`,
-        ruleId: "uilint/semantic",
-        severity: 1 as const,
-      },
-    ];
-  }
-
-  const responseText = (child.stdout || "").trim();
-  if (!responseText) {
-    const detail = [
-      "empty response",
-      childStderr ? `stderr: ${childStderr}` : null,
-      `model: ${model}`,
-      `elapsed: ${elapsed}ms`,
-    ]
-      .filter(Boolean)
-      .join(" | ");
-    // Error detail flows through the sentinel issue to the dashboard.
-    return [
-      {
-        line: 1,
-        column: 0,
-        message: `[SEMANTIC_ERROR] ${detail}`,
-        ruleId: "uilint/semantic",
-        severity: 1 as const,
-      },
-    ];
-  }
-
-  try {
-    const parsed = JSON.parse(responseText) as {
-      issues?: Array<{ line?: number; column?: number; message?: string }>;
-    };
-
-    const issues = (parsed.issues || []).map((issue) => ({
-      line: issue.line || 1,
-      column: issue.column,
-      message: issue.message || "Semantic issue detected",
-      ruleId: "uilint/semantic",
-      severity: 1 as const,
-    }));
-
-    // Success info suppressed — results flow through ESLint to the dashboard.
-
-    return issues;
-  } catch (e) {
-    const parseError = e instanceof Error ? e.message : String(e);
-    const detail = [
-      `parse error: ${parseError}`,
-      childStderr ? `stderr: ${childStderr}` : null,
-      `model: ${model}`,
-      `elapsed: ${elapsed}ms`,
-    ]
-      .filter(Boolean)
-      .join(" | ");
-    // Error detail flows through the sentinel issue to the dashboard.
-    return [
-      {
-        line: 1,
-        column: 0,
-        message: `[SEMANTIC_ERROR] ${detail}`,
-        ruleId: "uilint/semantic",
-        severity: 1 as const,
-      },
-    ];
-  }
-}

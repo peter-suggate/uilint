@@ -67,6 +67,7 @@ function createMockServices(initialState: Partial<ESLintPluginSlice> = {}) {
       stop: vi.fn(),
       onElementsAdded: vi.fn(() => () => {}),
       onElementsRemoved: vi.fn(() => () => {}),
+      getElements: vi.fn(() => []),
     },
     getState: vi.fn(() => state) as PluginServices["getState"],
     setState: vi.fn((partial: Record<string, unknown>) => {

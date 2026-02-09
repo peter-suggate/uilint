@@ -88,8 +88,8 @@ function createMockServices(
 // ============================================================================
 
 describe("getSearchItems", () => {
-  it("returns empty array when there are no issues", () => {
-    const services = createMockServices([]);
+  it("returns empty array when there are no issues and no available rules", () => {
+    const services = createMockServices([], []);
     const items = getSearchItems(services);
 
     expect(items).toEqual([]);
@@ -204,6 +204,73 @@ describe("getSearchItems", () => {
     const ruleItem = items.find((i) => i.id === "rule:@typescript-eslint/no-explicit-any");
     // Without rule metadata, label should be the short name
     expect(ruleItem!.label).toBe("no-explicit-any");
+  });
+
+  it("includes rules without issues from availableRules", () => {
+    const rules = [
+      makeRule({ id: "rule-a", name: "Rule A", description: "Has issues" }),
+      makeRule({ id: "rule-b", name: "Rule B", description: "No issues" }),
+    ];
+    const issues = [
+      makeIssue({ id: "i1", ruleId: "rule-a", filePath: "a.ts", dataLoc: "a.ts:1:1" }),
+    ];
+    const services = createMockServices(issues, rules);
+    const items = getSearchItems(services);
+
+    const ruleItems = items.filter((i) => i.section === "rules");
+    expect(ruleItems).toHaveLength(2);
+
+    const ruleB = ruleItems.find((i) => i.id === "rule:rule-b");
+    expect(ruleB).toBeDefined();
+    expect(ruleB!.count).toBe(0);
+    expect(ruleB!.fileCount).toBe(0);
+    expect(ruleB!.severityCounts).toEqual({ error: 0, warning: 0, info: 0 });
+    expect(ruleB!.label).toBe("Rule B");
+    expect(ruleB!.subtitle).toBe("No issues");
+  });
+
+  it("does not duplicate rules that have both issues and metadata", () => {
+    const rules = [
+      makeRule({ id: "no-unused-vars", name: "No Unused Variables" }),
+    ];
+    const issues = [
+      makeIssue({ id: "i1", ruleId: "no-unused-vars", filePath: "a.ts", dataLoc: "a.ts:1:1" }),
+    ];
+    const services = createMockServices(issues, rules);
+    const items = getSearchItems(services);
+
+    const ruleItems = items.filter((i) => i.id === "rule:no-unused-vars");
+    expect(ruleItems).toHaveLength(1);
+    expect(ruleItems[0].count).toBe(1);
+  });
+
+  it("sorts zero-issue rules after rules with issues", () => {
+    const rules = [
+      makeRule({ id: "active-rule", name: "Active Rule" }),
+      makeRule({ id: "inactive-rule", name: "Inactive Rule" }),
+    ];
+    const issues = [
+      makeIssue({ id: "i1", ruleId: "active-rule", filePath: "a.ts", dataLoc: "a.ts:1:1" }),
+    ];
+    const services = createMockServices(issues, rules);
+    const items = getSearchItems(services);
+
+    const ruleItems = items.filter((i) => i.section === "rules");
+    expect(ruleItems[0].metadata?.ruleId).toBe("active-rule");
+    expect(ruleItems[1].metadata?.ruleId).toBe("inactive-rule");
+  });
+
+  it("returns only rule items when availableRules exist but no issues", () => {
+    const rules = [
+      makeRule({ id: "rule-a", name: "Rule A" }),
+      makeRule({ id: "rule-b", name: "Rule B" }),
+    ];
+    const services = createMockServices([], rules);
+    const items = getSearchItems(services);
+
+    expect(items).toHaveLength(2);
+    expect(items.every((i) => i.section === "rules")).toBe(true);
+    expect(items.every((i) => i.count === 0)).toBe(true);
   });
 });
 

@@ -396,6 +396,36 @@ export const eslintPlugin: Plugin = {
 };
 
 /**
+ * Re-request linting for all currently visible elements.
+ *
+ * After clearing issues (e.g. rule config change), the DOM observer won't
+ * re-emit events for elements it already knows about. This function reads
+ * the current elements from the observer and sends fresh lint:file requests.
+ */
+function reRequestLinting(services: PluginServices): void {
+  const currentElements = services.domObserver.getElements();
+  if (currentElements.length === 0) return;
+
+  const dataLocs = currentElements.map((el) => el.dataLoc);
+  const filePaths = extractUniqueFilePaths(dataLocs);
+  if (filePaths.size === 0) return;
+
+  const requestedFiles = new Set<string>();
+  for (const filePath of filePaths) {
+    const requestId = `lint-${Date.now()}-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`;
+    services.websocket.send({
+      type: "lint:file",
+      filePath,
+      requestId,
+    });
+    requestedFiles.add(filePath);
+  }
+
+  services.setState({ requestedFiles });
+  devLog("[ESLint Plugin] Re-requested linting for", filePaths.size, "files after config change");
+}
+
+/**
  * Handle new elements detected by DOM observer
  *
  * Extracts unique file paths and sends lint:file requests for new files.
@@ -671,14 +701,14 @@ function handleWebSocketMessage(
         const configs = new Map(configState.ruleConfigs);
         configs.set(ruleId, { severity, options });
 
-        // Clear issues and requested files to trigger fresh linting
-        // The DOM observer will naturally re-request linting for visible elements
+        // Clear issues and re-request linting for visible elements
         services.setState({
           ruleConfigs: configs,
           issues: new Map(),
           scannedDataLocs: new Set(),
           requestedFiles: new Set(),
         });
+        reRequestLinting(services);
         devLog("[ESLint Plugin] Rule config updated:", ruleId, "->", severity, "- refreshing lint results");
       } else {
         devError("[ESLint Plugin] Failed to update rule config:", error);
@@ -694,14 +724,14 @@ function handleWebSocketMessage(
       const configs = new Map(state.ruleConfigs);
       configs.set(ruleId, { severity, options });
 
-      // Clear issues and requested files to trigger fresh linting
-      // The DOM observer will naturally re-request linting for visible elements
+      // Clear issues and re-request linting for visible elements
       services.setState({
         ruleConfigs: configs,
         issues: new Map(),
         scannedDataLocs: new Set(),
         requestedFiles: new Set(),
       });
+      reRequestLinting(services);
       devLog("[ESLint Plugin] Rule config changed (broadcast):", ruleId, "->", severity, "- refreshing lint results");
       break;
     }
