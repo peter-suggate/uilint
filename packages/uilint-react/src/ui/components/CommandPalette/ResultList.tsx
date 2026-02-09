@@ -58,17 +58,6 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
 // Sub-components
 // ============================================================================
 
-function SeverityDot({ severity }: { severity: "error" | "warning" | "info" }) {
-  const colorClass =
-    severity === "error"
-      ? "bg-error"
-      : severity === "warning"
-        ? "bg-warning"
-        : "bg-info";
-
-  return <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", colorClass)} />;
-}
-
 function SeverityCountBadges({
   counts,
 }: {
@@ -120,14 +109,6 @@ function ResultItem({
     }
   }, [isSelected]);
 
-  const highestSeverity = item.severityCounts
-    ? item.severityCounts.error > 0
-      ? "error" as const
-      : item.severityCounts.warning > 0
-        ? "warning" as const
-        : "info" as const
-    : null;
-
   return (
     <motion.button
       ref={ref}
@@ -161,9 +142,6 @@ function ResultItem({
 
       {/* Content (above highlight) */}
       <div className="relative flex items-center gap-2.5 w-full min-w-0">
-        {/* Severity dot */}
-        {highestSeverity && <SeverityDot severity={highestSeverity} />}
-
         {/* Label + subtitle */}
         <div className="flex-1 min-w-0">
           <div className="text-[13px] text-foreground/85 truncate leading-tight">
