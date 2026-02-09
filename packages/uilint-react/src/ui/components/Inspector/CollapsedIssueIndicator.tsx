@@ -113,13 +113,13 @@ export function CollapsedIssueIndicator({
       onMouseLeave={() => setIsHovered(false)}
       layout
       layoutId={`issue-collapsed-${issue.id}`}
-      initial={{ opacity: 0, scale: 0.8, x: -8 }}
+      initial={false}
       animate={{ opacity: 1, scale: 1, x: 0 }}
-      exit={{ opacity: 0, scale: 0.8, x: -8 }}
+      exit={{ opacity: 0, scale: 0.8 }}
       transition={{
-        duration: 0.2,
+        duration: 0.15,
         ease: [0.32, 0.72, 0, 1],
-        layout: { duration: 0.25 }
+        layout: { duration: 0.2 }
       }}
       className={cn(
         "relative flex items-center gap-1.5",

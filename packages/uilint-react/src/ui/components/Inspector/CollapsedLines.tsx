@@ -44,7 +44,7 @@ export function CollapsedLines({
     <motion.button
       type="button"
       onClick={onExpand}
-      initial={{ opacity: 0 }}
+      initial={false}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       whileHover={{ backgroundColor: "rgba(var(--foreground-rgb), 0.04)" }}

@@ -38,13 +38,15 @@ interface OverlayItemProps {
   isSelected: boolean;
   isEmphasized: boolean;
   isPreviewed: boolean;
+  hasActiveSelection: boolean;
+  hasActivePreview: boolean;
   previewStaggerIndex: number;
   showDetails: boolean;
   onBadgeClick: () => void;
   onBadgeHover: (hovered: boolean) => void;
 }
 
-function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, isPreviewed, previewStaggerIndex, showDetails, onBadgeClick, onBadgeHover }: OverlayItemProps) {
+function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, isPreviewed, hasActiveSelection, hasActivePreview, previewStaggerIndex, showDetails, onBadgeClick, onBadgeHover }: OverlayItemProps) {
   // Get highest severity for border color
   const severity = useMemo(() => {
     if (issues.some(i => i.severity === "error")) return "error";
@@ -55,12 +57,22 @@ function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, isPrev
   const color = severityToColor(severity);
   const count = issues.length;
 
-  // Calculate opacity based on emphasis state
-  // - isEmphasized true: full opacity (1.0)
-  // - isEmphasized false: dimmed (0.3)
-  // - isPreviewed: boosted to 0.6 (softer than full selection)
-  // - hover/selected always boosts visibility
-  const baseOpacity = isEmphasized ? 1 : isPreviewed ? 0.6 : 0.3;
+  // Calculate opacity based on emphasis + preview state:
+  // Priority: full selection > preview > default
+  // - Selection active + emphasized: 1.0
+  // - Selection active + not emphasized + previewed: 0.6 + glow
+  // - Selection active + not emphasized + not previewed: 0.3
+  // - No selection + preview active + previewed: 1.0 + glow
+  // - No selection + preview active + not previewed: 0.4
+  // - Nothing active: 1.0
+  let baseOpacity: number;
+  if (hasActiveSelection) {
+    baseOpacity = isEmphasized ? 1 : isPreviewed ? 0.6 : 0.3;
+  } else if (hasActivePreview) {
+    baseOpacity = isPreviewed ? 1 : 0.4;
+  } else {
+    baseOpacity = 1;
+  }
   const finalOpacity = isHovered || isSelected ? Math.max(baseOpacity, 0.8) : baseOpacity;
 
   // Preview glow — subtle pulse via box-shadow
@@ -248,8 +260,7 @@ export function HeatmapOverlay() {
         // Emphasis: full opacity if no selection, or if this loc is in selection
         const isEmphasized = !hasActiveSelection || selectedDataLocs.has(dataLoc);
         // Preview: element matches command palette hover/keyboard item
-        const isPreviewed = hasActivePreview && previewedDataLocs.has(dataLoc)
-          && !isEmphasized; // Don't preview if already emphasized by full selection
+        const isPreviewed = hasActivePreview && previewedDataLocs.has(dataLoc);
 
         return (
           <OverlayItem
@@ -261,6 +272,8 @@ export function HeatmapOverlay() {
             isSelected={getSelectedDataLoc === dataLoc}
             isEmphasized={isEmphasized}
             isPreviewed={isPreviewed}
+            hasActiveSelection={hasActiveSelection}
+            hasActivePreview={hasActivePreview}
             previewStaggerIndex={index}
             showDetails={altKeyHeld}
             onBadgeClick={() => handleBadgeClick(dataLoc)}
