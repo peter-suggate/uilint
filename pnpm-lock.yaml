@@ -181,6 +181,9 @@ importers:
       uilint-core:
         specifier: workspace:*
         version: link:../uilint-core
+      uilint-coverage:
+        specifier: workspace:*
+        version: link:../uilint-coverage
       uilint-duplicates:
         specifier: workspace:*
         version: link:../uilint-duplicates
@@ -412,6 +415,9 @@ importers:
       uilint-core:
         specifier: workspace:*
         version: link:../uilint-core
+      uilint-coverage:
+        specifier: workspace:*
+        version: link:../uilint-coverage
       uilint-duplicates:
         specifier: workspace:*
         version: link:../uilint-duplicates

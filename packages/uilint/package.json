@@ -1,6 +1,6 @@
 {
   "name": "uilint",
-  "version": "0.2.150",
+  "version": "0.2.153",
   "description": "CLI for UILint - AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -68,7 +68,8 @@
   "peerDependencies": {
     "uilint-vision": "workspace:*",
     "uilint-semantic": "workspace:*",
-    "uilint-duplicates": "workspace:*"
+    "uilint-duplicates": "workspace:*",
+    "uilint-coverage": "workspace:*"
   },
   "peerDependenciesMeta": {
     "uilint-vision": {
@@ -78,6 +79,9 @@
       "optional": true
     },
     "uilint-duplicates": {
+      "optional": true
+    },
+    "uilint-coverage": {
       "optional": true
     }
   },

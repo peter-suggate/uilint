@@ -87,7 +87,7 @@ jobs:
             pnpm add /tmp/packages/uilint-*.tgz
 
             # Run uilint init to set up the project (this adds deps to package.json)
-            npx uilint init --react --eslint --vision --semantic --duplicates
+            npx uilint init --react --eslint --vision --semantic --duplicates --coverage
 
             # Now install all local packages from tarballs (after init modified package.json)
             # Installing from tarballs ensures subpath exports resolve correctly
@@ -104,7 +104,7 @@ jobs:
           else
             # Use published npm version (after automatic publish on main)
             echo "Using published npm packages..."
-            npx uilint@latest init --react --eslint --vision --semantic --duplicates
+            npx uilint@latest init --react --eslint --vision --semantic --duplicates --coverage
           fi
 
           # Final install to ensure all dependencies are resolved

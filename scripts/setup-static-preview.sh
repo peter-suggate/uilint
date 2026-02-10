@@ -63,8 +63,8 @@ cd "$ROOT_DIR" && pnpm install
 
 # Step 2: Run uilint init --react --eslint + plugins (non-interactive)
 echo ""
-echo "🔧 Running uilint init --react --eslint --vision --semantic --duplicates..."
-cd "$TEST_APP_DIR" && node "$UILINT_CLI" init --react --eslint --vision --semantic --duplicates
+echo "🔧 Running uilint init --react --eslint --vision --semantic --duplicates --coverage..."
+cd "$TEST_APP_DIR" && node "$UILINT_CLI" init --react --eslint --vision --semantic --duplicates --coverage
 
 # Step 3: Configure static mode in providers.tsx
 echo ""

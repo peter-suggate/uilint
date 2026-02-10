@@ -68,25 +68,24 @@ describe("Styleguide Plugin", () => {
       expect(state.modelName).toBe("qwen3-vl:8b-instruct");
     });
 
-    it("initializes with analysisStatus: idle", () => {
+    it("initializes with analysis status: idle", () => {
       const state = styleguidePlugin.state.initialState;
-      expect(state.analysisStatus).toBe("idle");
+      expect(state.analysis.status).toBe("idle");
     });
 
-    it("initializes with null analysisProgress", () => {
+    it("initializes with null analysis progress", () => {
       const state = styleguidePlugin.state.initialState;
-      expect(state.analysisProgress).toBeNull();
+      expect(state.analysis.progress).toBeNull();
     });
 
-    it("initializes with null lastAnalysisError", () => {
+    it("initializes with null analysis lastError", () => {
       const state = styleguidePlugin.state.initialState;
-      expect(state.lastAnalysisError).toBeNull();
+      expect(state.analysis.lastError).toBeNull();
     });
 
-    it("initializes with zero counts", () => {
+    it("initializes with null analysis stats", () => {
       const state = styleguidePlugin.state.initialState;
-      expect(state.analyzedFileCount).toBe(0);
-      expect(state.issueCount).toBe(0);
+      expect(state.analysis.stats).toBeNull();
     });
 
     it("provides computed values", () => {
@@ -124,10 +123,10 @@ describe("Styleguide Plugin", () => {
       expect(styleguidePlugin.state.computed!.isReady(state)).toBe(false);
     });
 
-    it("computed isAnalyzing returns true when status is analyzing", () => {
+    it("computed isAnalyzing returns true when status is active", () => {
       const state: StyleguideState = {
         ...styleguidePlugin.state.initialState,
-        analysisStatus: "analyzing",
+        analysis: { ...styleguidePlugin.state.initialState.analysis, status: "active" },
       };
       expect(styleguidePlugin.state.computed!.isAnalyzing(state)).toBe(true);
     });
@@ -135,15 +134,15 @@ describe("Styleguide Plugin", () => {
     it("computed hasError returns true when status is error", () => {
       const state: StyleguideState = {
         ...styleguidePlugin.state.initialState,
-        analysisStatus: "error",
+        analysis: { ...styleguidePlugin.state.initialState.analysis, status: "error" },
       };
       expect(styleguidePlugin.state.computed!.hasError(state)).toBe(true);
     });
 
-    it("computed hasError returns true when lastAnalysisError is set", () => {
+    it("computed hasError returns true when lastError is set", () => {
       const state: StyleguideState = {
         ...styleguidePlugin.state.initialState,
-        lastAnalysisError: "Model not available",
+        analysis: { ...styleguidePlugin.state.initialState.analysis, lastError: "Model not available" },
       };
       expect(styleguidePlugin.state.computed!.hasError(state)).toBe(true);
     });
@@ -151,7 +150,7 @@ describe("Styleguide Plugin", () => {
     it("computed progressPercent returns correct percentage", () => {
       const state: StyleguideState = {
         ...styleguidePlugin.state.initialState,
-        analysisProgress: { filePath: "test.tsx", current: 3, total: 10 },
+        analysis: { ...styleguidePlugin.state.initialState.analysis, progress: { current: 3, total: 10 } },
       };
       expect(styleguidePlugin.state.computed!.progressPercent(state)).toBe(30);
     });
@@ -164,7 +163,7 @@ describe("Styleguide Plugin", () => {
     it("computed progressPercent returns 0 when total is 0", () => {
       const state: StyleguideState = {
         ...styleguidePlugin.state.initialState,
-        analysisProgress: { filePath: "test.tsx", current: 0, total: 0 },
+        analysis: { ...styleguidePlugin.state.initialState.analysis, progress: { current: 0, total: 0 } },
       };
       expect(styleguidePlugin.state.computed!.progressPercent(state)).toBe(0);
     });
