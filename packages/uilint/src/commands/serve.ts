@@ -1388,6 +1388,28 @@ async function runSemanticAnalysisAsync(
   );
   if (cached) {
     logSemanticSkipped(filePath, "cache fresh");
+    // Send cached results to client (e.g. after server restart, the client
+    // re-requests linting but the expensive LLM analysis is still valid)
+    if (cached.issues.length > 0) {
+      const projectCwd = findESLintCwd(fileDir);
+      const dataLocFile = normalizeDataLocFilePath(absolutePath, projectCwd);
+      const lintIssues: LintIssue[] = cached.issues.map((issue) => ({
+        ruleId: issue.ruleId,
+        severity: issue.severity,
+        message: issue.message,
+        line: issue.line,
+        column: issue.column || 0,
+        nodeType: null,
+        source: null,
+        dataLoc: `${dataLocFile}:${issue.line}:${issue.column || 0}`,
+      }));
+      sendMessage(ws, {
+        type: "lint:result",
+        filePath,
+        requestId,
+        issues: lintIssues,
+      });
+    }
     return;
   }
 

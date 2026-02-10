@@ -380,6 +380,28 @@ export const eslintPlugin: Plugin = {
 
     devLog("[ESLint Plugin] Subscribed to DOM observer");
 
+    // Re-request linting on WebSocket reconnect (e.g. after server restart).
+    // onConnectionChange fires immediately with current state on subscription,
+    // so we use a guard to only act on actual reconnections.
+    let hasConnectedBefore = false;
+    const unsubConnection = services.websocket.onConnectionChange((connected) => {
+      if (connected) {
+        if (hasConnectedBefore) {
+          devLog("[ESLint Plugin] WebSocket reconnected, re-requesting linting");
+          services.setState({
+            issues: new Map(),
+            requestedFiles: new Set(),
+            scannedDataLocs: new Set(),
+          });
+          reRequestLinting(services);
+        }
+        hasConnectedBefore = true;
+      }
+    });
+    unsubscribers.push(unsubConnection);
+
+    devLog("[ESLint Plugin] Subscribed to connection changes");
+
     // Return cleanup function
     return () => {
       devLog("[ESLint Plugin] Disposing...");
