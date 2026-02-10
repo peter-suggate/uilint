@@ -315,29 +315,27 @@ export function createPlan(
         "typescript-eslint",
       ];
 
-      // If require-test-coverage rule is selected, add coverage package and config
-      const hasCoverageRule = selectedRules.some(
-        (r) => r.id === "require-test-coverage"
-      );
-      if (hasCoverageRule) {
-        packagesToInstall.push("@vitest/coverage-v8");
-
-        // Add action to inject coverage config into vitest.config.ts
-        actions.push({
-          type: "inject_vitest_coverage",
-          projectPath: pkgPath,
-        });
-      }
-
       // Collect npm dependencies declared by selected rules
+      let needsVitestCoverage = false;
       for (const rule of selectedRules) {
         if (rule.npmDependencies) {
           for (const dep of rule.npmDependencies) {
             if (!packagesToInstall.includes(dep)) {
               packagesToInstall.push(dep);
             }
+            if (dep === "@vitest/coverage-v8") {
+              needsVitestCoverage = true;
+            }
           }
         }
+      }
+
+      // If any rule needs vitest coverage, inject the coverage config
+      if (needsVitestCoverage) {
+        actions.push({
+          type: "inject_vitest_coverage",
+          projectPath: pkgPath,
+        });
       }
 
       // Install plugin packages for external rules (e.g. uilint-vision, uilint-semantic)

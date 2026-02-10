@@ -155,10 +155,6 @@ const EXPORTED_UTILITIES = [
   "import-graph",
   "component-parser",
   "export-resolver",
-  "coverage-aggregator",
-  "dependency-graph",
-  "file-categorizer",
-  "jsx-coverage-analyzer",
 ];
 
 /**

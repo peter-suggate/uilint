@@ -153,11 +153,14 @@ export const meta = defineRuleMeta({
   name: "Require Test Coverage",
   description: "Enforce that source files have adequate test coverage",
   defaultSeverity: "warn",
-  category: "static",
+  category: "coverage",
   icon: "🧪",
   hint: "Ensures code has tests",
   defaultEnabled: true,
   isDirectoryBased: true,
+  plugin: "coverage",
+  eslintImport: "uilint-coverage/eslint-rules/require-test-coverage",
+  npmDependencies: ["@vitest/coverage-v8"],
   requirements: [
     {
       type: "coverage",

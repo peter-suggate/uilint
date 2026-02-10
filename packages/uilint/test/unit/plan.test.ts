@@ -485,16 +485,27 @@ describe("createPlan - ESLint", () => {
     expect(testAction).toBeUndefined();
   });
 
-  it("adds @vitest/coverage-v8 dependency when require-test-coverage rule is selected", () => {
+  it("adds @vitest/coverage-v8 dependency when a rule declares it in npmDependencies", () => {
     const pkg = createMockPackage();
     const state = createMockProjectState({ packages: [pkg] });
+
+    // Mock a coverage rule with npmDependencies (like require-test-coverage from uilint-coverage)
+    const mockCoverageRule: RuleMetadata = {
+      id: "require-test-coverage",
+      name: "Require Test Coverage",
+      description: "Enforce test coverage",
+      category: "coverage",
+      defaultSeverity: "warn",
+      docs: "Coverage docs",
+      npmDependencies: ["@vitest/coverage-v8"],
+      eslintImport: "uilint-coverage/eslint-rules/require-test-coverage",
+    };
+
     const choices = createMockChoices({
       items: ["eslint"],
       eslint: {
         packagePaths: [pkg.path],
-        selectedRules: ruleRegistry.filter(
-          (r) => r.id === "require-test-coverage"
-        ),
+        selectedRules: [mockCoverageRule],
       },
     });
 
@@ -506,16 +517,26 @@ describe("createPlan - ESLint", () => {
     expect(deps?.packages).toContain("@vitest/coverage-v8");
   });
 
-  it("adds inject_vitest_coverage action when require-test-coverage rule is selected", () => {
+  it("adds inject_vitest_coverage action when a rule needs @vitest/coverage-v8", () => {
     const pkg = createMockPackage();
     const state = createMockProjectState({ packages: [pkg] });
+
+    const mockCoverageRule: RuleMetadata = {
+      id: "require-test-coverage",
+      name: "Require Test Coverage",
+      description: "Enforce test coverage",
+      category: "coverage",
+      defaultSeverity: "warn",
+      docs: "Coverage docs",
+      npmDependencies: ["@vitest/coverage-v8"],
+      eslintImport: "uilint-coverage/eslint-rules/require-test-coverage",
+    };
+
     const choices = createMockChoices({
       items: ["eslint"],
       eslint: {
         packagePaths: [pkg.path],
-        selectedRules: ruleRegistry.filter(
-          (r) => r.id === "require-test-coverage"
-        ),
+        selectedRules: [mockCoverageRule],
       },
     });
 
