@@ -7,6 +7,7 @@
 import type { PluginWithHandlers, IssueContribution } from "uilint-core";
 import { pluginRegistry } from "uilint-core";
 
+import { cliManifest } from "../cli-manifest.js";
 import { coverageStateDefinition, type CoverageState } from "./state.js";
 import { coverageActionHandlers } from "./actions.js";
 import { coverageCommands } from "./commands.js";
@@ -20,6 +21,9 @@ export const coveragePlugin: PluginWithHandlers<CoverageState> = {
   version: "1.0.0",
   description: "Test coverage analysis and threshold enforcement",
   icon: "test-tube",
+
+  // CLI (derived from cli-manifest — single source of truth)
+  cli: cliManifest,
 
   state: coverageStateDefinition,
   actions: coverageActionHandlers,

@@ -170,7 +170,9 @@ program
     });
   });
 
-// Init command — plugin flags are added dynamically below in main()
+// Init command — plugin flags are derived from KNOWN_PLUGINS (single source of truth).
+// They are registered dynamically in main() so `init --vision` etc. work even when
+// the plugin packages are not yet installed.
 const initCommand = program
   .command("init")
   .description("Initialize UILint integration")
@@ -178,13 +180,7 @@ const initCommand = program
   .option("--react", "Install React DevTool (non-interactive)")
   .option("--eslint", "Install ESLint rules (non-interactive)")
   .option("--genstyleguide", "Generate styleguide (non-interactive)")
-  .option("--skill", "Install Claude skill (non-interactive)")
-  // Known plugin flags are registered statically so they work even when
-  // the plugin packages are not yet installed (the whole point of `init`).
-  .option("--vision", "Install Vision Analysis plugin")
-  .option("--semantic", "Install Semantic Analysis plugin")
-  .option("--duplicates", "Install Duplicates Detection plugin")
-  .option("--coverage", "Install test coverage rules");
+  .option("--skill", "Install Claude skill (non-interactive)");
 
 // Remove command
 program
@@ -315,14 +311,31 @@ program
 
 // Discover plugin manifests and wire up the init command dynamically
 async function main() {
+  // Dynamic import of KNOWN_PLUGINS — avoids a static named-export binding on
+  // uilint-core, which tsup auto-externalizes.  In preview deploys the installed
+  // uilint-core version may not yet have this export; a dynamic import degrades
+  // gracefully to the hardcoded fallback instead of throwing a SyntaxError.
+  const core = await import("uilint-core");
+  const KNOWN_PLUGINS: ReadonlyArray<{ packageName: string }> = core.KNOWN_PLUGINS ?? [
+    { packageName: "uilint-vision" },
+    { packageName: "uilint-semantic" },
+    { packageName: "uilint-duplicates" },
+    { packageName: "uilint-coverage" },
+  ];
+
+  // Register a --<flag> option for every known plugin so `init --vision` etc.
+  // work even before the plugin packages are installed.
+  const KNOWN_PLUGIN_FLAGS: string[] = [];
+  for (const kp of KNOWN_PLUGINS) {
+    const flag = kp.packageName.replace(/^uilint-/, "");
+    KNOWN_PLUGIN_FLAGS.push(flag);
+    initCommand.option(`--${flag}`, `Install ${kp.packageName} plugin`);
+  }
+
   const { discoverPlugins } = await import("./utils/plugin-loader.js");
   const pluginManifests = await discoverPlugins();
 
-  // Known plugin flags that are statically registered on initCommand.
-  // These ensure `init --vision` etc. work even before plugins are installed.
-  const KNOWN_PLUGIN_FLAGS = ["vision", "semantic", "duplicates", "coverage"];
-
-  // Add a --<flag> option for each discovered plugin (skips already-registered ones)
+  // Add a --<flag> option for each discovered plugin that isn't already known.
   for (const manifest of pluginManifests) {
     if (!KNOWN_PLUGIN_FLAGS.includes(manifest.cliFlag)) {
       initCommand.option(`--${manifest.cliFlag}`, manifest.cliDescription);

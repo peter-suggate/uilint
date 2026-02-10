@@ -8,6 +8,7 @@
 import type { PluginWithHandlers, IssueContribution } from "uilint-core";
 import { pluginRegistry } from "uilint-core";
 
+import { cliManifest } from "../cli-manifest.js";
 import { styleguideStateDefinition, type StyleguideState } from "./state.js";
 import { styleguideActionHandlers } from "./actions.js";
 import { styleguideCommands } from "./commands.js";
@@ -28,6 +29,9 @@ export const styleguidePlugin: PluginWithHandlers<StyleguideState> = {
   version: "1.0.0",
   description: "LLM-powered styleguide enforcement",
   icon: "book",
+
+  // === CLI (derived from cli-manifest — single source of truth) ===
+  cli: cliManifest,
 
   // === State ===
   state: styleguideStateDefinition,

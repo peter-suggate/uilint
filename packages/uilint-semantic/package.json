@@ -1,6 +1,6 @@
 {
   "name": "uilint-semantic",
-  "version": "0.2.153",
+  "version": "0.2.150",
   "description": "LLM-powered styleguide checking for UILint",
   "author": "Peter Suggate",
   "repository": {
@@ -48,10 +48,12 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint src/",
     "lint:strict": "eslint src/ --max-warnings 0",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
     "uilint-core": "workspace:*",

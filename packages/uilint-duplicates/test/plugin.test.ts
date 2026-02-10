@@ -48,24 +48,24 @@ describe("Duplicates Plugin", () => {
       expect(duplicatesPlugin.state.initialState).toEqual(duplicatesInitialState);
     });
 
-    it("initializes with indexStatus: idle", () => {
+    it("initializes with indexing status: idle", () => {
       const state = duplicatesPlugin.state.initialState;
-      expect(state.indexStatus).toBe("idle");
+      expect(state.indexing.status).toBe("idle");
     });
 
-    it("initializes with null indexProgress", () => {
+    it("initializes with null indexing progress", () => {
       const state = duplicatesPlugin.state.initialState;
-      expect(state.indexProgress).toBeNull();
+      expect(state.indexing.progress).toBeNull();
     });
 
-    it("initializes with null indexStats", () => {
+    it("initializes with null indexing stats", () => {
       const state = duplicatesPlugin.state.initialState;
-      expect(state.indexStats).toBeNull();
+      expect(state.indexing.stats).toBeNull();
     });
 
-    it("initializes with null lastIndexError", () => {
+    it("initializes with null indexing lastError", () => {
       const state = duplicatesPlugin.state.initialState;
-      expect(state.lastIndexError).toBeNull();
+      expect(state.indexing.lastError).toBeNull();
     });
 
     it("initializes with null selectedDuplicate", () => {
@@ -81,10 +81,10 @@ describe("Duplicates Plugin", () => {
       expect(duplicatesPlugin.state.computed!.progressPercent).toBeDefined();
     });
 
-    it("computed isIndexReady returns true when status is ready", () => {
+    it("computed isIndexReady returns true when status is complete", () => {
       const state: DuplicatesState = {
         ...duplicatesPlugin.state.initialState,
-        indexStatus: "ready",
+        indexing: { ...duplicatesPlugin.state.initialState.indexing, status: "complete" },
       };
       expect(duplicatesPlugin.state.computed!.isIndexReady(state)).toBe(true);
     });
@@ -93,17 +93,17 @@ describe("Duplicates Plugin", () => {
       const idleState = duplicatesPlugin.state.initialState;
       expect(duplicatesPlugin.state.computed!.isIndexReady(idleState)).toBe(false);
 
-      const indexingState: DuplicatesState = {
+      const activeState: DuplicatesState = {
         ...duplicatesPlugin.state.initialState,
-        indexStatus: "indexing",
+        indexing: { ...duplicatesPlugin.state.initialState.indexing, status: "active" },
       };
-      expect(duplicatesPlugin.state.computed!.isIndexReady(indexingState)).toBe(false);
+      expect(duplicatesPlugin.state.computed!.isIndexReady(activeState)).toBe(false);
     });
 
-    it("computed isIndexing returns true when status is indexing", () => {
+    it("computed isIndexing returns true when status is active", () => {
       const state: DuplicatesState = {
         ...duplicatesPlugin.state.initialState,
-        indexStatus: "indexing",
+        indexing: { ...duplicatesPlugin.state.initialState.indexing, status: "active" },
       };
       expect(duplicatesPlugin.state.computed!.isIndexing(state)).toBe(true);
     });
@@ -111,15 +111,15 @@ describe("Duplicates Plugin", () => {
     it("computed hasError returns true when status is error", () => {
       const state: DuplicatesState = {
         ...duplicatesPlugin.state.initialState,
-        indexStatus: "error",
+        indexing: { ...duplicatesPlugin.state.initialState.indexing, status: "error" },
       };
       expect(duplicatesPlugin.state.computed!.hasError(state)).toBe(true);
     });
 
-    it("computed hasError returns true when lastIndexError is set", () => {
+    it("computed hasError returns true when lastError is set", () => {
       const state: DuplicatesState = {
         ...duplicatesPlugin.state.initialState,
-        lastIndexError: "Something went wrong",
+        indexing: { ...duplicatesPlugin.state.initialState.indexing, lastError: "Something went wrong" },
       };
       expect(duplicatesPlugin.state.computed!.hasError(state)).toBe(true);
     });
@@ -127,7 +127,7 @@ describe("Duplicates Plugin", () => {
     it("computed progressPercent returns correct percentage", () => {
       const state: DuplicatesState = {
         ...duplicatesPlugin.state.initialState,
-        indexProgress: { current: 50, total: 100 },
+        indexing: { ...duplicatesPlugin.state.initialState.indexing, progress: { current: 50, total: 100 } },
       };
       expect(duplicatesPlugin.state.computed!.progressPercent(state)).toBe(50);
     });
