@@ -82,37 +82,18 @@ export async function loadPlugin(
 }
 
 /**
- * Known external plugin module specifiers.
- *
- * These are attempted via dynamic import during plugin loading.
- * If a package is not installed, the import fails silently and the
- * plugin is skipped. This allows vision/semantic plugins to be
- * auto-discovered without consumers needing to call registerExternalPlugin().
- */
-const KNOWN_PLUGIN_SPECIFIERS = [
-  "uilint-vision/plugin",
-  "uilint-semantic/plugin",
-  "uilint-duplicates/plugin",
-];
-
-/**
  * Load external plugins from the uilint-core plugin registry.
- * First tries to discover known plugin packages, then loads any explicitly
- * registered plugins, and finally adapts all registered plugins to React.
+ *
+ * External plugins register themselves with uilint-core's pluginRegistry
+ * when imported. The host application is responsible for importing the
+ * plugin packages (via registerExternalPlugin or direct imports).
+ *
+ * uilint-react does NOT import plugin packages directly — this keeps the
+ * UI free of plugin package dependencies and gives the host full control
+ * over which plugins are loaded.
  */
 async function loadExternalPlugins(): Promise<Plugin[]> {
-  // Try importing known plugin packages (triggers auto-registration with core registry)
-  const discoveryPromises = KNOWN_PLUGIN_SPECIFIERS.map(async (specifier) => {
-    try {
-      await import(/* @vite-ignore */ specifier);
-      devLog(`[Loader] Discovered external plugin: ${specifier}`);
-    } catch {
-      // Package not installed — skip silently
-      devLog(`[Loader] Optional plugin not available: ${specifier}`);
-    }
-  });
-
-  // Also import any explicitly registered plugins
+  // Import any explicitly registered plugins (from host's registerExternalPlugin calls)
   const explicitPromises = externalPluginImports.map(async (importFn) => {
     try {
       await importFn();
@@ -121,7 +102,7 @@ async function loadExternalPlugins(): Promise<Plugin[]> {
     }
   });
 
-  await Promise.all([...discoveryPromises, ...explicitPromises]);
+  await Promise.all(explicitPromises);
 
   // Get all registered plugins from the core registry
   const registeredPlugins = corePluginRegistry.getAll();

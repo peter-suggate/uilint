@@ -8,6 +8,7 @@
 import type { PluginWithHandlers, IssueContribution } from "uilint-core";
 import { pluginRegistry } from "uilint-core";
 
+import { cliManifest } from "../cli-manifest.js";
 import { duplicatesStateDefinition, type DuplicatesState } from "./state.js";
 import { duplicatesActionHandlers } from "./actions.js";
 import { duplicatesCommands } from "./commands.js";
@@ -28,6 +29,9 @@ export const duplicatesPlugin: PluginWithHandlers<DuplicatesState> = {
   version: "1.0.0",
   description: "Embedding-based semantic code duplicate detection",
   icon: "copy",
+
+  // === CLI (derived from cli-manifest — single source of truth) ===
+  cli: cliManifest,
 
   // === State ===
   state: duplicatesStateDefinition,

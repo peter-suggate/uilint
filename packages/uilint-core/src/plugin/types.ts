@@ -676,6 +676,28 @@ export interface StateDefinition<TState> {
 }
 
 // =============================================================================
+// CLI METADATA
+// =============================================================================
+
+/**
+ * CLI-specific metadata for a plugin.
+ *
+ * When present, the CLI can auto-discover and wire up the plugin
+ * without any hardcoded knowledge. This is the single source of truth
+ * for CLI flags, help text, and ESLint rule registration.
+ */
+export interface PluginCLIMetadata {
+  /** npm package name, e.g. "uilint-vision" */
+  packageName: string;
+  /** CLI flag name (without --), e.g. "vision" */
+  cliFlag: string;
+  /** Description shown in --help */
+  cliDescription: string;
+  /** Import specifier for the ESLint register module, e.g. "uilint-vision/eslint-rules/register" */
+  registerSpecifier: string;
+}
+
+// =============================================================================
 // PLUGIN DEFINITION
 // =============================================================================
 
@@ -701,6 +723,10 @@ export interface PluginDefinition<TState = unknown> {
   icon?: IconName;
   /** Plugin IDs this depends on */
   dependencies?: string[];
+
+  // === CLI ===
+  /** CLI metadata for auto-discovery and flag registration */
+  cli?: PluginCLIMetadata;
 
   // === State ===
   /** State definition */

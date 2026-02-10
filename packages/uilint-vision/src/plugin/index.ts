@@ -8,6 +8,7 @@
 import type { PluginWithHandlers, PluginIssue, IssueContribution } from "uilint-core";
 import { pluginRegistry } from "uilint-core";
 
+import { cliManifest } from "../cli-manifest.js";
 import { visionStateDefinition, type VisionState } from "./state.js";
 import { visionActionHandlers } from "./actions.js";
 import { visionCommands } from "./commands.js";
@@ -29,6 +30,9 @@ export const visionPlugin: PluginWithHandlers<VisionState> = {
   version: "1.0.0",
   description: "AI-powered visual UI consistency checking",
   icon: "eye",
+
+  // === CLI (derived from cli-manifest — single source of truth) ===
+  cli: cliManifest,
 
   // === State ===
   state: visionStateDefinition,

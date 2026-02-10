@@ -83,6 +83,8 @@ export type {
   ComputedValue,
   PersistConfig,
   StateDefinition,
+  // CLI metadata
+  PluginCLIMetadata,
   // Plugin definition
   PluginDefinition,
 } from "./types.js";
@@ -93,6 +95,9 @@ export {
   isExpressionBinding,
   isConditionalValue,
 } from "./types.js";
+
+// === Known Plugins ===
+export { KNOWN_PLUGINS, type KnownPlugin } from "./known-plugins.js";
 
 // === Operation Lifecycle ===
 export {

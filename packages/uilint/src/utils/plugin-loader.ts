@@ -4,12 +4,16 @@
  * Probes known plugin package names for a `cli-manifest` subpath export.
  * Each manifest describes the CLI flag, help text, and registration entry
  * point, keeping the core CLI free of plugin-specific knowledge.
+ *
+ * The list of known plugins comes from `uilint-core/KNOWN_PLUGINS` —
+ * a single source of truth shared by the CLI, React loader, and plugins.
  */
 
 import { createRequire } from "module";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { pathToFileURL } from "url";
+import { KNOWN_PLUGINS } from "uilint-core";
 import { logInfo } from "./prompts.js";
 
 /**
@@ -32,9 +36,6 @@ export interface PluginCLIManifest {
   /** Emoji icon for the interactive install UI, e.g. "👁️" */
   displayIcon: string;
 }
-
-/** Package names to probe for CLI manifests */
-const KNOWN_PLUGIN_PACKAGES = ["uilint-vision", "uilint-semantic", "uilint-duplicates", "uilint-coverage"];
 
 /**
  * Resolve and import a package subpath specifier from a given project directory.
@@ -86,6 +87,9 @@ async function importFromProject(
 /**
  * Discover available plugin manifests by probing `<pkg>/cli-manifest`.
  *
+ * Uses `KNOWN_PLUGINS` from uilint-core as the single source of truth
+ * for which packages to probe.
+ *
  * @param resolveFrom - Optional project path to resolve plugins from.
  *   When provided, resolves plugins from the project's node_modules
  *   so plugins installed in the project can be found.
@@ -96,14 +100,13 @@ export async function discoverPlugins(
 ): Promise<PluginCLIManifest[]> {
   const manifests: PluginCLIManifest[] = [];
 
-  for (const pkg of KNOWN_PLUGIN_PACKAGES) {
-    const specifier = `${pkg}/cli-manifest`;
+  for (const known of KNOWN_PLUGINS) {
     try {
       let mod: { cliManifest?: PluginCLIManifest } | undefined;
       if (resolveFrom) {
-        mod = (await importFromProject(specifier, resolveFrom)) as typeof mod;
+        mod = (await importFromProject(known.manifestSpecifier, resolveFrom)) as typeof mod;
       } else {
-        mod = (await import(specifier)) as typeof mod;
+        mod = (await import(known.manifestSpecifier)) as typeof mod;
       }
       if (mod?.cliManifest) {
         manifests.push(mod.cliManifest);

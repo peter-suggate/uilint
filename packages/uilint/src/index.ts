@@ -170,7 +170,11 @@ program
     });
   });
 
-// Init command — plugin flags are added dynamically below in main()
+// Init command — plugin flags are derived from KNOWN_PLUGINS (single source of truth).
+// They are registered statically so they work even when the plugin packages are
+// not yet installed (the whole point of `init`).
+import { KNOWN_PLUGINS } from "uilint-core";
+
 const initCommand = program
   .command("init")
   .description("Initialize UILint integration")
@@ -178,12 +182,17 @@ const initCommand = program
   .option("--react", "Install React DevTool (non-interactive)")
   .option("--eslint", "Install ESLint rules (non-interactive)")
   .option("--genstyleguide", "Generate styleguide (non-interactive)")
-  .option("--skill", "Install Claude skill (non-interactive)")
-  // Known plugin flags are registered statically so they work even when
-  // the plugin packages are not yet installed (the whole point of `init`).
-  .option("--vision", "Install Vision Analysis plugin")
-  .option("--semantic", "Install Semantic Analysis plugin")
-  .option("--duplicates", "Install Duplicates Detection plugin");
+  .option("--skill", "Install Claude skill (non-interactive)");
+
+// Register a --<flag> option for every known plugin so `init --vision` etc.
+// work even before the plugin packages are installed.
+const KNOWN_PLUGIN_FLAGS: string[] = [];
+for (const kp of KNOWN_PLUGINS) {
+  // Derive the flag name from the package name: "uilint-vision" → "vision"
+  const flag = kp.packageName.replace(/^uilint-/, "");
+  KNOWN_PLUGIN_FLAGS.push(flag);
+  initCommand.option(`--${flag}`, `Install ${kp.packageName} plugin`);
+}
 
 // Remove command
 program
@@ -317,11 +326,8 @@ async function main() {
   const { discoverPlugins } = await import("./utils/plugin-loader.js");
   const pluginManifests = await discoverPlugins();
 
-  // Known plugin flags that are statically registered on initCommand.
-  // These ensure `init --vision` etc. work even before plugins are installed.
-  const KNOWN_PLUGIN_FLAGS = ["vision", "semantic", "duplicates"];
-
-  // Add a --<flag> option for each discovered plugin (skips already-registered ones)
+  // Add a --<flag> option for each discovered plugin that isn't already known.
+  // (Known plugins were registered statically above from KNOWN_PLUGINS.)
   for (const manifest of pluginManifests) {
     if (!KNOWN_PLUGIN_FLAGS.includes(manifest.cliFlag)) {
       initCommand.option(`--${manifest.cliFlag}`, manifest.cliDescription);
