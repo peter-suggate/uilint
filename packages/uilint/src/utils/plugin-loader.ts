@@ -13,7 +13,6 @@ import { createRequire } from "module";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { pathToFileURL } from "url";
-import { KNOWN_PLUGINS } from "uilint-core";
 import { logInfo } from "./prompts.js";
 
 /**
@@ -98,6 +97,13 @@ async function importFromProject(
 export async function discoverPlugins(
   resolveFrom?: string,
 ): Promise<PluginCLIManifest[]> {
+  // Dynamic import — avoids a static named-export binding on uilint-core which
+  // tsup auto-externalizes.  Gracefully degrades if the installed uilint-core
+  // version doesn't yet export KNOWN_PLUGINS (e.g. preview deploys).
+  const core = await import("uilint-core");
+  const KNOWN_PLUGINS: ReadonlyArray<{ packageName: string; manifestSpecifier: string }> =
+    core.KNOWN_PLUGINS ?? [];
+
   const manifests: PluginCLIManifest[] = [];
 
   for (const known of KNOWN_PLUGINS) {
