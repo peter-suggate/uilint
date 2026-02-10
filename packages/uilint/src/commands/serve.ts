@@ -3095,6 +3095,49 @@ export async function serve(options: ServeOptions): Promise<void> {
       onRebuildIndex: () => {
         buildDuplicatesIndex(appRoot);
       },
+      onClearCache: () => {
+        // 1. In-memory lint caches
+        cache.clear();
+        fastCache.clear();
+        semanticCache.clear();
+
+        // 2. ESLint instance caches (forces fresh config parse)
+        eslintInstances.clear();
+        eslintFastInstances.clear();
+
+        updateCacheCount(0);
+        logCacheInvalidate();
+
+        // 3. Disk-based plugin caches
+        // Semantic + color suggestion caches (use wsRoot because
+        // runSemanticAnalysisAsync resolves cache via findWorkspaceRoot)
+        import("uilint-eslint").then(
+          ({ clearCache, clearAllSuggestions }) => {
+            clearCache(wsRoot);
+            clearAllSuggestions(wsRoot);
+            if (appRoot !== wsRoot) {
+              clearCache(appRoot);
+              clearAllSuggestions(appRoot);
+            }
+          }
+        );
+
+        // Coverage: clear in-memory cache + delete disk file + rebuild
+        import("uilint-coverage").then(({ clearCoverageCache }) => {
+          clearCoverageCache();
+        });
+        const coveragePath = join(appRoot, "coverage", "coverage-final.json");
+        if (existsSync(coveragePath)) {
+          unlinkSync(coveragePath);
+        }
+        buildCoverageData(appRoot);
+
+        // Duplicates: clear indexer cache + rebuild index
+        import("uilint-duplicates").then(({ clearIndexerCache }) => {
+          clearIndexerCache(appRoot);
+        });
+        buildDuplicatesIndex(appRoot);
+      },
     });
 
     // Wait for dashboard to exit

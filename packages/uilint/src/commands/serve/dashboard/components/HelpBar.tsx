@@ -55,6 +55,12 @@ export function HelpBar({ verbose, activeFilter = "all" }: HelpBarProps): React.
       </Box>
       <Box>
         <Text bold color="cyan">
+          x
+        </Text>
+        <Text dimColor> clear cache</Text>
+      </Box>
+      <Box>
+        <Text bold color="cyan">
           {"\u2191\u2193"}
         </Text>
         <Text dimColor> scroll</Text>

@@ -104,26 +104,6 @@ function HoverOverlay({ isHovered }: { isHovered: boolean }) {
 }
 
 /**
- * Type gradient flourish - corner gradient to differentiate tile types
- */
-function TypeGradient({ tileType }: { tileType?: "rule" | "file" }) {
-  if (!tileType) return null;
-
-  // Use CSS variable for the color based on tile type
-  const colorVar = tileType === "rule" ? "var(--color-tile-rule)" : "var(--color-tile-file)";
-
-  return (
-    <div
-      className="absolute top-0 right-0 w-20 h-20 pointer-events-none rounded-tr-2xl"
-      style={{
-        background: `radial-gradient(circle at top right, ${colorVar} 0%, transparent 70%)`,
-        opacity: 0.25,
-      }}
-    />
-  );
-}
-
-/**
  * Config tags - small pills showing rule config info on tiles with enough room.
  * Rendered by the parent only after measuring that sufficient vertical space exists.
  */
@@ -382,9 +362,6 @@ export function Tile({
 
       {/* Hover highlight overlay */}
       <HoverOverlay isHovered={isHovered} />
-
-      {/* Type gradient flourish */}
-      <TypeGradient tileType={tileType} />
     </motion.div>
   );
 }

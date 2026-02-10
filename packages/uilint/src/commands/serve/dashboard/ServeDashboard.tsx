@@ -20,11 +20,14 @@ export interface ServeDashboardProps {
   onQuit?: () => void;
   /** Callback when user requests to rebuild index */
   onRebuildIndex?: () => void;
+  /** Callback when user requests to clear all caches */
+  onClearCache?: () => void;
 }
 
 export function ServeDashboard({
   onQuit,
   onRebuildIndex,
+  onClearCache,
 }: ServeDashboardProps): React.ReactElement {
   const { exit } = useApp();
   const store = getDashboardStore();
@@ -106,6 +109,8 @@ export function ServeDashboard({
           setScrollOffset(0);
         } else if (input === "r") {
           onRebuildIndex?.();
+        } else if (input === "x") {
+          onClearCache?.();
         } else if (key.downArrow || input === "j") {
           setScrollOffset((prev) => {
             const maxOffset = Math.max(0, state.activities.length - 15);
@@ -115,7 +120,7 @@ export function ServeDashboard({
           setScrollOffset((prev) => Math.max(0, prev - 1));
         }
       },
-      [exit, onQuit, onRebuildIndex, store, state.activities.length]
+      [exit, onQuit, onRebuildIndex, onClearCache, store, state.activities.length]
     )
   );
 

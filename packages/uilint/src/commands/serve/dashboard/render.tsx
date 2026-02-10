@@ -10,6 +10,7 @@ import { getDashboardStore } from "./store.js";
 export interface RenderOptions {
   onQuit?: () => void;
   onRebuildIndex?: () => void;
+  onClearCache?: () => void;
 }
 
 /**
@@ -61,6 +62,7 @@ export function renderDashboard(options: RenderOptions = {}): {
     <ServeDashboard
       onQuit={options.onQuit}
       onRebuildIndex={options.onRebuildIndex}
+      onClearCache={options.onClearCache}
     />
   );
 
