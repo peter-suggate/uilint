@@ -1,0 +1,104 @@
+{
+  "name": "uilint-coverage",
+  "version": "0.2.147",
+  "description": "Test coverage analysis plugin for UILint",
+  "author": "Peter Suggate",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/peter-suggate/uilint.git",
+    "directory": "packages/uilint-coverage"
+  },
+  "homepage": "https://github.com/peter-suggate/uilint#readme",
+  "bugs": {
+    "url": "https://github.com/peter-suggate/uilint/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "node": [
+        "./dist/node.d.ts"
+      ],
+      "*": [
+        "./dist/index.d.ts"
+      ]
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    },
+    "./plugin": {
+      "types": "./dist/plugin/index.d.ts",
+      "import": "./dist/plugin/index.js"
+    },
+    "./eslint-rules": {
+      "types": "./dist/eslint-rules/index.d.ts",
+      "import": "./dist/eslint-rules/index.js"
+    },
+    "./eslint-rules/register": {
+      "types": "./dist/eslint-rules/register.d.ts",
+      "import": "./dist/eslint-rules/register.js"
+    },
+    "./eslint-rules/require-test-coverage": {
+      "types": "./dist/eslint-rules/require-test-coverage.d.ts",
+      "import": "./dist/eslint-rules/require-test-coverage.js"
+    },
+    "./cli-manifest": {
+      "types": "./dist/cli-manifest.d.ts",
+      "import": "./dist/cli-manifest.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/",
+    "lint:strict": "eslint src/ --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@typescript-eslint/utils": "^8.35.1",
+    "@typescript-eslint/typescript-estree": "^8.35.1",
+    "oxc-resolver": "^11.0.0"
+  },
+  "devDependencies": {
+    "@typescript-eslint/rule-tester": "^8.35.1",
+    "eslint": "^9.28.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  },
+  "peerDependencies": {
+    "uilint-core": "workspace:*",
+    "uilint-eslint": "workspace:*"
+  },
+  "keywords": [
+    "test-coverage",
+    "code-analysis",
+    "react",
+    "typescript",
+    "lint",
+    "ui"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

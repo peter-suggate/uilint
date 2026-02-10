@@ -59,6 +59,7 @@ jobs:
           cd packages/uilint-vision && pnpm pack --pack-destination /tmp/packages && cd ../..
           cd packages/uilint-semantic && pnpm pack --pack-destination /tmp/packages && cd ../..
           cd packages/uilint-duplicates && pnpm pack --pack-destination /tmp/packages && cd ../..
+          cd packages/uilint-coverage && pnpm pack --pack-destination /tmp/packages && cd ../..
           cd packages/jsx-loc-plugin && pnpm pack --pack-destination /tmp/packages && cd ../..
           ls -la /tmp/packages/
 
@@ -98,6 +99,7 @@ jobs:
             pnpm add /tmp/packages/uilint-vision-*.tgz
             pnpm add /tmp/packages/uilint-semantic-*.tgz
             pnpm add /tmp/packages/uilint-duplicates-*.tgz
+            pnpm add /tmp/packages/uilint-coverage-*.tgz
             pnpm add /tmp/packages/jsx-loc-plugin-*.tgz
           else
             # Use published npm version (after automatic publish on main)

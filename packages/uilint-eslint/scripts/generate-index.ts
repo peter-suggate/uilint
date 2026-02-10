@@ -261,39 +261,6 @@ export {
 // Re-export defineRuleMeta for rule authors
 export { defineRuleMeta } from "./utils/create-rule.js";
 
-// Re-export coverage utilities (from require-test-coverage rule)
-export {
-  aggregateCoverage,
-  type IstanbulCoverage,
-  type FileCoverageInfo,
-  type AggregatedCoverage,
-} from "./rules/require-test-coverage/lib/coverage-aggregator.js";
-
-export {
-  buildDependencyGraph,
-  type DependencyGraph,
-} from "./rules/require-test-coverage/lib/dependency-graph.js";
-
-export {
-  categorizeFile,
-  type FileCategory,
-  type FileCategoryResult,
-} from "./rules/require-test-coverage/lib/file-categorizer.js";
-
-// Re-export JSX coverage analyzer utilities (from require-test-coverage rule)
-export {
-  analyzeJSXElementCoverage,
-  buildDataLoc,
-  findStatementsInRange,
-  calculateCoverageFromStatements,
-  findCoverageForFile,
-  isEventHandlerAttribute,
-  type IstanbulFileCoverage,
-  type SourceLocation,
-  type CoverageStats,
-  type JSXCoverageResult,
-} from "./rules/require-test-coverage/lib/jsx-coverage-analyzer.js";
-
 // Re-export oxc-resolver for custom rules that need import resolution
 export { ResolverFactory } from "oxc-resolver";
 `;

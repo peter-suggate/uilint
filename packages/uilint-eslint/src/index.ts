@@ -18,7 +18,6 @@ import preferStoreSelectors from "./rules/prefer-store-selectors.js";
 import noPropDrillingDepth from "./rules/no-prop-drilling-depth.js";
 import noSecretsInCode from "./rules/no-secrets-in-code.js";
 import requireInputValidation from "./rules/require-input-validation.js";
-import requireTestCoverage from "./rules/require-test-coverage/index.js";
 import preferTailwind from "./rules/prefer-tailwind/index.js";
 
 /**
@@ -37,7 +36,6 @@ const rules = {
   "no-prop-drilling-depth": noPropDrillingDepth,
   "no-secrets-in-code": noSecretsInCode,
   "require-input-validation": requireInputValidation,
-  "require-test-coverage": requireTestCoverage,
   "prefer-tailwind": preferTailwind,
 };
 
@@ -187,30 +185,6 @@ const recommendedConfig: Linter.Config = {
           "allowManualValidation": false
         }
       ]],
-    "uilint/require-test-coverage": ["warn", ...[
-        {
-          "coveragePath": "coverage/coverage-final.json",
-          "threshold": 80,
-          "thresholdsByPattern": [],
-          "severity": {
-            "noCoverage": "error",
-            "belowThreshold": "warn"
-          },
-          "testPatterns": [
-            ".test.ts",
-            ".test.tsx",
-            ".spec.ts",
-            ".spec.tsx",
-            "__tests__/"
-          ],
-          "ignorePatterns": [
-            "**/*.d.ts",
-            "**/index.ts"
-          ],
-          "mode": "all",
-          "baseBranch": "main"
-        }
-      ]],
     "uilint/prefer-tailwind": ["warn", ...[
         {
           "styleRatioThreshold": 0.3,
@@ -341,30 +315,6 @@ const strictConfig: Linter.Config = {
           "allowManualValidation": false
         }
       ]],
-    "uilint/require-test-coverage": ["warn", ...[
-        {
-          "coveragePath": "coverage/coverage-final.json",
-          "threshold": 80,
-          "thresholdsByPattern": [],
-          "severity": {
-            "noCoverage": "error",
-            "belowThreshold": "warn"
-          },
-          "testPatterns": [
-            ".test.ts",
-            ".test.tsx",
-            ".spec.ts",
-            ".spec.tsx",
-            "__tests__/"
-          ],
-          "ignorePatterns": [
-            "**/*.d.ts",
-            "**/index.ts"
-          ],
-          "mode": "all",
-          "baseBranch": "main"
-        }
-      ]],
     "uilint/prefer-tailwind": ["warn", ...[
         {
           "styleRatioThreshold": 0.3,
@@ -471,39 +421,6 @@ export {
 
 // Re-export defineRuleMeta for rule authors
 export { defineRuleMeta } from "./utils/create-rule.js";
-
-// Re-export coverage utilities (from require-test-coverage rule)
-export {
-  aggregateCoverage,
-  type IstanbulCoverage,
-  type FileCoverageInfo,
-  type AggregatedCoverage,
-} from "./rules/require-test-coverage/lib/coverage-aggregator.js";
-
-export {
-  buildDependencyGraph,
-  type DependencyGraph,
-} from "./rules/require-test-coverage/lib/dependency-graph.js";
-
-export {
-  categorizeFile,
-  type FileCategory,
-  type FileCategoryResult,
-} from "./rules/require-test-coverage/lib/file-categorizer.js";
-
-// Re-export JSX coverage analyzer utilities (from require-test-coverage rule)
-export {
-  analyzeJSXElementCoverage,
-  buildDataLoc,
-  findStatementsInRange,
-  calculateCoverageFromStatements,
-  findCoverageForFile,
-  isEventHandlerAttribute,
-  type IstanbulFileCoverage,
-  type SourceLocation,
-  type CoverageStats,
-  type JSXCoverageResult,
-} from "./rules/require-test-coverage/lib/jsx-coverage-analyzer.js";
 
 // Re-export oxc-resolver for custom rules that need import resolution
 export { ResolverFactory } from "oxc-resolver";

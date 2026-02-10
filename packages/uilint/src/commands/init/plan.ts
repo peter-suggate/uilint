@@ -243,10 +243,10 @@ export function createPlan(
       // Load and copy rule files into this target package
       // Use TypeScript rule files if the ESLint config is TypeScript (.ts)
       // This ensures the imports match the actual rule files being copied
-      // Skip externally-registered plugin rules (e.g. vision, semantic) — their
-      // implementations live in their own npm packages, not in uilint-eslint.
-      // Rules with `eslintImport` are imported from their package by the config injector.
-      const localRules = selectedRules.filter((r) => !r.eslintImport);
+      // Skip externally-registered plugin rules (e.g. vision, semantic, coverage) —
+      // their implementations live in their own npm packages, not in uilint-eslint.
+      // Rules with `eslintImport` or `plugin` are imported from their package by the config injector.
+      const localRules = selectedRules.filter((r) => !r.eslintImport && !r.plugin);
       const isTypeScriptConfig =
         pkgInfo?.eslintConfigPath?.endsWith(".ts") ?? false;
       const ruleFiles = loadSelectedRules(
@@ -315,29 +315,27 @@ export function createPlan(
         "typescript-eslint",
       ];
 
-      // If require-test-coverage rule is selected, add coverage package and config
-      const hasCoverageRule = selectedRules.some(
-        (r) => r.id === "require-test-coverage"
-      );
-      if (hasCoverageRule) {
-        packagesToInstall.push("@vitest/coverage-v8");
-
-        // Add action to inject coverage config into vitest.config.ts
-        actions.push({
-          type: "inject_vitest_coverage",
-          projectPath: pkgPath,
-        });
-      }
-
       // Collect npm dependencies declared by selected rules
+      let needsVitestCoverage = false;
       for (const rule of selectedRules) {
         if (rule.npmDependencies) {
           for (const dep of rule.npmDependencies) {
             if (!packagesToInstall.includes(dep)) {
               packagesToInstall.push(dep);
             }
+            if (dep === "@vitest/coverage-v8") {
+              needsVitestCoverage = true;
+            }
           }
         }
+      }
+
+      // If any rule needs vitest coverage, inject the coverage config
+      if (needsVitestCoverage) {
+        actions.push({
+          type: "inject_vitest_coverage",
+          projectPath: pkgPath,
+        });
       }
 
       // Install plugin packages for external rules (e.g. uilint-vision, uilint-semantic)

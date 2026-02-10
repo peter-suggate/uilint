@@ -385,7 +385,7 @@ describe("ESLint execution - directory-based rules", { timeout: 180000 }, () => 
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: ["no-mixed-component-libraries", "require-test-coverage"],
+      eslintRuleIds: ["no-mixed-component-libraries"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -399,10 +399,6 @@ describe("ESLint execution - directory-based rules", { timeout: 180000 }, () => 
     // Verify TypeScript directory structure for directory-based rules
     expect(fixture.exists(".uilint/rules/no-mixed-component-libraries/index.ts")).toBe(true);
     expect(fixture.exists(".uilint/rules/no-mixed-component-libraries/lib/import-graph.ts")).toBe(true);
-
-    expect(fixture.exists(".uilint/rules/require-test-coverage/index.ts")).toBe(true);
-    expect(fixture.exists(".uilint/rules/require-test-coverage/lib/coverage-aggregator.ts")).toBe(true);
-    expect(fixture.exists(".uilint/rules/require-test-coverage/lib/dependency-graph.ts")).toBe(true);
 
     // Verify imports are transformed correctly
     const indexContent = fixture.readFile(".uilint/rules/no-mixed-component-libraries/index.ts");

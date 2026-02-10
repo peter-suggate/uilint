@@ -8,7 +8,7 @@
  * - Statement coverage percentage
  */
 
-import { createRule, defineRuleMeta } from "../../utils/create-rule.js";
+import { createRule, defineRuleMeta } from "uilint-eslint";
 import { existsSync, readFileSync, statSync } from "fs";
 import { dirname, join, basename, relative } from "path";
 import { execSync } from "child_process";
@@ -153,11 +153,14 @@ export const meta = defineRuleMeta({
   name: "Require Test Coverage",
   description: "Enforce that source files have adequate test coverage",
   defaultSeverity: "warn",
-  category: "static",
+  category: "coverage",
   icon: "🧪",
   hint: "Ensures code has tests",
   defaultEnabled: true,
   isDirectoryBased: true,
+  plugin: "coverage",
+  eslintImport: "uilint-coverage/eslint-rules/require-test-coverage",
+  npmDependencies: ["@vitest/coverage-v8"],
   requirements: [
     {
       type: "coverage",
