@@ -417,13 +417,31 @@ export function loadRule(
 }
 
 /**
- * Load multiple rules by their IDs
+ * Load multiple rules by their IDs.
+ * Rules that cannot be found on disk are silently skipped — this handles
+ * plugin-contributed rules that may still appear in the ID list when filters
+ * don't fully exclude them (e.g. dual-package instance issues).
  */
 export function loadSelectedRules(
   ruleIds: string[],
   options: { typescript: boolean } = { typescript: true }
 ): RuleFiles[] {
-  return ruleIds.map((id) => loadRule(id, options));
+  const results: RuleFiles[] = [];
+  for (const id of ruleIds) {
+    try {
+      results.push(loadRule(id, options));
+    } catch (e) {
+      // Log but don't crash — the rule may be a plugin-contributed rule
+      // that isn't present in uilint-eslint's source/dist directories.
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("not found at")) {
+        // Skip silently — external plugin rule
+        continue;
+      }
+      throw e;
+    }
+  }
+  return results;
 }
 
 /**

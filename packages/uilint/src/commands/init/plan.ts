@@ -243,10 +243,10 @@ export function createPlan(
       // Load and copy rule files into this target package
       // Use TypeScript rule files if the ESLint config is TypeScript (.ts)
       // This ensures the imports match the actual rule files being copied
-      // Skip externally-registered plugin rules (e.g. vision, semantic) — their
-      // implementations live in their own npm packages, not in uilint-eslint.
-      // Rules with `eslintImport` are imported from their package by the config injector.
-      const localRules = selectedRules.filter((r) => !r.eslintImport);
+      // Skip externally-registered plugin rules (e.g. vision, semantic, coverage) —
+      // their implementations live in their own npm packages, not in uilint-eslint.
+      // Rules with `eslintImport` or `plugin` are imported from their package by the config injector.
+      const localRules = selectedRules.filter((r) => !r.eslintImport && !r.plugin);
       const isTypeScriptConfig =
         pkgInfo?.eslintConfigPath?.endsWith(".ts") ?? false;
       const ruleFiles = loadSelectedRules(
