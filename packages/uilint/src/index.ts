@@ -314,9 +314,14 @@ async function main() {
   // Dynamic import of KNOWN_PLUGINS — avoids a static named-export binding on
   // uilint-core, which tsup auto-externalizes.  In preview deploys the installed
   // uilint-core version may not yet have this export; a dynamic import degrades
-  // gracefully (missing export → undefined) instead of throwing a SyntaxError.
+  // gracefully to the hardcoded fallback instead of throwing a SyntaxError.
   const core = await import("uilint-core");
-  const KNOWN_PLUGINS: ReadonlyArray<{ packageName: string }> = core.KNOWN_PLUGINS ?? [];
+  const KNOWN_PLUGINS: ReadonlyArray<{ packageName: string }> = core.KNOWN_PLUGINS ?? [
+    { packageName: "uilint-vision" },
+    { packageName: "uilint-semantic" },
+    { packageName: "uilint-duplicates" },
+    { packageName: "uilint-coverage" },
+  ];
 
   // Register a --<flag> option for every known plugin so `init --vision` etc.
   // work even before the plugin packages are installed.
