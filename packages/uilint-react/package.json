@@ -1,6 +1,6 @@
 {
   "name": "uilint-react",
-  "version": "0.2.150",
+  "version": "0.2.152",
   "description": "React component for AI-powered UI consistency checking",
   "author": "Peter Suggate",
   "repository": {
@@ -70,7 +70,8 @@
     "react-dom": "^19.0.0",
     "uilint-vision": "workspace:*",
     "uilint-semantic": "workspace:*",
-    "uilint-duplicates": "workspace:*"
+    "uilint-duplicates": "workspace:*",
+    "uilint-coverage": "workspace:*"
   },
   "peerDependenciesMeta": {
     "uilint-vision": {
@@ -80,6 +81,9 @@
       "optional": true
     },
     "uilint-duplicates": {
+      "optional": true
+    },
+    "uilint-coverage": {
       "optional": true
     }
   },

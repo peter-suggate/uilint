@@ -183,7 +183,8 @@ const initCommand = program
   // the plugin packages are not yet installed (the whole point of `init`).
   .option("--vision", "Install Vision Analysis plugin")
   .option("--semantic", "Install Semantic Analysis plugin")
-  .option("--duplicates", "Install Duplicates Detection plugin");
+  .option("--duplicates", "Install Duplicates Detection plugin")
+  .option("--coverage", "Install test coverage rules");
 
 // Remove command
 program
@@ -319,7 +320,7 @@ async function main() {
 
   // Known plugin flags that are statically registered on initCommand.
   // These ensure `init --vision` etc. work even before plugins are installed.
-  const KNOWN_PLUGIN_FLAGS = ["vision", "semantic", "duplicates"];
+  const KNOWN_PLUGIN_FLAGS = ["vision", "semantic", "duplicates", "coverage"];
 
   // Add a --<flag> option for each discovered plugin (skips already-registered ones)
   for (const manifest of pluginManifests) {
