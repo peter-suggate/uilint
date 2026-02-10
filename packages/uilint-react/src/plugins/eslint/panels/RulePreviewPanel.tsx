@@ -26,6 +26,7 @@ import { Popover } from "../../../ui/components/primitives";
 import { SettingsIcon } from "../../../ui/icons";
 import { Breadcrumbs } from "../../../ui/components/Inspector/Breadcrumbs";
 import { FileSourceView } from "../../../ui/components/Inspector/FileSourceView";
+import { DuplicateIssueList } from "../../../ui/components/Inspector";
 import type { ESLintPluginSlice } from "../slice";
 import type { Issue } from "../../../ui/types";
 import type { AvailableRule } from "../types";
@@ -347,11 +348,13 @@ export function RulePreviewPanel({ ruleId, services }: RulePreviewPanelProps) {
   // Drill-down state (local, not global store)
   const [drillDownFile, setDrillDownFile] = useState<string | null>(null);
   const [drillDownIssueId, setDrillDownIssueId] = useState<string | null>(null);
+  const [selectedDuplicateId, setSelectedDuplicateId] = useState<string | null>(null);
 
   // Reset drill-down when rule changes
   useEffect(() => {
     setDrillDownFile(null);
     setDrillDownIssueId(null);
+    setSelectedDuplicateId(null);
   }, [ruleId]);
 
   const ruleMeta = useMemo(
@@ -363,6 +366,12 @@ export function RulePreviewPanel({ ruleId, services }: RulePreviewPanelProps) {
     () => allIssues.filter((i) => i.ruleId === ruleId),
     [allIssues, ruleId]
   );
+
+  // Check if this rule uses a custom content renderer (e.g. "duplicate-comparison")
+  const contentRenderer = useMemo(() => {
+    const contribution = pluginRegistry.getRuleContribution(ruleId);
+    return contribution?.contentRenderer ?? null;
+  }, [ruleId]);
 
   // Group issues by file, sorted by count
   const fileGroups = useMemo(() => {
@@ -404,6 +413,23 @@ export function RulePreviewPanel({ ruleId, services }: RulePreviewPanelProps) {
       ? (ruleMeta.defaultOptions[0] as Record<string, unknown>) ?? {}
       : (ruleMeta.defaultOptions as Record<string, unknown>) ?? {};
   }, [ruleMeta?.defaultOptions]);
+
+  // --- Ignore system state (for duplicate comparison view) ---
+  const ignoredIssueIds = useComposedStore((s) => s.ignoredIssueIds);
+  const showIgnored = useComposedStore((s) => s.showIgnoredIssues);
+  const addIgnore = useComposedStore((s) => s.addIgnoredIssue);
+  const removeIgnore = useComposedStore((s) => s.removeIgnoredIssue);
+
+  const handleIgnoreIssue = useCallback(
+    (issueId: string) => {
+      if (ignoredIssueIds.has(issueId)) {
+        removeIgnore(issueId);
+      } else {
+        addIgnore(issueId);
+      }
+    },
+    [ignoredIssueIds, addIgnore, removeIgnore]
+  );
 
   // --- Config callbacks ---
   const handleSeverityChange = useCallback(
@@ -480,7 +506,7 @@ export function RulePreviewPanel({ ruleId, services }: RulePreviewPanelProps) {
     );
   }
 
-  // --- Default view: Header + Compact Config + File Groups ---
+  // --- Default view: Header + Compact Config + Content ---
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -523,9 +549,25 @@ export function RulePreviewPanel({ ruleId, services }: RulePreviewPanelProps) {
         isUpdating={isUpdating}
       />
 
-      {/* File groups */}
+      {/* Content area - custom renderer or generic file groups */}
       <div className="flex-1 overflow-y-auto">
-        {fileGroups.length > 0 ? (
+        {contentRenderer === "duplicate-comparison" ? (
+          /* Duplicate comparison view with expandable pair cards */
+          ruleIssues.length > 0 ? (
+            <DuplicateIssueList
+              issues={ruleIssues}
+              selectedIssueId={selectedDuplicateId}
+              onIssueClick={(issue) => setSelectedDuplicateId(issue.id)}
+              ignoredIssueIds={ignoredIssueIds}
+              onIgnore={handleIgnoreIssue}
+              showIgnored={showIgnored}
+            />
+          ) : (
+            <div className="flex items-center justify-center py-12 text-xs text-muted-foreground/50">
+              No duplicates found for this rule
+            </div>
+          )
+        ) : fileGroups.length > 0 ? (
           fileGroups.map(([filePath, issues], index) => (
             <FileGroup
               key={filePath}

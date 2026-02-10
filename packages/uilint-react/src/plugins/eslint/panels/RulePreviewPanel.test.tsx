@@ -13,13 +13,17 @@ import type { Issue } from "../../../ui/types";
 import type { AvailableRule } from "../types";
 
 // Mock useComposedStore — returns values based on selector
-const mockStoreState = {
+const mockStoreState: Record<string, unknown> = {
   plugins: {
     eslint: {
       ruleConfigs: new Map<string, { severity: string; options?: Record<string, unknown> }>(),
       ruleConfigUpdating: new Map<string, boolean>(),
     },
   },
+  ignoredIssueIds: new Set<string>(),
+  showIgnoredIssues: false,
+  addIgnoredIssue: vi.fn(),
+  removeIgnoredIssue: vi.fn(),
 };
 
 vi.mock("../../../core/store", () => ({
@@ -32,6 +36,7 @@ vi.mock("../../../core/plugin-system/registry", () => ({
   pluginRegistry: {
     setRuleSeverity: vi.fn(),
     setRuleConfig: vi.fn(),
+    getRuleContribution: vi.fn(() => null),
   },
 }));
 
@@ -187,8 +192,11 @@ describe("RulePreviewPanel", () => {
   afterEach(() => {
     cleanup();
     // Reset mock store state
-    mockStoreState.plugins.eslint.ruleConfigs = new Map();
-    mockStoreState.plugins.eslint.ruleConfigUpdating = new Map();
+    const eslint = (mockStoreState.plugins as Record<string, Record<string, unknown>>).eslint;
+    eslint.ruleConfigs = new Map();
+    eslint.ruleConfigUpdating = new Map();
+    mockStoreState.ignoredIssueIds = new Set<string>();
+    mockStoreState.showIgnoredIssues = false;
   });
 
   it("renders rule name and description", () => {
