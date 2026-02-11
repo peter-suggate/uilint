@@ -1,301 +1,439 @@
-# Plan: Spatial Layout Animation — Ghost File Cells
+# Plan: Unified Treemap Inspector with Ghost Cell Animations
 
-## The Idea
+## Overview
 
-When the root treemap shows rules, **pre-render each rule's file cells inside it at opacity 0** ("ghost cells"). When the user clicks a rule, those invisible file cells animate smoothly to their full-size positions in the zoomed file treemap using Framer Motion's `layoutId`.
-
-This eliminates the current crossfade and creates a continuous spatial transition where files visually "expand out" of their parent rule.
+Replace the current split architecture (TreemapGrid + IssuesList with `renderZoomedContent` callback) with a **single composite view** (`TreemapInspector`) backed by a **standalone Zustand store** for treemap-specific state. Ghost file cells pre-rendered inside rule cells enable smooth `layoutId`-based spatial animations on zoom.
 
 ---
 
-## Current Architecture (what we're changing)
+## Current Architecture (problems)
 
-- `AnimatePresence mode="wait"` swaps root view → zoomed view with a crossfade
-- Root view and zoomed view are **never mounted simultaneously** (`mode="wait"` unmounts first, mounts second)
-- File data is only computed for the expanded rule
-- No `layoutId` on TreemapCell
+```
+InspectorSidebar
+  └── IssuesList (reads composed store, massive component)
+        ├── TreemapGrid (manages AnimatePresence crossfade)
+        │     ├── Root: rule cells
+        │     └── Zoomed: renderZoomedContent(callback) ← indirection
+        ├── FileTreemap (inline sub-component)
+        ├── Breadcrumbs, RuleHeader, FileSourceView...
+        └── 500+ lines of callbacks, effects, memos
+```
+
+**Problems:**
+1. Ghost cells can't span the callback boundary — TreemapGrid renders root, IssuesList renders zoomed content, they don't share a DOM tree
+2. `AnimatePresence mode="wait"` prevents overlapping root/zoomed views, breaking `layoutId`
+3. All navigation state is in the composed store, but treemap-specific state (animation phase, ghost layouts, container size) has nowhere to live
+4. IssuesList is 600 lines of mixed concerns
 
 ## Target Architecture
 
-- `AnimatePresence` without `mode="wait"` allows **both views to overlap** during transition
-- Each rule cell contains ghost file cells with `layoutId={`treemap-file-${fileId}`}`
-- Zoomed file cells have **matching `layoutId`** — Framer Motion auto-animates position/size/opacity
-- Non-clicked rule cells fade out; clicked rule cell's background dissolves
-- ContextStrip slides in simultaneously
+```
+InspectorSidebar
+  └── TreemapInspector (single composite view)
+        ├── useTreemapStore (standalone store: animation, layout, container)
+        ├── useComposedStore (data: fileGroups, rules, navigation)
+        │
+        ├── Layer 1: Root rule cells (AnimatePresence)
+        ├── Layer 2: Ghost file cells (AnimatePresence, layoutId)
+        ├── Layer 3: Zoomed view (AnimatePresence, layoutId match)
+        │     ├── ContextStrip
+        │     ├── Breadcrumbs + RuleHeader
+        │     └── FileTreemap / FileSourceView / DuplicateIssueList
+        └── All in one DOM tree under LayoutGroup
+```
 
 ---
 
-## Phase 1: Pre-compute file children for all rules
+## Parallel Implementation Streams
 
-**File: `IssuesList.tsx`**
-
-Currently file nodes are only computed for the expanded rule:
-```tsx
-const fileNodes = useMemo(
-  () => (expandedRule ? getFileNodesForRule(expandedRule) : []),
-  [expandedRule]
-);
+```
+Stream A: Standalone Store ──────────────────────────────┐
+                                                          │
+Stream B: TreemapCell ghost/layoutId ────────────────────├──→ Stream D: TreemapInspector
+                                                          │    composite view
+Stream C: Animation system updates ──────────────────────┘
+                                                               │
+                                                               ↓
+                                                         Stream E: Integration
+                                                         (wire in, remove old code)
 ```
 
-Add: compute a `Map<ruleId, BaseTileItem[]>` for **all** rules so ghost cells can render inside every rule cell.
-
-```tsx
-const allFileItemsByRule = useMemo(() => {
-  const map = new Map<string, BaseTileItem[]>();
-  for (const rule of ruleNodes) {
-    map.set(rule.id, getFileNodesForRule(rule).map(fileNodeToTileItem));
-  }
-  return map;
-}, [ruleNodes]);
-```
-
-Pass as new prop to TreemapGrid: `childrenByItem={allFileItemsByRule}`
-
-**Cost**: Typically 10-30 rules × 5-15 files each = 50-450 items. Negligible.
+**A, B, C** are fully independent — zero dependencies between them.
+**D** consumes A + B + C interfaces.
+**E** wires D into InspectorSidebar, removes IssuesList/TreemapGrid.
 
 ---
 
-## Phase 2: Add `layoutId` and `ghost` support to TreemapCell
+## Stream A: Standalone Treemap Store
 
-**File: `TreemapCell.tsx`**
+**New file: `ui/components/Inspector/treemap-inspector-store.ts`**
+**New file: `ui/components/Inspector/treemap-inspector-store.test.ts`**
 
-Add optional props:
+A standalone Zustand `create()` store for state that doesn't belong in the composed store. Navigation state stays in the composed store (HeatmapOverlay and CommandPalette already dispatch there).
 
-```tsx
+```typescript
+import { create } from "zustand";
+
+interface TreemapInspectorState {
+  // ===== Container dimensions (ResizeObserver) =====
+  containerWidth: number;
+  containerHeight: number;
+  setContainerSize: (width: number, height: number) => void;
+
+  // ===== Animation state =====
+  /** Whether a zoom transition is in progress */
+  isTransitioning: boolean;
+  /** Direction of current transition */
+  transitionDirection: "zoom-in" | "zoom-out" | null;
+  /** Previous zoomed rule ID — needed to keep ghost cells mounted during zoom-out */
+  previousZoomedRuleId: string | null;
+  /** Start a zoom transition */
+  startTransition: (direction: "zoom-in" | "zoom-out", previousRuleId?: string | null) => void;
+  /** End the zoom transition (called by onAnimationComplete) */
+  endTransition: () => void;
+
+  // ===== Pre-computed file children for ghost cells =====
+  /** Map of ruleId → file tile items, computed for all rules */
+  fileItemsByRule: Map<string, BaseTileItem[]>;
+  setFileItemsByRule: (map: Map<string, BaseTileItem[]>) => void;
+}
+```
+
+**Tests:**
+- `setContainerSize` updates dimensions
+- `startTransition` / `endTransition` cycle
+- `previousZoomedRuleId` is set on zoom-out start, cleared on end
+- `setFileItemsByRule` replaces the map
+
+---
+
+## Stream B: TreemapCell Ghost + LayoutId Support
+
+**Modified file: `HierarchicalTiles/TreemapCell.tsx`**
+**Modified file: `HierarchicalTiles/TreemapCell.test.tsx`**
+
+### New props:
+
+```typescript
 export interface TreemapCellProps {
   // ... existing props ...
+
   /** Framer Motion layoutId for cross-view spatial animations */
   layoutId?: string;
-  /** Whether this is a ghost cell (invisible, no interactions, no content) */
+
+  /** Ghost mode: invisible, non-interactive, no content — just a positioned anchor */
   ghost?: boolean;
 }
 ```
 
-When `ghost=true`:
-- Render with `opacity: 0` (not `visibility:hidden` — Framer Motion needs to track the element)
-- Add `pointer-events-none`
-- Skip hover/tap animations (`whileHover`, `whileTap` = undefined)
-- Skip all content rendering (just mount the `motion.div` shell)
-- Use `ghostCellVariants` (always opacity 0) instead of standard variants
+### Ghost mode behavior:
 
-When `layoutId` is set:
-- Pass to `motion.div` as `layoutId={layoutId}`
+```tsx
+<motion.div
+  data-treemap-cell={id}
+  layoutId={layoutId}                           // Enable layout animation
+  variants={ghost ? ghostCellVariants : treemapCellVariants}
+  initial="hidden"
+  animate="visible"
+  exit="exit"
+  transition={ghost ? { duration: 0.01 } : { ... }}
+  whileHover={ghost ? undefined : { scale: 1.01 }}
+  whileTap={ghost ? undefined : { scale: 0.98 }}
+  className={cn(
+    "absolute overflow-hidden",
+    ghost ? "pointer-events-none" : "cursor-pointer rounded-xl border ...",
+    !ghost && styles.bg,
+    ...
+  )}
+  style={{
+    left: x, top: y, width, height,
+    opacity: ghost ? 0 : getIntensityOpacity(areaFraction),
+  }}
+>
+  {/* No content for ghost cells */}
+  {!ghost && contentLevel === "full" && <FullContent ... />}
+  {!ghost && contentLevel === "compact" && <CompactContent ... />}
+</motion.div>
+```
+
+### Tests to add:
+- `ghost=true` renders with opacity 0
+- `ghost=true` has `pointer-events-none` class
+- `ghost=true` renders no text content
+- `ghost=true` still has `data-treemap-cell` attribute
+- `layoutId` prop is passed through (update mock to strip it)
 
 ---
 
-## Phase 3: Ghost cell layer in TreemapGrid
+## Stream C: Animation System Updates
 
-**File: `TreemapGrid.tsx`**
+**Modified file: `HierarchicalTiles/animations/treemap-animations.ts`**
 
-### 3a. New prop
+### New exports:
 
-```tsx
-export interface TreemapGridProps<T extends BaseTileItem> {
-  // ... existing props ...
-  /** Pre-computed children for all items, for ghost cell pre-rendering */
-  childrenByItem?: Map<string, T[]>;
-}
-```
-
-### 3b. Compute ghost layouts
-
-For each root cell that has children, calculate a mini treemap layout within the cell's bounds:
-
-```tsx
-const ghostLayouts = useMemo(() => {
-  if (!childrenByItem) return null;
-  const map = new Map<string, TreemapLayoutResult>();
-  for (const item of items) {
-    const children = childrenByItem.get(item.id);
-    const cell = rootLayout.cells.get(item.id);
-    if (!children?.length || !cell) continue;
-    map.set(item.id, calculateTreemapLayout(
-      toTreemapItems(children),
-      { width: cell.width, height: cell.height, gap: 1 }
-    ));
-  }
-  return map;
-}, [childrenByItem, items, rootLayout]);
-```
-
-### 3c. Render ghost cells as siblings (not children) of root cells
-
-**Critical**: Ghost cells must be at the **same DOM level** as the zoomed file cells for `layoutId` handoff to work. They cannot be nested inside the root `motion.div` that will exit, because exiting parents would interfere with the layout animation.
-
-New DOM structure:
-
-```tsx
-<LayoutGroup>
-  <div className="relative" style={{ width, height }}>
-    {/* Layer 1: Root rule cells — exit on zoom */}
-    <AnimatePresence>
-      {!zoomedId && (
-        <motion.div key="root" exit={{ opacity: 0 }} ...>
-          {items.map(item => <TreemapCell ... />)}
-        </motion.div>
-      )}
-    </AnimatePresence>
-
-    {/* Layer 2: Ghost file cells — always present when root is shown */}
-    {/* Positioned absolutely, offset by parent cell position */}
-    <AnimatePresence>
-      {!zoomedId && items.map(item => {
-        const ghostLayout = ghostLayouts?.get(item.id);
-        const parentCell = rootLayout.cells.get(item.id);
-        if (!ghostLayout || !parentCell) return null;
-        const children = childrenByItem?.get(item.id) ?? [];
-        return children.map(child => {
-          const gc = ghostLayout.cells.get(child.id);
-          if (!gc) return null;
-          return (
-            <TreemapCell
-              key={`ghost-${child.id}`}
-              layoutId={`treemap-file-${child.id}`}
-              ghost={true}
-              x={parentCell.x + gc.x}
-              y={parentCell.y + gc.y}
-              width={gc.width}
-              height={gc.height}
-              ...
-            />
-          );
-        });
-      })}
-    </AnimatePresence>
-
-    {/* Layer 3: Zoomed view */}
-    <AnimatePresence>
-      {zoomedId && zoomedItem && (
-        <motion.div key={`zoomed-${zoomedId}`} ...>
-          <ContextStrip ... />
-          {/* Content with file cells that have matching layoutId */}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  </div>
-</LayoutGroup>
-```
-
-### 3d. Remove `mode="wait"` and split into separate AnimatePresence blocks
-
-Using separate `<AnimatePresence>` for each layer (instead of a single one with `mode="wait"`) lets:
-1. Root cells exit independently
-2. Ghost cells exit (triggering `layoutId` handoff)
-3. Zoomed view enters (receiving `layoutId` animation from ghost positions)
-
-All three animations happen concurrently for a seamless spatial transition.
-
----
-
-## Phase 4: Matching layoutIds in zoomed file cells
-
-**File: `IssuesList.tsx` — `FileTreemap` component**
-
-Add `layoutId` to each file cell in the zoomed view:
-
-```tsx
-<TreemapCell
-  key={item.id}
-  layoutId={`treemap-file-${item.id}`}  // Matches ghost cell
-  id={item.id}
-  ...
-/>
-```
-
-When Framer Motion detects the ghost cell (`opacity: 0`, small, at parent-cell position) exiting and a matching `layoutId` cell entering at full size, it **automatically interpolates position, width, height, and opacity** — creating the smooth expansion animation.
-
----
-
-## Phase 5: Animation system updates
-
-**File: `treemap-animations.ts`**
-
-### 5a. New ghost cell variants
-
-```tsx
+```typescript
+/** Ghost cells: always invisible, layoutId handles the visual transition */
 export const ghostCellVariants: Variants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 0 },    // Always invisible
-  exit: { opacity: 0 },       // Exit triggers layoutId handoff
+  visible: { opacity: 0 },
+  exit: { opacity: 0 },
 };
-```
 
-### 5b. Layout transition for file cells
-
-```tsx
+/** Layout transition for file cells using layoutId */
 export const fileLayoutTransition: Transition = {
   duration: ZOOM_DURATION,
   ease: crispEase,
 };
 ```
 
-### 5c. Faster root exit (concurrent with file cell expansion)
+### Modified: root exit (less dramatic, concurrent with file expansion)
 
-```tsx
+```typescript
 export const rootTreemapVariants: Variants = {
   hidden: { opacity: 0, scale: 0.95 },
   visible: { opacity: 1, scale: 1 },
-  exit: { opacity: 0, scale: 0.98 },    // Less dramatic since file cells animate separately
+  exit: { opacity: 0 },  // Just fade, no scale — file ghosts animate separately
 };
 ```
 
----
-
-## Phase 6: Reverse animation (zoom out)
-
-When the user navigates back:
-1. Zoomed file cells exit (with their `layoutId`)
-2. Ghost cells re-enter (receiving `layoutId` animation back to mini positions inside rule cells)
-3. Root rule cells fade in
-
-This is **automatic** with Framer Motion's `layoutId` — the reverse animation is computed from the same `layoutId` matching.
+### Update `animations/index.ts` exports
 
 ---
 
-## Phase 7: Update tests
+## Stream D: TreemapInspector Composite View
 
-### TreemapCell.test.tsx
-- Test `ghost=true`: opacity 0, no content rendered, pointer-events-none class present
-- Test `layoutId` prop: verify the motion.div receives it
-- Update mock to strip `layoutId` prop
+**New file: `ui/components/Inspector/TreemapInspector.tsx`**
+**New file: `ui/components/Inspector/TreemapInspector.test.tsx`**
 
-### TreemapGrid.test.tsx
-- Test that ghost cells render with `data-treemap-cell` when `childrenByItem` is provided
-- Test ghost cells are not rendered when `childrenByItem` is undefined
-- Test ghost cells are positioned within parent cell bounds
-- Test separate AnimatePresence blocks exist
+This is the big one — a single component that composites all hierarchy levels with ghost cells. It replaces both `TreemapGrid` and `IssuesList`.
 
-### IssuesList.test.tsx
-- Test `allFileItemsByRule` is passed as `childrenByItem`
-- Existing tests continue to pass
+### Data flow:
 
-### treemap-animations.ts
-- Test `ghostCellVariants` has opacity 0 for all states
-- Test `fileLayoutTransition` configuration
+```typescript
+function TreemapInspector({ className }: { className?: string }) {
+  // ===== Navigation state (from composed store) =====
+  const fileGroups = useComposedStore(selectFileGroups);
+  const expandedRuleId = useComposedStore((s) => s.inspector.expandedRuleId);
+  const expandedFilePath = useComposedStore((s) => s.inspector.expandedFilePath);
+  const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
+  const showFullSource = useComposedStore((s) => s.inspector.showFullSource);
+  const availableWidth = useComposedStore((s) => s.inspector.layoutAvailableWidth);
+  // ... actions: expandRule, collapseRule, expandFileInRule, etc.
+
+  // ===== Treemap-specific state (from standalone store) =====
+  const containerHeight = useTreemapStore((s) => s.containerHeight);
+  const fileItemsByRule = useTreemapStore((s) => s.fileItemsByRule);
+  const isTransitioning = useTreemapStore((s) => s.isTransitioning);
+  const setContainerSize = useTreemapStore((s) => s.setContainerSize);
+  const setFileItemsByRule = useTreemapStore((s) => s.setFileItemsByRule);
+
+  // ===== Derived data =====
+  const ruleNodes = useMemo(() => fileGroupsToRuleNodes(fileGroups), [fileGroups]);
+  const ruleTileItems = useMemo(() => ruleNodes.map(...), [ruleNodes]);
+  // ... same data transforms currently in IssuesList
+```
+
+### Layout computations (all in one place):
+
+```typescript
+  // Root treemap layout
+  const rootLayout = useMemo(
+    () => calculateTreemapLayout(toTreemapItems(ruleTileItems), { width, height, gap: 2 }),
+    [ruleTileItems, width, height]
+  );
+
+  // Ghost layouts: mini file treemaps inside each rule cell
+  const ghostLayouts = useMemo(() => {
+    const map = new Map();
+    for (const item of ruleTileItems) {
+      const cell = rootLayout.cells.get(item.id);
+      const fileItems = fileItemsByRule.get(item.id);
+      if (!cell || !fileItems?.length) continue;
+      map.set(item.id, calculateTreemapLayout(
+        toTreemapItems(fileItems),
+        { width: cell.width, height: cell.height, gap: 1 }
+      ));
+    }
+    return map;
+  }, [ruleTileItems, rootLayout, fileItemsByRule]);
+
+  // Zoomed file treemap layout (full size)
+  const zoomedFileLayout = useMemo(() => {
+    if (!expandedRuleId) return null;
+    const fileItems = fileItemsByRule.get(expandedRuleId);
+    if (!fileItems?.length) return null;
+    return calculateTreemapLayout(
+      toTreemapItems(fileItems),
+      { width: availableWidth, height: FILE_TREEMAP_HEIGHT, gap: 2 }
+    );
+  }, [expandedRuleId, fileItemsByRule, availableWidth]);
+```
+
+### DOM structure (the key part):
+
+```tsx
+  return (
+    <div className={cn("flex flex-col h-full", className)}>
+      <div ref={containerRef} className="flex-1 p-4 overflow-auto">
+        {ruleNodes.length === 0 ? <EmptyState /> : (
+          <LayoutGroup>
+            <div className="relative" style={{ width: availableWidth, height }}>
+
+              {/* ======= Layer 1: Root rule cells ======= */}
+              <AnimatePresence>
+                {!expandedRuleId && (
+                  <motion.div key="root-rules" variants={rootTreemapVariants} ...>
+                    {ruleTileItems.map((item, i) => {
+                      const cell = rootLayout.cells.get(item.id);
+                      return <TreemapCell key={item.id} {...cellProps} />;
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* ======= Layer 2: Ghost file cells ======= */}
+              <AnimatePresence>
+                {!expandedRuleId && ruleTileItems.flatMap(item => {
+                  const parentCell = rootLayout.cells.get(item.id);
+                  const ghostLayout = ghostLayouts.get(item.id);
+                  const fileItems = fileItemsByRule.get(item.id);
+                  if (!parentCell || !ghostLayout || !fileItems) return [];
+                  return fileItems.map((file, fi) => {
+                    const gc = ghostLayout.cells.get(file.id);
+                    if (!gc) return null;
+                    return (
+                      <TreemapCell
+                        key={`ghost-${file.id}`}
+                        layoutId={`treemap-file-${file.id}`}
+                        ghost={true}
+                        x={parentCell.x + gc.x}
+                        y={parentCell.y + gc.y}
+                        width={gc.width}
+                        height={gc.height}
+                        {...fileProps}
+                      />
+                    );
+                  });
+                })}
+              </AnimatePresence>
+
+              {/* ======= Layer 3: Zoomed view ======= */}
+              <AnimatePresence>
+                {expandedRuleId && expandedRule && (
+                  <motion.div key={`zoomed-${expandedRuleId}`} variants={zoomedViewVariants} ...
+                    className="absolute inset-0 flex flex-col"
+                  >
+                    <ContextStrip items={stripItems} activeId={expandedRuleId} ... />
+
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                      <Breadcrumbs ... />
+                      <RuleHeader ... />
+
+                      {/* File treemap OR file source */}
+                      {!expandedFilePath ? (
+                        <div className="p-3">
+                          <div className="relative" style={{ ... }}>
+                            {fileItems.map((file, fi) => {
+                              const cell = zoomedFileLayout?.cells.get(file.id);
+                              return (
+                                <TreemapCell
+                                  key={file.id}
+                                  layoutId={`treemap-file-${file.id}`}  // Matches ghost!
+                                  {...fullFileProps}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        /* FileSourceView / IssueSummaryView / DuplicateIssueList */
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+            </div>
+          </LayoutGroup>
+        )}
+      </div>
+    </div>
+  );
+```
+
+### What moves from IssuesList into TreemapInspector:
+- All store selectors and actions
+- Rule/file data transforms
+- Auto-expand effect (selectedIssueId → expandRule + expandFileInRule)
+- ResizeObserver effect
+- Scroll-to-top effect
+- RuleHeader config (severity change, option change, reset)
+- Ignore system (addIgnore, removeIgnore, toggleShowIgnored)
+- Custom content renderer logic (duplicate-comparison, issue summary, full source)
+- Helper functions (getRuleDescription, getRuleCategory, getRuleDocsUrl)
+
+### What it does NOT keep:
+- `renderZoomedContent` callback pattern — eliminated, everything is inline
+- `TreemapGrid` component — eliminated, layout + rendering are inline
+- `FileTreemap` sub-component — eliminated, inline with `layoutId`
+
+### Tests:
+- Root view: renders rule cells
+- Ghost cells: rendered inside each rule cell at opacity 0
+- Zoomed view: renders ContextStrip + Breadcrumbs + RuleHeader + file cells
+- File cells have `layoutId` matching ghost cells
+- Clicking rule → zoomed view
+- Clicking back → root view
+- Auto-expand from selectedIssueId
+- Empty state
+- File source view when file expanded
+- Ignore system works
 
 ---
 
-## File Change Summary
+## Stream E: Integration + Cleanup
 
-| File | Changes |
-|------|---------|
-| `TreemapCell.tsx` | Add `layoutId`, `ghost` props; conditional rendering for ghosts |
-| `TreemapGrid.tsx` | Add `childrenByItem` prop; render ghost layer; split AnimatePresence; add LayoutGroup |
-| `treemap-animations.ts` | Add `ghostCellVariants`, `fileLayoutTransition`; tune exit animations |
-| `IssuesList.tsx` | Compute `allFileItemsByRule`; pass `childrenByItem`; add `layoutId` to FileTreemap cells |
-| `TreemapCell.test.tsx` | Tests for ghost/layoutId behavior |
-| `TreemapGrid.test.tsx` | Tests for ghost cell rendering |
+**Modified file: `Inspector/InspectorSidebar.tsx`**
+- Replace `<IssuesList />` with `<TreemapInspector />`
+
+**Modified file: `HierarchicalTiles/index.ts`**
+- Export `ghostCellVariants`, `fileLayoutTransition`
+- Keep `TreemapCell`, `ContextStrip`, `calculateTreemapLayout` exports (used by TreemapInspector)
+
+**Removed/deprecated:**
+- `TreemapGrid.tsx` — functionality absorbed into TreemapInspector
+- `IssuesList.tsx` — functionality absorbed into TreemapInspector
+
+**Keep `TreemapGrid.test.tsx` and `IssuesList.test.tsx`** tests or migrate them to `TreemapInspector.test.tsx`.
+
+---
+
+## File Summary
+
+| Stream | File | Action |
+|--------|------|--------|
+| A | `Inspector/treemap-inspector-store.ts` | **New** — standalone Zustand store |
+| A | `Inspector/treemap-inspector-store.test.ts` | **New** — store tests |
+| B | `HierarchicalTiles/TreemapCell.tsx` | **Modify** — add ghost, layoutId |
+| B | `HierarchicalTiles/TreemapCell.test.tsx` | **Modify** — ghost tests |
+| C | `HierarchicalTiles/animations/treemap-animations.ts` | **Modify** — ghost variants |
+| C | `HierarchicalTiles/animations/index.ts` | **Modify** — exports |
+| D | `Inspector/TreemapInspector.tsx` | **New** — composite view |
+| D | `Inspector/TreemapInspector.test.tsx` | **New** — view tests |
+| E | `Inspector/InspectorSidebar.tsx` | **Modify** — swap IssuesList → TreemapInspector |
+| E | `Inspector/IssuesList.tsx` | **Remove** (or keep as deprecated) |
+| E | `HierarchicalTiles/TreemapGrid.tsx` | **Remove** (or keep for other consumers) |
 
 ---
 
 ## Risk Assessment
 
-1. **layoutId across AnimatePresence**: Well-established pattern in this codebase (popover.tsx, ExpandableContainer.tsx, ExpandableTile.tsx, ResultList.tsx). Low risk.
+1. **layoutId across separate AnimatePresence blocks** — Well-established pattern. The popover.tsx in this codebase does exactly this. Low risk.
 
-2. **Performance of ghost cells**: ~50-450 invisible divs with `pointer-events-none`. No paint cost at opacity 0. Negligible.
+2. **Ghost cell count** — Typically 50-450 invisible divs. At opacity 0 with pointer-events-none, the browser skips paint. Negligible perf cost.
 
-3. **Layout computation for all rules**: `calculateTreemapLayout` runs once per rule. The squarify algorithm is O(n log n) per call. With ~5-15 files per rule, this is microseconds each.
+3. **Store sync** — Navigation stays in composed store. Treemap store only owns animation/layout state. No sync conflicts.
 
-4. **Separate AnimatePresence blocks**: Allows concurrent entry/exit across layers. This is the standard pattern for overlapping layout animations — same approach used in ExpandableContainer/ExpandableTileGrid.
+4. **External dispatchers (HeatmapOverlay, CommandPalette)** — They dispatch `expandRule`, `expandFileInRule`, `selectIssue` to composed store. TreemapInspector reads those same values. No changes needed.
 
-5. **Zoom-out reverse**: `layoutId` handles this automatically. Ghost cells re-mount → Framer Motion animates file cells from zoomed size back to ghost (mini) positions.
+5. **IssuesList removal** — All functionality moves to TreemapInspector. Tests migrate. InspectorSidebar swaps the import.
