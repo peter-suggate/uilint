@@ -17,6 +17,7 @@ import { cn } from "../../../lib/utils";
 import {
   treemapCellVariants,
   treemapCellTransition,
+  ghostCellVariants,
   getCellStaggerDelay,
 } from "./animations/treemap-animations";
 
@@ -44,6 +45,10 @@ export interface TreemapCellProps {
   index?: number;
   onClick: () => void;
   className?: string;
+  /** Framer Motion layoutId for cross-view spatial animations */
+  layoutId?: string;
+  /** Ghost mode: invisible, non-interactive, no content — just a positioned anchor for layoutId */
+  ghost?: boolean;
 }
 
 // ============================================================================
@@ -218,6 +223,8 @@ export function TreemapCell({
   index = 0,
   onClick,
   className,
+  layoutId,
+  ghost,
 }: TreemapCellProps) {
   const styles = useMemo(() => getSeverityStyles(severityCounts), [severityCounts]);
   const contentLevel = useMemo(() => getContentLevel(width, height), [width, height]);
@@ -226,25 +233,41 @@ export function TreemapCell({
   return (
     <motion.div
       data-treemap-cell={id}
-      variants={treemapCellVariants}
+      layoutId={layoutId}
+      variants={ghost ? ghostCellVariants : treemapCellVariants}
       initial="hidden"
       animate="visible"
       exit="exit"
-      transition={{
-        ...treemapCellTransition,
-        delay: getCellStaggerDelay(index),
-      }}
-      onClick={onClick}
-      whileHover={{ scale: 1.01 }}
-      whileTap={{ scale: 0.98 }}
-      title={contentLevel === "minimal" ? `${label}: ${count}` : undefined}
+      transition={
+        ghost
+          ? { duration: 0.01 }
+          : {
+              ...treemapCellTransition,
+              delay: getCellStaggerDelay(index),
+            }
+      }
+      onClick={ghost ? undefined : onClick}
+      whileHover={ghost ? undefined : { scale: 1.01 }}
+      whileTap={ghost ? undefined : { scale: 0.98 }}
+      title={
+        ghost
+          ? undefined
+          : contentLevel === "minimal"
+            ? `${label}: ${count}`
+            : undefined
+      }
       className={cn(
-        "absolute rounded-xl overflow-hidden cursor-pointer",
-        "border transition-[background,border-color] duration-100",
-        styles.bg,
-        styles.border,
-        isZoomed && "ring-1 ring-foreground/20",
-        "hover:bg-foreground/[0.03] hover:border-foreground/[0.08]",
+        "absolute overflow-hidden",
+        ghost
+          ? "pointer-events-none"
+          : cn(
+              "rounded-xl cursor-pointer",
+              "border transition-[background,border-color] duration-100",
+              styles.bg,
+              styles.border,
+              isZoomed && "ring-1 ring-foreground/20",
+              "hover:bg-foreground/[0.03] hover:border-foreground/[0.08]"
+            ),
         className
       )}
       style={{
@@ -252,10 +275,10 @@ export function TreemapCell({
         top: y,
         width,
         height,
-        opacity,
+        opacity: ghost ? 0 : opacity,
       }}
     >
-      {contentLevel === "full" && (
+      {!ghost && contentLevel === "full" && (
         <FullContent
           label={label}
           subtitle={subtitle}
@@ -264,10 +287,9 @@ export function TreemapCell({
           textClass={styles.text}
         />
       )}
-      {contentLevel === "compact" && (
+      {!ghost && contentLevel === "compact" && (
         <CompactContent label={label} count={count} textClass={styles.text} />
       )}
-      {/* minimal: no content, just colored rect with title tooltip */}
     </motion.div>
   );
 }

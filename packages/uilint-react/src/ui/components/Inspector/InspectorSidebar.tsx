@@ -19,7 +19,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
-import { IssuesList } from "./IssuesList";
+import { TreemapInspector } from "./TreemapInspector";
 import { IssueDetail } from "./IssueDetail";
 import { ElementDetail } from "./ElementDetail";
 import { ResizeHandle } from "./ResizeHandle";
@@ -127,7 +127,7 @@ export function InspectorSidebar() {
       // Default: Unified issues list (new primary view)
       // IssuesList reads layoutAvailableWidth directly from store
       title = "Issues";
-      content = <IssuesList />;
+      content = <TreemapInspector />;
     }
 
     return { content, title };

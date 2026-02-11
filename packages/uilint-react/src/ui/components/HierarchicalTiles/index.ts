@@ -180,6 +180,8 @@ export {
   // Treemap animation variants
   treemapCellVariants,
   treemapCellTransition,
+  ghostCellVariants,
+  fileLayoutTransition,
   contextStripVariants,
   contextStripTransition,
   zoomedContentVariants,

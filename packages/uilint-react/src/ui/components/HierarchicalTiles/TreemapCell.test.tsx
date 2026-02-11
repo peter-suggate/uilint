@@ -27,6 +27,7 @@ vi.mock("motion/react", () => {
                 "whileHover",
                 "whileTap",
                 "layout",
+                "layoutId",
                 "variants",
               ].includes(key)
             ) {
@@ -234,6 +235,70 @@ describe("TreemapCell - visual states", () => {
     );
     const cell = container.querySelector("[data-treemap-cell]") as HTMLElement;
     expect(cell.style.opacity).toBe("0.6");
+  });
+});
+
+// ============================================================================
+// Positioning Tests
+// ============================================================================
+
+// ============================================================================
+// Ghost Mode Tests
+// ============================================================================
+
+describe("TreemapCell - ghost mode", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("renders with opacity 0 when ghost", () => {
+    const { container } = render(
+      <TreemapCell {...defaultProps} ghost={true} />
+    );
+    const cell = container.querySelector("[data-treemap-cell]") as HTMLElement;
+    expect(cell.style.opacity).toBe("0");
+  });
+
+  it("has pointer-events-none class when ghost", () => {
+    const { container } = render(
+      <TreemapCell {...defaultProps} ghost={true} />
+    );
+    const cell = container.querySelector("[data-treemap-cell]");
+    expect(cell?.className).toContain("pointer-events-none");
+  });
+
+  it("renders no text content when ghost", () => {
+    const { container } = render(
+      <TreemapCell {...defaultProps} ghost={true} />
+    );
+    const cell = container.querySelector("[data-treemap-cell]");
+    expect(cell?.textContent).toBe("");
+  });
+
+  it("still has data-treemap-cell attribute when ghost", () => {
+    const { container } = render(
+      <TreemapCell {...defaultProps} ghost={true} />
+    );
+    const cell = container.querySelector('[data-treemap-cell="test-cell"]');
+    expect(cell).toBeTruthy();
+  });
+
+  it("does not call onClick when ghost", () => {
+    const onClick = vi.fn();
+    const { container } = render(
+      <TreemapCell {...defaultProps} ghost={true} onClick={onClick} />
+    );
+    const cell = container.querySelector("[data-treemap-cell]");
+    fireEvent.click(cell!);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("does not have cursor-pointer when ghost", () => {
+    const { container } = render(
+      <TreemapCell {...defaultProps} ghost={true} />
+    );
+    const cell = container.querySelector("[data-treemap-cell]");
+    expect(cell?.className).not.toContain("cursor-pointer");
   });
 });
 

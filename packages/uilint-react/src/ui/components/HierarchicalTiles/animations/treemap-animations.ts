@@ -128,7 +128,6 @@ export const rootTreemapVariants: Variants = {
   },
   exit: {
     opacity: 0,
-    scale: 0.95,
   },
 };
 
@@ -146,6 +145,23 @@ export const zoomedViewVariants: Variants = {
     opacity: 0,
     scale: 1.02,
   },
+};
+
+// ============================================================================
+// Ghost Cell Variants (for layoutId-based spatial animation)
+// ============================================================================
+
+/** Ghost cells: always invisible — layoutId handles the visual transition */
+export const ghostCellVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 0 },
+  exit: { opacity: 0 },
+};
+
+/** Layout transition for file cells animated via layoutId */
+export const fileLayoutTransition: Transition = {
+  duration: ZOOM_DURATION,
+  ease: crispEase,
 };
 
 // ============================================================================
