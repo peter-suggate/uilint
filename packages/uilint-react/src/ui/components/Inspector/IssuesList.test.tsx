@@ -235,7 +235,8 @@ describe("IssuesList", () => {
       await waitFor(() => {
         // Breadcrumbs should show "All Rules" and the rule name
         expect(screen.getByText("All Rules")).toBeTruthy();
-        expect(screen.getByText("no-unused-vars")).toBeTruthy();
+        // Rule name appears in both breadcrumbs and context strip
+        expect(screen.getAllByText("no-unused-vars").length).toBeGreaterThanOrEqual(1);
       });
     });
 
@@ -368,7 +369,8 @@ describe("IssuesList", () => {
       await waitFor(() => {
         // Breadcrumbs should show All Rules > rule name > file name
         expect(screen.getByText("All Rules")).toBeTruthy();
-        expect(screen.getByText("no-unused-vars")).toBeTruthy();
+        // Rule name appears in both breadcrumbs and context strip
+        expect(screen.getAllByText("no-unused-vars").length).toBeGreaterThanOrEqual(1);
         expect(screen.getByText("Button.tsx")).toBeTruthy();
       });
     });
@@ -388,15 +390,16 @@ describe("IssuesList", () => {
       });
 
       // Click on rule name in breadcrumbs to collapse file
-      // The rule name appears twice - once in breadcrumbs, once in the tile
-      // We want the one in breadcrumbs (which is clickable when file is expanded)
+      // The rule name appears in breadcrumbs and context strip
+      // Find the breadcrumb button (the one inside a breadcrumb-like element with max-w-[120px])
       const ruleButtons = screen.getAllByText("no-unused-vars");
-      // Find the one that's in the breadcrumbs (it should be a button)
+      // The breadcrumb button has a truncate/max-w class; the strip item has a different class
       const breadcrumbRuleButton = ruleButtons.find(
-        (el) => el.tagName.toLowerCase() === "button" || el.closest("button")
+        (el) => el.closest("button") && el.className.includes("max-w-[120px]")
       );
       if (breadcrumbRuleButton) {
-        fireEvent.click(breadcrumbRuleButton);
+        const btn = breadcrumbRuleButton.closest("button");
+        if (btn) fireEvent.click(btn);
       }
 
       await waitFor(() => {

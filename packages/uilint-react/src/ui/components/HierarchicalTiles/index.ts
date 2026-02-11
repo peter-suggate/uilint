@@ -67,6 +67,18 @@ export type { TileGridProps, BaseTileItem } from "./TileGrid";
 export { ExpandableTileGrid } from "./ExpandableTileGrid";
 export type { ExpandableTileGridProps } from "./ExpandableTileGrid";
 
+// TreemapGrid - Zoomable treemap with zoom-based navigation
+export { TreemapGrid } from "./TreemapGrid";
+export type { TreemapGridProps } from "./TreemapGrid";
+
+// TreemapCell - Individual treemap cell
+export { TreemapCell } from "./TreemapCell";
+export type { TreemapCellProps } from "./TreemapCell";
+
+// ContextStrip - Proportional sibling strip for zoom navigation
+export { ContextStrip } from "./ContextStrip";
+export type { ContextStripProps, ContextStripItem } from "./ContextStrip";
+
 // ============================================================================
 // Layout Utilities
 // ============================================================================
@@ -85,6 +97,9 @@ export {
 
   // Expanded layout algorithm
   calculateExpandedLayout,
+
+  // Treemap layout algorithm
+  calculateTreemapLayout,
 } from "./layout";
 
 export type {
@@ -107,6 +122,12 @@ export type {
   ExpandedLayoutInput,
   ExpandedLayoutResult,
   TilePosition,
+
+  // Treemap layout types
+  TreemapItem,
+  TreemapLayoutResult,
+  TreemapCellLayout,
+  TreemapLayoutConfig,
 } from "./layout";
 
 // ============================================================================
@@ -155,4 +176,20 @@ export {
   // Utility functions
   getStaggerDelay,
   getTileAnimationState,
+
+  // Treemap animation variants
+  treemapCellVariants,
+  treemapCellTransition,
+  ghostCellVariants,
+  fileLayoutTransition,
+  contextStripVariants,
+  contextStripTransition,
+  zoomedContentVariants,
+  rootTreemapVariants,
+  zoomedViewVariants,
+  zoomTransition,
+  getCellStaggerDelay,
+  ZOOM_DURATION,
+  CELL_CONTENT_DURATION,
+  CELL_STAGGER,
 } from "./animations";
