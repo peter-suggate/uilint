@@ -79,3 +79,35 @@ export interface LayoutItem {
   /** Subtitle text - also considered for width calculation */
   subtitle?: string;
 }
+
+// ============================================================================
+// Treemap Layout Types
+// ============================================================================
+
+/**
+ * Single cell in a treemap layout.
+ * Position is absolute within the treemap container.
+ */
+export interface TreemapCellLayout {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Normalized value fraction (0-1) relative to the largest item. Used for color intensity. */
+  areaFraction: number;
+}
+
+/**
+ * Configuration for treemap layout calculation.
+ */
+export interface TreemapLayoutConfig {
+  /** Total width available in pixels */
+  width: number;
+  /** Total height available in pixels */
+  height: number;
+  /** Padding between cells in pixels (default: 2) */
+  gap?: number;
+  /** Minimum cell dimension before label is hidden (default: 40) */
+  minLabelDimension?: number;
+}

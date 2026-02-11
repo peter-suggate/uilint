@@ -1,16 +1,15 @@
 /**
  * IssuesList - Main content component for the unified inspector
  *
- * Orchestrates a two-level tile hierarchy with in-place expansion:
- * - Level 0: Rule tiles (aggregated across all files)
- * - Level 1: File tiles (for a specific rule) - shown INSIDE expanded rule tile
- * - Level 2: Source view (for a specific file within a rule) - shown below expanded file
+ * Orchestrates a two-level tile hierarchy with zoom-based navigation:
+ * - Level 0: Rule treemap (area = issue count, color = severity)
+ * - Level 1: File treemap (zoomed into a rule, with ContextStrip for siblings)
+ * - Level 2: Source view (for a specific file within a rule)
  *
- * Uses the additive selection model - all tiles visible, expanded ones emphasized.
- * Tiles expand IN PLACE using the mosaic layout algorithm, keeping siblings visible.
+ * Uses a zoomable treemap: clicking a cell zooms in with a crossfade,
+ * while the ContextStrip at top preserves sibling context and navigation.
  */
-import React, { useCallback, useMemo, useEffect, useRef } from "react";
-import { motion } from "motion/react";
+import React, { useCallback, useMemo, useEffect, useRef, useState } from "react";
 import { useComposedStore } from "../../../core/store";
 import {
   selectFileGroups,
@@ -24,10 +23,8 @@ import { IssueSummaryView } from "./IssueSummaryView";
 import { DuplicateIssueList } from "./DuplicateIssueList";
 import { Breadcrumbs } from "./Breadcrumbs";
 import {
-  ExpandableTileGrid,
+  TreemapGrid,
   TileGrid,
-  crispEase,
-  DURATIONS,
   type BaseTileItem,
 } from "../HierarchicalTiles";
 import {
@@ -112,25 +109,20 @@ function EmptyState() {
 }
 
 // ============================================================================
-// Constants for height calculation
+// Constants
 // ============================================================================
 
-/** Approximate height of the breadcrumb bar */
-const BREADCRUMB_HEIGHT = 34;
-
-/** Approximate height of compact RuleHeader component */
-const RULE_HEADER_HEIGHT = 40;
-
-/** Height for file content area when showing inline (issue summary or source view) */
-const FILE_CONTENT_MIN_HEIGHT = 300;
+/** Default height when container measurement is not yet available */
+const DEFAULT_TREEMAP_HEIGHT = 400;
 
 // ============================================================================
 // Component
 // ============================================================================
 
 export function IssuesList({ className }: IssuesListProps) {
-  // Ref for scrolling
+  // Ref for scrolling and height measurement
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState(DEFAULT_TREEMAP_HEIGHT);
 
   // Store selectors
   const fileGroups = useComposedStore(selectFileGroups);
@@ -229,27 +221,30 @@ export function IssuesList({ className }: IssuesListProps) {
     }
   }, [selectedIssueId, ruleNodes, expandedRuleId, expandedFilePath, expandRule, expandFileInRule]);
 
-  // Auto-scroll expanded tile to top of viewport when rule is expanded
+  // Measure container height for treemap layout
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const height = entry.contentRect.height;
+        if (height > 0) {
+          setContainerHeight(height - 32); // Subtract padding
+        }
+      }
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  // Scroll to top when zooming into a rule
   useEffect(() => {
     if (!expandedRuleId || !scrollContainerRef.current) return;
-
-    // Small delay to let the layout animation start
-    const timeoutId = setTimeout(() => {
-      // Find the expanded tile element by its data attribute
-      const expandedTile = scrollContainerRef.current?.querySelector(
-        `[data-tile-id="${expandedRuleId}"]`
-      );
-
-      if (expandedTile && typeof expandedTile.scrollIntoView === "function") {
-        // Scroll the tile to the top of the scroll container
-        expandedTile.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }
-    }, 50); // Small delay to let layout settle
-
-    return () => clearTimeout(timeoutId);
+    if (typeof scrollContainerRef.current.scrollTo === "function") {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }, [expandedRuleId]);
 
   // Handle issue selection
@@ -371,32 +366,20 @@ export function IssuesList({ className }: IssuesListProps) {
     return count;
   }, [expandedRuleId, ruleNodes, ignoredIssueIds]);
 
-  // Extra height for expanded tile
-  // When showing file content inline, we need more height
-  const extraExpandedHeight = expandedFilePath
-    ? BREADCRUMB_HEIGHT + RULE_HEADER_HEIGHT + FILE_CONTENT_MIN_HEIGHT
-    : BREADCRUMB_HEIGHT + RULE_HEADER_HEIGHT;
-
-  // Custom render function for expanded rule tile content
-  // Renders RuleHeader (with config popover) and either file tiles or file content INSIDE the expanded tile
-  const renderExpandedRuleContent = useCallback(
+  // Custom render function for zoomed rule content
+  // Renders Breadcrumbs + RuleHeader + either file tiles or file content
+  const renderZoomedContent = useCallback(
     (
       item: BaseTileItem,
       children: BaseTileItem[],
-      childrenHeight: number,
-      tileAvailableWidth: number
+      zoomedAvailableWidth: number,
+      _zoomedAvailableHeight: number
     ) => {
-      // Check if a file is expanded within this rule
       const isFileExpanded = expandedFilePath !== null;
 
       return (
-        <motion.div
+        <div
           data-tile-id={item.id}
-          layoutId={`tile-${item.id}`}
-          initial={{ opacity: 0.9 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0.9 }}
-          transition={{ duration: DURATIONS.expand, ease: crispEase }}
           className={cn(
             "rounded-xl",
             "border border-foreground/[0.05]",
@@ -406,7 +389,7 @@ export function IssuesList({ className }: IssuesListProps) {
             "h-full flex flex-col"
           )}
         >
-          {/* Breadcrumb navigation - inside the expanded tile for locality */}
+          {/* Breadcrumb navigation */}
           <Breadcrumbs
             variant="embedded"
             expandedRuleName={expandedRule?.label ?? null}
@@ -427,7 +410,6 @@ export function IssuesList({ className }: IssuesListProps) {
               showCloseButton={false}
               highestSeverity={expandedRule?.data.highestSeverity}
               issueCount={expandedRule?.count}
-              // Config props for popover
               currentSeverity={currentRuleSeverity}
               onSeverityChange={handleSeverityChange}
               optionSchema={ruleMetadata?.optionSchema}
@@ -436,7 +418,6 @@ export function IssuesList({ className }: IssuesListProps) {
               onOptionChange={handleOptionChange}
               onResetOptions={handleResetOptions}
               isUpdating={isRuleUpdating}
-              // Ignore system
               ignoredCount={ruleIgnoredCount}
               showIgnored={showIgnored}
               onToggleShowIgnored={toggleShowIgnored}
@@ -444,7 +425,6 @@ export function IssuesList({ className }: IssuesListProps) {
 
             {/* Content: either file tiles or file content */}
             {!isFileExpanded ? (
-              /* File tiles grid - when no file is expanded */
               <div className="p-3">
                 <TileGrid
                   items={children}
@@ -455,12 +435,11 @@ export function IssuesList({ className }: IssuesListProps) {
                     }
                   }}
                   selectedIndex={-1}
-                  availableWidth={tileAvailableWidth - 24} // Account for padding
+                  availableWidth={zoomedAvailableWidth - 24}
                   padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
                 />
               </div>
             ) : ruleContentRenderer === "duplicate-comparison" ? (
-              /* Custom duplicate comparison view */
               <div className="flex-1 overflow-auto">
                 <DuplicateIssueList
                   issues={expandedFileIssues}
@@ -474,21 +453,18 @@ export function IssuesList({ className }: IssuesListProps) {
                 />
               </div>
             ) : !showFullSource ? (
-              /* Issue summary view - when file is expanded but not showing full source */
               <div className="flex-1 overflow-auto">
                 <IssueSummaryView
                   issues={expandedFileIssues}
                   selectedIssueId={selectedIssueId}
                   onIssueClick={(issue) => {
                     selectIssue(issue.id);
-                    // After selecting, go to full source view
                     showFullSourceView();
                   }}
                   onShowFullSource={showFullSourceView}
                 />
               </div>
             ) : (
-              /* Full source view - when file is expanded and showing full source */
               <div className="flex-1 overflow-auto p-3">
                 <FileSourceView
                   filePath={expandedFilePath}
@@ -501,11 +477,12 @@ export function IssuesList({ className }: IssuesListProps) {
               </div>
             )}
           </div>
-        </motion.div>
+        </div>
       );
     },
     [
       collapseRule,
+      collapseFileInRule,
       ruleMetadata,
       currentRuleSeverity,
       handleSeverityChange,
@@ -524,6 +501,7 @@ export function IssuesList({ className }: IssuesListProps) {
       showFullSourceView,
       handleIssueSelect,
       expandedRule,
+      expandedFile,
       ruleContentRenderer,
       ignoredIssueIds,
       showIgnored,
@@ -535,19 +513,17 @@ export function IssuesList({ className }: IssuesListProps) {
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
-      {/* Main content - mosaic tile grid with in-place expansion */}
-      {/* File views are now rendered INSIDE the expanded rule tile via renderExpandedContent */}
+      {/* Main content - zoomable treemap with zoom-based navigation */}
       <div ref={scrollContainerRef} className="flex-1 p-4 overflow-auto">
         {fileGroups.length === 0 ? (
           <EmptyState />
         ) : (
-          <ExpandableTileGrid
+          <TreemapGrid
             items={ruleTileItems}
-            expandedId={expandedRuleId}
-            expandedChildren={fileTileItems}
-            onTileClick={(item) => expandRule(item.id)}
-            onExpandedChildClick={(item) => {
-              // Find the original file node to get the filePath
+            zoomedId={expandedRuleId}
+            zoomedChildren={fileTileItems}
+            onCellClick={(item) => expandRule(item.id)}
+            onChildClick={(item) => {
               const fileNode = fileNodes.find((f) => f.id === item.id);
               if (fileNode) {
                 expandFileInRule(fileNode.data.filePath);
@@ -555,9 +531,8 @@ export function IssuesList({ className }: IssuesListProps) {
             }}
             onBack={collapseRule}
             availableWidth={availableWidth}
-            extraExpandedHeight={extraExpandedHeight}
-            padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
-            renderExpandedContent={renderExpandedRuleContent}
+            availableHeight={containerHeight}
+            renderZoomedContent={renderZoomedContent}
           />
         )}
       </div>

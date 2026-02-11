@@ -38,3 +38,8 @@ export type {
   ExpandedLayoutResult,
   TilePosition,
 } from "./expanded-layout";
+
+// Treemap layout algorithm (for zoomable treemap UI)
+export { calculateTreemapLayout } from "./treemap-layout";
+export type { TreemapItem, TreemapLayoutResult } from "./treemap-layout";
+export type { TreemapCellLayout, TreemapLayoutConfig } from "./types";
