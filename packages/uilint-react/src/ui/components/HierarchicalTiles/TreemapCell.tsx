@@ -70,9 +70,9 @@ function getSeverityStyles(severityCounts?: {
 }): { bg: string; text: string; border: string } {
   if (!severityCounts) {
     return {
-      bg: "bg-foreground/[0.06]",
+      bg: "bg-foreground/[0.04]",
       text: "text-foreground/70",
-      border: "border-foreground/[0.06]",
+      border: "border-foreground/[0.04]",
     };
   }
 
@@ -80,29 +80,29 @@ function getSeverityStyles(severityCounts?: {
 
   if (error > 0 && error >= warning && error >= info) {
     return {
-      bg: "bg-red-500/10",
-      text: "text-red-600/80 dark:text-red-400/80",
-      border: "border-red-500/15",
+      bg: "bg-error/10",
+      text: "text-error",
+      border: "border-foreground/[0.04]",
     };
   }
   if (warning > 0 && warning >= info) {
     return {
-      bg: "bg-amber-500/10",
-      text: "text-amber-600/80 dark:text-amber-400/80",
-      border: "border-amber-500/15",
+      bg: "bg-warning/10",
+      text: "text-warning",
+      border: "border-foreground/[0.04]",
     };
   }
   if (info > 0) {
     return {
-      bg: "bg-blue-500/8",
-      text: "text-blue-600/80 dark:text-blue-400/80",
-      border: "border-blue-500/12",
+      bg: "bg-info/10",
+      text: "text-info",
+      border: "border-foreground/[0.04]",
     };
   }
   return {
-    bg: "bg-foreground/[0.06]",
+    bg: "bg-foreground/[0.04]",
     text: "text-foreground/70",
-    border: "border-foreground/[0.06]",
+    border: "border-foreground/[0.04]",
   };
 }
 
@@ -161,7 +161,7 @@ function FullContent({
             {subtitle}
           </div>
         )}
-        <div className={cn("text-xs font-medium truncate", textClass)} title={label}>
+        <div className={cn("text-xs font-light truncate", textClass)} title={label}>
           {label}
         </div>
       </div>
@@ -188,7 +188,7 @@ function CompactContent({
 }) {
   return (
     <div className="flex flex-col justify-between h-full p-1.5 overflow-hidden">
-      <div className={cn("text-[10px] font-medium truncate", textClass)} title={label}>
+      <div className={cn("text-[10px] font-light truncate", textClass)} title={label}>
         {label}
       </div>
       <div className={cn("text-xs font-light tabular-nums", textClass)}>
@@ -239,12 +239,12 @@ export function TreemapCell({
       whileTap={{ scale: 0.98 }}
       title={contentLevel === "minimal" ? `${label}: ${count}` : undefined}
       className={cn(
-        "absolute rounded-lg overflow-hidden cursor-pointer",
-        "border transition-[box-shadow,border-color] duration-100",
+        "absolute rounded-xl overflow-hidden cursor-pointer",
+        "border transition-[background,border-color] duration-100",
         styles.bg,
         styles.border,
         isZoomed && "ring-1 ring-foreground/20",
-        "hover:shadow-sm hover:border-foreground/10",
+        "hover:bg-foreground/[0.03] hover:border-foreground/[0.08]",
         className
       )}
       style={{

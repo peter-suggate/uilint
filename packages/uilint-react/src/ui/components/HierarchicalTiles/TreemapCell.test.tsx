@@ -143,7 +143,7 @@ describe("TreemapCell - severity colors", () => {
       />
     );
     const cell = container.querySelector("[data-treemap-cell]");
-    expect(cell?.className).toContain("red");
+    expect(cell?.className).toContain("bg-error/10");
   });
 
   it("applies warning color class for warning-dominant severity", () => {
@@ -154,7 +154,7 @@ describe("TreemapCell - severity colors", () => {
       />
     );
     const cell = container.querySelector("[data-treemap-cell]");
-    expect(cell?.className).toContain("amber");
+    expect(cell?.className).toContain("bg-warning/10");
   });
 
   it("applies info color class for info-only severity", () => {
@@ -165,7 +165,7 @@ describe("TreemapCell - severity colors", () => {
       />
     );
     const cell = container.querySelector("[data-treemap-cell]");
-    expect(cell?.className).toContain("blue");
+    expect(cell?.className).toContain("bg-info/10");
   });
 
   it("applies default color when no severity counts", () => {

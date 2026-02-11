@@ -56,11 +56,11 @@ function getSeverityColorClass(severityCounts?: {
   warning: number;
   info: number;
 }): string {
-  if (!severityCounts) return "bg-foreground/8";
+  if (!severityCounts) return "bg-foreground/[0.03]";
   const { error, warning } = severityCounts;
-  if (error > 0) return "bg-red-500/15";
-  if (warning > 0) return "bg-amber-500/15";
-  return "bg-blue-500/10";
+  if (error > 0) return "bg-error/10";
+  if (warning > 0) return "bg-warning/10";
+  return "bg-info/10";
 }
 
 /**
@@ -132,12 +132,12 @@ function StripItem({ item, width, isActive, onClick, index }: StripItemProps) {
       onClick={onClick}
       title={`${item.label} (${item.count})`}
       className={cn(
-        "shrink-0 rounded-md overflow-hidden transition-all duration-100",
-        "cursor-pointer",
+        "shrink-0 rounded-xl overflow-hidden transition-all duration-100",
+        "border border-foreground/[0.04] cursor-pointer",
         colorClass,
         isActive
-          ? "ring-1 ring-foreground/20 brightness-110"
-          : "hover:brightness-110 opacity-70 hover:opacity-100"
+          ? "ring-1 ring-foreground/20"
+          : "opacity-70 hover:opacity-100 hover:bg-foreground/[0.06] hover:border-foreground/[0.08]"
       )}
       style={{
         width,

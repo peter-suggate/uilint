@@ -24,7 +24,8 @@ import { DuplicateIssueList } from "./DuplicateIssueList";
 import { Breadcrumbs } from "./Breadcrumbs";
 import {
   TreemapGrid,
-  TileGrid,
+  TreemapCell,
+  calculateTreemapLayout,
   type BaseTileItem,
 } from "../HierarchicalTiles";
 import {
@@ -104,6 +105,62 @@ function EmptyState() {
       <p className="text-sm text-muted-foreground/60 max-w-xs">
         Great job! Your code looks clean.
       </p>
+    </div>
+  );
+}
+
+// ============================================================================
+// File Treemap Sub-component
+// ============================================================================
+
+/** Height for the file treemap within a zoomed rule */
+const FILE_TREEMAP_HEIGHT = 200;
+const FILE_TREEMAP_GAP = 2;
+
+function FileTreemap({
+  items,
+  availableWidth,
+  onFileClick,
+}: {
+  items: BaseTileItem[];
+  availableWidth: number;
+  onFileClick: (item: BaseTileItem) => void;
+}) {
+  const layout = useMemo(() => {
+    if (items.length === 0 || availableWidth <= 0) return null;
+    return calculateTreemapLayout(
+      items.map((item) => ({ id: item.id, value: item.count, label: item.label })),
+      { width: availableWidth, height: FILE_TREEMAP_HEIGHT, gap: FILE_TREEMAP_GAP }
+    );
+  }, [items, availableWidth]);
+
+  if (!layout || items.length === 0) return null;
+
+  return (
+    <div className="p-3">
+      <div className="relative" style={{ width: availableWidth, height: FILE_TREEMAP_HEIGHT }}>
+        {items.map((item, index) => {
+          const cell = layout.cells.get(item.id);
+          if (!cell) return null;
+          return (
+            <TreemapCell
+              key={item.id}
+              id={item.id}
+              label={item.label}
+              subtitle={item.subtitle}
+              count={item.count}
+              severityCounts={item.severityCounts}
+              x={cell.x}
+              y={cell.y}
+              width={cell.width}
+              height={cell.height}
+              areaFraction={cell.areaFraction}
+              index={index}
+              onClick={() => onFileClick(item)}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -423,22 +480,18 @@ export function IssuesList({ className }: IssuesListProps) {
               onToggleShowIgnored={toggleShowIgnored}
             />
 
-            {/* Content: either file tiles or file content */}
+            {/* Content: either file treemap or file content */}
             {!isFileExpanded ? (
-              <div className="p-3">
-                <TileGrid
-                  items={children}
-                  onTileClick={(fileItem) => {
-                    const fileNode = fileNodes.find((f) => f.id === fileItem.id);
-                    if (fileNode) {
-                      expandFileInRule(fileNode.data.filePath);
-                    }
-                  }}
-                  selectedIndex={-1}
-                  availableWidth={zoomedAvailableWidth - 24}
-                  padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
-                />
-              </div>
+              <FileTreemap
+                items={children}
+                availableWidth={zoomedAvailableWidth - 24}
+                onFileClick={(fileItem) => {
+                  const fileNode = fileNodes.find((f) => f.id === fileItem.id);
+                  if (fileNode) {
+                    expandFileInRule(fileNode.data.filePath);
+                  }
+                }}
+              />
             ) : ruleContentRenderer === "duplicate-comparison" ? (
               <div className="flex-1 overflow-auto">
                 <DuplicateIssueList
