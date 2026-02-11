@@ -51,7 +51,7 @@ import { cn } from "../../../lib/utils";
 const FILE_TREEMAP_HEIGHT = 200;
 const FILE_TREEMAP_GAP = 2;
 const TREEMAP_GAP = 2;
-const GHOST_GAP = 1;
+const NESTED_GAP = 1;
 const CONTEXT_STRIP_HEIGHT = 44;
 
 
@@ -256,18 +256,20 @@ export function TreemapInspector({ className }: TreemapInspectorProps) {
   );
 
   // Ghost layouts: mini file treemaps inside each rule cell
-  const ghostLayouts = useMemo(() => {
+  const nestedFileLayouts = useMemo(() => {
     const map = new Map<string, ReturnType<typeof calculateTreemapLayout>>();
     for (const item of ruleTileItems) {
       const cell = rootLayout.cells.get(item.id);
       const children = fileItemsByRule.get(item.id);
       if (!cell || !children?.length) continue;
+      // Reserve space for the compact header (28px) at top of the rule cell
+      const availHeight = Math.max(cell.height - 28, 20);
       map.set(
         item.id,
         calculateTreemapLayout(toTreemapItems(children), {
-          width: cell.width,
-          height: cell.height,
-          gap: GHOST_GAP,
+          width: cell.width - 4, // 0.5 margin on each side (mx-0.5 = 2px each)
+          height: availHeight,
+          gap: NESTED_GAP,
         })
       );
     }
@@ -470,7 +472,7 @@ export function TreemapInspector({ className }: TreemapInspectorProps) {
               className="relative"
               style={{ width: availableWidth, height: treemapHeight }}
             >
-              {/* ========= Layer 1: Root rule cells ========= */}
+              {/* ========= Layer 1: Root rule cells with nested file children ========= */}
               <AnimatePresence>
                 {!expandedRuleId && (
                   <motion.div
@@ -485,6 +487,8 @@ export function TreemapInspector({ className }: TreemapInspectorProps) {
                     {ruleTileItems.map((item, index) => {
                       const cell = rootLayout.cells.get(item.id);
                       if (!cell) return null;
+                      const nestedLayout = nestedFileLayouts.get(item.id);
+                      const nestedChildren = fileItemsByRule.get(item.id);
                       return (
                         <TreemapCell
                           key={item.id}
@@ -500,43 +504,33 @@ export function TreemapInspector({ className }: TreemapInspectorProps) {
                           areaFraction={cell.areaFraction}
                           index={index}
                           onClick={() => expandRule(item.id)}
-                        />
+                        >
+                          {/* Nested file cells inside the rule cell */}
+                          {nestedLayout && nestedChildren?.map((child) => {
+                            const fc = nestedLayout.cells.get(child.id);
+                            if (!fc) return null;
+                            return (
+                              <TreemapCell
+                                key={child.id}
+                                layoutId={`treemap-file-${child.id}`}
+                                id={child.id}
+                                label={child.label}
+                                count={child.count}
+                                severityCounts={child.severityCounts}
+                                x={fc.x}
+                                y={fc.y}
+                                width={fc.width}
+                                height={fc.height}
+                                areaFraction={fc.areaFraction}
+                                onClick={() => expandRule(item.id)}
+                              />
+                            );
+                          })}
+                        </TreemapCell>
                       );
                     })}
                   </motion.div>
                 )}
-              </AnimatePresence>
-
-              {/* ========= Layer 2: Ghost file cells ========= */}
-              <AnimatePresence>
-                {!expandedRuleId &&
-                  ruleTileItems.flatMap((item) => {
-                    const parentCell = rootLayout.cells.get(item.id);
-                    const ghostLayout = ghostLayouts.get(item.id);
-                    const children = fileItemsByRule.get(item.id);
-                    if (!parentCell || !ghostLayout || !children) return [];
-                    return children.map((child) => {
-                      const gc = ghostLayout.cells.get(child.id);
-                      if (!gc) return null;
-                      return (
-                        <TreemapCell
-                          key={`ghost-${child.id}`}
-                          layoutId={`treemap-file-${child.id}`}
-                          ghost={true}
-                          id={child.id}
-                          label={child.label}
-                          count={child.count}
-                          severityCounts={child.severityCounts}
-                          x={parentCell.x + gc.x}
-                          y={parentCell.y + gc.y}
-                          width={gc.width}
-                          height={gc.height}
-                          areaFraction={gc.areaFraction}
-                          onClick={() => {}}
-                        />
-                      );
-                    });
-                  })}
               </AnimatePresence>
 
               {/* ========= Layer 3: Zoomed view ========= */}

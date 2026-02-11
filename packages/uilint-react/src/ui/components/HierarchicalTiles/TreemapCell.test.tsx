@@ -128,15 +128,22 @@ describe("TreemapCell - rendering", () => {
 });
 
 // ============================================================================
-// Severity Color Tests
+// Glassmorphism & Severity Accent Tests
 // ============================================================================
 
-describe("TreemapCell - severity colors", () => {
+describe("TreemapCell - glassmorphism and severity accent", () => {
   afterEach(() => {
     cleanup();
   });
 
-  it("applies error color class for error-dominant severity", () => {
+  it("uses glassmorphism background classes", () => {
+    const { container } = render(<TreemapCell {...defaultProps} />);
+    const cell = container.querySelector("[data-treemap-cell]");
+    expect(cell?.className).toContain("bg-background/40");
+    expect(cell?.className).toContain("backdrop-blur-sm");
+  });
+
+  it("renders error accent strip for error-dominant severity", () => {
     const { container } = render(
       <TreemapCell
         {...defaultProps}
@@ -144,10 +151,12 @@ describe("TreemapCell - severity colors", () => {
       />
     );
     const cell = container.querySelector("[data-treemap-cell]");
-    expect(cell?.className).toContain("bg-error/10");
+    // Accent strip should have bg-error class
+    const accent = cell?.querySelector(".bg-error");
+    expect(accent).toBeTruthy();
   });
 
-  it("applies warning color class for warning-dominant severity", () => {
+  it("renders warning accent strip for warning-dominant severity", () => {
     const { container } = render(
       <TreemapCell
         {...defaultProps}
@@ -155,10 +164,11 @@ describe("TreemapCell - severity colors", () => {
       />
     );
     const cell = container.querySelector("[data-treemap-cell]");
-    expect(cell?.className).toContain("bg-warning/10");
+    const accent = cell?.querySelector(".bg-warning");
+    expect(accent).toBeTruthy();
   });
 
-  it("applies info color class for info-only severity", () => {
+  it("renders info accent strip for info-only severity", () => {
     const { container } = render(
       <TreemapCell
         {...defaultProps}
@@ -166,13 +176,92 @@ describe("TreemapCell - severity colors", () => {
       />
     );
     const cell = container.querySelector("[data-treemap-cell]");
-    expect(cell?.className).toContain("bg-info/10");
+    const accent = cell?.querySelector(".bg-info");
+    expect(accent).toBeTruthy();
   });
 
-  it("applies default color when no severity counts", () => {
+  it("renders neutral accent strip when no severity counts", () => {
     const { container } = render(<TreemapCell {...defaultProps} />);
     const cell = container.querySelector("[data-treemap-cell]");
-    expect(cell?.className).toContain("foreground");
+    // Should have a foreground/10 accent
+    const accent = cell?.querySelector('[class*="bg-foreground"]');
+    expect(accent).toBeTruthy();
+  });
+
+  it("does not render accent strip for minimal cells", () => {
+    const { container } = render(
+      <TreemapCell
+        {...defaultProps}
+        width={30}
+        height={30}
+        severityCounts={{ error: 5, warning: 0, info: 0 }}
+      />
+    );
+    const cell = container.querySelector("[data-treemap-cell]");
+    const accent = cell?.querySelector(".bg-error");
+    expect(accent).toBeNull();
+  });
+
+  it("uses severity text color for content", () => {
+    const { container } = render(
+      <TreemapCell
+        {...defaultProps}
+        severityCounts={{ error: 10, warning: 0, info: 0 }}
+      />
+    );
+    const cell = container.querySelector("[data-treemap-cell]");
+    const errorText = cell?.querySelector(".text-error");
+    expect(errorText).toBeTruthy();
+  });
+});
+
+// ============================================================================
+// Children (Nested Content) Tests
+// ============================================================================
+
+describe("TreemapCell - children", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("renders children when provided and cell is large enough", () => {
+    const { container } = render(
+      <TreemapCell {...defaultProps}>
+        <div data-testid="child">nested content</div>
+      </TreemapCell>
+    );
+    expect(container.textContent).toContain("nested content");
+  });
+
+  it("uses compact header when children are present", () => {
+    const { container } = render(
+      <TreemapCell {...defaultProps}>
+        <div>child</div>
+      </TreemapCell>
+    );
+    // Compact header should show label and count in single line
+    expect(container.textContent).toContain("no-unused-vars");
+    expect(container.textContent).toContain("42");
+    // Should NOT show "issues in files" suffix (that's the full layout without children)
+    expect(container.textContent).not.toContain("issues");
+  });
+
+  it("does not render children in compact cell mode", () => {
+    const { container } = render(
+      <TreemapCell {...defaultProps} width={80} height={60}>
+        <div>hidden child</div>
+      </TreemapCell>
+    );
+    expect(container.textContent).not.toContain("hidden child");
+  });
+
+  it("does not render children when ghost", () => {
+    const { container } = render(
+      <TreemapCell {...defaultProps} ghost={true}>
+        <div>hidden child</div>
+      </TreemapCell>
+    );
+    expect(container.textContent).toBe("");
   });
 });
 
@@ -220,27 +309,7 @@ describe("TreemapCell - visual states", () => {
     const cell = container.querySelector("[data-treemap-cell]");
     expect(cell?.className).not.toContain("ring-1");
   });
-
-  it("sets opacity based on areaFraction", () => {
-    const { container } = render(
-      <TreemapCell {...defaultProps} areaFraction={1.0} />
-    );
-    const cell = container.querySelector("[data-treemap-cell]") as HTMLElement;
-    expect(cell.style.opacity).toBe("1");
-  });
-
-  it("sets lower opacity for small areaFraction", () => {
-    const { container } = render(
-      <TreemapCell {...defaultProps} areaFraction={0} />
-    );
-    const cell = container.querySelector("[data-treemap-cell]") as HTMLElement;
-    expect(cell.style.opacity).toBe("0.6");
-  });
 });
-
-// ============================================================================
-// Positioning Tests
-// ============================================================================
 
 // ============================================================================
 // Ghost Mode Tests
