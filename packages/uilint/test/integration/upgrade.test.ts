@@ -13,10 +13,14 @@ import {
   MANIFEST_SCHEMA_VERSION,
   type RuleManifest,
 } from "../../src/utils/manifest.js";
+import { ruleRegistry } from "uilint-eslint";
 import { analyzeForUpdates } from "../../src/commands/update/analyze.js";
 import { createUpdatePlan } from "../../src/commands/update/plan.js";
 import { executeUpdatePlan } from "../../src/commands/update/execute.js";
 import type { UpdateChoices } from "../../src/commands/update/types.js";
+
+const preferTailwindCurrentVersion =
+  ruleRegistry.find((r) => r.id === "prefer-tailwind")?.version ?? "1.0.0";
 
 describe("Upgrade Integration", () => {
   let testDir: string;
@@ -24,7 +28,9 @@ describe("Upgrade Integration", () => {
   beforeEach(() => {
     testDir = join(
       tmpdir(),
-      `uilint-upgrade-integ-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      `uilint-upgrade-integ-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}`
     );
     mkdirSync(join(testDir, ".uilint", "rules"), { recursive: true });
   });
@@ -85,7 +91,7 @@ describe("Upgrade Integration", () => {
       const rule = pkg?.rules.find((r) => r.ruleId === "prefer-tailwind");
       expect(rule?.hasUpdate).toBe(true);
       expect(rule?.installedVersion).toBe("0.9.0");
-      expect(rule?.availableVersion).toBe("1.0.0");
+      expect(rule?.availableVersion).toBe(preferTailwindCurrentVersion);
     });
   });
 
@@ -128,7 +134,9 @@ describe("Upgrade Integration", () => {
 
       // Verify manifest was updated
       const updated = readManifest(testDir);
-      expect(updated?.rules["prefer-tailwind"]?.version).toBe("1.0.0");
+      expect(updated?.rules["prefer-tailwind"]?.version).toBe(
+        preferTailwindCurrentVersion
+      );
     });
   });
 
@@ -199,7 +207,9 @@ describe("Upgrade Integration", () => {
 
       // Verify only prefer-tailwind was updated
       const updated = readManifest(testDir);
-      expect(updated?.rules["prefer-tailwind"]?.version).toBe("1.0.0");
+      expect(updated?.rules["prefer-tailwind"]?.version).toBe(
+        preferTailwindCurrentVersion
+      );
       // consistent-dark-mode should still be at old version
       expect(updated?.rules["consistent-dark-mode"]?.version).toBe("0.9.0");
     });

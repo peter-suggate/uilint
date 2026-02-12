@@ -41,16 +41,29 @@ interface OverlayItemProps {
   hasActiveSelection: boolean;
   hasActivePreview: boolean;
   previewStaggerIndex: number;
-  showDetails: boolean;
+  showExtendedDetails: boolean;
   onBadgeClick: () => void;
   onBadgeHover: (hovered: boolean) => void;
 }
 
-function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, isPreviewed, hasActiveSelection, hasActivePreview, previewStaggerIndex, showDetails, onBadgeClick, onBadgeHover }: OverlayItemProps) {
+function OverlayItem({
+  rect,
+  issues,
+  isHovered,
+  isSelected,
+  isEmphasized,
+  isPreviewed,
+  hasActiveSelection,
+  hasActivePreview,
+  previewStaggerIndex,
+  showExtendedDetails,
+  onBadgeClick,
+  onBadgeHover,
+}: OverlayItemProps) {
   // Get highest severity for border color
   const severity = useMemo(() => {
-    if (issues.some(i => i.severity === "error")) return "error";
-    if (issues.some(i => i.severity === "warning")) return "warning";
+    if (issues.some((i) => i.severity === "error")) return "error";
+    if (issues.some((i) => i.severity === "warning")) return "warning";
     return "info";
   }, [issues]);
 
@@ -73,7 +86,8 @@ function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, isPrev
   } else {
     baseOpacity = 1;
   }
-  const finalOpacity = isHovered || isSelected ? Math.max(baseOpacity, 0.8) : baseOpacity;
+  const finalOpacity =
+    isHovered || isSelected ? Math.max(baseOpacity, 0.8) : baseOpacity;
 
   // Preview glow — animated pulse via CSS animation
   // Stagger delay per element for a ripple effect (capped at 0.3s)
@@ -82,30 +96,38 @@ function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, isPrev
 
   return (
     <div
-      style={{
-        position: "fixed",
-        left: rect.left - 2,
-        top: rect.top - 2,
-        width: rect.width + 4,
-        height: rect.height + 4,
-        border: `${isSelected ? 3 : 2}px solid ${color}`,
-        borderRadius: 4,
-        pointerEvents: "none", // Click-through - allows underlying app interaction
-        opacity: finalOpacity,
-        transition: `opacity 0.15s ease ${isPreviewed ? `${previewDelay}s` : "0s"}, border-width 0.15s, box-shadow 0.3s ease ${isPreviewed ? `${previewDelay}s` : "0s"}`,
-        zIndex: isSelected ? 99991 : 99990,
-        boxShadow: isSelected
-          ? `0 0 0 2px ${color}40, 0 0 12px ${color}60`
-          : undefined,
-        // CSS custom property for the pulse animation color
-        "--uilint-pulse-color": `${color}80`,
-        animation: isGlowing
-          ? `uilint-pulse 1.5s ease-in-out ${previewDelay}s infinite`
-          : "none",
-      } as React.CSSProperties}
+      style={
+        {
+          position: "fixed",
+          left: rect.left - 2,
+          top: rect.top - 2,
+          width: rect.width + 4,
+          height: rect.height + 4,
+          border: `${isSelected ? 3 : 2}px solid ${color}`,
+          borderRadius: 4,
+          pointerEvents: "none", // Click-through - allows underlying app interaction
+          opacity: finalOpacity,
+          transition: `opacity 0.15s ease ${
+            isPreviewed ? `${previewDelay}s` : "0s"
+          }, border-width 0.15s, box-shadow 0.3s ease ${
+            isPreviewed ? `${previewDelay}s` : "0s"
+          }`,
+          zIndex: isSelected ? 99991 : isPreviewed ? 99991 : 99990,
+          boxShadow: isSelected
+            ? `0 0 0 2px ${color}40, 0 0 12px ${color}60`
+            : undefined,
+          // CSS custom property for the pulse animation — uses severity color
+          "--uilint-pulse-color": `${color}60`,
+          animation: isGlowing
+            ? `uilint-spotlight 2s ease-in-out ${previewDelay}s infinite`
+            : "none",
+        } as React.CSSProperties
+      }
     >
-      {/* Clickable indicator - inset square */}
-      <span
+      {/* Clickable indicator with accessible hit target */}
+      <button
+        type="button"
+        aria-label={`${count} issue${count !== 1 ? "s" : ""} on this element`}
         onClick={(e) => {
           e.stopPropagation();
           onBadgeClick();
@@ -114,37 +136,43 @@ function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, isPrev
         onMouseLeave={() => onBadgeHover(false)}
         style={{
           position: "absolute",
-          top: 0,
-          right: 0,
-          width: 8,
-          height: 8,
-          borderRadius: 2,
-          background: color,
+          top: -18,
+          right: -18,
+          width: 44,
+          height: 44,
+          border: "none",
+          background: "transparent",
+          padding: 0,
           pointerEvents: "auto", // Only badge is clickable
           cursor: "pointer",
-          boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
-          transition: "transform 0.1s, box-shadow 0.1s",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
-        onMouseOver={(e) => {
-          (e.currentTarget as HTMLElement).style.transform = "scale(1.2)";
-          (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 6px rgba(0,0,0,0.4)";
-        }}
-        onMouseOut={(e) => {
-          (e.currentTarget as HTMLElement).style.transform = "scale(1)";
-          (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 3px rgba(0,0,0,0.3)";
-        }}
-      />
+      >
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 2,
+            background: color,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+            display: "block",
+          }}
+        />
+      </button>
 
-      {/* Tooltip on Alt+hover badge */}
-      {showDetails && isHovered && (
+      {/* Tooltip on hover (Alt shows more detail) */}
+      {isHovered && (
         <div
           style={{
             position: "absolute",
             top: 18,
             right: 0,
             padding: "8px 12px",
-            background: "#1f2937",
-            color: "white",
+            background: "var(--uilint-surface-elevated)",
+            color: "var(--uilint-text-primary)",
+            border: "1px solid var(--uilint-border)",
             borderRadius: 6,
             fontSize: 12,
             maxWidth: 300,
@@ -154,16 +182,24 @@ function OverlayItem({ rect, issues, isHovered, isSelected, isEmphasized, isPrev
             pointerEvents: "none",
           }}
         >
-          <strong>{count} issue{count !== 1 ? "s" : ""}</strong>
+          <strong>
+            {count} issue{count !== 1 ? "s" : ""}
+          </strong>
           <div style={{ marginTop: 4, opacity: 0.8 }}>
-            {issues.slice(0, 3).map((issue, i) => (
+            {issues.slice(0, showExtendedDetails ? 3 : 1).map((issue, i) => (
               <div key={i} style={{ marginTop: i > 0 ? 4 : 0 }}>
-                • {issue.message.slice(0, 60)}{issue.message.length > 60 ? "..." : ""}
+                • {issue.message.slice(0, 60)}
+                {issue.message.length > 60 ? "..." : ""}
               </div>
             ))}
-            {issues.length > 3 && (
+            {issues.length > (showExtendedDetails ? 3 : 1) && (
               <div style={{ marginTop: 4, opacity: 0.6 }}>
-                +{issues.length - 3} more...
+                +{issues.length - (showExtendedDetails ? 3 : 1)} more...
+              </div>
+            )}
+            {!showExtendedDetails && issues.length > 1 && (
+              <div style={{ marginTop: 4, opacity: 0.6 }}>
+                Hold Alt to preview more details
               </div>
             )}
           </div>
@@ -179,6 +215,7 @@ export function HeatmapOverlay() {
   const expandRule = useComposedStore((s) => s.expandRule);
   const expandFileInRule = useComposedStore((s) => s.expandFileInRule);
   const selectIssue = useComposedStore((s) => s.selectIssue);
+  const selectElement = useComposedStore((s) => s.selectElement);
   const hoveredElementId = useComposedStore((s) => s.hoveredElementId);
   const setHoveredElementId = useComposedStore((s) => s.setHoveredElementId);
   const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
@@ -217,6 +254,8 @@ export function HeatmapOverlay() {
       // Select the first issue to highlight it
       selectIssue(firstIssue.id);
     }
+    // Show element context panel
+    selectElement(dataLoc);
     // Open the inspector panel
     openInspectorPanel();
   };
@@ -230,7 +269,7 @@ export function HeatmapOverlay() {
   const getSelectedDataLoc = useMemo(() => {
     if (!selectedIssueId) return null;
     for (const [dataLoc, dataLocIssues] of issues.entries()) {
-      if (dataLocIssues.some(i => i.id === selectedIssueId)) {
+      if (dataLocIssues.some((i) => i.id === selectedIssueId)) {
         return dataLoc;
       }
     }
@@ -261,7 +300,8 @@ export function HeatmapOverlay() {
         if (elementIssues.length === 0) return null;
 
         // Emphasis: full opacity if no selection, or if this loc is in selection
-        const isEmphasized = !hasActiveSelection || selectedDataLocs.has(dataLoc);
+        const isEmphasized =
+          !hasActiveSelection || selectedDataLocs.has(dataLoc);
         // Preview: element matches command palette hover/keyboard item
         const isPreviewed = hasActivePreview && previewedDataLocs.has(dataLoc);
 
@@ -278,7 +318,7 @@ export function HeatmapOverlay() {
             hasActiveSelection={hasActiveSelection}
             hasActivePreview={hasActivePreview}
             previewStaggerIndex={index}
-            showDetails={altKeyHeld}
+            showExtendedDetails={altKeyHeld}
             onBadgeClick={() => handleBadgeClick(dataLoc)}
             onBadgeHover={(hovered) => handleBadgeHover(dataLoc, hovered)}
           />

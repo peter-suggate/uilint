@@ -13,8 +13,14 @@ import { createPlan } from "../../src/commands/init/plan.js";
 import { execute } from "../../src/commands/init/execute.js";
 import { gatherChoices } from "../../src/commands/init/test-helpers.js";
 import { getAllInstallers } from "../../src/commands/init/installers/registry.js";
-import type { ProjectState, InstallAction } from "../../src/commands/init/types.js";
-import type { InstallerSelection, InstallTarget } from "../../src/commands/init/installers/types.js";
+import type {
+  ProjectState,
+  InstallAction,
+} from "../../src/commands/init/types.js";
+import type {
+  InstallerSelection,
+  InstallTarget,
+} from "../../src/commands/init/installers/types.js";
 import { writeFileSync, mkdirSync, readFileSync } from "fs";
 import { join } from "path";
 
@@ -163,7 +169,7 @@ describe("ESLint removal", () => {
     fixture = f;
 
     // Verify installation
-    expect(fixture.exists(".uilint/rules/prefer-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/prefer-tailwind/index.ts")).toBe(true);
     const configAfterInstall = fixture.readFile("eslint.config.ts");
     expect(configAfterInstall).toContain("uilint");
 
@@ -390,10 +396,7 @@ describe("Combined install and remove", () => {
       },
     ];
 
-    const removeActions = buildRemovalPlan(
-      removeSelections,
-      stateAfterInstall
-    );
+    const removeActions = buildRemovalPlan(removeSelections, stateAfterInstall);
 
     // Build install plan for genstyleguide
     const prompter = mockPrompter({
@@ -726,7 +729,8 @@ describe("Package.json dependency removal", () => {
     const state = await analyze(fixture.path);
 
     // Track uninstall calls
-    const uninstallCalls: { pm: string; path: string; packages: string[] }[] = [];
+    const uninstallCalls: { pm: string; path: string; packages: string[] }[] =
+      [];
     const mockUninstallDependencies = async (
       pm: string,
       projectPath: string,
@@ -786,7 +790,8 @@ describe("Package.json dependency removal", () => {
     const state = await analyze(fixture.path);
 
     // Track uninstall calls
-    const uninstallCalls: { pm: string; path: string; packages: string[] }[] = [];
+    const uninstallCalls: { pm: string; path: string; packages: string[] }[] =
+      [];
     const mockUninstallDependencies = async (
       pm: string,
       projectPath: string,

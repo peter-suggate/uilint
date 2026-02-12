@@ -31,14 +31,20 @@ const mockInstallDependencies = async () => {
   // No-op - we don't want to actually run npm/pnpm install
 };
 
-// Rule file extension is based on ESLint config file extension (not project TypeScript status)
-function ruleFileExt(pkg: { eslintConfigPath?: string | null }): ".ts" | ".js" {
-  return pkg.eslintConfigPath?.endsWith(".ts") ? ".ts" : ".js";
+// Rule file path suffix is based on ESLint config file extension:
+// - TypeScript configs copy directory-based rule source (prefer-tailwind/index.ts)
+// - JS configs copy compiled rule file (prefer-tailwind.js)
+function ruleFileExt(pkg: {
+  eslintConfigPath?: string | null;
+}): "/index.ts" | ".js" {
+  return pkg.eslintConfigPath?.endsWith(".ts") ? "/index.ts" : ".js";
 }
 
 // Import extension: TypeScript configs omit extension to avoid allowImportingTsExtensions requirement
-function ruleImportExt(pkg: { eslintConfigPath?: string | null }): "" | ".js" {
-  return pkg.eslintConfigPath?.endsWith(".ts") ? "" : ".js";
+function ruleImportExt(pkg: {
+  eslintConfigPath?: string | null;
+}): "/index" | ".js" {
+  return pkg.eslintConfigPath?.endsWith(".ts") ? "/index" : ".js";
 }
 
 // ============================================================================
@@ -243,9 +249,7 @@ describe("ESLint installation - fresh config", () => {
     expect(result.success).toBe(true);
 
     // Verify rules were copied
-    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(
-      true
-    );
+    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(true);
 
     const updatedConfig = fixture.readFile("eslint.config.cjs");
     expect(updatedConfig).toContain(
@@ -321,9 +325,7 @@ describe("ESLint installation - fresh config", () => {
     });
 
     // Verify only selected rule was copied
-    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(
-      true
-    );
+    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(true);
     expect(fixture.exists(`.uilint/rules/consistent-dark-mode${ext}`)).toBe(
       false
     );
@@ -360,10 +362,7 @@ describe("ESLint installation - existing uilint rules", () => {
     const prompter = mockPrompter({
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
-      eslintRuleIds: [
-        "prefer-tailwind",
-        "consistent-dark-mode",
-      ],
+      eslintRuleIds: ["prefer-tailwind", "consistent-dark-mode"],
     });
 
     const choices = await gatherChoices(state, {}, prompter);
@@ -527,9 +526,7 @@ describe("ESLint installation - monorepo", () => {
 
       // Check implementation files
       expect(
-        fixture.exists(
-          `${pkgRelPath}/.uilint/rules/prefer-tailwind${ext}`
-        )
+        fixture.exists(`${pkgRelPath}/.uilint/rules/prefer-tailwind${ext}`)
       ).toBe(true);
       expect(
         fixture.exists(`${pkgRelPath}/.uilint/rules/consistent-dark-mode${ext}`)
@@ -901,7 +898,9 @@ describe("ESLint installation - JavaScript vs TypeScript file formats", () => {
 
     // Verify .js files were copied (not .ts)
     expect(fixture.exists(".uilint/rules/prefer-tailwind.js")).toBe(true);
-    expect(fixture.exists(".uilint/rules/prefer-tailwind.ts")).toBe(false);
+    expect(fixture.exists(".uilint/rules/prefer-tailwind/index.ts")).toBe(
+      false
+    );
 
     // Verify config imports .js files
     const updatedConfig = fixture.readFile("eslint.config.mjs");
@@ -935,13 +934,13 @@ describe("ESLint installation - JavaScript vs TypeScript file formats", () => {
     expect(result.success).toBe(true);
 
     // Verify .ts files were copied (not .js)
-    expect(fixture.exists(".uilint/rules/prefer-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/prefer-tailwind/index.ts")).toBe(true);
     expect(fixture.exists(".uilint/rules/prefer-tailwind.js")).toBe(false);
 
     // Verify config imports without .ts extension (to avoid allowImportingTsExtensions requirement)
     const updatedConfig = fixture.readFile("eslint.config.ts");
     expect(updatedConfig).toMatch(
-      /from\s+["']\.\/\.uilint\/rules\/prefer-tailwind["']/
+      /from\s+["']\.\/\.uilint\/rules\/prefer-tailwind\/index["']/
     );
     expect(updatedConfig).toContain("uilint/prefer-tailwind");
   });

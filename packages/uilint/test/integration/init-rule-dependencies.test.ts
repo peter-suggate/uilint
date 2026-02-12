@@ -62,8 +62,12 @@ describe("Rule installation - utility dependencies", () => {
 
     // require-test-coverage is now an external plugin rule (eslintImport set)
     // It should NOT be copied to .uilint/rules/ — it's imported from the package
-    expect(fixture.exists(".uilint/rules/require-test-coverage/index.ts")).toBe(false);
-    expect(fixture.exists(".uilint/rules/require-test-coverage.ts")).toBe(false);
+    expect(fixture.exists(".uilint/rules/require-test-coverage/index.ts")).toBe(
+      false
+    );
+    expect(fixture.exists(".uilint/rules/require-test-coverage.ts")).toBe(
+      false
+    );
   });
 
   it("handles rules without utility dependencies (simple rules)", async () => {
@@ -87,9 +91,11 @@ describe("Rule installation - utility dependencies", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(fixture.exists(".uilint/rules/prefer-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/prefer-tailwind/index.ts")).toBe(true);
 
-    const ruleContent = fixture.readFile(".uilint/rules/prefer-tailwind.ts");
+    const ruleContent = fixture.readFile(
+      ".uilint/rules/prefer-tailwind/index.ts"
+    );
 
     // Should import from uilint-eslint
     expect(ruleContent).toContain('from "uilint-eslint"');
@@ -97,7 +103,7 @@ describe("Rule installation - utility dependencies", () => {
     expect(ruleContent).toContain("defineRuleMeta");
 
     // Should not have any relative utils imports
-    expect(ruleContent).not.toContain('../utils/');
+    expect(ruleContent).not.toContain("../utils/");
   });
 
   it("can install multiple rules with different structures (local and external)", async () => {
@@ -111,9 +117,9 @@ describe("Rule installation - utility dependencies", () => {
       installItems: ["eslint"],
       eslintPackagePaths: [pkg.path],
       eslintRuleIds: [
-        "prefer-tailwind",               // Simple - single file (local)
-        "require-test-coverage",         // External plugin rule (uilint-coverage)
-        "no-mixed-component-libraries",  // Directory-based - colocated lib/ (local)
+        "prefer-tailwind", // Simple - single file (local)
+        "require-test-coverage", // External plugin rule (uilint-coverage)
+        "no-mixed-component-libraries", // Directory-based - colocated lib/ (local)
       ],
     });
 
@@ -127,23 +133,35 @@ describe("Rule installation - utility dependencies", () => {
     expect(result.success).toBe(true);
 
     // Simple local rule should be a single file
-    expect(fixture.exists(".uilint/rules/prefer-tailwind.ts")).toBe(true);
+    expect(fixture.exists(".uilint/rules/prefer-tailwind/index.ts")).toBe(true);
 
     // External plugin rule should NOT be copied locally
-    expect(fixture.exists(".uilint/rules/require-test-coverage/index.ts")).toBe(false);
-    expect(fixture.exists(".uilint/rules/require-test-coverage.ts")).toBe(false);
+    expect(fixture.exists(".uilint/rules/require-test-coverage/index.ts")).toBe(
+      false
+    );
+    expect(fixture.exists(".uilint/rules/require-test-coverage.ts")).toBe(
+      false
+    );
 
     // Directory-based local rule should be a directory with index.ts and lib/
-    expect(fixture.exists(".uilint/rules/no-mixed-component-libraries/index.ts")).toBe(true);
-    expect(fixture.exists(".uilint/rules/no-mixed-component-libraries/lib")).toBe(true);
+    expect(
+      fixture.exists(".uilint/rules/no-mixed-component-libraries/index.ts")
+    ).toBe(true);
+    expect(
+      fixture.exists(".uilint/rules/no-mixed-component-libraries/lib")
+    ).toBe(true);
 
     // Simple rule should import from uilint-eslint
-    const tailwindContent = fixture.readFile(".uilint/rules/prefer-tailwind.ts");
+    const tailwindContent = fixture.readFile(
+      ".uilint/rules/prefer-tailwind/index.ts"
+    );
     expect(tailwindContent).toContain('from "uilint-eslint"');
-    expect(tailwindContent).not.toContain('../utils/');
+    expect(tailwindContent).not.toContain("../utils/");
 
-    const mixedContent = fixture.readFile(".uilint/rules/no-mixed-component-libraries/index.ts");
-    expect(mixedContent).toContain('./lib/import-graph');
+    const mixedContent = fixture.readFile(
+      ".uilint/rules/no-mixed-component-libraries/index.ts"
+    );
+    expect(mixedContent).toContain("./lib/import-graph");
     expect(mixedContent).toContain('from "uilint-eslint"');
   });
 });
@@ -175,7 +193,9 @@ describe("Rule installation - config integration", () => {
     const config = fixture.readFile("eslint.config.ts");
 
     // External plugin rule should be imported from its package (not local .uilint/rules/)
-    expect(config).toMatch(/from\s+["']uilint-coverage\/eslint-rules\/require-test-coverage["']/);
+    expect(config).toMatch(
+      /from\s+["']uilint-coverage\/eslint-rules\/require-test-coverage["']/
+    );
 
     // Rule should be configured
     expect(config).toContain("uilint/require-test-coverage");

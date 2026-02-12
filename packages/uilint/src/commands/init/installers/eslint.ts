@@ -5,7 +5,11 @@
  */
 
 import { join } from "path";
-import { ruleRegistry, getRulesByCategory, getCategoryMeta } from "uilint-eslint";
+import {
+  ruleRegistry,
+  getRulesByCategory,
+  getCategoryMeta,
+} from "uilint-eslint";
 import type {
   Installer,
   InstallTarget,
@@ -22,6 +26,7 @@ import type { RuleMeta, OptionFieldSchema } from "uilint-eslint";
 import * as prompts from "../../../utils/prompts.js";
 import { detectPackageManager } from "../../../utils/package-manager.js";
 import { toInstallSpecifier } from "../versioning.js";
+import { loadSelectedRules } from "../../../utils/rule-loader.js";
 import {
   type AIHookProvider,
   isHookInstalled,
@@ -46,13 +51,15 @@ async function promptForField(
     case "boolean":
       return prompts.confirm({
         message: field.label,
-        initialValue: (currentValue as boolean) ?? (field.defaultValue as boolean) ?? false,
+        initialValue:
+          (currentValue as boolean) ?? (field.defaultValue as boolean) ?? false,
       });
 
     case "number": {
       const numResult = await prompts.text({
         message: field.label + hint,
-        placeholder: field.placeholder || String(currentValue ?? field.defaultValue ?? ""),
+        placeholder:
+          field.placeholder || String(currentValue ?? field.defaultValue ?? ""),
         defaultValue: String(currentValue ?? field.defaultValue ?? ""),
         validate: (value) => {
           const num = Number(value);
@@ -103,8 +110,8 @@ async function promptForField(
         initialValues: Array.isArray(currentValue)
           ? currentValue.map(String)
           : Array.isArray(field.defaultValue)
-            ? (field.defaultValue as string[]).map(String)
-            : [],
+          ? (field.defaultValue as string[]).map(String)
+          : [],
       });
 
     default:
@@ -123,7 +130,11 @@ export function convertFieldValue(
   defaultValue: unknown
 ): unknown {
   // If defaultValue is an array but field type is text, parse comma-separated
-  if (Array.isArray(defaultValue) && field.type === "text" && typeof value === "string") {
+  if (
+    Array.isArray(defaultValue) &&
+    field.type === "text" &&
+    typeof value === "string"
+  ) {
     return value
       .split(",")
       .map((s) => s.trim())
@@ -145,7 +156,7 @@ async function configureRuleOptions(
   prompts.log("");
   prompts.log(
     prompts.pc.bold(prompts.pc.cyan(`${rule.icon ?? "⚙️"}  ${rule.name}`)) +
-    prompts.pc.dim(` - ${rule.description}`)
+      prompts.pc.dim(` - ${rule.description}`)
   );
 
   const baseOptions = rule.defaultOptions?.[0] ?? {};
@@ -224,7 +235,6 @@ function formatRuleOption(rule: RuleMeta): {
     hint: `${rule.hint ?? rule.description} [${severityBadge}]`,
   };
 }
-
 
 export const eslintInstaller: Installer = {
   id: "eslint",
@@ -313,13 +323,21 @@ export const eslintInstaller: Installer = {
       const staticCat = getCategoryMeta("static");
       const semanticCat = getCategoryMeta("semantic");
 
-      prompts.log(prompts.pc.dim(`\n${staticCat?.icon ?? "📋"} ${staticCat?.name ?? "Static rules"} (${staticCat?.description ?? "pattern-based, fast"}):`));
+      prompts.log(
+        prompts.pc.dim(
+          `\n${staticCat?.icon ?? "📋"} ${staticCat?.name ?? "Static rules"} (${
+            staticCat?.description ?? "pattern-based, fast"
+          }):`
+        )
+      );
 
       // Select static rules
       const selectedStaticIds = await prompts.multiselect({
         message: "Select static rules to enable:",
         options: staticRules.map(formatRuleOption),
-        initialValues: staticRules.filter((r) => r.defaultEnabled ?? staticCat?.defaultEnabled ?? true).map((r) => r.id),
+        initialValues: staticRules
+          .filter((r) => r.defaultEnabled ?? staticCat?.defaultEnabled ?? true)
+          .map((r) => r.id),
       });
 
       // Ask about semantic rules
@@ -333,12 +351,20 @@ export const eslintInstaller: Installer = {
       let selectedSemanticIds: string[] = [];
       if (includeSemanticRules) {
         prompts.log(
-          prompts.pc.dim(`\n${semanticCat?.icon ?? "🧠"} ${semanticCat?.name ?? "Semantic rules"} (${semanticCat?.description ?? "LLM-powered, slower"}):`)
+          prompts.pc.dim(
+            `\n${semanticCat?.icon ?? "🧠"} ${
+              semanticCat?.name ?? "Semantic rules"
+            } (${semanticCat?.description ?? "LLM-powered, slower"}):`
+          )
         );
         selectedSemanticIds = await prompts.multiselect({
           message: "Select semantic rules:",
           options: semanticRules.map(formatRuleOption),
-          initialValues: semanticRules.filter((r) => r.defaultEnabled ?? semanticCat?.defaultEnabled ?? false).map((r) => r.id),
+          initialValues: semanticRules
+            .filter(
+              (r) => r.defaultEnabled ?? semanticCat?.defaultEnabled ?? false
+            )
+            .map((r) => r.id),
         });
       }
 
@@ -386,7 +412,6 @@ export const eslintInstaller: Installer = {
           });
         }
       }
-
     }
 
     // Step: Configure individual rule options (applies to all modes)
@@ -432,9 +457,9 @@ export const eslintInstaller: Installer = {
       configuredRules
         .map(
           (cr) =>
-            `${cr.severity === "error" ? "🔴" : "🟡"} ${cr.rule.icon ?? ""} ${cr.rule.name} (${
-              cr.severity
-            })`
+            `${cr.severity === "error" ? "🔴" : "🟡"} ${cr.rule.icon ?? ""} ${
+              cr.rule.name
+            } (${cr.severity})`
         )
         .join("\n"),
       `Selected ${configuredRules.length} rules (${errorCount} errors, ${warnCount} warnings)`
@@ -442,7 +467,9 @@ export const eslintInstaller: Installer = {
 
     // Display post-install instructions and requirements from rule metadata
     const rulesWithInstructions = configuredRules.filter(
-      (cr) => cr.rule.postInstallInstructions || (cr.rule.requirements?.length ?? 0) > 0
+      (cr) =>
+        cr.rule.postInstallInstructions ||
+        (cr.rule.requirements?.length ?? 0) > 0
     );
 
     if (rulesWithInstructions.length > 0) {
@@ -465,7 +492,9 @@ export const eslintInstaller: Installer = {
         // Show post-install instructions
         if (cr.rule.postInstallInstructions) {
           prompts.log(
-            prompts.pc.cyan(`  ℹ️  ${cr.rule.name}: ${cr.rule.postInstallInstructions}`)
+            prompts.pc.cyan(
+              `  ℹ️  ${cr.rule.name}: ${cr.rule.postInstallInstructions}`
+            )
           );
         }
       }
@@ -477,7 +506,8 @@ export const eslintInstaller: Installer = {
     const cursorInstalled = isHookInstalled(project.projectPath, "cursor");
 
     // Build options for AI hooks
-    const hookOptions: Array<{ value: string; label: string; hint?: string }> = [];
+    const hookOptions: Array<{ value: string; label: string; hint?: string }> =
+      [];
 
     if (!claudeInstalled) {
       hookOptions.push({
@@ -505,13 +535,17 @@ export const eslintInstaller: Installer = {
       });
 
       const selectedHooks = await prompts.multiselect({
-        message: "Install AI editor hooks? " + prompts.pc.dim("(auto-lint on file edit)"),
+        message:
+          "Install AI editor hooks? " +
+          prompts.pc.dim("(auto-lint on file edit)"),
         options: hookOptions,
         initialValues: [],
         required: false,
       });
 
-      aiHooks = selectedHooks.filter((h): h is AIHookProvider => h === "claude" || h === "cursor");
+      aiHooks = selectedHooks.filter(
+        (h): h is AIHookProvider => h === "claude" || h === "cursor"
+      );
 
       if (aiHooks.length > 0) {
         prompts.log(
@@ -557,6 +591,62 @@ export const eslintInstaller: Installer = {
         type: "create_directory",
         path: rulesDir,
       });
+
+      // Copy local rule implementations into .uilint/rules.
+      // External plugin rules are resolved from their own npm packages.
+      const localRules = configuredRules.filter(
+        (cr) => !cr.rule.eslintImport && !cr.rule.plugin
+      );
+      const isTypeScriptConfig = pkgInfo.eslintConfigPath.endsWith(".ts");
+      const ruleFiles = loadSelectedRules(
+        localRules.map((cr) => cr.rule.id),
+        { typescript: isTypeScriptConfig }
+      );
+
+      for (const ruleFile of ruleFiles) {
+        // Directory-based rules include supporting files under a folder.
+        if (ruleFile.additionalFiles && ruleFile.additionalFiles.length > 0) {
+          const ruleDir = join(rulesDir, ruleFile.ruleId);
+          actions.push({
+            type: "create_directory",
+            path: ruleDir,
+          });
+
+          const hasLibFiles = ruleFile.additionalFiles.some((f) =>
+            f.relativePath.includes("/lib/")
+          );
+          if (hasLibFiles) {
+            actions.push({
+              type: "create_directory",
+              path: join(ruleDir, "lib"),
+            });
+          }
+        }
+
+        actions.push({
+          type: "create_file",
+          path: join(rulesDir, ruleFile.implementation.relativePath),
+          content: ruleFile.implementation.content,
+        });
+
+        if (ruleFile.additionalFiles) {
+          for (const additionalFile of ruleFile.additionalFiles) {
+            actions.push({
+              type: "create_file",
+              path: join(rulesDir, additionalFile.relativePath),
+              content: additionalFile.content,
+            });
+          }
+        }
+
+        if (ruleFile.test && isTypeScriptConfig) {
+          actions.push({
+            type: "create_file",
+            path: join(rulesDir, ruleFile.test.relativePath),
+            content: ruleFile.test.content,
+          });
+        }
+      }
 
       // Collect npm dependencies from all selected rules
       const ruleNpmDeps = new Set<string>();
@@ -608,6 +698,17 @@ export const eslintInstaller: Installer = {
         configPath: pkgInfo.eslintConfigPath,
         rules: rulesWithSeverity,
         hasExistingRules: pkgInfo.hasUilintRules,
+      });
+
+      // Track installed rule versions for upgrade workflows.
+      const ruleVersions: Record<string, string> = {};
+      for (const cr of configuredRules) {
+        ruleVersions[cr.rule.id] = cr.rule.version ?? "1.0.0";
+      }
+      actions.push({
+        type: "update_manifest",
+        projectPath: target.path,
+        rules: ruleVersions,
       });
     }
 
@@ -675,9 +776,7 @@ export const eslintInstaller: Installer = {
       };
     }
 
-    const hookSuffix = aiHooks?.length
-      ? ` + ${aiHooks.length} AI hook(s)`
-      : "";
+    const hookSuffix = aiHooks?.length ? ` + ${aiHooks.length} AI hook(s)` : "";
 
     yield {
       type: "complete",

@@ -178,3 +178,147 @@ export function selectHasErrors(state: ComposedState): boolean {
 
   return false;
 }
+
+// ============================================================================
+// Rule Card Data
+// ============================================================================
+
+/**
+ * Data for a single rule card in the inspector.
+ */
+export interface RuleCardData {
+  ruleId: string;
+  ruleName: string;
+  totalCount: number;
+  highestSeverity: Issue["severity"];
+  severityCounts: SeverityCounts;
+  files: Array<{
+    filePath: string;
+    fileName: string;
+    issueCount: number;
+    issues: Issue[];
+  }>;
+}
+
+const EMPTY_RULE_CARDS: RuleCardData[] = [];
+let cachedRuleCardsIssuesMap: Map<string, Issue[]> | null = null;
+let cachedRuleCards: RuleCardData[] = EMPTY_RULE_CARDS;
+
+/**
+ * Selector to get rule card data for the inspector.
+ * Groups issues by rule, sorted by severity then count.
+ */
+export function selectRuleCards(state: ComposedState): RuleCardData[] {
+  const issuesMap = state.plugins?.eslint?.issues;
+
+  if (issuesMap === cachedRuleCardsIssuesMap) {
+    return cachedRuleCards;
+  }
+
+  cachedRuleCardsIssuesMap = issuesMap ?? null;
+
+  if (!issuesMap || issuesMap.size === 0) {
+    cachedRuleCards = EMPTY_RULE_CARDS;
+    return cachedRuleCards;
+  }
+
+  const ruleMap = new Map<string, {
+    ruleId: string;
+    totalCount: number;
+    severityCounts: SeverityCounts;
+    highestSeverity: Issue["severity"];
+    files: Map<string, { filePath: string; fileName: string; issueCount: number; issues: Issue[] }>;
+  }>();
+
+  for (const issues of issuesMap.values()) {
+    for (const issue of issues) {
+      const ruleId = issue.ruleId || "unknown";
+
+      if (!ruleMap.has(ruleId)) {
+        ruleMap.set(ruleId, {
+          ruleId,
+          totalCount: 0,
+          severityCounts: { error: 0, warning: 0, info: 0 },
+          highestSeverity: "info",
+          files: new Map(),
+        });
+      }
+
+      const rule = ruleMap.get(ruleId)!;
+      rule.totalCount++;
+      rule.severityCounts[issue.severity]++;
+
+      if (issue.severity === "error") {
+        rule.highestSeverity = "error";
+      } else if (issue.severity === "warning" && rule.highestSeverity !== "error") {
+        rule.highestSeverity = "warning";
+      }
+
+      if (!rule.files.has(issue.filePath)) {
+        const parts = issue.filePath.split("/");
+        rule.files.set(issue.filePath, {
+          filePath: issue.filePath,
+          fileName: parts[parts.length - 1] || issue.filePath,
+          issueCount: 0,
+          issues: [],
+        });
+      }
+
+      const file = rule.files.get(issue.filePath)!;
+      file.issueCount++;
+      file.issues.push(issue);
+    }
+  }
+
+  const severityOrder = { error: 0, warning: 1, info: 2 };
+  const cards: RuleCardData[] = Array.from(ruleMap.values())
+    .sort((a, b) => {
+      const sd = severityOrder[a.highestSeverity] - severityOrder[b.highestSeverity];
+      if (sd !== 0) return sd;
+      return b.totalCount - a.totalCount;
+    })
+    .map((rule) => {
+      const shortName = rule.ruleId.includes("/")
+        ? rule.ruleId.split("/").pop() || rule.ruleId
+        : rule.ruleId;
+      return {
+        ruleId: rule.ruleId,
+        ruleName: shortName,
+        totalCount: rule.totalCount,
+        highestSeverity: rule.highestSeverity,
+        severityCounts: rule.severityCounts,
+        files: Array.from(rule.files.values()).sort((a, b) => b.issueCount - a.issueCount),
+      };
+    });
+
+  cachedRuleCards = cards.length > 0 ? cards : EMPTY_RULE_CARDS;
+  return cachedRuleCards;
+}
+
+const EMPTY_GROUPED: Map<string, Issue[]> = new Map();
+
+/**
+ * Get all issues for a specific dataLoc, grouped by rule.
+ */
+export function selectIssuesByDataLocGroupedByRule(
+  state: ComposedState,
+  dataLoc: string
+): Map<string, Issue[]> {
+  const issuesMap = state.plugins?.eslint?.issues;
+  if (!issuesMap) return EMPTY_GROUPED;
+
+  const locIssues = issuesMap.get(dataLoc);
+  if (!locIssues || locIssues.length === 0) return EMPTY_GROUPED;
+
+  const grouped = new Map<string, Issue[]>();
+  for (const issue of locIssues) {
+    const existing = grouped.get(issue.ruleId);
+    if (existing) {
+      existing.push(issue);
+    } else {
+      grouped.set(issue.ruleId, [issue]);
+    }
+  }
+
+  return grouped;
+}

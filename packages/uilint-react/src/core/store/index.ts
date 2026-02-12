@@ -61,7 +61,10 @@ export {
   selectSeverityCounts,
   selectHasIssues,
   selectHasErrors,
+  selectRuleCards,
+  selectIssuesByDataLocGroupedByRule,
   type SeverityCounts,
+  type RuleCardData,
 } from "./issues-selectors";
 
 // Composed store - unified store with plugin slices

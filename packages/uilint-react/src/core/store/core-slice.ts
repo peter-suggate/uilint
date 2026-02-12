@@ -126,6 +126,10 @@ export interface InspectorState {
   ruleConfigExpanded: boolean;
   /** Whether to show full source view (false = show issue summary view) */
   showFullSource: boolean;
+  /** Selected element dataLoc from heatmap badge click (triggers context panel) */
+  selectedElementDataLoc: string | null;
+  /** Severity filter from Health Pulse chips (null = show all) */
+  healthPulseSeverityFilter: "error" | "warning" | "info" | null;
 }
 
 /**
@@ -309,6 +313,12 @@ export interface CoreSlice {
   showFullSourceView: () => void;
   /** Show the issue summary view (hide full source) */
   showIssueSummaryView: () => void;
+  /** Select an element from the heatmap (shows context panel) */
+  selectElement: (dataLoc: string | null) => void;
+  /** Set the severity filter from Health Pulse */
+  setHealthPulseSeverityFilter: (severity: "error" | "warning" | "info" | null) => void;
+  /** Jump to a rule from the element context panel (expands rule + optionally selects issue) */
+  jumpToRule: (ruleId: string, issueId?: string) => void;
 
   // ============ Issue Ignore System ============
   /** Set of issue IDs that are currently ignored */
@@ -524,6 +534,8 @@ function loadInitialInspectorState(): InspectorState {
     selectedIssueId: null,
     ruleConfigExpanded: false,
     showFullSource: false,
+    selectedElementDataLoc: null,
+    healthPulseSeverityFilter: null,
   };
 }
 
@@ -755,6 +767,7 @@ export const createCoreSlice = (
         panelId: null,
         data: null,
         selectedIssueId: null,
+        selectedElementDataLoc: null,
       },
     });
   },
@@ -951,6 +964,37 @@ export const createCoreSlice = (
       inspector: {
         ...get().inspector,
         showFullSource: false,
+      },
+    });
+  },
+
+  selectElement: (dataLoc) => {
+    set({
+      inspector: {
+        ...get().inspector,
+        selectedElementDataLoc: dataLoc,
+      },
+    });
+  },
+
+  setHealthPulseSeverityFilter: (severity) => {
+    set({
+      inspector: {
+        ...get().inspector,
+        healthPulseSeverityFilter: severity,
+      },
+    });
+  },
+
+  jumpToRule: (ruleId, issueId) => {
+    const current = get().inspector;
+    set({
+      inspector: {
+        ...current,
+        expandedRuleId: ruleId,
+        expandedFilePath: null,
+        showFullSource: false,
+        selectedIssueId: issueId ?? null,
       },
     });
   },

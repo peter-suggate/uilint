@@ -19,7 +19,9 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useComposedStore, getPluginServices } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
-import { IssuesList } from "./IssuesList";
+import { HealthPulse } from "./HealthPulse";
+import { ElementContextPanel } from "./ElementContextPanel";
+import { RuleCardList } from "./RuleCardList";
 import { IssueDetail } from "./IssueDetail";
 import { ElementDetail } from "./ElementDetail";
 import { ResizeHandle } from "./ResizeHandle";
@@ -37,6 +39,7 @@ export function InspectorSidebar() {
   const isOpen = useComposedStore((s) => s.inspector.open);
   const panelId = useComposedStore((s) => s.inspector.panelId);
   const panelData = useComposedStore((s) => s.inspector.data);
+  const selectedElementDataLoc = useComposedStore((s) => s.inspector.selectedElementDataLoc);
   const docked = useComposedStore((s) => s.inspector.docked);
   const width = useComposedStore((s) => s.inspector.width);
   const floatingPosition = useComposedStore((s) => s.inspector.floatingPosition);
@@ -124,10 +127,15 @@ export function InspectorSidebar() {
         />
       );
     } else {
-      // Default: Unified issues list (new primary view)
-      // IssuesList reads layoutAvailableWidth directly from store
+      // Default: Three-zone narrative inspector
       title = "Issues";
-      content = <IssuesList />;
+      content = (
+        <div className="flex flex-col h-full">
+          <HealthPulse />
+          {selectedElementDataLoc && <ElementContextPanel />}
+          <RuleCardList />
+        </div>
+      );
     }
 
     return { content, title };

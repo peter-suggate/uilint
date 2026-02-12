@@ -31,6 +31,14 @@ vi.mock("../hooks/useElementRects", () => ({
 
 import { useElementRects } from "../hooks/useElementRects";
 
+function getBadge(container: HTMLElement): HTMLElement | null {
+  return container.querySelector('button[aria-label*="issue"]');
+}
+
+function getBadges(container: HTMLElement): NodeListOf<HTMLElement> {
+  return container.querySelectorAll('button[aria-label*="issue"]');
+}
+
 /**
  * Helper to set up the store with eslint issues
  */
@@ -149,10 +157,7 @@ describe("HeatmapOverlay", () => {
 
       const { container } = render(<HeatmapOverlay />);
 
-      // Find the badge (span with issue count)
-      const badge = container.querySelector(
-        'span[style*="pointer-events: auto"]'
-      );
+      const badge = getBadge(container);
       expect(badge).not.toBeNull();
 
       // Click the badge
@@ -198,9 +203,7 @@ describe("HeatmapOverlay", () => {
 
       const { container } = render(<HeatmapOverlay />);
 
-      const badge = container.querySelector(
-        'span[style*="pointer-events: auto"]'
-      );
+      const badge = getBadge(container);
 
       act(() => {
         fireEvent.click(badge!);
@@ -245,9 +248,7 @@ describe("HeatmapOverlay", () => {
 
       const { container } = render(<HeatmapOverlay />);
 
-      const badge = container.querySelector(
-        'span[style*="pointer-events: auto"]'
-      );
+      const badge = getBadge(container);
 
       act(() => {
         fireEvent.click(badge!);
@@ -323,17 +324,14 @@ describe("HeatmapOverlay", () => {
 
       const { container } = render(<HeatmapOverlay />);
 
-      // Find the badge span
-      const badge = container.querySelector(
-        'span[style*="pointer-events: auto"]'
-      );
+      const badge = getBadge(container);
 
       expect(badge).not.toBeNull();
     });
   });
 
   describe("Badge Design", () => {
-    it("badge is positioned flush with corner (top: 0, right: 0)", () => {
+    it("badge hit target is offset and touch-sized", () => {
       const issuesMap = new Map();
       issuesMap.set("src/App.tsx:10:5", [
         {
@@ -359,13 +357,13 @@ describe("HeatmapOverlay", () => {
 
       const { container } = render(<HeatmapOverlay />);
 
-      const badge = container.querySelector(
-        'span[style*="pointer-events: auto"]'
-      ) as HTMLElement;
+      const badge = getBadge(container) as HTMLElement;
 
       expect(badge).not.toBeNull();
-      expect(badge.style.top).toBe("0px");
-      expect(badge.style.right).toBe("0px");
+      expect(badge.style.top).toBe("-18px");
+      expect(badge.style.right).toBe("-18px");
+      expect(badge.style.width).toBe("44px");
+      expect(badge.style.height).toBe("44px");
     });
 
     it("badge has square border radius (2px)", () => {
@@ -394,12 +392,11 @@ describe("HeatmapOverlay", () => {
 
       const { container } = render(<HeatmapOverlay />);
 
-      const badge = container.querySelector(
-        'span[style*="pointer-events: auto"]'
-      ) as HTMLElement;
+      const badge = getBadge(container) as HTMLElement;
+      const indicator = badge.firstElementChild as HTMLElement;
 
       expect(badge).not.toBeNull();
-      expect(badge.style.borderRadius).toBe("2px");
+      expect(indicator.style.borderRadius).toBe("2px");
     });
 
     it("badge is a minimal indicator without count", () => {
@@ -446,9 +443,7 @@ describe("HeatmapOverlay", () => {
 
       const { container } = render(<HeatmapOverlay />);
 
-      const badge = container.querySelector(
-        'span[style*="pointer-events: auto"]'
-      );
+      const badge = getBadge(container);
 
       expect(badge).not.toBeNull();
       // Badge is now a minimal indicator without text count
@@ -483,9 +478,7 @@ describe("HeatmapOverlay", () => {
 
       const { container } = render(<HeatmapOverlay />);
 
-      const badge = container.querySelector(
-        'span[style*="pointer-events: auto"]'
-      );
+      const badge = getBadge(container);
 
       act(() => {
         fireEvent.mouseEnter(badge!);
@@ -520,9 +513,7 @@ describe("HeatmapOverlay", () => {
 
       const { container } = render(<HeatmapOverlay />);
 
-      const badge = container.querySelector(
-        'span[style*="pointer-events: auto"]'
-      );
+      const badge = getBadge(container);
 
       // First hover
       act(() => {
@@ -583,9 +574,7 @@ describe("HeatmapOverlay", () => {
 
       const { container } = render(<HeatmapOverlay />);
 
-      const badges = container.querySelectorAll(
-        'span[style*="pointer-events: auto"]'
-      );
+      const badges = getBadges(container);
       expect(badges).toHaveLength(2);
     });
 
@@ -615,9 +604,7 @@ describe("HeatmapOverlay", () => {
 
       const { container } = render(<HeatmapOverlay />);
 
-      const badge = container.querySelector(
-        'span[style*="pointer-events: auto"]'
-      );
+      const badge = getBadge(container);
 
       act(() => {
         fireEvent.click(badge!);

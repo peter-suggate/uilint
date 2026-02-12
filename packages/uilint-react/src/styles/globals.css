@@ -102,6 +102,10 @@
   --transition-normal: var(--uilint-transition-normal);
   --transition-slow: var(--uilint-transition-slow);
 
+  /* Accordion animations */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
   /* Mobile-specific sizing */
   --spacing-safe-area-top: env(safe-area-inset-top, 0px);
   --spacing-safe-area-bottom: env(safe-area-inset-bottom, 0px);
@@ -540,6 +544,36 @@
   }
   50% {
     box-shadow: 0 0 16px 6px var(--uilint-pulse-color, rgba(255, 165, 0, 0.6));
+  }
+}
+
+@keyframes uilint-spotlight {
+  0% {
+    box-shadow: 0 0 4px 1px var(--uilint-pulse-color, rgba(255, 165, 0, 0.3));
+  }
+  50% {
+    box-shadow: 0 0 10px 3px var(--uilint-pulse-color, rgba(255, 165, 0, 0.45));
+  }
+  100% {
+    box-shadow: 0 0 4px 1px var(--uilint-pulse-color, rgba(255, 165, 0, 0.3));
+  }
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
   }
 }
 
