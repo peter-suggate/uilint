@@ -1,6 +1,6 @@
 {
   "name": "uilint-semantic",
-  "version": "0.2.155",
+  "version": "0.2.156",
   "description": "LLM-powered styleguide checking for UILint",
   "author": "Peter Suggate",
   "repository": {
