@@ -198,6 +198,10 @@ export class IncrementalIndexer {
       );
     }
 
+    // Ensure embedding model is pulled (auto-pulls on first run)
+    log("Checking embedding model...");
+    await this.embeddingClient.ensureModel();
+
     // Clear existing index if force
     if (force) {
       this.vectorStore.clear();
@@ -245,6 +249,10 @@ export class IncrementalIndexer {
     if (!available) {
       throw new Error("Ollama is not available");
     }
+
+    // Ensure embedding model is pulled (auto-pulls on first run)
+    log("Checking embedding model...");
+    await this.embeddingClient.ensureModel();
 
     // Find files and detect changes
     log("Detecting changes...");
