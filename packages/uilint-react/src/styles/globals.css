@@ -146,7 +146,7 @@
 
   /* Text colors - cool zinc */
   --uilint-text-primary: oklch(0.141 0.005 265);
-  --uilint-text-secondary: oklch(0.370 0.013 265);
+  --uilint-text-secondary: oklch(0.37 0.013 265);
   --uilint-text-muted: oklch(0.552 0.016 265);
   --uilint-text-disabled: oklch(0.705 0.015 265);
 
@@ -155,7 +155,7 @@
   --uilint-active: oklch(0.442 0.017 265 / 16%);
 
   /* Borders - zinc neutral */
-  --uilint-border: oklch(0.920 0.004 265);
+  --uilint-border: oklch(0.92 0.004 265);
   --uilint-border-focus: oklch(0.552 0.016 265);
 
   /* Accent colors - zinc mid-tone */
@@ -165,10 +165,10 @@
   /* Status colors */
   --uilint-success: oklch(0.723 0.191 142.5);
   --uilint-success-bg: oklch(0.723 0.191 142.5 / 15%);
-  --uilint-warning: oklch(0.82 0.165 80);
-  --uilint-warning-bg: oklch(0.82 0.165 80 / 15%);
-  --uilint-error: oklch(0.72 0.17 25);
-  --uilint-error-bg: oklch(0.72 0.17 25 / 15%);
+  --uilint-warning: rgb(245 158 11);
+  --uilint-warning-bg: rgb(245 158 11 / 15%);
+  --uilint-error: rgb(252 165 165);
+  --uilint-error-bg: rgb(252 165 165 / 15%);
   --uilint-info: oklch(0.623 0.214 259);
   --uilint-info-bg: oklch(0.623 0.214 259 / 15%);
 
@@ -193,7 +193,11 @@
   --uilint-glass-heavy: oklch(0.99 0.002 265 / 85%);
 
   /* Kbd (keyboard hint) styling */
-  --uilint-kbd-background: linear-gradient(180deg, oklch(1 0 0) 0%, oklch(0.967 0.003 265) 100%);
+  --uilint-kbd-background: linear-gradient(
+    180deg,
+    oklch(1 0 0) 0%,
+    oklch(0.967 0.003 265) 100%
+  );
   --uilint-kbd-border: oklch(0 0 0 / 10%);
   --uilint-kbd-shadow: 0 1px 0 oklch(0 0 0 / 8%);
   --uilint-kbd-text: oklch(0.442 0.017 265);
@@ -266,7 +270,7 @@
   --uilint-icon-button-radius: 8px;
 
   /* Scrollbar - zinc neutral */
-  --uilint-scrollbar-track: oklch(0.920 0.004 265);
+  --uilint-scrollbar-track: oklch(0.92 0.004 265);
   --uilint-scrollbar-thumb: oklch(0.705 0.015 265);
   --uilint-scrollbar-thumb-hover: oklch(0.552 0.016 265);
 
@@ -296,16 +300,16 @@
 .dev-tool-root[data-theme="dark"] {
   /* Core colors - zinc neutral dark */
   --uilint-background: oklch(0.141 0.005 265);
-  --uilint-background-elevated: oklch(0.210 0.006 265);
+  --uilint-background-elevated: oklch(0.21 0.006 265);
   --uilint-foreground: oklch(0.985 0.002 265);
 
   /* Surface colors - zinc neutral dark */
   --uilint-surface: oklch(0.141 0.005 265);
-  --uilint-surface-elevated: oklch(0.210 0.006 265);
+  --uilint-surface-elevated: oklch(0.21 0.006 265);
 
   /* Text colors - cool zinc */
   --uilint-text-primary: oklch(0.985 0.002 265);
-  --uilint-text-secondary: oklch(0.870 0.006 265);
+  --uilint-text-secondary: oklch(0.87 0.006 265);
   --uilint-text-muted: oklch(0.705 0.015 265);
   --uilint-text-disabled: oklch(0.442 0.017 265);
 
@@ -324,10 +328,10 @@
   /* Status colors */
   --uilint-success: oklch(0.723 0.191 142.5);
   --uilint-success-bg: oklch(0.723 0.191 142.5 / 20%);
-  --uilint-warning: oklch(0.82 0.165 80);
-  --uilint-warning-bg: oklch(0.82 0.165 80 / 20%);
-  --uilint-error: oklch(0.72 0.17 25);
-  --uilint-error-bg: oklch(0.72 0.17 25 / 20%);
+  --uilint-warning: rgb(251 191 36);
+  --uilint-warning-bg: rgb(251 191 36 / 20%);
+  --uilint-error: rgb(254 202 202);
+  --uilint-error-bg: rgb(254 202 202 / 20%);
   --uilint-info: oklch(0.623 0.214 259);
   --uilint-info-bg: oklch(0.623 0.214 259 / 20%);
 
@@ -337,17 +341,21 @@
   --uilint-backdrop: oklch(0.141 0.005 265 / 92%);
 
   /* Glass morphism - semi-transparent for frosted glass effect */
-  --uilint-glass: oklch(0.210 0.006 265 / 70%);
+  --uilint-glass: oklch(0.21 0.006 265 / 70%);
   --uilint-glass-border: oklch(1 0.002 265 / 12%);
   --uilint-glass-highlight: oklch(1 0 0 / 10%);
 
   /* Glass background variants - dark */
-  --uilint-glass-light: oklch(0.230 0.006 265 / 50%);
-  --uilint-glass-medium: oklch(0.210 0.006 265 / 70%);
-  --uilint-glass-heavy: oklch(0.180 0.005 265 / 85%);
+  --uilint-glass-light: oklch(0.23 0.006 265 / 50%);
+  --uilint-glass-medium: oklch(0.21 0.006 265 / 70%);
+  --uilint-glass-heavy: oklch(0.18 0.005 265 / 85%);
 
   /* Kbd (keyboard hint) styling - dark */
-  --uilint-kbd-background: linear-gradient(180deg, oklch(0.274 0.006 265) 0%, oklch(0.210 0.006 265) 100%);
+  --uilint-kbd-background: linear-gradient(
+    180deg,
+    oklch(0.274 0.006 265) 0%,
+    oklch(0.21 0.006 265) 100%
+  );
   --uilint-kbd-border: oklch(1 0 0 / 10%);
   --uilint-kbd-shadow: 0 1px 0 oklch(0 0 0 / 20%);
   --uilint-kbd-text: oklch(0.705 0.015 265);
@@ -383,7 +391,7 @@
   --uilint-button-glass-border: var(--uilint-glass-border);
 
   /* Input styling - dark */
-  --uilint-input-bg: oklch(0.230 0.006 265 / 60%);
+  --uilint-input-bg: oklch(0.23 0.006 265 / 60%);
   --uilint-input-border: var(--uilint-border);
   --uilint-input-border-focus: var(--uilint-border-focus);
   --uilint-input-placeholder: var(--uilint-text-muted);
@@ -404,8 +412,8 @@
   --uilint-card-glass-border: var(--uilint-glass-border);
 
   /* Scrollbar - zinc neutral */
-  --uilint-scrollbar-track: oklch(0.210 0.006 265);
-  --uilint-scrollbar-thumb: oklch(0.370 0.013 265);
+  --uilint-scrollbar-track: oklch(0.21 0.006 265);
+  --uilint-scrollbar-thumb: oklch(0.37 0.013 265);
   --uilint-scrollbar-thumb-hover: oklch(0.442 0.017 265);
 
   /* Color scheme for native elements */
@@ -418,14 +426,14 @@
   .dev-tool-root:not(.light):not([data-theme="light"]) {
     /* Only apply if not explicitly set to light - zinc neutral dark */
     --uilint-background: oklch(0.141 0.005 265);
-    --uilint-background-elevated: oklch(0.210 0.006 265);
+    --uilint-background-elevated: oklch(0.21 0.006 265);
     --uilint-foreground: oklch(0.985 0.002 265);
 
     --uilint-surface: oklch(0.141 0.005 265);
-    --uilint-surface-elevated: oklch(0.210 0.006 265);
+    --uilint-surface-elevated: oklch(0.21 0.006 265);
 
     --uilint-text-primary: oklch(0.985 0.002 265);
-    --uilint-text-secondary: oklch(0.870 0.006 265);
+    --uilint-text-secondary: oklch(0.87 0.006 265);
     --uilint-text-muted: oklch(0.705 0.015 265);
     --uilint-text-disabled: oklch(0.442 0.017 265);
 
@@ -440,19 +448,19 @@
 
     --uilint-success: oklch(0.723 0.191 142.5);
     --uilint-success-bg: oklch(0.723 0.191 142.5 / 20%);
-    --uilint-warning: oklch(0.82 0.165 80);
-    --uilint-warning-bg: oklch(0.82 0.165 80 / 20%);
-    --uilint-error: oklch(0.72 0.17 25);
-    --uilint-error-bg: oklch(0.72 0.17 25 / 20%);
+    --uilint-warning: rgb(251 191 36);
+    --uilint-warning-bg: rgb(251 191 36 / 20%);
+    --uilint-error: rgb(254 202 202);
+    --uilint-error-bg: rgb(254 202 202 / 20%);
 
     --uilint-shadow: 0 4px 20px oklch(0 0 0 / 40%);
     --uilint-backdrop: oklch(0.141 0.005 265 / 92%);
 
-    --uilint-glass: oklch(0.210 0.006 265 / 70%);
+    --uilint-glass: oklch(0.21 0.006 265 / 70%);
     --uilint-glass-border: oklch(1 0.002 265 / 12%);
 
-    --uilint-scrollbar-track: oklch(0.210 0.006 265);
-    --uilint-scrollbar-thumb: oklch(0.370 0.013 265);
+    --uilint-scrollbar-track: oklch(0.21 0.006 265);
+    --uilint-scrollbar-thumb: oklch(0.37 0.013 265);
     --uilint-scrollbar-thumb-hover: oklch(0.442 0.017 265);
 
     color-scheme: dark;
@@ -473,14 +481,14 @@
   --uilint-surface-elevated: oklch(0.967 0.003 265);
 
   --uilint-text-primary: oklch(0.141 0.005 265);
-  --uilint-text-secondary: oklch(0.370 0.013 265);
+  --uilint-text-secondary: oklch(0.37 0.013 265);
   --uilint-text-muted: oklch(0.552 0.016 265);
   --uilint-text-disabled: oklch(0.705 0.015 265);
 
   --uilint-hover: oklch(0.552 0.016 265 / 12%);
   --uilint-active: oklch(0.442 0.017 265 / 16%);
 
-  --uilint-border: oklch(0.920 0.004 265);
+  --uilint-border: oklch(0.92 0.004 265);
   --uilint-border-focus: oklch(0.552 0.016 265);
 
   --uilint-accent: oklch(0.442 0.017 265);
@@ -488,10 +496,10 @@
 
   --uilint-success: oklch(0.723 0.191 142.5);
   --uilint-success-bg: oklch(0.723 0.191 142.5 / 15%);
-  --uilint-warning: oklch(0.82 0.165 80);
-  --uilint-warning-bg: oklch(0.82 0.165 80 / 15%);
-  --uilint-error: oklch(0.72 0.17 25);
-  --uilint-error-bg: oklch(0.72 0.17 25 / 15%);
+  --uilint-warning: rgb(245 158 11);
+  --uilint-warning-bg: rgb(245 158 11 / 15%);
+  --uilint-error: rgb(252 165 165);
+  --uilint-error-bg: rgb(252 165 165 / 15%);
 
   --uilint-shadow: 0 4px 20px oklch(0.141 0.005 265 / 12%);
   --uilint-backdrop: oklch(0.985 0.002 265 / 92%);
@@ -499,7 +507,7 @@
   --uilint-glass: oklch(0.99 0.002 265 / 70%);
   --uilint-glass-border: oklch(1 0.002 265 / 25%);
 
-  --uilint-scrollbar-track: oklch(0.920 0.004 265);
+  --uilint-scrollbar-track: oklch(0.92 0.004 265);
   --uilint-scrollbar-thumb: oklch(0.705 0.015 265);
   --uilint-scrollbar-thumb-hover: oklch(0.552 0.016 265);
 

@@ -6,7 +6,7 @@
  */
 
 import type { ComposedState } from "./composed-store";
-import type { Issue } from "../../ui/types";
+import type { Issue, IssueSeverity } from "../../ui/types";
 
 // ============================================================================
 // Types
@@ -202,7 +202,21 @@ export interface RuleCardData {
 
 const EMPTY_RULE_CARDS: RuleCardData[] = [];
 let cachedRuleCardsIssuesMap: Map<string, Issue[]> | null = null;
+let cachedRuleCardsRuleConfigs: Map<
+  string,
+  { severity?: "off" | "warn" | "error" }
+> | null = null;
 let cachedRuleCards: RuleCardData[] = EMPTY_RULE_CARDS;
+
+function getEffectiveSeverity(
+  issue: Issue,
+  ruleConfigs: Map<string, { severity?: "off" | "warn" | "error" }> | null
+): IssueSeverity {
+  const configured = ruleConfigs?.get(issue.ruleId)?.severity;
+  if (configured === "error") return "error";
+  if (configured === "warn") return "warning";
+  return issue.severity;
+}
 
 /**
  * Selector to get rule card data for the inspector.
@@ -210,29 +224,51 @@ let cachedRuleCards: RuleCardData[] = EMPTY_RULE_CARDS;
  */
 export function selectRuleCards(state: ComposedState): RuleCardData[] {
   const issuesMap = state.plugins?.eslint?.issues;
+  const ruleConfigs =
+    (
+      state.plugins?.eslint as
+        | { ruleConfigs?: Map<string, { severity?: "off" | "warn" | "error" }> }
+        | undefined
+    )?.ruleConfigs ?? null;
 
-  if (issuesMap === cachedRuleCardsIssuesMap) {
+  if (
+    issuesMap === cachedRuleCardsIssuesMap &&
+    ruleConfigs === cachedRuleCardsRuleConfigs
+  ) {
     return cachedRuleCards;
   }
 
   cachedRuleCardsIssuesMap = issuesMap ?? null;
+  cachedRuleCardsRuleConfigs = ruleConfigs;
 
   if (!issuesMap || issuesMap.size === 0) {
     cachedRuleCards = EMPTY_RULE_CARDS;
     return cachedRuleCards;
   }
 
-  const ruleMap = new Map<string, {
-    ruleId: string;
-    totalCount: number;
-    severityCounts: SeverityCounts;
-    highestSeverity: Issue["severity"];
-    files: Map<string, { filePath: string; fileName: string; issueCount: number; issues: Issue[] }>;
-  }>();
+  const ruleMap = new Map<
+    string,
+    {
+      ruleId: string;
+      totalCount: number;
+      severityCounts: SeverityCounts;
+      highestSeverity: Issue["severity"];
+      files: Map<
+        string,
+        {
+          filePath: string;
+          fileName: string;
+          issueCount: number;
+          issues: Issue[];
+        }
+      >;
+    }
+  >();
 
   for (const issues of issuesMap.values()) {
     for (const issue of issues) {
       const ruleId = issue.ruleId || "unknown";
+      const effectiveSeverity = getEffectiveSeverity(issue, ruleConfigs);
 
       if (!ruleMap.has(ruleId)) {
         ruleMap.set(ruleId, {
@@ -246,11 +282,14 @@ export function selectRuleCards(state: ComposedState): RuleCardData[] {
 
       const rule = ruleMap.get(ruleId)!;
       rule.totalCount++;
-      rule.severityCounts[issue.severity]++;
+      rule.severityCounts[effectiveSeverity]++;
 
-      if (issue.severity === "error") {
+      if (effectiveSeverity === "error") {
         rule.highestSeverity = "error";
-      } else if (issue.severity === "warning" && rule.highestSeverity !== "error") {
+      } else if (
+        effectiveSeverity === "warning" &&
+        rule.highestSeverity !== "error"
+      ) {
         rule.highestSeverity = "warning";
       }
 
@@ -273,7 +312,8 @@ export function selectRuleCards(state: ComposedState): RuleCardData[] {
   const severityOrder = { error: 0, warning: 1, info: 2 };
   const cards: RuleCardData[] = Array.from(ruleMap.values())
     .sort((a, b) => {
-      const sd = severityOrder[a.highestSeverity] - severityOrder[b.highestSeverity];
+      const sd =
+        severityOrder[a.highestSeverity] - severityOrder[b.highestSeverity];
       if (sd !== 0) return sd;
       return b.totalCount - a.totalCount;
     })
@@ -287,12 +327,53 @@ export function selectRuleCards(state: ComposedState): RuleCardData[] {
         totalCount: rule.totalCount,
         highestSeverity: rule.highestSeverity,
         severityCounts: rule.severityCounts,
-        files: Array.from(rule.files.values()).sort((a, b) => b.issueCount - a.issueCount),
+        files: Array.from(rule.files.values()).sort(
+          (a, b) => b.issueCount - a.issueCount
+        ),
       };
     });
 
   cachedRuleCards = cards.length > 0 ? cards : EMPTY_RULE_CARDS;
   return cachedRuleCards;
+}
+
+// ============================================================================
+// Rule Contribution Segments Selector
+// ============================================================================
+
+export interface RuleContributionSegment {
+  id: string;
+  count: number;
+  severity: IssueSeverity;
+}
+
+const EMPTY_SEGMENTS: RuleContributionSegment[] = [];
+let cachedSegmentsSource: RuleCardData[] | null = null;
+let cachedSegments: RuleContributionSegment[] = EMPTY_SEGMENTS;
+
+/**
+ * Selector that derives per-rule contribution segments from rule cards.
+ * Each segment carries the rule id, its total issue count, and its highest severity.
+ * Suitable for feeding directly into SeverityBar.
+ */
+export function selectRuleContributionSegments(
+  state: ComposedState
+): RuleContributionSegment[] {
+  const ruleCards = selectRuleCards(state);
+  if (ruleCards === cachedSegmentsSource) return cachedSegments;
+  cachedSegmentsSource = ruleCards;
+
+  if (ruleCards.length === 0) {
+    cachedSegments = EMPTY_SEGMENTS;
+    return cachedSegments;
+  }
+
+  cachedSegments = ruleCards.map((card) => ({
+    id: card.ruleId,
+    count: card.totalCount,
+    severity: card.highestSeverity,
+  }));
+  return cachedSegments;
 }
 
 const EMPTY_GROUPED: Map<string, Issue[]> = new Map();

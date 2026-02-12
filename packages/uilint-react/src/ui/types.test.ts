@@ -66,7 +66,12 @@ describe("parseDataLoc", () => {
 
 describe("createIssueId", () => {
   it("creates unique ID from components", () => {
-    const id = createIssueId("eslint", "no-unused-vars", "app/page.tsx:10:5", 10);
+    const id = createIssueId(
+      "eslint",
+      "no-unused-vars",
+      "app/page.tsx:10:5",
+      10
+    );
 
     expect(id).toBe("eslint:no-unused-vars:app/page.tsx:10:5:10");
   });
@@ -100,13 +105,13 @@ describe("severityToColor", () => {
   it("returns CSS variable for error severity", () => {
     const color = severityToColor("error");
 
-    expect(color).toBe("var(--uilint-error, oklch(0.72 0.17 25))");
+    expect(color).toBe("var(--uilint-error, rgb(252 165 165))");
   });
 
   it("returns CSS variable for warning severity", () => {
     const color = severityToColor("warning");
 
-    expect(color).toBe("var(--uilint-warning, oklch(0.82 0.165 80))");
+    expect(color).toBe("var(--uilint-warning, rgb(245 158 11))");
   });
 
   it("returns CSS variable for info severity", () => {

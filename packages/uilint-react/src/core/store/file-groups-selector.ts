@@ -83,6 +83,10 @@ const EMPTY_SUMMARY: FileGroupsSummary = {
 // ============================================================================
 
 let cachedIssuesMap: Map<string, Issue[]> | null = null;
+let cachedRuleConfigs: Map<
+  string,
+  { severity?: "off" | "warn" | "error" }
+> | null = null;
 let cachedFileGroups: FileGroup[] = EMPTY_FILE_GROUPS;
 let cachedSummary: FileGroupsSummary = EMPTY_SUMMARY;
 
@@ -91,8 +95,19 @@ let cachedSummary: FileGroupsSummary = EMPTY_SUMMARY;
  */
 export function clearFileGroupsCache(): void {
   cachedIssuesMap = null;
+  cachedRuleConfigs = null;
   cachedFileGroups = EMPTY_FILE_GROUPS;
   cachedSummary = EMPTY_SUMMARY;
+}
+
+function getEffectiveSeverity(
+  issue: Issue,
+  ruleConfigs: Map<string, { severity?: "off" | "warn" | "error" }> | null
+): IssueSeverity {
+  const configured = ruleConfigs?.get(issue.ruleId)?.severity;
+  if (configured === "error") return "error";
+  if (configured === "warn") return "warning";
+  return issue.severity;
 }
 
 // ============================================================================
@@ -102,11 +117,15 @@ export function clearFileGroupsCache(): void {
 /**
  * Determine the highest severity from a list of issues.
  */
-function getHighestSeverity(issues: Issue[]): IssueSeverity {
+function getHighestSeverity(
+  issues: Issue[],
+  ruleConfigs: Map<string, { severity?: "off" | "warn" | "error" }> | null
+): IssueSeverity {
   let highest: IssueSeverity = "info";
   for (const issue of issues) {
-    if (issue.severity === "error") return "error";
-    if (issue.severity === "warning") highest = "warning";
+    const severity = getEffectiveSeverity(issue, ruleConfigs);
+    if (severity === "error") return "error";
+    if (severity === "warning") highest = "warning";
   }
   return highest;
 }
@@ -114,10 +133,14 @@ function getHighestSeverity(issues: Issue[]): IssueSeverity {
 /**
  * Count issues by severity.
  */
-function countSeverities(issues: Issue[]): { error: number; warning: number; info: number } {
+function countSeverities(
+  issues: Issue[],
+  ruleConfigs: Map<string, { severity?: "off" | "warn" | "error" }> | null
+): { error: number; warning: number; info: number } {
   const counts = { error: 0, warning: 0, info: 0 };
   for (const issue of issues) {
-    counts[issue.severity]++;
+    const severity = getEffectiveSeverity(issue, ruleConfigs);
+    counts[severity]++;
   }
   return counts;
 }
@@ -155,9 +178,12 @@ function getShortRuleName(ruleId: string): string {
  */
 function severityOrder(severity: IssueSeverity): number {
   switch (severity) {
-    case "error": return 0;
-    case "warning": return 1;
-    case "info": return 2;
+    case "error":
+      return 0;
+    case "warning":
+      return 1;
+    case "info":
+      return 2;
   }
 }
 
@@ -170,7 +196,8 @@ function severityOrder(severity: IssueSeverity): number {
  * Returns all issues grouped by file (no filtering).
  */
 function buildFileGroups(
-  issuesMap: Map<string, Issue[]>
+  issuesMap: Map<string, Issue[]>,
+  ruleConfigs: Map<string, { severity?: "off" | "warn" | "error" }> | null
 ): { fileGroups: FileGroup[]; summary: FileGroupsSummary } {
   // Collect all issues by file path
   const issuesByFile = new Map<string, Issue[]>();
@@ -209,18 +236,19 @@ function buildFileGroups(
         ruleId,
         ruleName: getShortRuleName(ruleId),
         count: ruleIssues.length,
-        highestSeverity: getHighestSeverity(ruleIssues),
+        highestSeverity: getHighestSeverity(ruleIssues, ruleConfigs),
       });
     }
 
     // Sort rule groups by severity (errors first), then by count
     ruleGroups.sort((a, b) => {
-      const severityDiff = severityOrder(a.highestSeverity) - severityOrder(b.highestSeverity);
+      const severityDiff =
+        severityOrder(a.highestSeverity) - severityOrder(b.highestSeverity);
       if (severityDiff !== 0) return severityDiff;
       return b.count - a.count;
     });
 
-    const severityCounts = countSeverities(sortedIssues);
+    const severityCounts = countSeverities(sortedIssues, ruleConfigs);
     totalIssues += sortedIssues.length;
     overallSeverityCounts.error += severityCounts.error;
     overallSeverityCounts.warning += severityCounts.warning;
@@ -232,7 +260,7 @@ function buildFileGroups(
       directory: getDirectory(filePath),
       totalCount: sortedIssues.length,
       severityCounts,
-      highestSeverity: getHighestSeverity(sortedIssues),
+      highestSeverity: getHighestSeverity(sortedIssues, ruleConfigs),
       ruleGroups,
       issues: sortedIssues,
     });
@@ -240,7 +268,8 @@ function buildFileGroups(
 
   // Sort file groups by severity (errors first), then by count
   fileGroups.sort((a, b) => {
-    const severityDiff = severityOrder(a.highestSeverity) - severityOrder(b.highestSeverity);
+    const severityDiff =
+      severityOrder(a.highestSeverity) - severityOrder(b.highestSeverity);
     if (severityDiff !== 0) return severityDiff;
     return b.totalCount - a.totalCount;
   });
@@ -270,14 +299,21 @@ function buildFileGroups(
  */
 export function selectFileGroups(state: ComposedState): FileGroup[] {
   const issuesMap = state.plugins?.eslint?.issues;
+  const ruleConfigs =
+    (
+      state.plugins?.eslint as
+        | { ruleConfigs?: Map<string, { severity?: "off" | "warn" | "error" }> }
+        | undefined
+    )?.ruleConfigs ?? null;
 
   // Return cached result if inputs haven't changed
-  if (issuesMap === cachedIssuesMap) {
+  if (issuesMap === cachedIssuesMap && ruleConfigs === cachedRuleConfigs) {
     return cachedFileGroups;
   }
 
   // Update cache references
   cachedIssuesMap = issuesMap ?? null;
+  cachedRuleConfigs = ruleConfigs;
 
   // No issues = empty result
   if (!issuesMap || issuesMap.size === 0) {
@@ -287,7 +323,7 @@ export function selectFileGroups(state: ComposedState): FileGroup[] {
   }
 
   // Build file groups
-  const { fileGroups, summary } = buildFileGroups(issuesMap);
+  const { fileGroups, summary } = buildFileGroups(issuesMap, ruleConfigs);
 
   cachedFileGroups = fileGroups.length > 0 ? fileGroups : EMPTY_FILE_GROUPS;
   cachedSummary = summary;
@@ -307,7 +343,9 @@ export const selectFilteredFileGroups = selectFileGroups;
  * @param state - The composed store state
  * @returns Summary statistics
  */
-export function selectFileGroupsSummary(state: ComposedState): FileGroupsSummary {
+export function selectFileGroupsSummary(
+  state: ComposedState
+): FileGroupsSummary {
   // Ensure cache is up to date
   selectFileGroups(state);
   return cachedSummary;

@@ -6,7 +6,13 @@
  * Hovering the collapsed row previews matching heatmap elements.
  * Hovering file rows narrows the preview to that specific file.
  */
-import React, { useCallback, useMemo, useRef, useEffect } from "react";
+import React, {
+  useCallback,
+  useMemo,
+  useRef,
+  useEffect,
+  useState,
+} from "react";
 import { motion } from "motion/react";
 import {
   ChevronDown,
@@ -18,12 +24,14 @@ import {
 import { cn } from "../../../lib/utils";
 import { useComposedStore } from "../../../core/store";
 import { pluginRegistry } from "../../../core/plugin-system/registry";
+import { ExternalLinkIcon, SettingsIcon } from "../../icons";
+import { Popover } from "../primitives";
+import { RuleConfig } from "./RuleConfig";
 import type { RuleCardData } from "../../../core/store/issues-selectors";
 import type { ESLintPluginSlice } from "../../../plugins/eslint/slice";
 import type { AvailableRule } from "../../../plugins/eslint/types";
 import type { Issue, IssueSeverity } from "../../types";
 import { FilePill } from "./FilePill";
-import { RuleHeader } from "./RuleHeader";
 import { IssueSummaryView } from "./IssueSummaryView";
 import { FileSourceView } from "./FileSourceView";
 import { DuplicateIssueList } from "./DuplicateIssueList";
@@ -53,13 +61,6 @@ function getRuleDescription(ruleId: string): string | undefined {
       "Disallow the any type to encourage more precise typing.",
   };
   return descriptions[ruleId];
-}
-
-function getRuleCategory(ruleId: string): string | undefined {
-  if (ruleId.startsWith("@typescript-eslint/")) return "TypeScript";
-  if (ruleId.startsWith("react-hooks/")) return "React Hooks";
-  if (ruleId.startsWith("react/")) return "React";
-  return "ESLint";
 }
 
 function getRuleDocsUrl(ruleId: string): string | undefined {
@@ -141,7 +142,6 @@ export function RuleCard({
   // Store actions
   const expandFileInRule = useComposedStore((s) => s.expandFileInRule);
   const collapseFileInRule = useComposedStore((s) => s.collapseFileInRule);
-  const collapseRule = useComposedStore((s) => s.collapseRule);
   const selectIssue = useComposedStore((s) => s.selectIssue);
   const showFullSourceView = useComposedStore((s) => s.showFullSourceView);
   const setHeatmapPreview = useComposedStore((s) => s.setHeatmapPreview);
@@ -166,7 +166,6 @@ export function RuleCard({
   const showIgnored = useComposedStore((s) => s.showIgnoredIssues);
   const addIgnore = useComposedStore((s) => s.addIgnoredIssue);
   const removeIgnore = useComposedStore((s) => s.removeIgnoredIssue);
-  const toggleShowIgnored = useComposedStore((s) => s.toggleShowIgnoredIssues);
 
   // Check for custom content renderer (e.g., duplicate-comparison)
   const ruleContentRenderer = useMemo(() => {
@@ -199,18 +198,6 @@ export function RuleCard({
     if (!expandedFile) return [];
     return expandedFile.issues;
   }, [expandedFile]);
-
-  // Ignored count for this rule
-  const ruleIgnoredCount = useMemo(() => {
-    if (ignoredIssueIds.size === 0) return 0;
-    let count = 0;
-    for (const file of card.files) {
-      for (const issue of file.issues) {
-        if (ignoredIssueIds.has(issue.id)) count++;
-      }
-    }
-    return count;
-  }, [card.files, ignoredIssueIds]);
 
   // Handlers
   const handleSeverityChange = useCallback(
@@ -306,19 +293,31 @@ export function RuleCard({
   }, [isExpanded]);
 
   const description = ruleMeta?.description ?? getRuleDescription(card.ruleId);
+  const docsUrl = ruleMeta?.docs ?? getRuleDocsUrl(card.ruleId);
   const isFileExpanded = expandedFilePath !== null;
+  const hasConfig = handleSeverityChange !== undefined;
+
+  // Config popover state — lives at the card level so it persists across re-renders
+  const [configPopoverOpen, setConfigPopoverOpen] = useState(false);
 
   return (
-    <AccordionItem value={card.ruleId} ref={cardRef}>
-      {/* Trigger — flat row, no border, no card */}
+    <AccordionItem
+      value={card.ruleId}
+      ref={cardRef}
+      className={cn(
+        "rounded-lg transition-all duration-150",
+        isExpanded &&
+          "bg-foreground/2.5 ring-1 ring-foreground/6 shadow-sm my-1"
+      )}
+    >
+      {/* Trigger — flat row */}
       <AccordionTrigger
         className={cn(
           "w-full",
           "flex items-start gap-2.5 px-3 py-2.5",
           "transition-colors duration-75",
           "hover:bg-foreground/4",
-          "rounded-md",
-          isExpanded && "bg-foreground/3"
+          "rounded-md"
         )}
         onMouseEnter={handleRowMouseEnter}
         onMouseLeave={handleRowMouseLeave}
@@ -337,6 +336,88 @@ export function RuleCard({
             <span className="font-medium tracking-tight text-foreground text-sm truncate flex-1 min-w-0">
               {card.ruleName}
             </span>
+
+            {/* Inline actions — only when expanded */}
+            {isExpanded && (
+              <div
+                className="flex items-center gap-0.5 shrink-0"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {hasConfig && (
+                  <Popover
+                    open={configPopoverOpen}
+                    onClose={() => setConfigPopoverOpen(false)}
+                    placement="bottom"
+                    align="end"
+                    width={320}
+                    trigger={
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfigPopoverOpen(!configPopoverOpen);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setConfigPopoverOpen(!configPopoverOpen);
+                          }
+                        }}
+                        className={cn(
+                          "inline-flex items-center gap-1",
+                          "px-1.5 py-0.5 rounded",
+                          "text-[11px] text-muted-foreground/60 hover:text-foreground/80",
+                          "hover:bg-foreground/4",
+                          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground/25",
+                          "transition-colors duration-100 cursor-pointer",
+                          configPopoverOpen &&
+                            "bg-foreground/4 text-foreground/80"
+                        )}
+                      >
+                        <SettingsIcon size={11} />
+                        Configure
+                      </span>
+                    }
+                  >
+                    <div className="p-1">
+                      <RuleConfig
+                        ruleId={card.ruleId}
+                        currentSeverity={currentRuleSeverity}
+                        onSeverityChange={handleSeverityChange}
+                        optionSchema={ruleMeta?.optionSchema}
+                        currentOptions={ruleConfig?.options}
+                        defaultOptions={defaultOptions}
+                        onOptionChange={handleOptionChange}
+                        onResetOptions={handleResetOptions}
+                        isUpdating={isRuleUpdating}
+                      />
+                    </div>
+                  </Popover>
+                )}
+                {docsUrl && (
+                  <a
+                    href={docsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className={cn(
+                      "inline-flex items-center gap-1",
+                      "px-1.5 py-0.5 rounded",
+                      "text-[11px] text-muted-foreground/50 hover:text-foreground/70",
+                      "hover:bg-foreground/4",
+                      "transition-colors duration-100"
+                    )}
+                  >
+                    <ExternalLinkIcon size={10} />
+                    Docs
+                  </a>
+                )}
+              </div>
+            )}
+
             <span className="text-[11px] text-muted-foreground/70 tabular-nums shrink-0">
               {card.totalCount}
             </span>
@@ -349,9 +430,14 @@ export function RuleCard({
             </motion.div>
           </div>
 
-          {/* Description */}
+          {/* Description — clamp to 1 line when collapsed, full when expanded */}
           {description && (
-            <p className="text-[11px] text-muted-foreground/70 leading-relaxed line-clamp-1 ml-4 mb-1">
+            <p
+              className={cn(
+                "text-[11px] text-muted-foreground/70 leading-relaxed ml-4 mb-1",
+                !isExpanded && "line-clamp-1"
+              )}
+            >
               {description}
             </p>
           )}
@@ -379,32 +465,9 @@ export function RuleCard({
         </motion.div>
       </AccordionTrigger>
 
-      {/* Expanded content — flows below with indent, no card border */}
+      {/* Expanded content — inside the card boundary */}
       <AccordionContent>
-        <div className="border-t border-foreground/6">
-          {/* Rule header with config */}
-          <RuleHeader
-            ruleFilter={{ type: "rule", id: card.ruleId, label: card.ruleName }}
-            description={description}
-            category={ruleMeta?.category ?? getRuleCategory(card.ruleId)}
-            docsUrl={ruleMeta?.docs ?? getRuleDocsUrl(card.ruleId)}
-            onClear={collapseRule}
-            showCloseButton={false}
-            highestSeverity={card.highestSeverity}
-            issueCount={card.totalCount}
-            currentSeverity={currentRuleSeverity}
-            onSeverityChange={handleSeverityChange}
-            optionSchema={ruleMeta?.optionSchema}
-            currentOptions={ruleConfig?.options}
-            defaultOptions={defaultOptions}
-            onOptionChange={handleOptionChange}
-            onResetOptions={handleResetOptions}
-            isUpdating={isRuleUpdating}
-            ignoredCount={ruleIgnoredCount}
-            showIgnored={showIgnored}
-            onToggleShowIgnored={toggleShowIgnored}
-          />
-
+        <div className="border-t border-foreground/5 mx-1">
           {/* File context bar — back navigation when a file is selected */}
           {isFileExpanded && expandedFile && (
             <button

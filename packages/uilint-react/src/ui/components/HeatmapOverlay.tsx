@@ -28,7 +28,7 @@ import {
 } from "../../core/store";
 import { useElementRects } from "../hooks/useElementRects";
 import { severityToColor } from "../types";
-import type { Issue } from "../types";
+import type { Issue, IssueSeverity } from "../types";
 
 interface OverlayItemProps {
   dataLoc: string;
@@ -42,6 +42,7 @@ interface OverlayItemProps {
   hasActivePreview: boolean;
   previewStaggerIndex: number;
   showExtendedDetails: boolean;
+  resolveIssueSeverity: (issue: Issue) => IssueSeverity;
   onBadgeClick: () => void;
   onBadgeHover: (hovered: boolean) => void;
 }
@@ -57,15 +58,17 @@ function OverlayItem({
   hasActivePreview,
   previewStaggerIndex,
   showExtendedDetails,
+  resolveIssueSeverity,
   onBadgeClick,
   onBadgeHover,
 }: OverlayItemProps) {
   // Get highest severity for border color
   const severity = useMemo(() => {
-    if (issues.some((i) => i.severity === "error")) return "error";
-    if (issues.some((i) => i.severity === "warning")) return "warning";
+    if (issues.some((i) => resolveIssueSeverity(i) === "error")) return "error";
+    if (issues.some((i) => resolveIssueSeverity(i) === "warning"))
+      return "warning";
     return "info";
-  }, [issues]);
+  }, [issues, resolveIssueSeverity]);
 
   const color = severityToColor(severity);
   const count = issues.length;
@@ -219,6 +222,19 @@ export function HeatmapOverlay() {
   const hoveredElementId = useComposedStore((s) => s.hoveredElementId);
   const setHoveredElementId = useComposedStore((s) => s.setHoveredElementId);
   const selectedIssueId = useComposedStore((s) => s.inspector.selectedIssueId);
+  const ruleConfigs = useComposedStore(
+    (s) =>
+      (
+        s.plugins?.eslint as
+          | {
+              ruleConfigs?: Map<
+                string,
+                { severity?: "off" | "warn" | "error" }
+              >;
+            }
+          | undefined
+      )?.ruleConfigs
+  );
 
   // Use selectors for issues and selection state (additive model)
   const issues = useComposedStore(selectIssuesMap);
@@ -237,6 +253,16 @@ export function HeatmapOverlay() {
   const allEntries = useMemo(() => {
     return Array.from(elementRects.entries());
   }, [elementRects]);
+  const resolveIssueSeverity = useMemo(
+    () =>
+      (issue: Issue): IssueSeverity => {
+        const configured = ruleConfigs?.get(issue.ruleId)?.severity;
+        if (configured === "error") return "error";
+        if (configured === "warn") return "warning";
+        return issue.severity;
+      },
+    [ruleConfigs]
+  );
 
   // Handle clicking the badge on an overlay item
   // Opens inspector and expands to the rule/file for this issue
@@ -319,6 +345,7 @@ export function HeatmapOverlay() {
             hasActivePreview={hasActivePreview}
             previewStaggerIndex={index}
             showExtendedDetails={altKeyHeld}
+            resolveIssueSeverity={resolveIssueSeverity}
             onBadgeClick={() => handleBadgeClick(dataLoc)}
             onBadgeHover={(hovered) => handleBadgeHover(dataLoc, hovered)}
           />

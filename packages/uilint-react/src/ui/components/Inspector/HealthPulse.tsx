@@ -12,6 +12,7 @@ import {
   useComposedStore,
   selectFileGroupsSummary,
   selectRuleCards,
+  selectRuleContributionSegments,
 } from "../../../core/store";
 import { SeverityBar } from "./SeverityBar";
 import type { IssueSeverity } from "../../types";
@@ -81,16 +82,20 @@ export function HealthPulse({ className }: HealthPulseProps) {
     [activeFilter, setFilter]
   );
 
-  if (summary.totalIssues === 0) return null;
-
-  const issuePlural = summary.totalIssues === 1 ? "issue" : "issues";
-  const rulePlural = summary.totalRules === 1 ? "rule" : "rules";
-  const filePlural = summary.totalFiles === 1 ? "file" : "files";
   const matchingRulesCount = useMemo(() => {
     if (!activeFilter) return 0;
     return ruleCards.filter((card) => card.severityCounts[activeFilter] > 0)
       .length;
   }, [activeFilter, ruleCards]);
+  const ruleContributionSegments = useComposedStore(
+    selectRuleContributionSegments
+  );
+
+  if (summary.totalIssues === 0) return null;
+
+  const issuePlural = summary.totalIssues === 1 ? "issue" : "issues";
+  const rulePlural = summary.totalRules === 1 ? "rule" : "rules";
+  const filePlural = summary.totalFiles === 1 ? "file" : "files";
 
   return (
     <motion.div
@@ -99,12 +104,7 @@ export function HealthPulse({ className }: HealthPulseProps) {
       transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
       className={cn("px-3 py-2.5", "border-b border-foreground/6", className)}
     >
-      <SeverityBar
-        error={summary.severityCounts.error}
-        warning={summary.severityCounts.warning}
-        info={summary.severityCounts.info}
-        className="mb-2"
-      />
+      <SeverityBar segments={ruleContributionSegments} className="mb-2" />
 
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] text-muted-foreground/60">

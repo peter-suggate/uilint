@@ -86,9 +86,9 @@ export function severityFromNumber(num: 1 | 2 | number): IssueSeverity {
 export function severityToColor(severity: IssueSeverity): string {
   switch (severity) {
     case "error":
-      return "var(--uilint-error, oklch(0.72 0.17 25))";
+      return "var(--uilint-error, rgb(252 165 165))";
     case "warning":
-      return "var(--uilint-warning, oklch(0.82 0.165 80))";
+      return "var(--uilint-warning, rgb(245 158 11))";
     case "info":
       return "var(--uilint-info, oklch(0.623 0.214 259))";
   }
