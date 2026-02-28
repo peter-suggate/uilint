@@ -91,6 +91,12 @@ describe("ESLint installation - fresh config", () => {
     // Verify rules were copied to .uilint/rules/
     expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(true);
 
+    // Verify .uilint/package.json marks directory as ESM
+    expect(fixture.exists(".uilint/package.json")).toBe(true);
+    expect(fixture.readJson(".uilint/package.json")).toEqual({
+      type: "module",
+    });
+
     // Read updated config
     const updatedConfig = fixture.readFile("eslint.config.mjs");
     expect(updatedConfig).toContain('from "uilint-eslint"');

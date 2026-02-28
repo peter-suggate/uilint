@@ -240,6 +240,13 @@ export function createPlan(
         path: rulesDir,
       });
 
+      // Mark .uilint/ as ESM so Node doesn't warn about reparsing .js rule files
+      actions.push({
+        type: "create_file",
+        path: join(pkgPath, ".uilint", "package.json"),
+        content: '{ "type": "module" }\n',
+      });
+
       // Load and copy rule files into this target package
       // Use TypeScript rule files if the ESLint config is TypeScript (.ts)
       // This ensures the imports match the actual rule files being copied

@@ -174,6 +174,12 @@ function executeCopyRuleFiles(
       mkdirSync(rulesDir, { recursive: true });
     }
 
+    // Ensure .uilint/package.json marks the directory as ESM
+    const uilintPkgPath = join(action.packagePath, ".uilint", "package.json");
+    if (!existsSync(uilintPkgPath)) {
+      writeFileSync(uilintPkgPath, '{ "type": "module" }\n', "utf-8");
+    }
+
     // Load rule files (TypeScript version - can adjust based on project config)
     const [ruleFile] = loadSelectedRules([action.ruleId], {
       typescript: true,

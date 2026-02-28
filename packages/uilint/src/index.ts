@@ -6,7 +6,6 @@ import { Command } from "commander";
 import { scan } from "./commands/scan.js";
 import { analyze } from "./commands/analyze.js";
 import { consistency } from "./commands/consistency.js";
-import { update } from "./commands/update.js";
 import { serve } from "./commands/serve.js";
 import { vision } from "./commands/vision.js";
 import { config } from "./commands/config.js";
@@ -150,23 +149,6 @@ program
     await consistency({
       inputJson: options.inputJson,
       output: options.output,
-    });
-  });
-
-// Update command
-program
-  .command("update")
-  .description("Update existing style guide with new styles")
-  .option("-f, --input-file <path>", "Path to HTML file to analyze")
-  .option("-j, --input-json <json>", "JSON input with html and styles")
-  .option("-s, --styleguide <path>", "Path to style guide file")
-  .option("--llm", "Use LLM to suggest updates")
-  .action(async (options) => {
-    await update({
-      inputFile: options.inputFile,
-      inputJson: options.inputJson,
-      styleguide: options.styleguide,
-      llm: options.llm,
     });
   });
 

@@ -592,6 +592,14 @@ export const eslintInstaller: Installer = {
         path: rulesDir,
       });
 
+      // Mark .uilint/ as ESM so Node doesn't warn about reparsing .js rule files
+      const uilintPkgPath = join(target.path, ".uilint", "package.json");
+      actions.push({
+        type: "create_file",
+        path: uilintPkgPath,
+        content: '{ "type": "module" }\n',
+      });
+
       // Copy local rule implementations into .uilint/rules.
       // External plugin rules are resolved from their own npm packages.
       const localRules = configuredRules.filter(
