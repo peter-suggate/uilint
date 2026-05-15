@@ -591,6 +591,53 @@ describe("ESLint installation - rule options", () => {
     // Should include the styleRatioThreshold option from defaultOptions
     expect(config).toContain("uilint/prefer-tailwind");
     expect(config).toContain("styleRatioThreshold");
+    expect(config).toContain("preferSemanticClassGroups");
+    expect(config).toContain("visualUtilityThreshold");
+    expect(config).toContain("visualUtilityMinGroups");
+    expect(config).toContain("disallowSemanticOpacityModifiers");
+    expect(config).toContain("allowedOpacityModifierClasses");
+    expect(config).toContain("allowedVisualUtilityClasses");
+  });
+
+  it("handles prefer-tailwind semantic styling option overrides", async () => {
+    fixture = useFixture("has-eslint-flat");
+
+    const state = await analyze(fixture.path);
+    const pkg = state.packages.find((p) => p.eslintConfigPath !== null)!;
+    const ext = ruleFileExt(pkg);
+
+    const prompter = mockPrompter({
+      installItems: ["eslint"],
+      eslintPackagePaths: [pkg.path],
+      eslintRuleIds: ["prefer-tailwind"],
+      customizeRuleOptions: true,
+      ruleOptions: {
+        "prefer-tailwind": {
+          preferSemanticClassGroups: false,
+          visualUtilityThreshold: 6,
+          visualUtilityMinGroups: 3,
+          disallowSemanticOpacityModifiers: false,
+        },
+      },
+    });
+
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+    await execute(plan, {
+      installDependencies: mockInstallDependencies,
+    });
+
+    expect(fixture.exists(`.uilint/rules/prefer-tailwind${ext}`)).toBe(true);
+
+    const config = fixture.readFile("eslint.config.mjs");
+    expect(config).toContain("uilint/prefer-tailwind");
+    expect(config).toContain("preferSemanticClassGroups: false");
+    expect(config).toContain("visualUtilityThreshold: 6");
+    expect(config).toContain("visualUtilityMinGroups: 3");
+    expect(config).toContain("disallowSemanticOpacityModifiers: false");
+    // Existing defaults should still be merged with the customized values.
+    expect(config).toContain("styleRatioThreshold");
+    expect(config).toContain("allowedHardCodedColors");
   });
 
   it("handles no-mixed-component-libraries with preferred library", async () => {

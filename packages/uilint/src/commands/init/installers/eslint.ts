@@ -818,6 +818,12 @@ export const eslintInstaller: Installer = {
         path: rulesDir,
       });
 
+      // Remove the ESM marker created for copied local rule files.
+      actions.push({
+        type: "delete_file",
+        path: join(target.path, ".uilint", "package.json"),
+      });
+
       // Remove uilint-eslint dependency from package.json
       actions.push({
         type: "remove_dependencies",

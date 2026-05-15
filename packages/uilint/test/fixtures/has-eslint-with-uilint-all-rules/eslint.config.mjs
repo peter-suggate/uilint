@@ -18,6 +18,7 @@ export default [
       "uilint/no-direct-store-import": "warn",
       "uilint/prefer-zustand-state-management": "warn",
       "uilint/no-mixed-component-libraries": "warn",
+      "uilint/no-raw-ui-elements": "warn",
       "uilint/enforce-absolute-imports": "warn",
       "uilint/no-any-in-props": "error",
       "uilint/zustand-use-selectors": "warn",

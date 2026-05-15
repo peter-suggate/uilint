@@ -307,6 +307,84 @@ ruleTester.run("prefer-tailwind", rule, {
         }
       `,
     },
+    {
+      name: "layout-heavy class strings do not count as visual clusters",
+      code: `
+        function Component() {
+          return (
+            <div className="flex min-h-0 w-full items-center justify-between gap-4 overflow-hidden truncate px-4 py-3 text-sm font-medium transition-colors" />
+          );
+        }
+      `,
+    },
+    {
+      name: "three visual utilities are below the default cluster threshold",
+      code: `
+        function Component() {
+          return <div className="bg-card rounded-2xl shadow-md p-4" />;
+        }
+      `,
+    },
+    {
+      name: "four visual utilities from one group are below the default group threshold",
+      code: `
+        function Component() {
+          return <div className="border border-t border-b border-border p-4" />;
+        }
+      `,
+    },
+    {
+      name: "standalone opacity utilities are allowed",
+      code: `
+        function Component() {
+          return <div className="opacity-0 hover:opacity-100 disabled:opacity-40 transition-opacity" />;
+        }
+      `,
+    },
+    {
+      name: "text size slash line-height utilities are allowed",
+      code: `
+        function Component() {
+          return <p className="text-sm/6 text-[11px]/4 leading-tight" />;
+        }
+      `,
+    },
+    {
+      name: "allowed visual utility classes are ignored in cluster detection",
+      code: `
+        function Component() {
+          return <div className="bg-card rounded-2xl shadow-md border border-border/40" />;
+        }
+      `,
+      options: [
+        {
+          allowedVisualUtilityClasses: [
+            "bg-card",
+            "rounded-2xl",
+            "shadow-md",
+            "border",
+            "border-border/40",
+          ],
+          allowedOpacityModifierClasses: ["border-border/40"],
+        },
+      ],
+    },
+    {
+      name: "allowed opacity modifier classes are ignored",
+      code: `
+        function Component() {
+          return <div className="text-foreground/80 border-border/40" />;
+        }
+      `,
+      options: [
+        {
+          allowedOpacityModifierClasses: [
+            "text-foreground/80",
+            "border-border/40",
+          ],
+        },
+      ],
+    },
   ],
 
   invalid: [
@@ -579,6 +657,98 @@ ruleTester.run("prefer-tailwind", rule, {
       `,
       options: [{ preferSemanticColors: true }],
       errors: [{ messageId: "preferSemanticColors" }],
+    },
+
+    // ============================================
+    // SEMANTIC CLASS GROUPS
+    // ============================================
+    {
+      name: "sessions-style panel visual cluster",
+      code: `
+        function Component() {
+          return <section className="flex-1 flex flex-col bg-card rounded-2xl shadow-md border border-border/40 min-h-0 overflow-hidden" />;
+        }
+      `,
+      errors: [
+        { messageId: "preferSemanticClassGroups" },
+        { messageId: "semanticOpacityModifier" },
+      ],
+    },
+    {
+      name: "gradient shadow border radius visual cluster",
+      code: `
+        function Component() {
+          return <div className="bg-gradient-to-br from-primary via-accent to-muted rounded-xl shadow-lg border" />;
+        }
+      `,
+      errors: [{ messageId: "preferSemanticClassGroups" }],
+    },
+    {
+      name: "visual cluster in cn() call",
+      code: `
+        function Component() {
+          return <div className={cn("bg-card rounded-2xl shadow-md border border-border")} />;
+        }
+      `,
+      errors: [{ messageId: "preferSemanticClassGroups" }],
+    },
+    {
+      name: "visual cluster in template literal static chunks",
+      code: `
+        function Component() {
+          return <div className={\`bg-card rounded-2xl shadow-md border border-border \${active ? "opacity-100" : ""}\`} />;
+        }
+      `,
+      errors: [{ messageId: "preferSemanticClassGroups" }],
+    },
+
+    // ============================================
+    // SEMANTIC OPACITY MODIFIERS
+    // ============================================
+    {
+      name: "semantic text opacity modifier",
+      code: `
+        function Component() {
+          return <p className="text-foreground/80" />;
+        }
+      `,
+      errors: [{ messageId: "semanticOpacityModifier" }],
+    },
+    {
+      name: "semantic muted text opacity modifier",
+      code: `
+        function Component() {
+          return <p className="text-muted-foreground/60" />;
+        }
+      `,
+      errors: [{ messageId: "semanticOpacityModifier" }],
+    },
+    {
+      name: "semantic border opacity modifier",
+      code: `
+        function Component() {
+          return <div className="border-border/40" />;
+        }
+      `,
+      errors: [{ messageId: "semanticOpacityModifier" }],
+    },
+    {
+      name: "semantic opacity modifier with variant",
+      code: `
+        function Component() {
+          return <button className="hover:bg-accent/50" />;
+        }
+      `,
+      errors: [{ messageId: "semanticOpacityModifier" }],
+    },
+    {
+      name: "arbitrary semantic variable opacity modifier",
+      code: `
+        function Component() {
+          return <details className="bg-[color:var(--wf-warning)]/10" />;
+        }
+      `,
+      errors: [{ messageId: "semanticOpacityModifier" }],
     },
   ],
 });

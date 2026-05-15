@@ -20,7 +20,9 @@ import {
 type MessageIds =
   | "preferTailwind"
   | "preferSemanticColors"
-  | "preferSemanticColorsWithSuggestion";
+  | "preferSemanticColorsWithSuggestion"
+  | "preferSemanticClassGroups"
+  | "semanticOpacityModifier";
 type Options = [
   {
     /** Minimum ratio of style-only elements before warnings trigger (0-1). Default: 0.3 */
@@ -37,6 +39,18 @@ type Options = [
     allowedHardCodedColors?: string[];
     /** Use LLM (Ollama) to suggest semantic color replacements. Default: false */
     useLlmSuggestions?: boolean;
+    /** Prefer semantic component classes over dense visual utility clusters. Default: true */
+    preferSemanticClassGroups?: boolean;
+    /** Number of visual utilities on one element/class string before warning. Default: 4 */
+    visualUtilityThreshold?: number;
+    /** Minimum distinct visual utility groups before warning. Default: 2 */
+    visualUtilityMinGroups?: number;
+    /** Disallow opacity modifiers on semantic color tokens. Default: true */
+    disallowSemanticOpacityModifiers?: boolean;
+    /** Exact classes to allow even when they use semantic opacity modifiers. Default: [] */
+    allowedOpacityModifierClasses?: string[];
+    /** Exact classes to allow in visual utility cluster detection. Default: [] */
+    allowedVisualUtilityClasses?: string[];
   }?
 ];
 
@@ -45,7 +59,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "prefer-tailwind",
-  version: "1.1.0",
+  version: "1.2.0",
   name: "Prefer Tailwind",
   description: "Encourage Tailwind className over inline style attributes",
   defaultSeverity: "warn",
@@ -63,6 +77,12 @@ export const meta = defineRuleMeta({
       preferSemanticColors: true,
       allowedHardCodedColors: [],
       useLlmSuggestions: false,
+      preferSemanticClassGroups: true,
+      visualUtilityThreshold: 4,
+      visualUtilityMinGroups: 2,
+      disallowSemanticOpacityModifiers: true,
+      allowedOpacityModifierClasses: [],
+      allowedVisualUtilityClasses: [],
     },
   ],
   optionSchema: {
@@ -122,6 +142,54 @@ export const meta = defineRuleMeta({
         description:
           "When enabled, uses Ollama to suggest semantic color replacements based on your project's theme",
       },
+      {
+        key: "preferSemanticClassGroups",
+        label: "Prefer semantic class groups",
+        type: "boolean",
+        defaultValue: true,
+        description:
+          "Warn when one element uses many low-level visual utilities that should be captured by a semantic class",
+      },
+      {
+        key: "visualUtilityThreshold",
+        label: "Visual utility threshold",
+        type: "number",
+        defaultValue: 4,
+        description:
+          "Minimum number of visual utilities in one class string before warning",
+      },
+      {
+        key: "visualUtilityMinGroups",
+        label: "Visual utility group threshold",
+        type: "number",
+        defaultValue: 2,
+        description:
+          "Minimum number of distinct visual utility groups before warning",
+      },
+      {
+        key: "disallowSemanticOpacityModifiers",
+        label: "Disallow semantic opacity modifiers",
+        type: "boolean",
+        defaultValue: true,
+        description:
+          "Warn on token opacity like text-foreground/80 or border-border/40",
+      },
+      {
+        key: "allowedOpacityModifierClasses",
+        label: "Allowed opacity modifier classes",
+        type: "text",
+        defaultValue: "",
+        description:
+          "Comma-separated exact classes to allow with semantic opacity modifiers",
+      },
+      {
+        key: "allowedVisualUtilityClasses",
+        label: "Allowed visual utility classes",
+        type: "text",
+        defaultValue: "",
+        description:
+          "Comma-separated exact visual utility classes to ignore in cluster detection",
+      },
     ],
   },
   docs: `
@@ -171,7 +239,11 @@ but only when the file exceeds a configurable threshold ratio.
   allowedStyleProperties: ["transform", "animation"],  // Skip these properties
   ignoreComponents: ["motion.div", "animated.View"],   // Skip animation libraries
   preferSemanticColors: true,    // Warn on hard-coded colors like bg-red-500
-  allowedHardCodedColors: ["gray", "slate"]  // Allow specific color palettes
+  allowedHardCodedColors: ["gray", "slate"],  // Allow specific color palettes
+  preferSemanticClassGroups: true,
+  visualUtilityThreshold: 4,
+  visualUtilityMinGroups: 2,
+  disallowSemanticOpacityModifiers: true
 }]
 \`\`\`
 
@@ -198,6 +270,39 @@ Semantic colors like \`bg-background\`, \`text-foreground\`, \`bg-primary\`, \`b
 \`bg-muted\`, etc. work better with theming and dark mode.
 
 Colors that are always allowed: \`white\`, \`black\`, \`transparent\`, \`inherit\`, \`current\`.
+
+## Semantic Class Groups
+
+When \`preferSemanticClassGroups\` is enabled, the rule warns when a single
+class string combines many low-level visual utilities such as background,
+border, radius, shadow, gradient, ring/outline, blur, and decoration classes.
+This catches generated component styling that should usually become a semantic
+project class such as \`brand-panel\`, \`ui-cell\`, or \`surface-card\`.
+
+### ❌ Dense visual utility cluster
+
+\`\`\`tsx
+<section className="bg-card rounded-2xl shadow-md border border-border/40" />
+\`\`\`
+
+### ✅ Semantic class
+
+\`\`\`tsx
+<section className="brand-panel" />
+\`\`\`
+
+## Semantic Opacity Modifiers
+
+When \`disallowSemanticOpacityModifiers\` is enabled, semantic color tokens with
+opacity suffixes are reported:
+
+\`\`\`tsx
+<p className="text-foreground/80" />
+<div className="border-border/40 hover:bg-accent/50" />
+\`\`\`
+
+Prefer a fully semantic token such as \`text-muted-foreground\`, or define a new
+theme token/class when the opacity represents a reusable state.
 
 ## LLM-Powered Suggestions
 
@@ -354,38 +459,6 @@ function createHardCodedColorRegex(colorNames: string[]): RegExp {
 }
 
 /**
- * Extract className value from a JSX attribute
- */
-function getClassNameValue(attr: TSESTree.JSXAttribute): string | null {
-  if (!attr.value) return null;
-
-  // className="..."
-  if (attr.value.type === "Literal" && typeof attr.value.value === "string") {
-    return attr.value.value;
-  }
-
-  // className={"..."}
-  if (
-    attr.value.type === "JSXExpressionContainer" &&
-    attr.value.expression.type === "Literal" &&
-    typeof attr.value.expression.value === "string"
-  ) {
-    return attr.value.expression.value;
-  }
-
-  // className={`...`}
-  if (
-    attr.value.type === "JSXExpressionContainer" &&
-    attr.value.expression.type === "TemplateLiteral"
-  ) {
-    // Extract static parts of template literal
-    return attr.value.expression.quasis.map((q) => q.value.raw).join(" ");
-  }
-
-  return null;
-}
-
-/**
  * Check if a className string contains hard-coded color classes
  */
 function findHardCodedColors(
@@ -409,6 +482,315 @@ function findHardCodedColors(
   return matches;
 }
 
+const CLASS_COMBINER_NAMES = new Set([
+  "cn",
+  "clsx",
+  "classnames",
+  "cva",
+  "twMerge",
+]);
+
+type VisualUtilityGroup =
+  | "surface"
+  | "border"
+  | "radius"
+  | "shadow"
+  | "gradient"
+  | "ring"
+  | "blur"
+  | "decoration";
+
+const COLOR_UTILITY_PREFIXES = [
+  "bg",
+  "text",
+  "border",
+  "border-t",
+  "border-r",
+  "border-b",
+  "border-l",
+  "border-x",
+  "border-y",
+  "ring",
+  "ring-offset",
+  "outline",
+  "decoration",
+  "accent",
+  "fill",
+  "stroke",
+  "from",
+  "via",
+  "to",
+  "divide",
+  "placeholder",
+  "caret",
+];
+
+const NON_SEMANTIC_COLOR_VALUES = new Set([
+  "black",
+  "white",
+  "transparent",
+  "inherit",
+  "current",
+  "currentColor",
+]);
+
+const TEXT_SIZE_VALUES = new Set([
+  "xs",
+  "sm",
+  "base",
+  "lg",
+  "xl",
+  "2xl",
+  "3xl",
+  "4xl",
+  "5xl",
+  "6xl",
+  "7xl",
+  "8xl",
+  "9xl",
+]);
+
+const BORDER_WIDTH_VALUES = new Set(["0", "2", "4", "8"]);
+const SHADOW_SIZE_VALUES = new Set([
+  "2xs",
+  "xs",
+  "sm",
+  "md",
+  "lg",
+  "xl",
+  "2xl",
+  "inner",
+  "none",
+]);
+
+interface ClassToken {
+  original: string;
+  base: string;
+}
+
+interface VisualMatch {
+  token: string;
+  group: VisualUtilityGroup;
+}
+
+function stripImportant(value: string): string {
+  return value.replace(/^!/, "").replace(/!$/, "");
+}
+
+function getBaseClass(token: string): string {
+  let bracketDepth = 0;
+  let lastVariantColon = -1;
+
+  for (let i = 0; i < token.length; i++) {
+    const char = token[i];
+    if (char === "[") {
+      bracketDepth++;
+    } else if (char === "]" && bracketDepth > 0) {
+      bracketDepth--;
+    } else if (char === ":" && bracketDepth === 0) {
+      lastVariantColon = i;
+    }
+  }
+
+  return stripImportant(token.slice(lastVariantColon + 1));
+}
+
+function extractClassTokens(className: string): ClassToken[] {
+  return className
+    .split(/\s+/g)
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .map((token) => ({
+      original: token,
+      base: getBaseClass(token),
+    }));
+}
+
+function classIsAllowed(token: ClassToken, allowedClasses: string[]): boolean {
+  return (
+    allowedClasses.includes(token.original) || allowedClasses.includes(token.base)
+  );
+}
+
+function getColorUtilityPrefix(baseClass: string): string | null {
+  for (const prefix of COLOR_UTILITY_PREFIXES) {
+    if (baseClass === prefix || baseClass.startsWith(`${prefix}-`)) {
+      return prefix;
+    }
+  }
+
+  return null;
+}
+
+function getUtilityValue(baseClass: string, prefix: string): string {
+  if (baseClass === prefix) return "";
+  return baseClass.slice(prefix.length + 1);
+}
+
+function isBracketColorValue(value: string): boolean {
+  return (
+    value.startsWith("[") &&
+    (value.includes("var(") ||
+      value.startsWith("[color:") ||
+      value.startsWith("[--") ||
+      value.includes("oklch(") ||
+      value.includes("rgb(") ||
+      value.includes("hsl("))
+  );
+}
+
+function isHardCodedTailwindColorValue(value: string): boolean {
+  const [name, shade] = value.split("-");
+  return HARD_CODED_COLOR_NAMES.includes(name) && /^\d{1,3}$/.test(shade ?? "");
+}
+
+function isSemanticColorValue(value: string, prefix: string): boolean {
+  if (!value) return false;
+  if (NON_SEMANTIC_COLOR_VALUES.has(value)) return false;
+  if (prefix === "text" && TEXT_SIZE_VALUES.has(value)) return false;
+  if (prefix.startsWith("border") && BORDER_WIDTH_VALUES.has(value)) return false;
+  if (prefix === "shadow" && SHADOW_SIZE_VALUES.has(value)) return false;
+  if (isHardCodedTailwindColorValue(value)) return false;
+  if (value.startsWith("[")) return isBracketColorValue(value);
+  return true;
+}
+
+function getVisualUtilityGroup(baseClass: string): VisualUtilityGroup | null {
+  if (
+    baseClass === "border" ||
+    baseClass.startsWith("border-") ||
+    baseClass.startsWith("divide-")
+  ) {
+    return "border";
+  }
+
+  if (baseClass === "rounded" || baseClass.startsWith("rounded-")) {
+    return "radius";
+  }
+
+  if (
+    baseClass === "shadow" ||
+    baseClass.startsWith("shadow-") ||
+    baseClass === "drop-shadow" ||
+    baseClass.startsWith("drop-shadow-")
+  ) {
+    return "shadow";
+  }
+
+  if (
+    baseClass.startsWith("bg-gradient-") ||
+    baseClass.startsWith("from-") ||
+    baseClass.startsWith("via-") ||
+    baseClass.startsWith("to-")
+  ) {
+    return "gradient";
+  }
+
+  if (
+    baseClass === "ring" ||
+    baseClass.startsWith("ring-") ||
+    baseClass === "outline" ||
+    baseClass.startsWith("outline-")
+  ) {
+    return "ring";
+  }
+
+  if (
+    baseClass === "blur" ||
+    baseClass.startsWith("blur-") ||
+    baseClass === "backdrop-blur" ||
+    baseClass.startsWith("backdrop-blur-")
+  ) {
+    return "blur";
+  }
+
+  if (
+    baseClass.startsWith("decoration-") ||
+    baseClass.startsWith("accent-") ||
+    baseClass.startsWith("fill-") ||
+    baseClass.startsWith("stroke-")
+  ) {
+    return "decoration";
+  }
+
+  if (baseClass.startsWith("bg-")) {
+    return "surface";
+  }
+
+  const prefix = getColorUtilityPrefix(baseClass);
+  if (prefix) {
+    const value = getUtilityValue(baseClass, prefix).split("/")[0] ?? "";
+    if (isSemanticColorValue(value, prefix) || isBracketColorValue(value)) {
+      return "surface";
+    }
+  }
+
+  return null;
+}
+
+function findVisualUtilityCluster(
+  className: string,
+  threshold: number,
+  minGroups: number,
+  allowedClasses: string[]
+): string[] {
+  const matches: VisualMatch[] = [];
+
+  for (const token of extractClassTokens(className)) {
+    if (classIsAllowed(token, allowedClasses)) {
+      continue;
+    }
+
+    const group = getVisualUtilityGroup(token.base);
+    if (group) {
+      matches.push({ token: token.original, group });
+    }
+  }
+
+  const groups = new Set(matches.map((match) => match.group));
+  if (matches.length >= threshold && groups.size >= minGroups) {
+    return matches.map((match) => match.token);
+  }
+
+  return [];
+}
+
+function findSemanticOpacityModifiers(
+  className: string,
+  allowedClasses: string[]
+): string[] {
+  const matches: string[] = [];
+
+  for (const token of extractClassTokens(className)) {
+    if (classIsAllowed(token, allowedClasses)) {
+      continue;
+    }
+
+    const opacityMatch = token.base.match(/^(.*)\/(\d{1,3})$/);
+    if (!opacityMatch) {
+      continue;
+    }
+
+    const baseWithoutOpacity = opacityMatch[1];
+    const opacityValue = Number(opacityMatch[2]);
+    if (opacityValue < 0 || opacityValue > 100) {
+      continue;
+    }
+
+    const prefix = getColorUtilityPrefix(baseWithoutOpacity);
+    if (!prefix) {
+      continue;
+    }
+
+    const value = getUtilityValue(baseWithoutOpacity, prefix);
+    if (isSemanticColorValue(value, prefix) || isBracketColorValue(value)) {
+      matches.push(token.original);
+    }
+  }
+
+  return matches;
+}
+
 export default createRule<Options, MessageIds>({
   name: "prefer-tailwind",
   meta: {
@@ -423,6 +805,10 @@ export default createRule<Options, MessageIds>({
         "Hard-coded colors: {{colors}}. Use semantic classes instead.",
       preferSemanticColorsWithSuggestion:
         "Hard-coded colors: {{colors}}. {{suggestion}}",
+      preferSemanticClassGroups:
+        "Dense visual utility cluster: {{classes}}. Move repeated panel/card styling into a semantic class.",
+      semanticOpacityModifier:
+        "Semantic color opacity modifiers: {{classes}}. Use fully semantic classes or tokens instead.",
     },
     schema: [
       {
@@ -466,6 +852,40 @@ export default createRule<Options, MessageIds>({
             description:
               "Use Ollama LLM to suggest semantic color replacements",
           },
+          preferSemanticClassGroups: {
+            type: "boolean",
+            description:
+              "Warn when one class string contains many low-level visual utilities",
+          },
+          visualUtilityThreshold: {
+            type: "number",
+            minimum: 1,
+            description:
+              "Minimum visual utility count in one class string before warning",
+          },
+          visualUtilityMinGroups: {
+            type: "number",
+            minimum: 1,
+            description:
+              "Minimum distinct visual utility groups before warning",
+          },
+          disallowSemanticOpacityModifiers: {
+            type: "boolean",
+            description:
+              "Warn on semantic color opacity modifiers like text-foreground/80",
+          },
+          allowedOpacityModifierClasses: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Exact classes to allow with semantic opacity modifiers",
+          },
+          allowedVisualUtilityClasses: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Exact visual utility classes to ignore in cluster detection",
+          },
         },
         additionalProperties: false,
       },
@@ -480,6 +900,12 @@ export default createRule<Options, MessageIds>({
       preferSemanticColors: true,
       allowedHardCodedColors: [],
       useLlmSuggestions: false,
+      preferSemanticClassGroups: true,
+      visualUtilityThreshold: 4,
+      visualUtilityMinGroups: 2,
+      disallowSemanticOpacityModifiers: true,
+      allowedOpacityModifierClasses: [],
+      allowedVisualUtilityClasses: [],
     },
   ],
   create(context) {
@@ -491,6 +917,16 @@ export default createRule<Options, MessageIds>({
     const preferSemanticColors = options.preferSemanticColors ?? true;
     const allowedHardCodedColors = options.allowedHardCodedColors ?? [];
     const useLlmSuggestions = options.useLlmSuggestions ?? false;
+    const preferSemanticClassGroups =
+      options.preferSemanticClassGroups ?? true;
+    const visualUtilityThreshold = options.visualUtilityThreshold ?? 4;
+    const visualUtilityMinGroups = options.visualUtilityMinGroups ?? 2;
+    const disallowSemanticOpacityModifiers =
+      options.disallowSemanticOpacityModifiers ?? true;
+    const allowedOpacityModifierClasses =
+      options.allowedOpacityModifierClasses ?? [];
+    const allowedVisualUtilityClasses =
+      options.allowedVisualUtilityClasses ?? [];
 
     // Cache file content for LLM suggestions (read lazily)
     let fileContent: string | null = null;
@@ -532,6 +968,106 @@ export default createRule<Options, MessageIds>({
       );
     }
 
+    function checkClassString(node: TSESTree.Node, className: string): void {
+      if (preferSemanticColors) {
+        const hardCodedColors = findHardCodedColors(
+          className,
+          allowedHardCodedColors
+        );
+        if (hardCodedColors.length > 0) {
+          const colorsStr = hardCodedColors.join(", ");
+
+          // Try to get LLM suggestions if enabled
+          if (useLlmSuggestions) {
+            const { suggestions } = getColorSuggestions(
+              hardCodedColors,
+              fileDir,
+              getFileContent()
+            );
+            const suggestionStr = formatSuggestionsForMessage(suggestions);
+
+            if (suggestionStr) {
+              context.report({
+                node,
+                messageId: "preferSemanticColorsWithSuggestion",
+                data: { colors: colorsStr, suggestion: suggestionStr },
+              });
+            } else {
+              context.report({
+                node,
+                messageId: "preferSemanticColors",
+                data: { colors: colorsStr },
+              });
+            }
+          } else {
+            context.report({
+              node,
+              messageId: "preferSemanticColors",
+              data: { colors: colorsStr },
+            });
+          }
+        }
+      }
+
+      if (preferSemanticClassGroups) {
+        const visualUtilities = findVisualUtilityCluster(
+          className,
+          visualUtilityThreshold,
+          visualUtilityMinGroups,
+          allowedVisualUtilityClasses
+        );
+
+        if (visualUtilities.length > 0) {
+          context.report({
+            node,
+            messageId: "preferSemanticClassGroups",
+            data: { classes: visualUtilities.join(", ") },
+          });
+        }
+      }
+
+      if (disallowSemanticOpacityModifiers) {
+        const opacityClasses = findSemanticOpacityModifiers(
+          className,
+          allowedOpacityModifierClasses
+        );
+
+        if (opacityClasses.length > 0) {
+          context.report({
+            node,
+            messageId: "semanticOpacityModifier",
+            data: { classes: opacityClasses.join(", ") },
+          });
+        }
+      }
+    }
+
+    function processTemplateLiteral(node: TSESTree.TemplateLiteral): void {
+      for (const quasi of node.quasis) {
+        checkClassString(quasi, quasi.value.raw);
+      }
+    }
+
+    function processClassAttribute(attr: TSESTree.JSXAttribute): void {
+      const value = attr.value;
+
+      if (value?.type === "Literal" && typeof value.value === "string") {
+        checkClassString(value, value.value);
+      }
+
+      if (value?.type === "JSXExpressionContainer") {
+        const expr = value.expression;
+
+        if (expr.type === "Literal" && typeof expr.value === "string") {
+          checkClassString(expr, expr.value);
+        }
+
+        if (expr.type === "TemplateLiteral") {
+          processTemplateLiteral(expr);
+        }
+      }
+    }
+
     return {
       JSXOpeningElement(node) {
         // Check if component should be ignored
@@ -554,51 +1090,7 @@ export default createRule<Options, MessageIds>({
             }
             if (isClassNameAttribute(attr)) {
               hasClassName = true;
-
-              // Check for hard-coded colors if preferSemanticColors is enabled
-              if (preferSemanticColors) {
-                const classNameValue = getClassNameValue(attr);
-                if (classNameValue) {
-                  const hardCodedColors = findHardCodedColors(
-                    classNameValue,
-                    allowedHardCodedColors
-                  );
-                  if (hardCodedColors.length > 0) {
-                    const colorsStr = hardCodedColors.join(", ");
-
-                    // Try to get LLM suggestions if enabled
-                    if (useLlmSuggestions) {
-                      const { suggestions } = getColorSuggestions(
-                        hardCodedColors,
-                        fileDir,
-                        getFileContent()
-                      );
-                      const suggestionStr =
-                        formatSuggestionsForMessage(suggestions);
-
-                      if (suggestionStr) {
-                        context.report({
-                          node,
-                          messageId: "preferSemanticColorsWithSuggestion",
-                          data: { colors: colorsStr, suggestion: suggestionStr },
-                        });
-                      } else {
-                        context.report({
-                          node,
-                          messageId: "preferSemanticColors",
-                          data: { colors: colorsStr },
-                        });
-                      }
-                    } else {
-                      context.report({
-                        node,
-                        messageId: "preferSemanticColors",
-                        data: { colors: colorsStr },
-                      });
-                    }
-                  }
-                }
-              }
+              processClassAttribute(attr);
             }
           }
         }
@@ -645,6 +1137,41 @@ export default createRule<Options, MessageIds>({
               node: element.node,
               messageId: "preferTailwind",
             });
+          }
+        }
+      },
+
+      CallExpression(node) {
+        if (node.callee.type !== "Identifier") {
+          return;
+        }
+
+        if (!CLASS_COMBINER_NAMES.has(node.callee.name)) {
+          return;
+        }
+
+        for (const arg of node.arguments) {
+          if (arg.type === "Literal" && typeof arg.value === "string") {
+            checkClassString(arg, arg.value);
+          }
+
+          if (arg.type === "TemplateLiteral") {
+            processTemplateLiteral(arg);
+          }
+
+          if (arg.type === "ArrayExpression") {
+            for (const element of arg.elements) {
+              if (
+                element?.type === "Literal" &&
+                typeof element.value === "string"
+              ) {
+                checkClassString(element, element.value);
+              }
+
+              if (element?.type === "TemplateLiteral") {
+                processTemplateLiteral(element);
+              }
+            }
           }
         }
       },

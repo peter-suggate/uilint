@@ -54,6 +54,10 @@ export default defineConfig([
         "warn",
         {
           preferSemanticColors: true,
+          // Keep new semantic styling checks enabled for installed configs, but defer
+          // the uilint-react migration so the strict pre-commit hook remains actionable.
+          preferSemanticClassGroups: false,
+          disallowSemanticOpacityModifiers: false,
           // Allow gray for neutral UI elements
           allowedHardCodedColors: ["gray"],
         },

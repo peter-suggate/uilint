@@ -41,6 +41,7 @@ const uilintEslintPath = join(
   "..",
   "uilint-eslint"
 );
+const uilintCorePath = join(__dirname, "..", "..", "..", "uilint-core");
 
 beforeAll(() => {
   // Ensure uilint-eslint is built
@@ -102,6 +103,7 @@ async function installDependencies(fixturePath: string): Promise<void> {
   pkgJson.dependencies = pkgJson.dependencies || {};
   pkgJson.devDependencies = pkgJson.devDependencies || {};
   pkgJson.devDependencies["uilint-eslint"] = `file:${uilintEslintPath}`;
+  pkgJson.devDependencies["uilint-core"] = `file:${uilintCorePath}`;
   pkgJson.devDependencies["typescript-eslint"] = "^8.0.0";
   pkgJson.devDependencies["@typescript-eslint/utils"] = "^8.0.0";
   pkgJson.devDependencies["eslint"] = "^9.0.0";
@@ -178,6 +180,68 @@ describe("ESLint execution - JavaScript projects", { timeout: 180000 }, () => {
     // ESLint should run without crashing (exit code 0 or 1 for lint errors is OK)
     // Exit code 2 means ESLint crashed
     expect(eslintResult.exitCode).not.toBe(2);
+  });
+
+  it("installed prefer-tailwind reports semantic styling drift", async () => {
+    fixture = useFixture("has-eslint-flat-js");
+
+    const state = await analyze(fixture.path);
+    const pkg = state.packages.find((p) => p.eslintConfigPath !== null)!;
+
+    const prompter = mockPrompter({
+      installItems: ["eslint"],
+      eslintPackagePaths: [pkg.path],
+      eslintRuleIds: ["prefer-tailwind"],
+    });
+
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+
+    await execute(plan, {
+      dryRun: false,
+      installDependencies: async () => {},
+    });
+
+    writeFileSync(
+      join(fixture.path, "src", "semantic-drift.js"),
+      `function cn(...parts) {
+  const className = parts.filter(Boolean).join(" ");
+  globalThis.__panelClass = className;
+}
+
+cn("bg-card rounded-2xl shadow-md border border-border/40 text-foreground/80");
+`
+    );
+
+    await installDependencies(fixture.path);
+
+    const eslintResult = runCommand(
+      "npx eslint src/semantic-drift.js --format json --max-warnings=0",
+      fixture.path
+    );
+
+    expect(eslintResult.stderr).not.toContain("ERR_MODULE_NOT_FOUND");
+    expect(eslintResult.stderr).not.toContain("Cannot find module");
+    expect(eslintResult.stderr).not.toContain("chunk-");
+    expect(eslintResult.exitCode).toBe(1);
+
+    const results = JSON.parse(eslintResult.stdout) as Array<{
+      messages: Array<{ messageId?: string; ruleId?: string }>;
+    }>;
+    const messages = results.flatMap((result) => result.messages);
+
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          ruleId: "uilint/prefer-tailwind",
+          messageId: "preferSemanticClassGroups",
+        }),
+        expect.objectContaining({
+          ruleId: "uilint/prefer-tailwind",
+          messageId: "semanticOpacityModifier",
+        }),
+      ])
+    );
   });
 
   it("runs ESLint successfully with multiple .js rules", async () => {

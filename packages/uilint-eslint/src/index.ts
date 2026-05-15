@@ -209,7 +209,13 @@ const recommendedConfig: Linter.Config = {
           "ignoreComponents": [],
           "preferSemanticColors": true,
           "allowedHardCodedColors": [],
-          "useLlmSuggestions": false
+          "useLlmSuggestions": false,
+          "preferSemanticClassGroups": true,
+          "visualUtilityThreshold": 4,
+          "visualUtilityMinGroups": 2,
+          "disallowSemanticOpacityModifiers": true,
+          "allowedOpacityModifierClasses": [],
+          "allowedVisualUtilityClasses": []
         }
       ]],
   },
@@ -353,7 +359,13 @@ const strictConfig: Linter.Config = {
           "ignoreComponents": [],
           "preferSemanticColors": true,
           "allowedHardCodedColors": [],
-          "useLlmSuggestions": false
+          "useLlmSuggestions": false,
+          "preferSemanticClassGroups": true,
+          "visualUtilityThreshold": 4,
+          "visualUtilityMinGroups": 2,
+          "disallowSemanticOpacityModifiers": true,
+          "allowedOpacityModifierClasses": [],
+          "allowedVisualUtilityClasses": []
         }
       ]],
   },
