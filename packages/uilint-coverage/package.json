@@ -1,6 +1,6 @@
 {
   "name": "uilint-coverage",
-  "version": "0.2.160",
+  "version": "0.2.161",
   "description": "Test coverage analysis plugin for UILint",
   "author": "Peter Suggate",
   "repository": {

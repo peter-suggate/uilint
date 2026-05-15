@@ -57,8 +57,6 @@ describe("getPluginCategories", () => {
 
   it("returns empty when only static category exists", () => {
     const pluginCats = getPluginCategories();
-    // Filter out any test categories registered by other test suites
-    const nonTest = pluginCats.filter((c) => !c.id.startsWith("test"));
     // In isolation, only static exists, so plugin categories should be empty
     // (but other tests may have registered categories)
     expect(Array.isArray(pluginCats)).toBe(true);

@@ -10,6 +10,7 @@ import consistentDarkMode from "./rules/consistent-dark-mode.js";
 import noDirectStoreImport from "./rules/no-direct-store-import.js";
 import preferZustandStateManagement from "./rules/prefer-zustand-state-management.js";
 import noMixedComponentLibraries from "./rules/no-mixed-component-libraries/index.js";
+import noRawUiElements from "./rules/no-raw-ui-elements.js";
 import enforceAbsoluteImports from "./rules/enforce-absolute-imports.js";
 import noAnyInProps from "./rules/no-any-in-props.js";
 import noUnsafeTypeCasts from "./rules/no-unsafe-type-casts.js";
@@ -28,6 +29,7 @@ const rules = {
   "no-direct-store-import": noDirectStoreImport,
   "prefer-zustand-state-management": preferZustandStateManagement,
   "no-mixed-component-libraries": noMixedComponentLibraries,
+  "no-raw-ui-elements": noRawUiElements,
   "enforce-absolute-imports": enforceAbsoluteImports,
   "no-any-in-props": noAnyInProps,
   "no-unsafe-type-casts": noUnsafeTypeCasts,
@@ -110,6 +112,20 @@ const recommendedConfig: Linter.Config = {
           "libraries": [
             "shadcn",
             "mui"
+          ]
+        }
+      ]],
+    "uilint/no-raw-ui-elements": ["warn", ...[
+        {
+          "preferred": "auto",
+          "elements": [
+            "button",
+            "input",
+            "input:checkbox",
+            "input:radio",
+            "input:range",
+            "textarea",
+            "select"
           ]
         }
       ]],
@@ -240,6 +256,20 @@ const strictConfig: Linter.Config = {
           "libraries": [
             "shadcn",
             "mui"
+          ]
+        }
+      ]],
+    "uilint/no-raw-ui-elements": ["warn", ...[
+        {
+          "preferred": "auto",
+          "elements": [
+            "button",
+            "input",
+            "input:checkbox",
+            "input:radio",
+            "input:range",
+            "textarea",
+            "select"
           ]
         }
       ]],

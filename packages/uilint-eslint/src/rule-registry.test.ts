@@ -33,6 +33,7 @@ import requireInputValidation from "./rules/require-input-validation.js";
 import preferTailwind from "./rules/prefer-tailwind/index.js";
 import noUnsafeTypeCasts from "./rules/no-unsafe-type-casts.js";
 import preferStoreSelectors from "./rules/prefer-store-selectors.js";
+import noRawUiElements from "./rules/no-raw-ui-elements.js";
 
 // Map of rule IDs to their ESLint rule modules
 const eslintRules: Record<string, { meta?: { schema?: unknown[] }; defaultOptions?: unknown[] }> = {
@@ -40,6 +41,7 @@ const eslintRules: Record<string, { meta?: { schema?: unknown[] }; defaultOption
   "no-direct-store-import": noDirectStoreImport,
   "prefer-zustand-state-management": preferZustandStateManagement,
   "no-mixed-component-libraries": noMixedComponentLibraries,
+  "no-raw-ui-elements": noRawUiElements,
   "enforce-absolute-imports": enforceAbsoluteImports,
   "no-any-in-props": noAnyInProps,
   "zustand-use-selectors": zustandUseSelectors,

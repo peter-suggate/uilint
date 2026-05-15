@@ -43,6 +43,7 @@ import { meta as requireInputValidation } from "./rules/require-input-validation
 import { meta as noPropDrillingDepth } from "./rules/no-prop-drilling-depth.js";
 import { meta as noUnsafeTypeCasts } from "./rules/no-unsafe-type-casts.js";
 import { meta as preferStoreSelectors } from "./rules/prefer-store-selectors.js";
+import { meta as noRawUiElements } from "./rules/no-raw-ui-elements.js";
 
 // Directory-based rules (complex rules with colocated utilities)
 import { meta as noMixedComponentLibraries } from "./rules/no-mixed-component-libraries/index.js";
@@ -65,6 +66,7 @@ export const ruleRegistry: RuleMeta[] = [
   noDirectStoreImport,
   preferZustandStateManagement,
   noMixedComponentLibraries,
+  noRawUiElements,
   // Import rules
   enforceAbsoluteImports,
   // Type safety rules

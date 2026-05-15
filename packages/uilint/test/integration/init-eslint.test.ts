@@ -629,6 +629,41 @@ describe("ESLint installation - rule options", () => {
     expect(config).toContain("shadcn");
   });
 
+  it("handles no-raw-ui-elements with preferred framework", async () => {
+    fixture = useFixture("has-eslint-flat");
+
+    const state = await analyze(fixture.path);
+    const pkg = state.packages.find((p) => p.eslintConfigPath !== null)!;
+    const ext = ruleFileExt(pkg);
+
+    const prompter = mockPrompter({
+      installItems: ["eslint"],
+      eslintPackagePaths: [pkg.path],
+      eslintRuleIds: ["no-raw-ui-elements"],
+      customizeRuleOptions: true,
+      ruleOptions: {
+        "no-raw-ui-elements": {
+          preferred: "mui",
+          elements: ["button", "textarea"],
+        },
+      },
+    });
+
+    const choices = await gatherChoices(state, {}, prompter);
+    const plan = createPlan(state, choices);
+    await execute(plan, {
+      installDependencies: mockInstallDependencies,
+    });
+
+    expect(fixture.exists(`.uilint/rules/no-raw-ui-elements${ext}`)).toBe(true);
+
+    const config = fixture.readFile("eslint.config.mjs");
+    expect(config).toContain("uilint/no-raw-ui-elements");
+    expect(config).toContain("preferred");
+    expect(config).toContain("mui");
+    expect(config).toContain("textarea");
+  });
+
   it("updates existing rule with new options", async () => {
     fixture = useFixture("has-eslint-with-uilint-options");
 

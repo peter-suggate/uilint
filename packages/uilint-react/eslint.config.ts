@@ -42,6 +42,8 @@ export default defineConfig([
       "uilint/enforce-absolute-imports": ["warn", { maxRelativeDepth: 4 }],
       // Internal store pattern is valid for this package
       "uilint/no-direct-store-import": "off",
+      // This package vendors shadcn-compatible components under @/** but builds its own primitives in src/.
+      "uilint/no-raw-ui-elements": "off",
       // Allow underscore prefix for unused vars (destructuring patterns)
       "@typescript-eslint/no-unused-vars": [
         "error",
