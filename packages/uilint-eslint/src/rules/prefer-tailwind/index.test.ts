@@ -385,6 +385,40 @@ ruleTester.run("prefer-tailwind", rule, {
         },
       ],
     },
+    {
+      name: "lowercase html elements with variant-like props are ignored",
+      code: `
+        function Component() {
+          return <button variant="ghost" className="h-auto gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium" />;
+        }
+      `,
+    },
+    {
+      name: "custom component variant with small className override is allowed",
+      code: `
+        function Component() {
+          return <Panel variant="ghost" className="gap-1 px-2" />;
+        }
+      `,
+    },
+    {
+      name: "component variant leakage can be restricted to explicit components",
+      code: `
+        function Component() {
+          return <Panel variant="ghost" className="h-auto gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium" />;
+        }
+      `,
+      options: [{ componentVariantComponents: ["Button"] }],
+    },
+    {
+      name: "component variant leakage check can be disabled",
+      code: `
+        function Component() {
+          return <Panel variant="ghost" className="h-auto gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium" />;
+        }
+      `,
+      options: [{ preferComponentVariants: false }],
+    },
   ],
 
   invalid: [
@@ -749,6 +783,68 @@ ruleTester.run("prefer-tailwind", rule, {
         }
       `,
       errors: [{ messageId: "semanticOpacityModifier" }],
+    },
+
+    // ============================================
+    // COMPONENT VARIANT LEAKAGE
+    // ============================================
+    {
+      name: "component with variant props and bespoke button styling",
+      code: `
+        function Component({ running, onNewRun, phase }) {
+          return (
+            <Button
+              variant="ghost"
+              size="xs"
+              data-testid="start-new-run"
+              onClick={onNewRun}
+              disabled={running}
+              className={cn(
+                "h-auto gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium",
+                running
+                  ? "cursor-not-allowed opacity-40"
+                  : "bg-primary/10 text-primary hover:bg-primary/20",
+              )}
+            >
+              <Plus className="size-3" />
+              {phase === "complete" ? "New Investigation" : "New Run"}
+            </Button>
+          );
+        }
+      `,
+      errors: [
+        { messageId: "componentVariantLeakage" },
+        { messageId: "semanticOpacityModifier" },
+      ],
+    },
+    {
+      name: "generic custom component with variant prop is inferred without component allowlist",
+      code: `
+        function Component() {
+          return <Panel variant="elevated" className="h-auto gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium" />;
+        }
+      `,
+      errors: [{ messageId: "componentVariantLeakage" }],
+    },
+    {
+      name: "component variant leakage supports template and object combiner chunks",
+      code: `
+        function Component({ active }) {
+          return (
+            <Chip
+              variant="status"
+              className={clsx(
+                \`h-auto rounded-md px-2 text-[11px]\`,
+                { "bg-primary/10 text-primary": active }
+              )}
+            />
+          );
+        }
+      `,
+      errors: [
+        { messageId: "componentVariantLeakage" },
+        { messageId: "semanticOpacityModifier" },
+      ],
     },
   ],
 });

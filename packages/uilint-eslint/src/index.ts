@@ -215,7 +215,15 @@ const recommendedConfig: Linter.Config = {
           "visualUtilityMinGroups": 2,
           "disallowSemanticOpacityModifiers": true,
           "allowedOpacityModifierClasses": [],
-          "allowedVisualUtilityClasses": []
+          "allowedVisualUtilityClasses": [],
+          "preferComponentVariants": true,
+          "componentVariantComponents": [],
+          "componentVariantProps": [
+            "variant",
+            "size"
+          ],
+          "componentVariantClassThreshold": 4,
+          "allowedComponentVariantClasses": []
         }
       ]],
   },
@@ -365,7 +373,15 @@ const strictConfig: Linter.Config = {
           "visualUtilityMinGroups": 2,
           "disallowSemanticOpacityModifiers": true,
           "allowedOpacityModifierClasses": [],
-          "allowedVisualUtilityClasses": []
+          "allowedVisualUtilityClasses": [],
+          "preferComponentVariants": true,
+          "componentVariantComponents": [],
+          "componentVariantProps": [
+            "variant",
+            "size"
+          ],
+          "componentVariantClassThreshold": 4,
+          "allowedComponentVariantClasses": []
         }
       ]],
   },

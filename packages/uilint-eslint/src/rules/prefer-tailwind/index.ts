@@ -22,7 +22,8 @@ type MessageIds =
   | "preferSemanticColors"
   | "preferSemanticColorsWithSuggestion"
   | "preferSemanticClassGroups"
-  | "semanticOpacityModifier";
+  | "semanticOpacityModifier"
+  | "componentVariantLeakage";
 type Options = [
   {
     /** Minimum ratio of style-only elements before warnings trigger (0-1). Default: 0.3 */
@@ -51,6 +52,16 @@ type Options = [
     allowedOpacityModifierClasses?: string[];
     /** Exact classes to allow in visual utility cluster detection. Default: [] */
     allowedVisualUtilityClasses?: string[];
+    /** Prefer component variants over bespoke visual className overrides. Default: true */
+    preferComponentVariants?: boolean;
+    /** Optional component names to inspect; empty means any custom JSX component. */
+    componentVariantComponents?: string[];
+    /** Prop names that indicate the component already exposes styling variants. */
+    componentVariantProps?: string[];
+    /** Number of styling override classes before warning on a variant component. Default: 4 */
+    componentVariantClassThreshold?: number;
+    /** Exact classes to allow in component variant leakage detection. Default: [] */
+    allowedComponentVariantClasses?: string[];
   }?
 ];
 
@@ -59,7 +70,7 @@ type Options = [
  */
 export const meta = defineRuleMeta({
   id: "prefer-tailwind",
-  version: "1.2.0",
+  version: "1.3.0",
   name: "Prefer Tailwind",
   description: "Encourage Tailwind className over inline style attributes",
   defaultSeverity: "warn",
@@ -83,6 +94,11 @@ export const meta = defineRuleMeta({
       disallowSemanticOpacityModifiers: true,
       allowedOpacityModifierClasses: [],
       allowedVisualUtilityClasses: [],
+      preferComponentVariants: true,
+      componentVariantComponents: [],
+      componentVariantProps: ["variant", "size"],
+      componentVariantClassThreshold: 4,
+      allowedComponentVariantClasses: [],
     },
   ],
   optionSchema: {
@@ -189,6 +205,46 @@ export const meta = defineRuleMeta({
         defaultValue: "",
         description:
           "Comma-separated exact visual utility classes to ignore in cluster detection",
+      },
+      {
+        key: "preferComponentVariants",
+        label: "Prefer component variants",
+        type: "boolean",
+        defaultValue: true,
+        description:
+          "Warn when design-system components with variant or size props also carry bespoke styling classes",
+      },
+      {
+        key: "componentVariantComponents",
+        label: "Component variant components",
+        type: "text",
+        defaultValue: "",
+        description:
+          "Optional comma-separated component names to inspect; empty means any custom JSX component with variant props",
+      },
+      {
+        key: "componentVariantProps",
+        label: "Component variant props",
+        type: "text",
+        defaultValue: "variant,size",
+        description:
+          "Comma-separated prop names that indicate a component already exposes styling variants",
+      },
+      {
+        key: "componentVariantClassThreshold",
+        label: "Component variant class threshold",
+        type: "number",
+        defaultValue: 4,
+        description:
+          "Minimum number of styling override classes before warning on a variant component",
+      },
+      {
+        key: "allowedComponentVariantClasses",
+        label: "Allowed component variant classes",
+        type: "text",
+        defaultValue: "",
+        description:
+          "Comma-separated exact classes to ignore when checking component variant leakage",
       },
     ],
   },
@@ -304,6 +360,34 @@ opacity suffixes are reported:
 Prefer a fully semantic token such as \`text-muted-foreground\`, or define a new
 theme token/class when the opacity represents a reusable state.
 
+## Component Variant Leakage
+
+When \`preferComponentVariants\` is enabled, the rule checks custom JSX
+components that already use style-like variant props such as \`variant\` or
+\`size\`. It ignores lowercase HTML elements by default. When \`className\` adds
+several bespoke styling overrides across static strings, template chunks, and
+common class combiners, the rule warns because the styling probably belongs in a
+component variant or semantic project class.
+
+### ❌ Bespoke overrides on a variant component
+
+\`\`\`tsx
+<Button
+  variant="ghost"
+  size="xs"
+  className={cn(
+    "h-auto gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium",
+    running ? "cursor-not-allowed opacity-40" : "bg-primary/10 text-primary hover:bg-primary/20"
+  )}
+/>
+\`\`\`
+
+### ✅ Semantic component variant
+
+\`\`\`tsx
+<Button variant="primarySubtle" size="xs" />
+\`\`\`
+
 ## LLM-Powered Suggestions
 
 When \`useLlmSuggestions\` is enabled and Ollama is running locally, the rule will:
@@ -363,6 +447,11 @@ function getComponentName(node: TSESTree.JSXOpeningElement): string {
   }
 
   return "";
+}
+
+function isCustomComponentName(componentName: string): boolean {
+  const localName = componentName.split(".").at(-1) ?? componentName;
+  return /^[A-Z]/.test(localName);
 }
 
 /**
@@ -572,6 +661,19 @@ interface VisualMatch {
   token: string;
   group: VisualUtilityGroup;
 }
+
+type ComponentOverrideGroup =
+  | VisualUtilityGroup
+  | "spacing"
+  | "sizing"
+  | "typography";
+
+interface ComponentOverrideMatch {
+  token: string;
+  group: ComponentOverrideGroup;
+}
+
+const DEFAULT_COMPONENT_VARIANT_PROPS = ["variant", "size"];
 
 function stripImportant(value: string): string {
   return value.replace(/^!/, "").replace(/!$/, "");
@@ -791,6 +893,167 @@ function findSemanticOpacityModifiers(
   return matches;
 }
 
+function isSpacingOverride(baseClass: string): boolean {
+  return (
+    /^-?(p|px|py|pt|pr|pb|pl|m|mx|my|mt|mr|mb|ml|gap|gap-x|gap-y)-/.test(
+      baseClass
+    ) || baseClass === "gap"
+  );
+}
+
+function isSizingOverride(baseClass: string): boolean {
+  return /^(size|h|min-h|max-h|w|min-w|max-w)-/.test(baseClass);
+}
+
+function isTypographyOverride(baseClass: string): boolean {
+  return (
+    baseClass.startsWith("text-[") ||
+    baseClass.startsWith("leading-") ||
+    baseClass.startsWith("tracking-") ||
+    baseClass.startsWith("font-")
+  );
+}
+
+function getComponentOverrideGroup(
+  baseClass: string
+): ComponentOverrideGroup | null {
+  const visualGroup = getVisualUtilityGroup(baseClass);
+  if (visualGroup) {
+    return visualGroup;
+  }
+
+  if (isSpacingOverride(baseClass)) {
+    return "spacing";
+  }
+
+  if (isSizingOverride(baseClass)) {
+    return "sizing";
+  }
+
+  if (isTypographyOverride(baseClass)) {
+    return "typography";
+  }
+
+  return null;
+}
+
+function findComponentVariantLeakageClasses(
+  classNames: string[],
+  threshold: number,
+  allowedClasses: string[]
+): string[] {
+  const matches: ComponentOverrideMatch[] = [];
+
+  for (const className of classNames) {
+    for (const token of extractClassTokens(className)) {
+      if (classIsAllowed(token, allowedClasses)) {
+        continue;
+      }
+
+      const group = getComponentOverrideGroup(token.base);
+      if (group) {
+        matches.push({ token: token.original, group });
+      }
+    }
+  }
+
+  if (matches.length < threshold) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  return matches
+    .map((match) => match.token)
+    .filter((token) => {
+      if (seen.has(token)) {
+        return false;
+      }
+      seen.add(token);
+      return true;
+    });
+}
+
+function extractStaticClassStringsFromExpression(
+  expression:
+    | TSESTree.Expression
+    | TSESTree.JSXEmptyExpression
+    | TSESTree.SpreadElement
+    | null
+    | undefined
+): string[] {
+  if (!expression || expression.type === "JSXEmptyExpression") {
+    return [];
+  }
+
+  if (expression.type === "SpreadElement") {
+    return [];
+  }
+
+  switch (expression.type) {
+    case "Literal":
+      return typeof expression.value === "string" ? [expression.value] : [];
+
+    case "TemplateLiteral":
+      return expression.quasis.map((quasi) => quasi.value.raw);
+
+    case "ConditionalExpression":
+      return [
+        ...extractStaticClassStringsFromExpression(expression.consequent),
+        ...extractStaticClassStringsFromExpression(expression.alternate),
+      ];
+
+    case "LogicalExpression":
+      return [
+        ...extractStaticClassStringsFromExpression(expression.left),
+        ...extractStaticClassStringsFromExpression(expression.right),
+      ];
+
+    case "CallExpression":
+      if (
+        expression.callee.type !== "Identifier" ||
+        !CLASS_COMBINER_NAMES.has(expression.callee.name)
+      ) {
+        return [];
+      }
+      return expression.arguments.flatMap((arg) =>
+        extractStaticClassStringsFromExpression(arg)
+      );
+
+    case "ArrayExpression":
+      return expression.elements.flatMap((element) =>
+        extractStaticClassStringsFromExpression(element)
+      );
+
+    case "ObjectExpression":
+      return expression.properties.flatMap((property) => {
+        if (property.type !== "Property") {
+          return [];
+        }
+
+        if (
+          property.key.type === "Literal" &&
+          typeof property.key.value === "string"
+        ) {
+          return [property.key.value];
+        }
+
+        if (property.key.type === "Identifier") {
+          return [property.key.name];
+        }
+
+        return [];
+      });
+
+    case "TSAsExpression":
+    case "TSTypeAssertion":
+    case "TSNonNullExpression":
+      return extractStaticClassStringsFromExpression(expression.expression);
+
+    default:
+      return [];
+  }
+}
+
 export default createRule<Options, MessageIds>({
   name: "prefer-tailwind",
   meta: {
@@ -809,6 +1072,8 @@ export default createRule<Options, MessageIds>({
         "Dense visual utility cluster: {{classes}}. Move repeated panel/card styling into a semantic class.",
       semanticOpacityModifier:
         "Semantic color opacity modifiers: {{classes}}. Use fully semantic classes or tokens instead.",
+      componentVariantLeakage:
+        "{{component}} already uses {{props}}; move bespoke styling overrides into a component variant or semantic class instead of className: {{classes}}.",
     },
     schema: [
       {
@@ -886,6 +1151,35 @@ export default createRule<Options, MessageIds>({
             description:
               "Exact visual utility classes to ignore in cluster detection",
           },
+          preferComponentVariants: {
+            type: "boolean",
+            description:
+              "Warn when design-system components with variant props also use bespoke styling classes",
+          },
+          componentVariantComponents: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Optional component names to inspect for component variant leakage; empty means any custom JSX component",
+          },
+          componentVariantProps: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Prop names that indicate a component exposes styling variants",
+          },
+          componentVariantClassThreshold: {
+            type: "number",
+            minimum: 1,
+            description:
+              "Minimum styling override class count before warning on a variant component",
+          },
+          allowedComponentVariantClasses: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Exact classes to ignore in component variant leakage detection",
+          },
         },
         additionalProperties: false,
       },
@@ -906,6 +1200,11 @@ export default createRule<Options, MessageIds>({
       disallowSemanticOpacityModifiers: true,
       allowedOpacityModifierClasses: [],
       allowedVisualUtilityClasses: [],
+      preferComponentVariants: true,
+      componentVariantComponents: [],
+      componentVariantProps: DEFAULT_COMPONENT_VARIANT_PROPS,
+      componentVariantClassThreshold: 4,
+      allowedComponentVariantClasses: [],
     },
   ],
   create(context) {
@@ -927,6 +1226,15 @@ export default createRule<Options, MessageIds>({
       options.allowedOpacityModifierClasses ?? [];
     const allowedVisualUtilityClasses =
       options.allowedVisualUtilityClasses ?? [];
+    const preferComponentVariants = options.preferComponentVariants ?? true;
+    const componentVariantComponents =
+      options.componentVariantComponents ?? [];
+    const componentVariantProps =
+      options.componentVariantProps ?? DEFAULT_COMPONENT_VARIANT_PROPS;
+    const componentVariantClassThreshold =
+      options.componentVariantClassThreshold ?? 4;
+    const allowedComponentVariantClasses =
+      options.allowedComponentVariantClasses ?? [];
 
     // Cache file content for LLM suggestions (read lazily)
     let fileContent: string | null = null;
@@ -966,6 +1274,95 @@ export default createRule<Options, MessageIds>({
         attr.name.type === "JSXIdentifier" &&
         (attr.name.name === "className" || attr.name.name === "class")
       );
+    }
+
+    function getJSXAttributeName(attr: TSESTree.JSXAttribute): string | null {
+      return attr.name.type === "JSXIdentifier" ? attr.name.name : null;
+    }
+
+    function getClassAttributeStaticStrings(
+      attr: TSESTree.JSXAttribute
+    ): string[] {
+      const value = attr.value;
+
+      if (value?.type === "Literal" && typeof value.value === "string") {
+        return [value.value];
+      }
+
+      if (value?.type === "JSXExpressionContainer") {
+        return extractStaticClassStringsFromExpression(value.expression);
+      }
+
+      return [];
+    }
+
+    function getComponentVariantPropNames(
+      node: TSESTree.JSXOpeningElement
+    ): string[] {
+      const propNames = new Set<string>();
+
+      for (const attr of node.attributes) {
+        if (attr.type !== "JSXAttribute") {
+          continue;
+        }
+
+        const attrName = getJSXAttributeName(attr);
+        if (attrName && componentVariantProps.includes(attrName)) {
+          propNames.add(attrName);
+        }
+      }
+
+      return [...propNames];
+    }
+
+    function shouldInspectComponentVariantLeakage(
+      componentName: string
+    ): boolean {
+      if (!preferComponentVariants || !isCustomComponentName(componentName)) {
+        return false;
+      }
+
+      if (componentVariantComponents.length === 0) {
+        return true;
+      }
+
+      return componentVariantComponents.includes(componentName);
+    }
+
+    function checkComponentVariantLeakage(
+      node: TSESTree.JSXOpeningElement,
+      classNameAttr: TSESTree.JSXAttribute | null
+    ): void {
+      const componentName = getComponentName(node);
+      if (!shouldInspectComponentVariantLeakage(componentName)) {
+        return;
+      }
+
+      const variantPropNames = getComponentVariantPropNames(node);
+      if (variantPropNames.length === 0 || !classNameAttr) {
+        return;
+      }
+
+      const classStrings = getClassAttributeStaticStrings(classNameAttr);
+      const leakageClasses = findComponentVariantLeakageClasses(
+        classStrings,
+        componentVariantClassThreshold,
+        allowedComponentVariantClasses
+      );
+
+      if (leakageClasses.length === 0) {
+        return;
+      }
+
+      context.report({
+        node: classNameAttr,
+        messageId: "componentVariantLeakage",
+        data: {
+          component: componentName,
+          props: variantPropNames.join("/"),
+          classes: leakageClasses.slice(0, 12).join(", "),
+        },
+      });
     }
 
     function checkClassString(node: TSESTree.Node, className: string): void {
@@ -1079,6 +1476,7 @@ export default createRule<Options, MessageIds>({
         let hasStyle = false;
         let hasClassName = false;
         let styleProperties: string[] = [];
+        let classNameAttr: TSESTree.JSXAttribute | null = null;
 
         for (const attr of node.attributes) {
           if (attr.type === "JSXAttribute") {
@@ -1090,10 +1488,13 @@ export default createRule<Options, MessageIds>({
             }
             if (isClassNameAttribute(attr)) {
               hasClassName = true;
+              classNameAttr = attr;
               processClassAttribute(attr);
             }
           }
         }
+
+        checkComponentVariantLeakage(node, classNameAttr);
 
         // Only track elements that have style OR className (or both)
         if (hasStyle || hasClassName) {
@@ -1150,29 +1551,8 @@ export default createRule<Options, MessageIds>({
           return;
         }
 
-        for (const arg of node.arguments) {
-          if (arg.type === "Literal" && typeof arg.value === "string") {
-            checkClassString(arg, arg.value);
-          }
-
-          if (arg.type === "TemplateLiteral") {
-            processTemplateLiteral(arg);
-          }
-
-          if (arg.type === "ArrayExpression") {
-            for (const element of arg.elements) {
-              if (
-                element?.type === "Literal" &&
-                typeof element.value === "string"
-              ) {
-                checkClassString(element, element.value);
-              }
-
-              if (element?.type === "TemplateLiteral") {
-                processTemplateLiteral(element);
-              }
-            }
-          }
+        for (const className of extractStaticClassStringsFromExpression(node)) {
+          checkClassString(node, className);
         }
       },
     };

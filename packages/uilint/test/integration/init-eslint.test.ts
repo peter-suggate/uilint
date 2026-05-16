@@ -597,6 +597,11 @@ describe("ESLint installation - rule options", () => {
     expect(config).toContain("disallowSemanticOpacityModifiers");
     expect(config).toContain("allowedOpacityModifierClasses");
     expect(config).toContain("allowedVisualUtilityClasses");
+    expect(config).toContain("preferComponentVariants");
+    expect(config).toContain("componentVariantComponents");
+    expect(config).toContain("componentVariantProps");
+    expect(config).toContain("componentVariantClassThreshold");
+    expect(config).toContain("allowedComponentVariantClasses");
   });
 
   it("handles prefer-tailwind semantic styling option overrides", async () => {
@@ -617,6 +622,9 @@ describe("ESLint installation - rule options", () => {
           visualUtilityThreshold: 6,
           visualUtilityMinGroups: 3,
           disallowSemanticOpacityModifiers: false,
+          preferComponentVariants: false,
+          componentVariantProps: ["intent", "density"],
+          componentVariantClassThreshold: 7,
         },
       },
     });
@@ -635,6 +643,9 @@ describe("ESLint installation - rule options", () => {
     expect(config).toContain("visualUtilityThreshold: 6");
     expect(config).toContain("visualUtilityMinGroups: 3");
     expect(config).toContain("disallowSemanticOpacityModifiers: false");
+    expect(config).toContain("preferComponentVariants: false");
+    expect(config).toContain('componentVariantProps: ["intent", "density"]');
+    expect(config).toContain("componentVariantClassThreshold: 7");
     // Existing defaults should still be merged with the customized values.
     expect(config).toContain("styleRatioThreshold");
     expect(config).toContain("allowedHardCodedColors");

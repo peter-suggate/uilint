@@ -124,7 +124,7 @@ function ConfigTags({ tags, maxTags }: { tags: ConfigTag[]; maxTags: number }) {
             "rounded-full px-2 py-0.5 text-[10px] leading-tight",
             "border border-foreground/[0.06]",
             tag.accent
-              ? "text-purple-500/70 bg-purple-500/[0.06] border-purple-500/10 dark:text-purple-400/70 dark:bg-purple-400/[0.06] dark:border-purple-400/10"
+              ? "text-info bg-info-bg border-info-bg"
               : "text-muted-foreground/60 bg-foreground/[0.03]"
           )}
         >

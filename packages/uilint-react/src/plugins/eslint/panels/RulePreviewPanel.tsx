@@ -196,7 +196,7 @@ function CompactConfigRow({
             "rounded-full px-2 py-0.5 text-[10px] leading-tight",
             "border border-foreground/[0.06]",
             tag.accent
-              ? "text-purple-500/70 bg-purple-500/[0.06]"
+              ? "text-info bg-info-bg"
               : "text-muted-foreground/60 bg-foreground/[0.02]"
           )}
         >
