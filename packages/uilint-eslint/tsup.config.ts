@@ -1,6 +1,7 @@
 import { defineConfig } from "tsup";
 import { readdirSync, statSync } from "fs";
 import { join } from "path";
+import type { Plugin } from "esbuild";
 
 // Get all rule entries (both single-file and directory-based)
 const rulesDir = join(process.cwd(), "src", "rules");
@@ -23,6 +24,16 @@ for (const entry of readdirSync(rulesDir)) {
   }
 }
 
+const externalizeSharedRuleHelpers: Plugin = {
+  name: "externalize-shared-rule-helpers",
+  setup(build) {
+    build.onResolve(
+      { filter: /^(\.\.\/)+utils\/create-rule\.js$/ },
+      () => ({ path: "uilint-eslint", external: true })
+    );
+  },
+};
+
 export default defineConfig([
   // Main entry point
   {
@@ -34,9 +45,8 @@ export default defineConfig([
     minify: false,
     external: ["eslint", "uilint-core"],
   },
-  // Individual rule files - each rule is bundled standalone (no shared chunks)
-  // This is required because rules are copied to target projects and cannot
-  // rely on shared chunk files that won't be present in the target
+  // Individual rule files - each rule bundles its own implementation, but
+  // shares createRule/profiling through the installed uilint-eslint package.
   {
     entry: ruleEntries,
     format: ["esm"],
@@ -46,6 +56,7 @@ export default defineConfig([
     splitting: false, // Disable code splitting - each rule must be self-contained
     bundle: true, // Bundle dependencies into each rule file
     external: ["eslint", "uilint-eslint"], // Don't bundle uilint-eslint (it's installed in target)
+    esbuildPlugins: [externalizeSharedRuleHelpers],
     outDir: "dist",
   },
 ]);
