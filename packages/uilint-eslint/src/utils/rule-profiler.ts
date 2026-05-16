@@ -94,7 +94,19 @@ interface ProfilerState {
   now: () => bigint;
 }
 
-let state: ProfilerState = createState();
+const PROFILER_STATE_KEY = Symbol.for("uilint.ruleProfiler.state");
+
+type GlobalWithProfiler = typeof globalThis & {
+  [PROFILER_STATE_KEY]?: ProfilerState;
+};
+
+function getGlobalState(): ProfilerState {
+  const globalStore = globalThis as GlobalWithProfiler;
+  if (!globalStore[PROFILER_STATE_KEY]) {
+    globalStore[PROFILER_STATE_KEY] = createState();
+  }
+  return globalStore[PROFILER_STATE_KEY];
+}
 
 function createState(): ProfilerState {
   return {
@@ -105,6 +117,8 @@ function createState(): ProfilerState {
     now: () => process.hrtime.bigint(),
   };
 }
+
+let state: ProfilerState = getGlobalState();
 
 function parseBoolean(value: string | undefined): boolean {
   if (value === undefined) return true;
@@ -372,6 +386,7 @@ export function registerRuleProfilerFlush(): void {
 
 export function resetRuleProfilerForTests(now?: () => bigint): void {
   state = createState();
+  (globalThis as GlobalWithProfiler)[PROFILER_STATE_KEY] = state;
   if (now) {
     state.now = now;
     state.startedAtNs = now();
