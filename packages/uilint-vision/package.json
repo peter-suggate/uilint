@@ -1,6 +1,6 @@
 {
   "name": "uilint-vision",
-  "version": "0.2.166",
+  "version": "0.2.167",
   "description": "Vision-based UI consistency analysis for UILint",
   "author": "Peter Suggate",
   "repository": {
