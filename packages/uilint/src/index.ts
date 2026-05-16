@@ -262,6 +262,27 @@ program
     });
   });
 
+// Profile command
+program
+  .command("profile")
+  .description("Show the latest UILint rule profiling summary")
+  .option(
+    "--profile-dir <path>",
+    "Profile directory (default: .uilint/profile or UILINT_PROFILE_DIR)"
+  )
+  .option("-j, --json", "Print raw latest.json")
+  .option("-l, --limit <number>", "Number of rows to show", (v) =>
+    parseInt(v, 10)
+  )
+  .action(async (options) => {
+    const { profile } = await import("./commands/profile.js");
+    await profile({
+      profileDir: options.profileDir,
+      json: options.json,
+      limit: options.limit,
+    });
+  });
+
 // Duplicates command group - semantic code duplicate detection
 program.addCommand(createDuplicatesCommand());
 

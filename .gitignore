@@ -41,6 +41,7 @@ apps/test-app/
 
 # UILint cache
 .uilint/.cache
+**/.uilint/profile/
 .uilint/no-duplicates.log
 
 # Vercel preview deployment artifacts

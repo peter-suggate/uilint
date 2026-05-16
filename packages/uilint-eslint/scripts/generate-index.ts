@@ -229,6 +229,18 @@ export {
 // Re-export color suggestion cache utilities
 export { clearAllSuggestions } from "./rules/prefer-tailwind/lib/color-suggestion-cache.js";
 
+// Re-export rule profiling utilities for CLI/server reporting.
+export {
+  buildRuleProfileSession,
+  flushRuleProfiler,
+  getRuleProfilerOptions,
+  resetRuleProfilerForTests,
+  setRuleProfilerNowForTests,
+  type RuleProfileOutlier,
+  type RuleProfileSession,
+  type RuleProfileSummary,
+} from "./utils/rule-profiler.js";
+
 // Re-export import graph utilities (from no-mixed-component-libraries rule)
 export {
   getComponentLibrary,

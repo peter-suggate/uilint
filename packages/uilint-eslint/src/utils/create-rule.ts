@@ -3,11 +3,130 @@
  */
 
 import { ESLintUtils } from "@typescript-eslint/utils";
+import type { TSESLint } from "@typescript-eslint/utils";
+import {
+  recordRuleListener,
+  recordRuleReport,
+  recordRuleSetup,
+  registerRuleProfilerFlush,
+  shouldProfileRule,
+} from "./rule-profiler.js";
 
-export const createRule = ESLintUtils.RuleCreator(
+const baseCreateRule = ESLintUtils.RuleCreator(
   (name) =>
     `https://github.com/peter-suggate/uilint/blob/main/packages/uilint-eslint/docs/rules/${name}.md`
 );
+
+type RuleContext<MessageIds extends string, Options extends readonly unknown[]> =
+  Readonly<TSESLint.RuleContext<MessageIds, Options>>;
+
+type ReportTarget = {
+  report: (descriptor: unknown) => void;
+};
+
+function getContextFilename<
+  MessageIds extends string,
+  Options extends readonly unknown[],
+>(context: RuleContext<MessageIds, Options>): string {
+  return context.filename || context.getFilename?.() || "<unknown>";
+}
+
+function wrapRuleContext<
+  MessageIds extends string,
+  Options extends readonly unknown[],
+>(
+  context: RuleContext<MessageIds, Options>,
+  ruleId: string,
+  filePath: string
+): RuleContext<MessageIds, Options> {
+  const reportTarget = context as unknown as ReportTarget;
+  const originalReport = reportTarget.report.bind(context);
+  const profiledContext = Object.create(context) as ReportTarget;
+  Object.defineProperty(profiledContext, "report", {
+    value: (descriptor: unknown) => {
+      recordRuleReport(ruleId, filePath);
+      return originalReport(descriptor);
+    },
+    enumerable: true,
+    configurable: true,
+  });
+
+  return profiledContext as RuleContext<MessageIds, Options>;
+}
+
+function wrapRuleListener(
+  listener: TSESLint.RuleListener,
+  ruleId: string,
+  filePath: string
+): TSESLint.RuleListener {
+  const wrapped: Record<string, unknown> = {};
+
+  for (const [selector, handler] of Object.entries(listener)) {
+    if (typeof handler !== "function") {
+      wrapped[selector] = handler;
+      continue;
+    }
+
+    const originalHandler = handler as (...args: unknown[]) => unknown;
+    wrapped[selector] = function timedRuleListener(
+      this: unknown,
+      ...args: unknown[]
+    ): unknown {
+      const startedAt = process.hrtime.bigint();
+      try {
+        return originalHandler.apply(this, args);
+      } finally {
+        recordRuleListener(
+          ruleId,
+          filePath,
+          selector,
+          process.hrtime.bigint() - startedAt
+        );
+      }
+    };
+  }
+
+  return wrapped as TSESLint.RuleListener;
+}
+
+export const createRule = (<
+  Options extends readonly unknown[],
+  MessageIds extends string,
+>(
+  config: Parameters<typeof baseCreateRule<Options, MessageIds>>[0]
+) => {
+  if (!shouldProfileRule(config.name)) {
+    return baseCreateRule(config);
+  }
+
+  registerRuleProfilerFlush();
+
+  return baseCreateRule({
+    ...config,
+    create(context, optionsWithDefault) {
+      const filePath = getContextFilename(context);
+      const profiledContext = wrapRuleContext(context, config.name, filePath);
+      const startedAt = process.hrtime.bigint();
+
+      try {
+        const listener = config.create(profiledContext, optionsWithDefault);
+        recordRuleSetup(
+          config.name,
+          filePath,
+          process.hrtime.bigint() - startedAt
+        );
+        return wrapRuleListener(listener, config.name, filePath);
+      } catch (error) {
+        recordRuleSetup(
+          config.name,
+          filePath,
+          process.hrtime.bigint() - startedAt
+        );
+        throw error;
+      }
+    },
+  });
+}) as typeof baseCreateRule;
 
 /**
  * Schema for prompting user to configure a rule option in the CLI

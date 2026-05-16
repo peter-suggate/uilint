@@ -1171,6 +1171,37 @@ function processLintResults(
   return issues;
 }
 
+interface RuleProfileProgressRule {
+  ruleId: string;
+  totalMs: number;
+}
+
+interface RuleProfileProgressSession {
+  rules: RuleProfileProgressRule[];
+}
+
+async function formatRuleProfileProgress(): Promise<string | null> {
+  const profilerModule = (await import("uilint-eslint")) as unknown as {
+    buildRuleProfileSession?: () => RuleProfileProgressSession;
+  };
+  if (typeof profilerModule.buildRuleProfileSession !== "function") {
+    return null;
+  }
+
+  const session = profilerModule.buildRuleProfileSession();
+  const slowest = session.rules
+    .filter((rule) => rule.totalMs > 0)
+    .sort((a, b) => b.totalMs - a.totalMs)
+    .slice(0, 3);
+
+  if (slowest.length === 0) return null;
+
+  const summary = slowest
+    .map((rule) => `${rule.ruleId} ${rule.totalMs.toFixed(1)}ms`)
+    .join(", ");
+  return `Profile: ${summary}`;
+}
+
 /**
  * Fast lint pass: runs all rules EXCEPT semantic.
  * Non-blocking (no spawnSync calls).
@@ -1252,7 +1283,7 @@ async function lintFileFast(
  * This blocks the event loop via spawnSync in the semantic rule, so it should
  * be called from a deferred context (setImmediate).
  */
-async function lintFileSemantic(
+async function _lintFileSemantic(
   filePath: string,
   onProgress: (phase: string) => void
 ): Promise<LintIssue[]> {
@@ -1317,7 +1348,7 @@ async function lintFileSemantic(
 
 /**
  * Run semantic analysis asynchronously using OllamaClient.
- * Unlike lintFileSemantic (which runs ESLint + spawnSync), this calls Ollama
+ * Unlike _lintFileSemantic (which runs ESLint + spawnSync), this calls Ollama
  * directly via its HTTP API, writes results to the ESLint rule's disk cache,
  * and sends lint:result to the client. Completely non-blocking.
  */
@@ -2046,6 +2077,18 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
         phase: `Done (${fastClientIssues.length} issues, ${fastElapsed}ms)`,
       });
 
+      {
+        const profileSummary = await formatRuleProfileProgress();
+        if (profileSummary) {
+          sendMessage(ws, {
+            type: "lint:progress",
+            filePath,
+            requestId,
+            phase: profileSummary,
+          });
+        }
+      }
+
       // === PASS 2: Semantic analysis (async, non-blocking) ===
       if (isSemanticRuleEnabled()) {
         runSemanticAnalysisAsync(filePath, ws, requestId).catch((err) => {
@@ -2102,6 +2145,18 @@ async function handleMessage(ws: WebSocket, data: string): Promise<void> {
           requestId,
           phase: `Done (${fastFiltered.length} issues, ${elapsed}ms)`,
         });
+      }
+
+      {
+        const profileSummary = await formatRuleProfileProgress();
+        if (profileSummary) {
+          sendMessage(ws, {
+            type: "lint:progress",
+            filePath,
+            requestId,
+            phase: profileSummary,
+          });
+        }
       }
 
       // === PASS 2: Semantic analysis (async, non-blocking) ===
